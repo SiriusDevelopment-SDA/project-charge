@@ -1,2 +1,2 @@
 # project-charge
-projeto voltado para automatização de cobranção
+projeto voltado para automatização de cobrança
