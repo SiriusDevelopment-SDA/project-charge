@@ -1,8 +1,8 @@
-import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Pagination from '@mui/material/Pagination';
 import PaginationItem from '@mui/material/PaginationItem';
 
-function Content() {
+export default function PaginationLink() {
   const location = useLocation();
   const query = new URLSearchParams(location.search);
   const page = parseInt(query.get('page') || '1', 10);
@@ -21,12 +21,3 @@ function Content() {
   );
 }
 
-export default function PaginationLink() {
-  return (
-    <MemoryRouter initialEntries={['/inbox']} initialIndex={0}>
-      <Routes>
-        <Route path="*" element={<Content />} />
-      </Routes>
-    </MemoryRouter>
-  );
-}
