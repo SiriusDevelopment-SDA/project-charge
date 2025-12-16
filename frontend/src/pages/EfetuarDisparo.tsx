@@ -1,11 +1,17 @@
 
 // Componentes globais
+import Navbar from '../componente/global/Navbar';
 import ClienteSelect from '../componente/filtrocliente';
 import InputFileUpload from '../componente/importar-contatos';
 import FormattedInputs from '../componente/inputnumber';
 import Inputs2 from '../componente/iputs2';
+import MessagePreview from "../componente/MessagePreview"
+import MyButtonAlert from '../componente/MyButton';
 
-// MUI
+// Style
+import "../styles/index.css";
+
+// MUI 
 import Button from '@mui/material/Button';
 
 // Toastify
@@ -24,8 +30,10 @@ export default function EfetuarDisparo() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1>Efetuar Disparo</h1>
+    <div style={{ padding: 5 }}>
+      <Navbar />
+      
+      <h1 className='pageTitle'>Efetuar Disparo</h1>
 
        <ClienteSelect className="botaoHome">
         Buscar clientes no ERP
@@ -57,6 +65,15 @@ export default function EfetuarDisparo() {
       </div>
 
       <ToastContainer />
+
+      <div>
+        <MessagePreview />
+      </div>
+
+      <div>
+        <MyButtonAlert variant="success">Enviar</MyButtonAlert>
+        <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
+      </div>
     </div>
   );
 }
