@@ -40,7 +40,7 @@ const ClienteSelect = ({ children, className }: propsSelect) => {
           </li>
         )}
         renderInput={(params) => (
-          <TextField {...params} label={children} className={className} placeholder="Selecione os clientes" />
+          <TextField {...params} label={children} className={className} placeholder="Selecione os clientes" sx={{width: 600, display: 'flex'}}/>
         )}
         renderTags={(value, getTagProps) =>
           value.map((option: string, index: number) => (

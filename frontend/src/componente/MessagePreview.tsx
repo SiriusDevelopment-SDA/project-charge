@@ -7,7 +7,7 @@ interface MessagePreviewProps {
 }
 
 export default function MessagePreview({
-  placeholder = "O LUKÃO E GAY",
+  placeholder = "Selecione um template para visualizar a mensagem",
 }: MessagePreviewProps) {
   return (
     <div className={styles.container}>

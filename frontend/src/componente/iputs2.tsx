@@ -15,8 +15,8 @@ export default function Inputs2() {
   };
 
   return (
-    <Box sx={{ minWidth: 120 }}>
-      <FormControl fullWidth>
+    <Box sx={{ minWidth: 120, }}>
+      <FormControl sx={{height: 80, width: 600, display: 'flex'}}>
         <InputLabel id="demo-simple-select-label">Categoria</InputLabel>
         <Select
           labelId="demo-simple-select-label"
@@ -24,7 +24,7 @@ export default function Inputs2() {
           value={age}
           label="Age"
           onChange={handleChange}
-        >
+        size='small'>
           <MenuItem value={10}>Marketing</MenuItem>
           <MenuItem value={20}>Aviso</MenuItem>
           <MenuItem value={30}>Cobrança</MenuItem>

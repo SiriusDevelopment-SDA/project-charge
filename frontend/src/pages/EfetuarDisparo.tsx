@@ -9,7 +9,7 @@ import MessagePreview from "../componente/MessagePreview"
 import MyButtonAlert from '../componente/MyButton';
 
 // Style
-import "../styles/index.css";
+import "../styles/DisparoAtivo.css";
 
 // MUI 
 import Button from '@mui/material/Button';
@@ -66,11 +66,11 @@ export default function EfetuarDisparo() {
 
       <ToastContainer />
 
-      <div>
+      <div className='PreviewMensagemTemplate'>
         <MessagePreview />
       </div>
 
-      <div>
+      <div className='MyButton'>
         <MyButtonAlert variant="success">Enviar</MyButtonAlert>
         <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
       </div>

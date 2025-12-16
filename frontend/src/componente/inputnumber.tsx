@@ -36,7 +36,7 @@ export default function FormattedInputs() {
 
   return (
     <Stack spacing={2}>
-      <FormControl variant="standard">
+      <FormControl variant="standard" sx={{width: 600, display: 'flex'}}>
         <Input
           value={value}
           onChange={(e) => setValue(e.target.value)}
