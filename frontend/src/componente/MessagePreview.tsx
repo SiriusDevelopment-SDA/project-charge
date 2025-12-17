@@ -1,18 +1,17 @@
 "use client";
 
-import  styles from "../styles/MessagePreview.module.css";
+import styles from "../styles/MessagePreview.module.css";
 
-interface MessagePreviewProps {
-  placeholder?: string;
-}
+type Props = {
+  message: string;
+};
 
-export default function MessagePreview({
-  placeholder = "Selecione um template para visualizar a mensagem",
-}: MessagePreviewProps) {
+export default function MessagePreview({ message }: Props) {
   return (
-    <div className={styles.container}>
-      <span className={styles.text}>
-        {placeholder}
+    <div className={styles.previewContainer}>
+      <span className={styles.previewText}>
+        {message ||
+          "Selecione um cliente e um template para visualizar a mensagem"}
       </span>
     </div>
   );
