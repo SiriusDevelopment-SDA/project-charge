@@ -1,3 +1,4 @@
+/* Global Styles */
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -23,6 +24,21 @@ background: linear-gradient(
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Container de conteúdo */
+.ContainerConteudo {
+  margin-left: 80px;
+  margin-right: 80px;
+}
+
+/* Borda dos componentes */
+.box-wrapper {
+  border: 1px solid #f2c010; /* amarelo Coraxy */
+  border-radius: 12px;
+  padding: 25px;
+}
+
+
+/* Titulo da página */
 .pageTitle {
   position: relative;
 
