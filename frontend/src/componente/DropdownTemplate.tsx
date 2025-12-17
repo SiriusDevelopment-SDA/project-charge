@@ -18,7 +18,7 @@ export default function DropdownTemplate() {
   return (
     <Box sx={{ minWidth: 120, }}>
       <FormControl sx={{height: 80, width: 600, display: 'flex'}}>
-        <InputLabel id="demo-simple-select-label">Categoria</InputLabel>
+        <InputLabel id="demo-simple-select-label">Templates</InputLabel>
         <Select
           labelId="demo-simple-select-label"
           id="demo-simple-select"

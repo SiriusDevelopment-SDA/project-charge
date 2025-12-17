@@ -55,13 +55,8 @@ export default function EfetuarDisparo() {
 
     
 <></>
-     <DropdownTemplate/>
      <DropdownCategoria/>
-
-
-
-
-
+     <DropdownTemplate/>
 
 
 
