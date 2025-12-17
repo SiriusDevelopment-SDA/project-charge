@@ -1,0 +1,6 @@
+
+/* Remove foco azul padrão do MUI */
+.whatsapp-form-control .MuiInputBase-root:focus-within {
+  border-color: #f4c400;
+  box-shadow: 0 0 0 1px rgba(244, 195, 0, 0.788);
+}
