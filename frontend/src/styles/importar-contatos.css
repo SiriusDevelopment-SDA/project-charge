@@ -1,0 +1,29 @@
+/* AQUI ESTÁ O ESTILO DO BOTÃO DE INPORTAR CONTATOS */
+
+.importarContatosWrapper {
+  width: 100%;
+  max-width: 900px;
+  margin-top: 16px;
+  left: 100px;
+}
+
+/* Botão grande estilo card */
+.importarContatosButton {
+  width: 600px;
+  right: 330px;
+  left: 0px;
+  min-height: 50px;
+  display: block;
+  background: linear-gradient(
+  50deg,
+  #be9800 50%,
+  #473900 100%
+);
+}
+
+.importarContatosInput {
+  color: rgb(255, 255, 255);
+  font-size: 16px;
+}
+
+

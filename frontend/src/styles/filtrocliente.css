@@ -1,34 +1,79 @@
-/* src/components/ClienteSelect.css */
-
-
-.disparo-form-container {
-  background-color: #111;
-  color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-h2 {
-  text-align: center;
-  font-size: 24px;
-  color: #faca08;
-}
-
-.MuiFormControl-root {
-  margin-bottom: 20px;
-}
-
-.MuiInputLabel-root {
-  color: #ffcc00; /* Cor amarela para o label */
-}
+/* ============================= */
+/* INPUT PRINCIPAL */
+/* ============================= */
 
 .MuiInputBase-root {
-  background-color: #b1b1b1;
+  background: linear-gradient(50deg, #be9800 50%, #473900 100%);
   color: #fff;
-  border-radius: 4px;
-  padding: 10px
+  border-radius: 8px;
+  padding: 10px;
 }
+
+/* Texto digitado */
+.MuiInputBase-input {
+  color: #fff;
+}
+
+/* Placeholder */
+.MuiInputBase-input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ============================= */
+/* LABEL */
+/* ============================= */
+
+.MuiInputLabel-root {
+  color: #fff !important;
+}
+
+.MuiInputLabel-root.Mui-focused,
+.MuiInputLabel-root.MuiFormLabel-filled {
+  color: #ffffff !important;
+}
+
+/* ============================= */
+/* SETA DROPDOWN */
+/* ============================= */
+
+.MuiAutocomplete-popupIndicator {
+  color: #f4c400 !important;
+}
+
+/* ============================= */
+/* DROPDOWN (LISTA) */
+/* ============================= */
+
+.MuiAutocomplete-paper {
+  background: #111111ee !important;
+  
+}
+
+/* ============================= */
+/* OPÇÕES */
+/* ============================= */
+
+.MuiAutocomplete-option {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+
+/* Selecionado */
+.MuiAutocomplete-option[aria-selected='true'] {
+  background: rgba(244, 196, 0, 0.35) !important;
+}
+
+/* ============================= */
+/* CHECKBOX */
+/* ============================= */
+
+.MuiCheckbox-root {
+  color: #f4c400 !important;
+}
+
+.MuiCheckbox-root.Mui-checked {
+  color: #3fa111 !important;
+}
+
+
