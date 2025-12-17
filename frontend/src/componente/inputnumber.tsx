@@ -36,7 +36,7 @@ const TextMaskCustom = React.forwardRef<HTMLInputElement, CustomProps>(
 
 export default function InputNumber() {
   const [value, setValue] = React.useState("");
-
+ 
   return (
     <Stack spacing={2}>
       <FormControl className="whatsapp-form-control" variant="standard">

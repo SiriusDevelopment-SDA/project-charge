@@ -26,10 +26,10 @@ export default function DropdownTemplate() {
           label="Age"
           onChange={handleChange}
         size='small'>
-          <MenuItem value={10}>Marketing</MenuItem>
-          <MenuItem value={20}>Aviso</MenuItem>
-          <MenuItem value={30}>Cobrança</MenuItem>
-          <MenuItem value={30}>Outros</MenuItem>
+          <MenuItem value={10}>Template 1</MenuItem>
+          <MenuItem value={20}>Template 2</MenuItem>
+          <MenuItem value={30}>Template 3</MenuItem>
+          <MenuItem value={40}>Template 4</MenuItem>
         </Select>
       </FormControl>
     </Box>
