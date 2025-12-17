@@ -1,8 +1,6 @@
 
 
 .navbarContainer {
-  max-width: 1400px;
-  margin: 0 auto;
   padding: 16px 32px;
 
   display: flex;
@@ -11,7 +9,7 @@
 }
 
 .navbarLogo img {
-  height: 50px;
+  height: 100px;
   width: 250px; 
 }
 
@@ -83,4 +81,5 @@
 .navbarDivider {
   height: 1px;
   background: rgba(255, 255, 255, 0.2);
+  width: 100%;
 }

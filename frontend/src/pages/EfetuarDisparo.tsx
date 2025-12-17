@@ -34,49 +34,60 @@ export default function EfetuarDisparo() {
   };
 
   return (
-    <div style={{ padding: 5 }}>
+    <div>
       <Navbar />
-      
-      <h1 className='pageTitle'>Efetuar Disparo</h1>
+      <div className='ContainerConteudo'>
 
-       <ClienteSelect className="botaoHome">
-        Buscar clientes no ERP
-      </ClienteSelect>
+        <h1 className='pageTitle'>Efetuar Disparo</h1>
 
-      <div style={{ marginTop: 16 }}>
-        <FormattedInputs />
-      </div>
-
-      <div style={{ marginTop: 16 }}>
-        <Inputs2 />
-        <Inputs2 />
-  </div>
+        <div className="box-wrapper ">
 
 
-      <InputFileUpload label="Carregar arquivos TXT/CSV com números" style={{ display: 'flex'}} />
+          <ClienteSelect className="botaoHome">
+            Buscar clientes no ERP
+          </ClienteSelect>
 
-      
+          <div style={{ marginTop: 16 }}>
+            <FormattedInputs />
+          </div>
 
-      <div style={{ marginTop: 24 }}>
-        <Button variant="contained" onClick={showToast}>
-          Alert
-        </Button>
-      </div>
+          <div style={{ marginTop: 16 }}>
+            <Inputs2 />
+            <Inputs2 />
+          </div>
 
-     
-       <div style={{ marginTop: 16 }}>
-        <PaginationLink/>
-      </div>
 
-      <ToastContainer />
 
-      <div className='PreviewMensagemTemplate'>
-        <MessagePreview />
-      </div>
 
-      <div className='MyButton'>
-        <MyButtonAlert variant="success">Enviar</MyButtonAlert>
-        <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
+
+
+
+
+          <div style={{ marginTop: 16 }}>
+            <PaginationLink />
+          </div>
+
+          <ToastContainer />
+
+          <div className='PreviewMensagemTemplate'>
+            <MessagePreview />
+          </div>
+
+          <div className='box-wrapper'>
+            
+              <Button variant="contained" onClick={showToast}>
+                Alert
+              </Button>
+            
+            <InputFileUpload label="Carregar arquivos TXT/CSV com números" style={{ display: 'flex' }} />
+          </div>
+        </div>
+
+
+        <div className='MyButton'>
+          <MyButtonAlert variant="success">Enviar</MyButtonAlert>
+          <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
+        </div>
       </div>
     </div>
   );
