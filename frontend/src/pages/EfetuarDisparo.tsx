@@ -3,8 +3,7 @@
 import Navbar from '../componente/global/Navbar';
 import ClienteSelect from '../componente/filtrocliente';
 import InputFileUpload from '../componente/importar-contatos';
-import FormattedInputs from '../componente/inputnumber';
-import Inputs2 from '../componente/iputs2';
+import InputNumber from '../componente/inputnumber';
 import MessagePreview from "../componente/MessagePreview"
 import MyButtonAlert from '../componente/MyButton';
 import "../styles/importar-contatos.css";
@@ -13,7 +12,7 @@ import "../styles/importar-contatos.css";
 
 
 // Style
-import "../styles/DisparoAtivo.css";
+import "../styles/EfetuarDisparo.css";
 
 // MUI 
 import Button from '@mui/material/Button';
@@ -22,6 +21,9 @@ import Button from '@mui/material/Button';
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PaginationLink from '../componente/pagination';
+import DropdownTemplate from '../componente/DropdownTemplate';
+import DropdownCategoria from '../componente/DropdownCategoria';
+
 
 export default function EfetuarDisparo() {
   const showToast = () => {
@@ -44,13 +46,13 @@ export default function EfetuarDisparo() {
       </ClienteSelect>
 
       <div style={{ marginTop: 16 }}>
-        <FormattedInputs />
+        <InputNumber />
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <Inputs2 />
-        <Inputs2 />
-  </div>
+    
+<></>
+     <DropdownTemplate/>
+     <DropdownCategoria/>
 
 
       <InputFileUpload label="Carregar arquivos TXT/CSV com números" style={{ display: 'flex'}} />

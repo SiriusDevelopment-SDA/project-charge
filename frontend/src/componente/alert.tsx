@@ -1,4 +1,5 @@
   import { ToastContainer, toast } from 'react-toastify';
+  import "../styles/alert.css";
   
   function Alert(){
     const notify = () => toast("Wow so easy!");
