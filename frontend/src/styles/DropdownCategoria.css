@@ -1,6 +1,82 @@
+/* ===== WRAPPER ===== */
+.dropdown-wrapper {
+  width: 600px;
+  margin-top: 10px;
+}
 
-/* Remove foco azul padrão do MUI */
-.whatsapp-form-control .MuiInputBase-root:focus-within {
-  border-color: #f4c400;
-  box-shadow: 0 0 0 1px rgba(244, 195, 0, 0.788);
+/* ===== FORM CONTROL ===== */
+.dropdown-control {
+  height: 56px;
+  padding: 8px 16px;
+  border-radius: 12px;
+
+  background: linear-gradient(90deg, #b89300, #6f5a00);
+  border: 1px solid #f4c400;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+
+  transition: all 0.2s ease;
+}
+
+/* Hover */
+.dropdown-control:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 6px 14px rgba(244, 196, 0, 0.6);
+}
+
+/* ===== LABEL ===== */
+.dropdown-label {
+  color: #ffffff !important;
+  font-size: 14px;
+}
+
+/* ===== SELECT ===== */
+.dropdown-select {
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Texto selecionado */
+.dropdown-select .MuiSelect-select {
+  padding-top: 18px !important;
+}
+
+/* ===== ÍCONE (SETA) ===== */
+.MuiSelect-icon {
+  color: #f4c400 !important;
+}
+
+/* ===== REMOVE AZUL PADRÃO DO MUI ===== */
+.MuiInputBase-root::before,
+.MuiInputBase-root::after {
+  display: none !important;
+}
+
+/* ===== MENU (DROPDOWN ABERTO) ===== */
+.dropdown-menu {
+  background: #111 !important;
+  border: 1px solid #f4c400;
+  border-radius: 12px;
+  margin-top: 6px;
+}
+
+/* Itens */
+.dropdown-menu .MuiMenuItem-root {
+  color: #ffffff;
+  font-size: 14px;
+}
+
+/* Hover item */
+.dropdown-menu .MuiMenuItem-root:hover {
+  background: rgba(244, 196, 0, 0.15);
+}
+
+/* Item selecionado */
+.dropdown-menu .Mui-selected {
+  background: rgba(244, 196, 0, 0.25) !important;
 }
