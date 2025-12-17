@@ -1,34 +1,25 @@
-import { styled } from '@mui/material/styles';
 import Button from '@mui/material/Button';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import '../styles/importar-contatos.css';
+import type { MyInputProps } from '../types';
 
-const VisuallyHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
-  clipPath: 'inset(50%)',
-  height: 1,
-  overflow: 'hidden',
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  whiteSpace: 'nowrap',
-  width: 1,
-});
-
-export default function InputFileUpload() {
+export default function InputFileUpload({label, style}: MyInputProps) {
   return (
-    <Button
-      component="label"
-      role={undefined}
-      variant="contained"
-      tabIndex={-1}
-      startIcon={<CloudUploadIcon />}
-    >
-      Carregar arquivos TXT/CSV com números
-      <VisuallyHiddenInput
-        type="file"
-        onChange={(event) => console.log(event.target.files)}
-        multiple
-      />
-    </Button>
+    <>
+      {label && <label style={style}>{label}</label>}
+      <Button
+        className="importarContatosButton"
+        component="label"
+        startIcon={<CloudUploadIcon/>}
+        
+      >
+        <input
+          type="file"
+          multiple
+          className="importarContatosInput"
+          onChange={(event) => console.log(event.target.files)}
+        />
+      </Button>
+    </>
   );
 }

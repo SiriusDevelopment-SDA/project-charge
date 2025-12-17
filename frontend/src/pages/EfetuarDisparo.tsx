@@ -7,6 +7,10 @@ import FormattedInputs from '../componente/inputnumber';
 import Inputs2 from '../componente/iputs2';
 import MessagePreview from "../componente/MessagePreview"
 import MyButtonAlert from '../componente/MyButton';
+import "../styles/importar-contatos.css";
+
+
+
 
 // Style
 import "../styles/DisparoAtivo.css";
@@ -45,11 +49,11 @@ export default function EfetuarDisparo() {
 
       <div style={{ marginTop: 16 }}>
         <Inputs2 />
-      </div>
+        <Inputs2 />
+  </div>
 
-      <div style={{ marginTop: 16 }}>
-        <InputFileUpload />
-      </div>
+
+      <InputFileUpload label="Carregar arquivos TXT/CSV com números" style={{ display: 'flex'}} />
 
       
 
