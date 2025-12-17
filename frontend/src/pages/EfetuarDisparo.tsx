@@ -37,18 +37,26 @@ export default function EfetuarDisparo() {
 
   return (
     <div>
-      <Navbar/>
+      <Navbar />
       <div className='ContainerConteudo'>
 
         <h1 className='pageTitle'>Efetuar Disparo</h1>
+
         <div className="box-wrapper ">
 
-      <ClienteSelect className="botaoHome">Buscar clientes no ERP</ClienteSelect>
-      <div className="InputNumber"><InputNumber/></div>
-      <div className="DropdownTemplate"><DropdownTemplate/></div>
-      <div className="DropdownCategoria"><DropdownCategoria/></div>
-     
-     
+
+          <ClienteSelect className="botaoHome">
+            Buscar clientes no ERP
+          </ClienteSelect>
+
+      <div style={{ marginTop: 16 }}>
+        <InputNumber />
+      </div>
+
+    
+<></>
+     <DropdownCategoria/>
+     <DropdownTemplate/>
 
 
 
