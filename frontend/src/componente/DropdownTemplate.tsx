@@ -67,7 +67,7 @@ export default function DropdownTemplate({ onSelectTemplate }: Props) {
         variant="outlined"
         className="dropdown-control2"
       >
-        <InputLabel className="dropdown-label2" shrink>
+        <InputLabel className="dropdown-label2" >
           Template
         </InputLabel>
 
