@@ -11,7 +11,7 @@ export default function Navbar() {
           <img src={logo} alt="Coraxy" />
         </div>
 
-        {/* Menu */}
+        {/* Menu 
         <nav className={styles.navbarMenu}>
           <a href="#">Home</a>
           <a href="#">Clientes Vencidos</a>
@@ -19,7 +19,7 @@ export default function Navbar() {
           <a href="#">Templates</a>
           <a href="#">Disparo Ativo</a>
         </nav>
-
+        */}
       </div>
 
       {/* Linha inferior */}

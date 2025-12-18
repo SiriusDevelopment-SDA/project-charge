@@ -12,10 +12,9 @@
 /* ===== INPUT REAL DO MUI (OUTLINED) ===== */
 .dropdown-control2 .MuiOutlinedInput-root {
   height: 56px;
-  border-radius: 16px;
+  border-radius: 8px;
 
   background: linear-gradient(90deg, #b89300, #6f5a00);
-  border: 1px solid #f4c400;
 
   display: flex;
   align-items: center;
@@ -94,3 +93,16 @@
   background: rgba(244, 196, 0, 0.25) !important;
 }
 
+/* ===== LABEL ===== */
+.dropdown-control2 .MuiInputLabel-root {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 1rem;
+  transform: translate(14px, 16px) scale(1);
+  transition: all 0.2s ease;
+}
+
+/* LABEL QUANDO SOBE */
+.dropdown-control2 .MuiInputLabel-root.MuiInputLabel-shrink {
+  transform: translate(0px, -15px) scale(0.85);
+  padding: 0 6px;
+}

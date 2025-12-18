@@ -12,10 +12,9 @@
 /* ===== INPUT REAL DO MUI (OUTLINED) ===== */
 .dropdown-control .MuiOutlinedInput-root {
   height: 56px;
-  border-radius: 16px;
+  border-radius: 8px;
 
   background: linear-gradient(90deg, #b89300, #6f5a00);
-  border: 1px solid #f4c400;
 
   display: flex;
   align-items: center;

@@ -135,13 +135,10 @@ export default function EfetuarDisparo() {
 
           {/* 🔹 UPLOAD + ALERT */}
           <div className="box-wrapper">
-            <Button variant="contained" onClick={showToast}>
-              Alert
-            </Button>
 
             <InputFileUpload
               label="Carregar arquivos TXT/CSV com números"
-              style={{ display: "flex" }}
+              style={{ display: "flex", justifyContent: "center" }}
             />
           </div>
         </div>

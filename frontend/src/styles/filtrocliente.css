@@ -30,7 +30,11 @@
 .MuiInputLabel-root.Mui-focused,
 .MuiInputLabel-root.MuiFormLabel-filled {
   color: #ffffff !important;
+  transform: translate(0px, -15px) scale(0.85);
+  padding: 0 6px;
 }
+
+
 
 /* ============================= */
 /* SETA DROPDOWN */
