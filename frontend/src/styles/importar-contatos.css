@@ -1,12 +1,10 @@
 /* AQUI ESTÁ O ESTILO DO BOTÃO DE INPORTAR CONTATOS */
-
 .importarContatosWrapper {
   width: 100%;
   max-width: 900px;
   margin-top: 16px;
   left: 100px;
 }
-
 /* Botão grande estilo card */
 .importarContatosButton {
   width: 600px;
@@ -20,15 +18,12 @@
   #473900 100%
 );
 }
-
 .importarContatosInput {
   color: rgb(255, 255, 255);
   font-size: 16px;
 }
-
 /* Remove foco azul padrão do MUI */
 .whatsapp-form-control .MuiInputBase-root:focus-within {
   border-color: #f4c400;
   box-shadow: 0 0 0 1px rgba(244, 195, 0, 0.788);
 }
-

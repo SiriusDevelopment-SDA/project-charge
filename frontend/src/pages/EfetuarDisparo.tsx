@@ -10,7 +10,6 @@ import InputFileUpload from "../componente/importar-contatos";
 import InputNumber from "../componente/inputnumber";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
-import PaginationLink from "../componente/pagination";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
 
@@ -19,11 +18,11 @@ import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
 import "../styles/DropdownCategoria.css"
 
-// MUI
-import Button from "@mui/material/Button";
+// // MUI
+// import Button from "@mui/material/Button";
 
 // Toastify
-import { ToastContainer, toast, Bounce } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 /* ===============================
@@ -74,16 +73,16 @@ export default function EfetuarDisparo() {
   }, [clientesSelecionados, templateSelecionado]);
 
   /* ===============================
-     TOAST
+     MENSAGEM ALERT
   ================================ */
-  const showToast = () => {
-    toast.warn("20 clientes sem contato cadastrado!", {
-      position: "top-right",
-      autoClose: 5000,
-      theme: "dark",
-      transition: Bounce,
-    });
-  };
+  // const showToast = () => {
+  //   toast.warn("20 clientes sem contato cadastrado!", {
+  //     position: "top-right",
+  //     autoClose: 5000,
+  //     theme: "dark",
+  //     transition: Bounce,
+  //   });
+  // };
 
   return (
     <div>
@@ -121,10 +120,10 @@ export default function EfetuarDisparo() {
           <div className="DropdownCategoria"><DropdownCategoria/></div>
           
 
-          {/* 🔹 PAGINAÇÃO */}
+          {/* 🔹 PAGINAÇÃO
           <div style={{ marginTop: 16 }}>
             <PaginationLink />
-          </div>
+          </div> */}
 
           <ToastContainer />
 
