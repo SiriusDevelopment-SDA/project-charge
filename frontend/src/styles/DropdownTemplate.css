@@ -1,7 +1,7 @@
 /* ===== WRAPPER ===== */
 .dropdown-wrapper2 {
   width: 600px;
-  margin-top: 20px;
+  margin-top: 25px;
 }
 /* ===== FORM CONTROL ===== */
 .dropdown-control2 {
@@ -9,6 +9,7 @@
 }
 /* ===== INPUT REAL DO MUI (OUTLINED) ===== */
 .dropdown-control2 .MuiOutlinedInput-root {
+  
   height: 56px;
   border-radius: 8px;
   background: linear-gradient(90deg, #b89300, #6f5a00);
@@ -30,6 +31,7 @@
 }
 /* ===== LABEL ===== */
 .dropdown-label2 {
+  margin-left: 12px;
   color: rgba(255, 255, 255, 0.85) !important;
   font-size: 13px;
 }
