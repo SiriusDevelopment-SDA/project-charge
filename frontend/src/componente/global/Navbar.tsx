@@ -27,3 +27,6 @@ export default function Navbar() {
     </header>
   )
 }
+
+
+// TESTE O WELLINGTON É GUEI E TRABALHA DE COSTAS
