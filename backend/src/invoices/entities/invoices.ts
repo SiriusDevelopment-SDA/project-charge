@@ -1,5 +1,5 @@
 
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsString } from 'class-validator';
 import {
     Column,
     CreateDateColumn,
@@ -9,9 +9,9 @@ import {
     UpdateDateColumn,
     ManyToOne
   } from 'typeorm';
-import { Client } from './clients';
-import { Service } from './services';
-import { Company } from './companies';
+import { Client } from '../../clients/entities.ts/clients';
+import { Company } from '../../companies/entities/companies';
+import { Service } from '../../services/entities/services';
   
   @Entity()
   export class Invoice {

@@ -9,10 +9,9 @@ import {
   UpdateDateColumn,
   ManyToOne
 } from 'typeorm';
-import { Invoice } from './invoices';
-import { Service } from './services';
-import { Company } from './companies';
-import { Templates } from './templatesMeta';
+import { Service } from '../../services/entities/services';
+import { Company } from '../../companies/entities/companies';
+import { Invoice } from '../../invoices/entities/invoices';
 
 @Entity()
 export class Client {

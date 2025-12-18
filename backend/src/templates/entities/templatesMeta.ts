@@ -8,7 +8,7 @@ import {
     UpdateDateColumn,
     ManyToOne
   } from 'typeorm';
-import { Company } from './companies';
+import { Company } from '../../companies/entities/companies';
   
   @Entity()
   export class Templates {
