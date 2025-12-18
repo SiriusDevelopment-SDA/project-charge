@@ -73,7 +73,6 @@ const ClienteSelect = ({
             label={children}
             className={className}
             placeholder="Selecione os clientes"
-            sx={{ width: 600, display: "flex" }}
           />
         )}
         renderTags={(value, getTagProps) =>
@@ -82,7 +81,6 @@ const ClienteSelect = ({
               label={option}
               {...getTagProps({ index })}
               key={option}
-              style={{ margin: 2 }}
             />
           ))
         }

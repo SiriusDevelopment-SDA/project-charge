@@ -93,8 +93,9 @@ export default function EfetuarDisparo() {
 
         <div className="box-wrapper">
           {/* 🔹 CLIENTES */}
+         
           <ClienteSelect
-            className="botaoHome"
+            className="botaoHome ClienteSelectInput"
             onChangeClientes={(nomes) => {
               // 🔥 MOCK DINÂMICO (não quebra preview)
               const clientes = nomes.map((nome: string) => ({
@@ -111,7 +112,7 @@ export default function EfetuarDisparo() {
           </ClienteSelect>
 
           {/* 🔹 INPUT NUMÉRICO */}
-          <div style={{ marginTop: 16 }}>
+          <div style={{ }}>
             <InputNumber />
           </div>
 
@@ -133,11 +134,11 @@ export default function EfetuarDisparo() {
           </div>
 
           {/* 🔹 UPLOAD + ALERT */}
-          <div className="box-wrapper">
+          <div className="box-wrapper Box-Arquivo">
 
             <InputFileUpload
               label="Carregar arquivos TXT/CSV com números"
-              style={{ display: "flex", justifyContent: "center" }}
+              className="Arquivo"
             />
           </div>
         </div>

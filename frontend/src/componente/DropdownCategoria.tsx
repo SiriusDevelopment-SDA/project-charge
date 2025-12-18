@@ -16,7 +16,7 @@ export default function DropdownCategoria() {
   };
 
   return (
-    <Box className="dropdown-wrapper">
+    <Box className="dropdown-wrapper InputCategoria">
       <FormControl fullWidth variant="outlined" className="dropdown-control2">
         <InputLabel className="dropdown-label">Categoria</InputLabel>
 
