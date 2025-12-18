@@ -17,7 +17,7 @@ export default function DropdownCategoria() {
 
   return (
     <Box className="dropdown-wrapper">
-      <FormControl fullWidth variant="outlined">
+      <FormControl fullWidth variant="outlined" className="dropdown-control2">
         <InputLabel className="dropdown-label">Categoria</InputLabel>
 
         <Select
@@ -29,10 +29,13 @@ export default function DropdownCategoria() {
             PaperProps: { className: "dropdown-menu" },
           }}
         >
+          
+          <MenuItem value="Selecionar categoria"><em>Selecionar categoria</em></MenuItem>
           <MenuItem value="marketing">Marketing</MenuItem>
           <MenuItem value="aviso">Aviso</MenuItem>
           <MenuItem value="cobranca">Cobrança</MenuItem>
           <MenuItem value="outros">Outros</MenuItem>
+          
         </Select>
       </FormControl>
     </Box>

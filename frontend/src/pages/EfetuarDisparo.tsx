@@ -17,6 +17,7 @@ import DropdownCategoria from "../componente/DropdownCategoria";
 // Styles
 import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
+import "../styles/DropdownCategoria.css"
 
 // MUI
 import Button from "@mui/material/Button";
@@ -116,13 +117,14 @@ export default function EfetuarDisparo() {
           </div>
 
           {/* 🔹 CATEGORIA + TEMPLATE */}
-          <DropdownCategoria />
-
-          <DropdownTemplate
+         <DropdownTemplate
             onSelectTemplate={(template: any) => {
               setTemplateSelecionado(template);
             }}
+            
           />
+          <div className="DropdownCategoria"><DropdownCategoria/></div>
+          
 
           {/* 🔹 PAGINAÇÃO */}
           <div style={{ marginTop: 16 }}>
