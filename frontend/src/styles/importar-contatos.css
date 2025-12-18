@@ -1,4 +1,12 @@
+
 /* AQUI ESTÁ O ESTILO DO BOTÃO DE IMPORTAR CONTATOS */
+
+/* ===============================
+   IMPORTAR CONTATOS
+================================ */
+
+/* Wrapper */
+
 .importarContatosWrapper {
   max-width: 100%;
   margin-top: 16px;
@@ -37,13 +45,13 @@
   color: #ffffff;
   font-size: 16px;
 }
-<<<<<<< HEAD
-=======
+
 /* Remove foco azul padrão do MUI */
 .whatsapp-form-control .MuiInputBase-root:focus-within {
   border-color: #f4c400;
   box-shadow: 0 0 0 1px rgba(244, 195, 0, 0.788);
 }
+
 
 .importarContatosButton .MuiSvgIcon-root {
   transition: transform 0.2s ease, color 0.2s ease;
@@ -74,8 +82,3 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 6px 14px rgba(244, 196, 0, 0.6);
 }
-
-<<<<<<< HEAD
->>>>>>> 25884d0 (style: alteração nos inputs, e  estilo do botão de importar contatos)
-=======
->>>>>>> 25884d0 (style: alteração nos inputs, e  estilo do botão de importar contatos)
