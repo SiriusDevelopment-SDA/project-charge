@@ -17,7 +17,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   padding: 0;
-  text-align: center;
+  
 }
 
 /* =========================
@@ -57,6 +57,9 @@ body {
   border: 1px solid #f2c010;
   border-radius: 12px;
   padding: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 /* =========================
@@ -99,4 +102,36 @@ body {
   display: flex;
   flex-direction: row-reverse;
   gap: 20px;
+}
+
+.ClienteSelectInput {
+  width: 50% !important;
+  display: flex;
+}
+
+.inputNumber {
+  width: 50% !important;
+  display: flex;
+}
+
+.InputTemplate {
+  width: 50% !important;
+  display: flex;
+}
+
+.InputCategoria {
+  width: 50% !important;
+  display: flex;
+}
+
+.PreviewMensagemTemplate {
+  display: flex;
+  justify-content: center;
+}
+
+.Box-Arquivo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
 }

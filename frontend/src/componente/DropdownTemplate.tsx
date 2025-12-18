@@ -61,7 +61,7 @@ export default function DropdownTemplate({ onSelectTemplate }: Props) {
   };
 
   return (
-    <Box className="dropdown-wrapper2">
+    <Box className="dropdown-wrapper2 InputTemplate">
       <FormControl
         fullWidth
         variant="outlined"
