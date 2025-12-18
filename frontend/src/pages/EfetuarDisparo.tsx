@@ -117,12 +117,7 @@ export default function EfetuarDisparo() {
           </div>
 
           {/* 🔹 CATEGORIA + TEMPLATE */}
-         <DropdownTemplate
-            onSelectTemplate={(template: any) => {
-              setTemplateSelecionado(template);
-            }}
-            
-          />
+         <DropdownTemplate onSelectTemplate={(template: any) => {setTemplateSelecionado(template);}}/>
           <div className="DropdownCategoria"><DropdownCategoria/></div>
           
 
