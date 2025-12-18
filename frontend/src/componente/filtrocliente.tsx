@@ -9,13 +9,15 @@ import "../styles/filtrocliente.css";
 type PropsSelect = {
   children: ReactNode | string;
   className?: string;
-  onChangeClientes: (nomes: string[]) => void; // 👈 ESSENCIAL
+  onChangeClientes: (nomes: string[]) => void; 
 };
 
 const ClienteSelect = ({
   children,
   className,
   onChangeClientes,
+  
+  
 }: PropsSelect) => {
   const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
 
@@ -50,7 +52,7 @@ const ClienteSelect = ({
   };
 
   return (
-    <div>
+    <div className="dropdown-controlT">
       <Autocomplete
         multiple
         id="cliente-select"

@@ -39,8 +39,8 @@ export default function InputNumber() {
  
   return (
     <Stack spacing={2}>
-      <FormControl className="whatsapp-form-control" variant="standard">
-        <Input
+      <FormControl className="whatsapp-form-control dropdown-controlN" variant="standard">
+        <Input className="MuiInputBase-root1"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           name="whatsapp"
