@@ -24,8 +24,8 @@ body {
    BODY / BACKGROUND
 ========================= */
 body {
-  margin: 0;
-  padding: 0;
+  margin: 10px 0;
+  padding:  0;
   box-sizing: border-box;
 
   /* 🔥 GRADIENTE QUE NÃO QUEBRA */

@@ -5,7 +5,7 @@ export default function Navbar() {
   return (
     <header className={styles.navbar}>
       <div className={styles.navbarContainer}>
-        
+
         {/* Logo */}
         <div className={styles.navbarLogo}>
           <img src={logo} alt="Coraxy" />
