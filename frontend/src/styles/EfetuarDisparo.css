@@ -1,0 +1,137 @@
+/* =========================
+   GLOBAL
+========================= */
+html,
+body {
+  min-height: 100%;
+}
+
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding: 0;
+  
+}
+
+/* =========================
+   BODY / BACKGROUND
+========================= */
+body {
+  margin: 10px 0;
+  padding:  0;
+  box-sizing: border-box;
+
+  /* 🔥 GRADIENTE QUE NÃO QUEBRA */
+  background: linear-gradient(
+    50deg,
+    #000000 0%,
+    #000000 40%,
+    #3a2f00 75%,
+    #997a00 88%,
+    #ffcc00 100%
+  );
+
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* =========================
+   CONTEÚDO
+========================= */
+.ContainerConteudo {
+  margin-left: 80px;
+  margin-right: 80px;
+}
+
+/* =========================
+   BORDAS / BOX
+========================= */
+.box-wrapper {
+  border: 1px solid #f2c010;
+  border-radius: 12px;
+  padding: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* =========================
+   TÍTULO
+========================= */
+.pageTitle {
+  position: relative;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  font-size: 35px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+  margin: 36px 0;
+  display: flex;
+}
+
+/* Barra inferior do título */
+.pageTitle::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -18px;
+  width: 14%;
+  height: 2px;
+  margin-left: 25px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 238, 1, 0.568)
+  );
+  border-radius: 2px;
+}
+
+/* =========================
+   BOTÕES
+========================= */
+.MyButton {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 20px;
+}
+
+.ClienteSelectInput {
+  width: 50% !important;
+  display: flex;
+}
+
+.inputNumber {
+  width: 50% !important;
+  display: flex;
+}
+
+.InputTemplate {
+  width: 50% !important;
+  display: flex;
+}
+
+.InputCategoria {
+  width: 50% !important;
+  display: flex;
+}
+
+.PreviewMensagemTemplate {
+  display: flex;
+  justify-content: center;
+}
+
+.Box-Arquivo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}

@@ -1,30 +1,58 @@
 // src/components/ClienteSelect.tsx
-import React, { useState, type ReactNode } from 'react';
-import { Autocomplete, Checkbox, Chip, TextField } from '@mui/material';
-// src/componentes/ClienteSelect.tsx
-import '../styles/filtrocliente.css';  // Importando o CSS do FiltroCliente
+"use client";
 
-type propsSelect = {
+import React, { useState, type ReactNode } from "react";
+import { Autocomplete, Checkbox, Chip, TextField } from "@mui/material";
+import "../styles/filtrocliente.css";
+
+/* ✅ PROPS CORRETAS */
+type PropsSelect = {
   children: ReactNode | string;
   className?: string;
+  onChangeClientes: (nomes: string[]) => void; 
 };
 
-const ClienteSelect = ({ children, className }: propsSelect) => {
+const ClienteSelect = ({
+  children,
+  className,
+  onChangeClientes,
+  
+  
+}: PropsSelect) => {
   const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
 
   const clientes = [
-    'João Vitor', 'Lucas Santos', 'Maria Silva', 'Carlos Souza', 'Ana Pereira',
-    'Pedro Oliveira', 'Mariana Costa', 'Rafael Almeida', 'Beatriz Fernandes', 'Gustavo Ribeiro',
-    'Juliana Gomes', 'Felipe Martins', 'Camila Araújo', 'Bruno Dias', 'Larissa Nunes',
-    'Thiago Carvalho', 'Amanda Lopes', 'Diego Mendes', 'Sofia Rocha', 'Vinícius Cunha', 'Isabela Moreira'
+    "João Vitor",
+    "Lucas Santos",
+    "Maria Silva",
+    "Carlos Souza",
+    "Ana Pereira",
+    "Pedro Oliveira",
+    "Mariana Costa",
+    "Rafael Almeida",
+    "Beatriz Fernandes",
+    "Gustavo Ribeiro",
+    "Juliana Gomes",
+    "Felipe Martins",
+    "Camila Araújo",
+    "Bruno Dias",
+    "Larissa Nunes",
+    "Thiago Carvalho",
+    "Amanda Lopes",
+    "Diego Mendes",
+    "Sofia Rocha",
+    "Vinícius Cunha",
+    "Isabela Moreira",
   ];
 
-  const handleChange = (event: any, newValue: string[]) => {
+  /* 🔥 AQUI ESTAVA O PROBLEMA */
+  const handleChange = (_event: any, newValue: string[]) => {
     setSelectedClientes(newValue);
+    onChangeClientes(newValue); // 👈 AVISA O PAI
   };
 
   return (
-    <div>
+    <div className="dropdown-controlT">
       <Autocomplete
         multiple
         id="cliente-select"
@@ -40,14 +68,22 @@ const ClienteSelect = ({ children, className }: propsSelect) => {
           </li>
         )}
         renderInput={(params) => (
-          <TextField {...params} label={children} className={className} placeholder="Selecione os clientes" />
+          <TextField
+            {...params}
+            label={children}
+            className={className}
+            placeholder="Selecione os clientes"
+          />
         )}
         renderTags={(value, getTagProps) =>
           value.map((option: string, index: number) => (
-            <Chip label={option} {...getTagProps({ index })} key={index} style={{ margin: 2 }} />
+            <Chip
+              label={option}
+              {...getTagProps({ index })}
+              key={option}
+            />
           ))
         }
-        
       />
     </div>
   );

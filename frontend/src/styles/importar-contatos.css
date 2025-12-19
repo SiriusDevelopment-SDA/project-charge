@@ -1,0 +1,86 @@
+/* AQUI ESTÁ O ESTILO DO BOTÃO DE IMPORTAR CONTATOS */
+
+/* AQUI ESTÁ O ESTILO DO BOTÃO DE IMPORTAR CONTATOS */
+
+/* ===============================
+   IMPORTAR CONTATOS
+================================ */
+
+/* Wrapper */
+
+.importarContatosWrapper {
+  max-width: 100%;
+  margin-top: 16px;
+}
+
+/* Botão grande estilo card */
+.importarContatosButton {
+  width: 50%;
+  min-height: 50px;
+
+  background: linear-gradient(
+    50deg,
+    #be9800 50%,
+    #473900 100%
+  );
+
+  /* estado normal (igual ao dropdown) */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+/* 🔥 HOVER — MESMO EFEITO DO DROPDOWN */
+.importarContatosButton:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 6px 14px rgba(244, 196, 0, 0.6);
+
+  transform: translateY(-1px);
+}
+
+/* Texto do botão */
+.importarContatosInput {
+  color: #ffffff;
+  font-size: 16px;
+}
+
+/* Remove foco azul padrão do MUI */
+.whatsapp-form-control .MuiInputBase-root:focus-within {
+  border-color: #f4c400;
+  box-shadow: 0 0 0 1px rgba(244, 195, 0, 0.788);
+}
+
+
+.importarContatosButton .MuiSvgIcon-root {
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.importarContatosButton .MuiSvgIcon-root {
+  color: #000000; /* mesma cor do texto */
+  font-size: 26px;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.importarContatosButton:hover .MuiSvgIcon-root {
+  color: #fddf68 ; /* amarelo no hover */
+  transform: translateY(-2px);
+}
+
+.importarContatosButton {
+  transition: box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.importarContatosButton:hover {
+  transform: translateY(-1px);
+}
+
+/* Hover do botão de upload (mesmo efeito do input) */
+.importarContatosButton:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 6px 14px rgba(244, 196, 0, 0.6);
+}
+

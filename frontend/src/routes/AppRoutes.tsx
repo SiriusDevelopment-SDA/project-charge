@@ -4,7 +4,7 @@ import EfetuarDisparo from '../pages/EfetuarDisparo';
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<EfetuarDisparo />} />
+      <Route path="/" element={<EfetuarDisparo/>} />
 
     </Routes>
   );

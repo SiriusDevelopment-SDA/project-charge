@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import Pagination from '@mui/material/Pagination';
 import PaginationItem from '@mui/material/PaginationItem';
+import "../styles/pagination.css";
 
 export default function PaginationLink() {
   const location = useLocation();
