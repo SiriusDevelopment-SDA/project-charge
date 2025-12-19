@@ -1,5 +1,5 @@
 
-import { IsNotEmpty, IsNumber, isObject, IsOptional, IsString } from 'class-validator';
+import { IsString } from 'class-validator';
 import {
     Column,
     CreateDateColumn,
@@ -8,16 +8,16 @@ import {
     UpdateDateColumn,
     OneToMany
   } from 'typeorm';
-import { Client } from './clients';
-import { Invoice } from './invoices';
-import { Service } from './services';
-import { Templates } from './templatesMeta';
+import { Client } from '../../clients/entities.ts/clients';
+import { Invoice } from '../../invoices/entities/invoices';
+import { Service } from '../../services/entities/services';
+import { Templates } from '../../templates/entities/templatesMeta';
   
   @Entity()
   export class Company {
     
     @PrimaryGeneratedColumn("uuid")
-    id!: number;
+    id!: string;
 
     @IsString()
     @Column()
@@ -28,7 +28,7 @@ import { Templates } from './templatesMeta';
     url!: string;
 
     @IsString()
-    @Column()
+    @Column({ nullable: true })
     autorization!: string;
 
     @Column({
@@ -54,7 +54,7 @@ import { Templates } from './templatesMeta';
     table_vector!: string;
 
     @IsString()
-    @Column()
+    @Column({ nullable: true })
     responsible!: string;
     
     @IsString()

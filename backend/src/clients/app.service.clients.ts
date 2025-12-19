@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Client } from './entities/clients';
-import { GetClientsDto } from './dto/clientsDto';
+import { Client } from '../clients/entities.ts/clients';
+import { SearchRequestDtoClients } from './dto/search.request.dto.clients';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 
 @Injectable()
-export class AppService {
+export class AppServiceClient {
   constructor(
     @InjectRepository(Client)
     private clientRepository: Repository<Client>,
@@ -20,7 +20,7 @@ export class AppService {
     relationInvoices,
     relationService,
     sortorder,
-  }: GetClientsDto) {
+  }: SearchRequestDtoClients) {
     const safeLimit = limit > 0 ? limit : 10;
     const safePage = page > 0 ? page : 1;
     const skip = (safePage - 1) * safeLimit;

@@ -1,9 +1,9 @@
-import { IsString, MinLength, IsNumber, Validate, IsOptional, isBoolean } from 'class-validator';
+import { IsString, IsNumber, IsOptional } from 'class-validator';
 // import { NameOrNumeroValidator } from '../utils/validations'
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class GetClientsDto {
+export class SearchRequestDtoClients {
   // @Validate(NameOrNumeroValidator)
   // private _nameOrNumeroCheck!: string;
 

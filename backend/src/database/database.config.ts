@@ -4,12 +4,12 @@ import {
   TypeOrmModuleAsyncOptions,
   TypeOrmModuleOptions,
 } from '@nestjs/typeorm';
-import { Client } from '../entities/clients';
-import { Invoice } from '../entities/invoices';
+import { Client } from '../clients/entities.ts/clients';
 import { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
-import { Service } from '../entities/services';
-import { Company } from '../entities/companies';
-import { Templates } from '../entities/templatesMeta';
+import { Company } from '../companies/entities/companies';
+import { Templates } from '../templates/entities/templatesMeta';
+import { Service } from '../services/entities/services';
+import { Invoice } from '../invoices/entities/invoices';
 
 export default <TypeOrmModuleAsyncOptions>{
   inject: [ConfigService],

@@ -1,5 +1,5 @@
 
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsString } from 'class-validator';
 import {
     Column,
     CreateDateColumn,
@@ -8,18 +8,17 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
     ManyToOne,
-    ManyToMany,
     OneToMany
   } from 'typeorm';
-import { Client } from './clients';
-import { Invoice } from './invoices';
-import { Company } from './companies';
+import { Client } from '../../clients/entities.ts/clients';
+import { Invoice } from '../../invoices/entities/invoices';
+import { Company } from '../../companies/entities/companies';
   
   @Entity()
   export class Service {
     
     @PrimaryGeneratedColumn("uuid")
-    id!: number;
+    id!: string;
 
     @IsString()
     @Column()
