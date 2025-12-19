@@ -12,14 +12,12 @@ import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
+import VariablesPreview from "../componente/VariablesPreview";
 
 // Styles
 import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
-import "../styles/DropdownCategoria.css"
-
-// // MUI
-// import Button from "@mui/material/Button";
+import "../styles/DropdownCategoria.css";
 
 // Toastify
 import { ToastContainer } from "react-toastify";
@@ -43,26 +41,17 @@ function renderTemplate(
 }
 
 export default function EfetuarDisparo() {
-  /* ===============================
-     ESTADOS PRINCIPAIS
-  ================================ */
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
 
-  /* ===============================
-     PREVIEW DINÂMICO
-  ================================ */
   const previewMessage = useMemo(() => {
-    if (!templateSelecionado)
-      return "Selecione um template para visualizar a mensagem";
-
     if (!templateSelecionado?.conteudo)
-      return "Selecione um template válido para visualizar a mensagem";
+      return "Selecione um template para visualizar a mensagem";
 
     if (clientesSelecionados.length === 0)
       return "Selecione ao menos um cliente para visualizar a mensagem";
 
-    const cliente = clientesSelecionados[0]; // preview sempre usa 1 cliente
+    const cliente = clientesSelecionados[0];
 
     return renderTemplate(templateSelecionado.conteudo, {
       nome: cliente.nome,
@@ -72,18 +61,6 @@ export default function EfetuarDisparo() {
     });
   }, [clientesSelecionados, templateSelecionado]);
 
-  /* ===============================
-     MENSAGEM ALERT
-  ================================ */
-  // const showToast = () => {
-  //   toast.warn("20 clientes sem contato cadastrado!", {
-  //     position: "top-right",
-  //     autoClose: 5000,
-  //     theme: "dark",
-  //     transition: Bounce,
-  //   });
-  // };
-
   return (
     <div>
       <Navbar />
@@ -92,58 +69,54 @@ export default function EfetuarDisparo() {
         <h1 className="pageTitle">Efetuar Disparo</h1>
 
         <div className="box-wrapper">
-          {/* 🔹 CLIENTES */}
-         
-          <ClienteSelect
-            className="botaoHome ClienteSelectInput"
-            onChangeClientes={(nomes) => {
-              // 🔥 MOCK DINÂMICO (não quebra preview)
-              const clientes = nomes.map((nome: string) => ({
-                nome,
-                valor: 99.9,
-                fatura: "FT-0000",
-                data: "31/12/2025",
-              }));
+          {/* 🔹 INPUTS + PREVIEW */}
+          <div className="teste">
+            <div className="boxInputs">
+              <ClienteSelect
+                className="ClienteSelectInput"
+                onChangeClientes={(nomes) => {
+                  const clientes = nomes.map((nome: string) => ({
+                    nome,
+                    valor: 99.9,
+                    fatura: "FT-0000",
+                    data: "31/12/2025",
+                  }));
+                  setClientesSelecionados(clientes);
+                }}
+              >
+                Buscar clientes no ERP
+              </ClienteSelect>
 
-              setClientesSelecionados(clientes);
-            }}
-          >
-            Buscar clientes no ERP
-          </ClienteSelect>
+              <InputNumber />
 
-          {/* 🔹 INPUT NUMÉRICO */}
-          <div style={{ }}>
-            <InputNumber />
+              <DropdownTemplate
+                onSelectTemplate={(template: any) =>
+                  setTemplateSelecionado(template)
+                }
+              />
+
+              <DropdownCategoria />
+            </div>
+
+            <div className="VariablesPreviewBox">
+              <VariablesPreview />
+            </div>
           </div>
-
-          {/* 🔹 CATEGORIA + TEMPLATE */}
-         <DropdownTemplate onSelectTemplate={(template: any) => {setTemplateSelecionado(template);}}/>
-          <div className="DropdownCategoria"><DropdownCategoria/></div>
-          
-
-          {/* 🔹 PAGINAÇÃO
-          <div style={{ marginTop: 16 }}>
-            <PaginationLink />
-          </div> */}
 
           <ToastContainer />
 
-          {/* 🔹 PREVIEW */}
+          {/* 🔹 PREVIEW MENSAGEM */}
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
 
-          {/* 🔹 UPLOAD + ALERT */}
-          <div className="box-wrapper Box-Arquivo">
-
-            <InputFileUpload
-              label="Carregar arquivos TXT/CSV com números"
-              className="Arquivo"
-            />
+          {/* 🔹 UPLOAD */}
+          <div className="Box-Arquivo">
+            <InputFileUpload label="Carregar arquivos TXT/CSV com números" />
           </div>
         </div>
 
-        {/* 🔹 BOTÕES FINAIS */}
+        {/* 🔹 BOTÕES */}
         <div className="MyButton">
           <MyButtonAlert variant="success">Enviar</MyButtonAlert>
           <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
