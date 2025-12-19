@@ -8,34 +8,65 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 
 import "../styles/DropdownCategoria.css";
 
+const capitalize = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
 export default function DropdownCategoria() {
   const [value, setValue] = React.useState("");
+  const [open, setOpen] = React.useState(false);
 
   const handleChange = (event: SelectChangeEvent) => {
-    setValue(event.target.value as string);
+    setValue(event.target.value);
+    setOpen(false);
   };
 
   return (
     <Box className="dropdown-wrapper InputCategoria">
       <FormControl fullWidth variant="outlined" className="dropdown-control2">
-        <InputLabel className="dropdown-label">Categoria</InputLabel>
+        <InputLabel
+          id="categoria-label"
+          className="dropdown-label"
+          shrink={open || value !== ""}
+        >
+          Categoria
+        </InputLabel>
 
         <Select
+          labelId="categoria-label"
+          id="categoria-select"
+          open={open}
+          onOpen={() => setOpen(true)}
+          onClose={() => setOpen(false)}
           value={value}
           label="Categoria"
           onChange={handleChange}
+          displayEmpty
           className="dropdown-select"
+          renderValue={(selected) => {
+            const valueStr = String(selected);
+
+            if (valueStr === "") {
+              return (
+                <span style={{ color: "#888" }}>
+                  
+                </span>
+              );
+            }
+
+            return capitalize(valueStr);
+          }}
           MenuProps={{
             PaperProps: { className: "dropdown-menu" },
           }}
         >
-          
-          <MenuItem value="Selecionar categoria"><em>Selecionar categoria</em></MenuItem>
+          <MenuItem value="">
+            <em>Nenhuma categoria</em>
+          </MenuItem>
+
           <MenuItem value="marketing">Marketing</MenuItem>
           <MenuItem value="aviso">Aviso</MenuItem>
           <MenuItem value="cobranca">Cobrança</MenuItem>
           <MenuItem value="outros">Outros</MenuItem>
-          
         </Select>
       </FormControl>
     </Box>
