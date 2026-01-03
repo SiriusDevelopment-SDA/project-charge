@@ -4,16 +4,17 @@ import {
     CreateDateColumn,
     Entity,
     JoinColumn,
-    PrimaryGeneratedColumn,
     UpdateDateColumn,
-    ManyToOne
+    ManyToOne,
+    PrimaryColumn
   } from 'typeorm';
 import { Company } from '../../companies/entities/companies';
   
   @Entity()
   export class Templates {
-    @PrimaryGeneratedColumn("uuid")
-    id!: number
+
+    @PrimaryColumn()
+    id!: string
   
     @Column()
     name!: string;
@@ -21,7 +22,7 @@ import { Company } from '../../companies/entities/companies';
     @Column()
     message!: string;
 
-    @Column()
+    @Column({ default: 'GERAL' })
     category!: string;
 
     @Column()

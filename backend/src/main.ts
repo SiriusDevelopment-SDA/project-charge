@@ -34,7 +34,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
   
-  await app.listen(configService.get('PORT') || 3000);
+  await app.listen(configService.get('PORT') || 3000, "0.0.0.0");
   console.log(`Server is running on ${await app.getUrl()}`);
 }
 bootstrap();
