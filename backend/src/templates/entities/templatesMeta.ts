@@ -6,15 +6,19 @@ import {
     JoinColumn,
     UpdateDateColumn,
     ManyToOne,
-    PrimaryColumn
+    PrimaryColumn,
+    PrimaryGeneratedColumn
   } from 'typeorm';
 import { Company } from '../../companies/entities/companies';
   
   @Entity()
   export class Templates {
 
-    @PrimaryColumn()
+    @PrimaryGeneratedColumn("uuid")
     id!: string
+
+    @Column({ nullable: true, unique: true })
+    meta_id!: string
   
     @Column()
     name!: string;
@@ -22,7 +26,7 @@ import { Company } from '../../companies/entities/companies';
     @Column()
     message!: string;
 
-    @Column({ default: 'GERAL' })
+    @Column({ default: 'Categoria indefinida' })
     category!: string;
 
     @Column()
