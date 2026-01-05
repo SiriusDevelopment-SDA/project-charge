@@ -117,9 +117,6 @@ export default function EfetuarDisparo() {
 <div className="Box-Arquivo">
   <InputFileUpload/>
 </div>
-
-
-
         </div>
 
         {/* 🔹 BOTÕES */}
