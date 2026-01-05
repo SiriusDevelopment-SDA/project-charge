@@ -52,7 +52,7 @@ const ClienteSelect = ({
   };
 
   return (
-    <div className="dropdown-controlT">
+    <div className="dropdown-controlT dropdown-control2">
       <Autocomplete
         multiple
         id="cliente-select"
