@@ -1,7 +1,7 @@
 /* ===== WRAPPER ===== */
 .dropdown-wrapper {
   width: 600px;
-  margin-top: 20px;
+  margin-top: 25px;
 }
 /* ===== FORM CONTROL ===== */
 .dropdown-control {
@@ -30,6 +30,7 @@
 }
 /* ===== LABEL ===== */
 .dropdown-label {
+  margin-left: 12px;
   color: rgba(255, 255, 255, 0.85) !important;
   font-size: 13px;
 }

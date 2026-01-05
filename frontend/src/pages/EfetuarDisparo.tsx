@@ -109,6 +109,7 @@ export default function EfetuarDisparo() {
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
+          {/* 🔹 PREVIEW */}
 
         {/* 🔹 UPLOAD */}
 
