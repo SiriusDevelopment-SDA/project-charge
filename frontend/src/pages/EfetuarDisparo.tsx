@@ -110,10 +110,15 @@ export default function EfetuarDisparo() {
             <MessagePreview message={previewMessage} />
           </div>
 
-          {/* 🔹 UPLOAD */}
-          <div className="Box-Arquivo">
-            <InputFileUpload label="Carregar arquivos TXT/CSV com números" />
-          </div>
+        {/* 🔹 UPLOAD */}
+
+<p className="UploadDescricao">Carregar arquivos TXT/CSV com números</p>
+<div className="Box-Arquivo">
+  <InputFileUpload/>
+</div>
+
+
+
         </div>
 
         {/* 🔹 BOTÕES */}
