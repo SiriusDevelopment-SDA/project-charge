@@ -13,15 +13,13 @@ export default function InputFileUpload({ label, style }: MyInputProps) {
         component="label"
         startIcon={<CloudUploadIcon />}
       >
-        Escolher arquivos
-        <input 
+       <input
           type="file"
           multiple
-          hidden   
+          className="importarContatosInput"
           onChange={(event) => console.log(event.target.files)}
         />
-      </Button >
-      
+      </Button>
     </>
   );
 }
