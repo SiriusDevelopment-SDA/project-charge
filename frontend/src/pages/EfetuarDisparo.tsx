@@ -111,11 +111,7 @@ export default function EfetuarDisparo() {
           </div>
           {/* 🔹 PREVIEW */}
 
-<<<<<<< HEAD
-        {/* 🔹 UPLOAD */}
-=======
           {/* 🔹 UPLOAD */}
->>>>>>> 1f9bd22 (fix:versão atualizada do código)
 
 <p className="UploadDescricao">Carregar arquivos TXT/CSV com números</p>
 <div className="Box-Arquivo">
