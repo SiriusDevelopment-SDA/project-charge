@@ -2,22 +2,22 @@
 
 import { toast, Bounce } from "react-toastify";
 import type {
-  ReactNode,
+  // ReactNode,
   ButtonHTMLAttributes,
 } from "react";
 
 import "../styles/MyButtonGlobal.css";
 
 interface MyButtonAlertProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  children: ReactNode;
+  // children: ReactNode;
   variant?: "success" | "danger" | "secondary" | "outline";
+  text: string
 }
 
 
 export default function MyButtonAlert({
-  children,
   variant = "success",
-  className="",
+  text,
   ...rest
 }: MyButtonAlertProps) {
   const handleClick = () => {
@@ -43,7 +43,7 @@ export default function MyButtonAlert({
       onClick={handleClick}
       className={`button ${variant}`}
     >
-      {children}
+    {text && text}
     </button>
   );
 }

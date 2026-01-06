@@ -34,7 +34,7 @@ function renderTemplate(
   return resultado;
 }
 
-export default function EfetuarDisparo({page}: {page: string}) {
+export default function EfetuarDisparo() {
   const navigate = useNavigate();
 
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
@@ -63,7 +63,7 @@ export default function EfetuarDisparo({page}: {page: string}) {
 
       <div className="ContainerConteudo">
         <div className="navigation">
-          <h1 className="pageTitle">{page === "disparo" ? "Efetuar Disparo" : "Efetuar Disparo 2"}</h1>
+          <h1 className="pageTitle">Efetuar Disparo</h1>
 
           {/* 🔹 BOTÃO QUE REDIRECIONA */}
           <button
@@ -99,9 +99,9 @@ export default function EfetuarDisparo({page}: {page: string}) {
               />
 
               <DropdownCategoria />
-            </div >
+            </div>
 
-            <ClientsSelectedCard total={clientesSelecionados.length } />
+            <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />
@@ -114,15 +114,14 @@ export default function EfetuarDisparo({page}: {page: string}) {
             Carregar arquivos TXT/CSV com números
           </p>
 
-          <div className="Box-Arquivo"> {page === "disparo" && <InputFileUpload/>}
-         
-            
+          <div className="Box-Arquivo">
+            <InputFileUpload />
           </div>
         </div>
 
         <div className="MyButton">
-          <MyButtonAlert variant="success" text="Enviar" />
-          <MyButtonAlert variant="danger" text="Cancelar" />
+          <MyButtonAlert variant="success">Enviar</MyButtonAlert>
+          <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
         </div>
       </div>
     </div>
