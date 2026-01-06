@@ -83,7 +83,11 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 32px;
+  justify-content: center;
+
+  margin: 20px 0;
 }
+
 
 .boxInputs {
   width: 50%;
@@ -93,6 +97,7 @@ body {
   flex-direction: column;
   gap: 16px;
   height: fit-content;
+  
 }
 
 

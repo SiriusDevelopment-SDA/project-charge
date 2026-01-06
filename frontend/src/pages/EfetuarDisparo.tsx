@@ -7,12 +7,12 @@ import { useMemo, useState } from "react";
 import Navbar from "../componente/global/Navbar";
 import ClienteSelect from "../componente/filtrocliente";
 import InputFileUpload from "../componente/importar-contatos";
-import InputNumber from "../componente/inputnumber";
+// import InputNumber from "../componente/inputnumber";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
-import VariablesPreview from "../componente/VariablesPreview";
+// import VariablesPreview from "../componente/VariablesPreview";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 
 // Styles
@@ -68,8 +68,8 @@ export default function EfetuarDisparo() {
 
       <div className="ContainerConteudo">
         <div className="navigation">
-        <h1 className="pageTitle">Efetuar Disparo</h1>
-        <button className="outline">Cliente sem cadastro</button>
+          <h1 className="pageTitle">Efetuar Disparo</h1>
+          <button className="outline">Cliente sem cadastro</button>
         </div>
 
         <div className="box-wrapper">
@@ -91,7 +91,7 @@ export default function EfetuarDisparo() {
                 Buscar clientes no ERP
               </ClienteSelect>
 
-              <InputNumber />
+              {/* <InputNumber /> */}
 
               <DropdownTemplate
                 onSelectTemplate={(template: any) =>
@@ -102,11 +102,14 @@ export default function EfetuarDisparo() {
               <DropdownCategoria />
             </div>
 
-            <div className="VariablesPreviewBox">
+            {/* <div className="VariablesPreviewBox">
               <VariablesPreview />
-            </div>
+            </div> */}
 
             <ClientsSelectedCard total={0} />
+            
+            
+
 
           </div>
 
@@ -120,10 +123,10 @@ export default function EfetuarDisparo() {
 
           {/* 🔹 UPLOAD */}
 
-<p className="UploadDescricao">Carregar arquivos TXT/CSV com números</p>
-<div className="Box-Arquivo">
-  <InputFileUpload/>
-</div>
+          <p className="UploadDescricao">Carregar arquivos TXT/CSV com números</p>
+          <div className="Box-Arquivo">
+            <InputFileUpload />
+          </div>
         </div>
 
         {/* 🔹 BOTÕES */}
