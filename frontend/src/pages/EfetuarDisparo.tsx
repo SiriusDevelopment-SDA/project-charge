@@ -7,12 +7,12 @@ import { useMemo, useState } from "react";
 import Navbar from "../componente/global/Navbar";
 import ClienteSelect from "../componente/filtrocliente";
 import InputFileUpload from "../componente/importar-contatos";
-import InputNumber from "../componente/inputnumber";
+// import InputNumber from "../componente/inputnumber";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
-import VariablesPreview from "../componente/VariablesPreview";
+// import VariablesPreview from "../componente/VariablesPreview";
 
 // Styles
 import "../styles/importar-contatos.css";
@@ -87,7 +87,7 @@ export default function EfetuarDisparo() {
                 Buscar clientes no ERP
               </ClienteSelect>
 
-              <InputNumber />
+              {/* <InputNumber /> */}
 
               <DropdownTemplate
                 onSelectTemplate={(template: any) =>
@@ -98,9 +98,9 @@ export default function EfetuarDisparo() {
               <DropdownCategoria />
             </div>
 
-            <div className="VariablesPreviewBox">
+            {/* <div className="VariablesPreviewBox">
               <VariablesPreview />
-            </div>
+            </div> */}
           </div>
 
           <ToastContainer />
