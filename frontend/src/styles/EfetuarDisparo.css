@@ -50,10 +50,16 @@ body {
   margin-right: 80px;
 }
 
+
 .navigation {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.buttons-navigation {
+  display: flex;
+  gap: 12px;
 }
 
 .navigation button {
@@ -66,6 +72,13 @@ body {
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;  
 }
+
+.navigation button:hover {
+  background-color: #f4c400;
+  color: #000000;
+}
+
+
 
 /* =========================
    BORDAS / BOX

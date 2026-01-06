@@ -66,7 +66,11 @@ export default function EfetuarDisparo() {
       <div className="ContainerConteudo">
         <div className="navigation">
           <h1 className="pageTitle">Efetuar Disparo</h1>
+
+          <div className="buttons-navigation">
           <button className="outline">Cliente sem cadastro</button>
+          <button className="outline">Historico</button>
+          </div>
         </div>
 
         <div className="box-wrapper">

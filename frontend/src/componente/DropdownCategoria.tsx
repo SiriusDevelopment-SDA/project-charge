@@ -1,74 +1,107 @@
-import * as React from "react";
-import Box from "@mui/material/Box";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import Select from "@mui/material/Select";
-import type { SelectChangeEvent } from "@mui/material/Select";
+"use client";
 
+import { useEffect, useRef, useState } from "react";
 import "../styles/DropdownCategoria.css";
 
+/* ===============================
+   HELPERS
+================================ */
 const capitalize = (text: string) =>
   text.charAt(0).toUpperCase() + text.slice(1);
 
-export default function DropdownCategoria() {
-  const [value, setValue] = React.useState("");
-  const [open, setOpen] = React.useState(false);
+/* ===============================
+   OPTIONS
+================================ */
+const CATEGORIAS = [
+  { value: "", label: "Nenhuma categoria", italic: true },
+  { value: "marketing", label: "Marketing" },
+  { value: "aviso", label: "Aviso" },
+  { value: "cobranca", label: "Cobrança" },
+  { value: "outros", label: "Outros" },
+];
 
-  const handleChange = (event: SelectChangeEvent) => {
-    setValue(event.target.value);
-    setOpen(false);
-  };
+/* ===============================
+   COMPONENT
+================================ */
+export default function DropdownCategoria() {
+  const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  /* ===============================
+     CLOSE ON OUTSIDE CLICK
+  =============================== */
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
-    <Box className="dropdown-wrapper InputCategoria">
-      <FormControl fullWidth variant="outlined" className="dropdown-control2">
-        <InputLabel
-          id="categoria-label"
-          className="dropdown-label"
-          shrink={open || value !== ""}
+    <div ref={wrapperRef} className="custom-dropdown-wrapper">
+      {/* LABEL */}
+      <label
+        className={`custom-dropdown-label ${
+          open || value !== "" ? "custom-dropdown-label--shrink" : ""
+        }`}
+      >
+        Categoria
+      </label>
+
+      {/* CONTROL */}
+      <div
+        className="custom-dropdown-control"
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span
+          className={`custom-dropdown-value ${
+            value === "" ? "custom-dropdown-value--placeholder" : ""
+          }`}
         >
-          Categoria
-        </InputLabel>
+          {value === "" ? "" : capitalize(value)}
+        </span>
 
-        <Select
-          labelId="categoria-label"
-          id="categoria-select"
-          open={open}
-          onOpen={() => setOpen(true)}
-          onClose={() => setOpen(false)}
-          value={value}
-          label="Categoria"
-          onChange={handleChange}
-          displayEmpty
-          className="dropdown-select"
-          renderValue={(selected) => {
-            const valueStr = String(selected);
+        <span className={`arrow ${open ? "open" : ""}`} />
+      </div>
 
-            if (valueStr === "") {
-              return (
-                <span style={{ color: "#888" }}>
-                  
-                </span>
-              );
-            }
-
-            return capitalize(valueStr);
-          }}
-          MenuProps={{
-            PaperProps: { className: "dropdown-menu" },
-          }}
-        >
-          <MenuItem value="">
-            <em>Nenhuma categoria</em>
-          </MenuItem>
-
-          <MenuItem value="marketing">Marketing</MenuItem>
-          <MenuItem value="aviso">Aviso</MenuItem>
-          <MenuItem value="cobranca">Cobrança</MenuItem>
-          <MenuItem value="outros">Outros</MenuItem>
-        </Select>
-      </FormControl>
-    </Box>
+      {/* MENU */}
+      {open && (
+        <div className="custom-dropdown-menu">
+          {CATEGORIAS.map((categoria) => (
+            <div
+              key={categoria.value}
+              className={`custom-dropdown-item
+                ${
+                  value === categoria.value
+                    ? "custom-dropdown-item--selected"
+                    : ""
+                }
+                ${
+                  categoria.italic
+                    ? "custom-dropdown-item--italic"
+                    : ""
+                }
+              `}
+              onClick={() => {
+                setValue(categoria.value);
+                setOpen(false);
+              }}
+            >
+              {categoria.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
