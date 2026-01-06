@@ -66,7 +66,10 @@ export default function EfetuarDisparo() {
       <Navbar />
 
       <div className="ContainerConteudo">
+        <div className="navigation">
         <h1 className="pageTitle">Efetuar Disparo</h1>
+        <button className="outline">Cliente sem cadastro</button>
+        </div>
 
         <div className="box-wrapper">
           {/* 🔹 INPUTS + PREVIEW */}
