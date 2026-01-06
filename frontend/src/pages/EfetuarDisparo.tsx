@@ -7,12 +7,10 @@ import { useMemo, useState } from "react";
 import Navbar from "../componente/global/Navbar";
 import ClienteSelect from "../componente/filtrocliente";
 import InputFileUpload from "../componente/importar-contatos";
-// import InputNumber from "../componente/inputnumber";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
-// import VariablesPreview from "../componente/VariablesPreview";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 
 // Styles
@@ -42,7 +40,8 @@ function renderTemplate(
 }
 
 export default function EfetuarDisparo() {
-  const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
+  // ✅ AGORA É STRING[]
+  const [clientesSelecionados, setClientesSelecionados] = useState<string[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
 
   const previewMessage = useMemo(() => {
@@ -52,13 +51,11 @@ export default function EfetuarDisparo() {
     if (clientesSelecionados.length === 0)
       return "Selecione ao menos um cliente para visualizar a mensagem";
 
-    const cliente = clientesSelecionados[0];
+    // 👇 agora é só o nome
+    const nomeCliente = clientesSelecionados[0];
 
     return renderTemplate(templateSelecionado.conteudo, {
-      nome: cliente.nome,
-      valor: cliente.valor?.toFixed(2),
-      fatura: cliente.fatura,
-      data: cliente.data,
+      nome: nomeCliente,
     });
   }, [clientesSelecionados, templateSelecionado]);
 
@@ -77,40 +74,22 @@ export default function EfetuarDisparo() {
           <div className="teste">
             <div className="boxInputs">
               <ClienteSelect
-                className="ClienteSelectInput"
-                onChangeClientes={(nomes) => {
-                  const clientes = nomes.map((nome: string) => ({
-                    nome,
-                    valor: 99.9,
-                    fatura: "FT-0000",
-                    data: "31/12/2025",
-                  }));
-                  setClientesSelecionados(clientes);
-                }}
+                onChangeClientes={setClientesSelecionados}
               >
                 Buscar clientes no ERP
               </ClienteSelect>
 
-              {/* <InputNumber /> */}
-
               <DropdownTemplate
-                onSelectTemplate={(template: any) =>
-                  setTemplateSelecionado(template)
-                }
+                onSelectTemplate={(template) => setTemplateSelecionado(template)}
               />
+
+
 
               <DropdownCategoria />
             </div>
 
-            {/* <div className="VariablesPreviewBox">
-              <VariablesPreview />
-            </div> */}
-
-            <ClientsSelectedCard total={0} />
-            
-            
-
-
+            {/* CARD DE CONTADOR */}
+            <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />
@@ -119,11 +98,12 @@ export default function EfetuarDisparo() {
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
-          {/* 🔹 PREVIEW */}
 
           {/* 🔹 UPLOAD */}
+          <p className="UploadDescricao">
+            Carregar arquivos TXT/CSV com números
+          </p>
 
-          <p className="UploadDescricao">Carregar arquivos TXT/CSV com números</p>
           <div className="Box-Arquivo">
             <InputFileUpload />
           </div>
