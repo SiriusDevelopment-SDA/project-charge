@@ -47,7 +47,7 @@
   font-size: 16px;
 }
 
-<<<<<<< HEAD
+
 /* Remove foco azul padrão do MUI */
 .whatsapp-form-control .MuiInputBase-root:focus-within {
   border-color: #f4c400;
@@ -85,7 +85,6 @@
     0 6px 14px rgba(244, 196, 0, 0.6);
 }
 
-=======
 .UploadDescricao {
   color: #ffffff;
   font-size: 14px;
@@ -94,4 +93,4 @@
   margin-bottom: 8px;
   margin-top: 24px;
 }
->>>>>>> 1f9bd22 (fix:versão atualizada do código)
+
