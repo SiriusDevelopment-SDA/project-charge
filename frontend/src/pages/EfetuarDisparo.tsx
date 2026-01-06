@@ -13,6 +13,7 @@ import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
 import VariablesPreview from "../componente/VariablesPreview";
+import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 
 // Styles
 import "../styles/importar-contatos.css";
@@ -66,7 +67,10 @@ export default function EfetuarDisparo() {
       <Navbar />
 
       <div className="ContainerConteudo">
+        <div className="navigation">
         <h1 className="pageTitle">Efetuar Disparo</h1>
+        <button className="outline">Cliente sem cadastro</button>
+        </div>
 
         <div className="box-wrapper">
           {/* 🔹 INPUTS + PREVIEW */}
@@ -101,6 +105,9 @@ export default function EfetuarDisparo() {
             <div className="VariablesPreviewBox">
               <VariablesPreview />
             </div>
+
+            <ClientsSelectedCard total={0} />
+
           </div>
 
           <ToastContainer />
