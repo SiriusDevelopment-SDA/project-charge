@@ -1,67 +1,171 @@
-  /* ============================= */
-  /* INPUT PRINCIPAL */
-  /* ============================= */
-  .MuiInputBase-root {
-    background: linear-gradient(50deg, #be9800 50%, #473900 100%);
-    color: #fff;
-    border-radius: 8px;
-    padding: 10px;
-  }
-  /* Texto digitado */
-  .MuiInputBase-input {
-    color: #fff;
-  }
-  /* Placeholder */
-  .MuiInputBase-input::placeholder {
-    color: rgba(255, 255, 255, 0.7);
-  }
-  /* LABEL */
-  .MuiInputLabel-root {
-    color: #fff !important;
-   
-  }
-.MuiInputLabel-root.Mui-focused,
-.MuiInputLabel-root.MuiFormLabel-filled {
-  color: #ffffff !important;
-  transform: translate(0px, -15px) scale(0.85);
-  padding: 0 6px;
+/* =============================
+   CONTAINER
+============================= */
+.cliente-select {
+  position: relative;
+  width: 65%;
+  font-family: Inter, sans-serif;
 }
-/* SETA DROPDOWN */
-  .MuiAutocomplete-popupIndicator {
-    color: #f4c400 !important;
-  }
-  /* DROPDOWN (LISTA) */
-  .MuiAutocomplete-paper {
-    background: #111111ee !important;
-  }
-  /* OPÇÕES */
-  .MuiAutocomplete-option {
-    color: #ffffff;
-    font-size: 14px;
-  }
-  /* Selecionado */
-  .MuiAutocomplete-option[aria-selected='true'] {
-    background: rgba(244, 196, 0, 0.35) !important;
-  }
-  /* CHECKBOX */
-  .MuiCheckbox-root {
-    color: #f4c400 !important;
-  }
-  .MuiCheckbox-root.Mui-checked {
-    color: #3fa111 !important;
-  }
-  /* Remove foco azul padrão do MUI */
-  .whatsapp-form-control .MuiInputBase-root:focus-within {
-    border-color: #f4c400;
-    box-shadow: 0 0 0 1px rgba(244, 195, 0, 0.788);
-  }
-  /* Hover / TextField */
-  .dropdown-controlT .MuiInputBase-root:hover {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.35),
-      0 6px 14px rgba(244, 196, 0, 0.6) !important;
-  }
-  /* ===== BORDA (REMOVE AZUL DO FOCUS) ===== */
-.dropdown-controlT .MuiOutlinedInput-notchedOutline {
+
+/* LABEL */
+.cliente-label {
+  display: block;
+  margin-bottom: 2px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* =============================
+   INPUT
+============================= */
+.cliente-input {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: linear-gradient(50deg, #be9800 50%, #473900 100%);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+
+.cliente-input.active {
+  box-shadow: 0 0 0 2px rgba(244, 196, 0, 0.7);
+}
+
+/* Chips */
+.cliente-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.placeholder {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+/* CHIP */
+.chip {
+  background: #6b6b6b;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+} 
+.chip button {
   border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #fff;
+}
+
+/* =============================
+   AÇÕES (X + SETA)
+============================= */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.clear-all {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-all:hover {
+  background: rgba(244, 196, 0, 0.85);
+  color: #000;
+}
+
+/* =============================
+   SETA DROPDOWN (IGUAL À IMAGEM)
+============================= */
+.arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid #f4c400;
+  transition: transform 0.2s ease;
+}
+
+.arrow.open {
+  transform: rotate(180deg);
+}
+
+/* =============================
+   DROPDOWN
+============================= */
+.cliente-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #111;
+  border-radius: 10px;
+  z-index: 999;
+  padding: 8px;
+}
+
+/* BUSCA */
+.cliente-search {
+  width: 95%;
+  padding: 8px;
+  border-radius: 6px;
+  border: none;
+  margin-bottom: 8px;
+}
+
+/* LISTA */
+.cliente-dropdown ul {
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0;
+  margin: 0;
+}
+
+.cliente-dropdown li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 14px;
+}
+
+.cliente-dropdown li:hover {
+  background: rgba(244, 196, 0, 0.3);
+}
+
+.cliente-dropdown input[type="checkbox"] {
+  accent-color: #f4c400;
+}
+
+.empty {
+  text-align: center;
+  opacity: 0.6;
 }
