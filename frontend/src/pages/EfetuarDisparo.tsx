@@ -47,13 +47,11 @@ export default function EfetuarDisparo({page}: {page: string}) {
     if (clientesSelecionados.length === 0)
       return "Selecione ao menos um cliente para visualizar a mensagem";
 
-    const cliente = clientesSelecionados[0];
+    // 👇 agora é só o nome
+    const nomeCliente = clientesSelecionados[0];
 
     return renderTemplate(templateSelecionado.conteudo, {
-      nome: cliente.nome,
-      valor: cliente.valor?.toFixed(2),
-      fatura: cliente.fatura,
-      data: cliente.data,
+      nome: nomeCliente,
     });
   }, [clientesSelecionados, templateSelecionado]);
 
@@ -78,25 +76,16 @@ export default function EfetuarDisparo({page}: {page: string}) {
           <div className="teste">
             <div className="boxInputs">
               <ClienteSelect
-                className="ClienteSelectInput"
-                onChangeClientes={(nomes) => {
-                  const clientes = nomes.map((nome: string) => ({
-                    nome,
-                    valor: 99.9,
-                    fatura: "FT-0000",
-                    data: "31/12/2025",
-                  }));
-                  setClientesSelecionados(clientes);
-                }}
+                onChangeClientes={setClientesSelecionados}
               >
                 Buscar clientes no ERP
               </ClienteSelect>
 
               <DropdownTemplate
-                onSelectTemplate={(template: any) =>
-                  setTemplateSelecionado(template)
-                }
+                onSelectTemplate={(template) => setTemplateSelecionado(template)}
               />
+
+
 
               <DropdownCategoria />
             </div >

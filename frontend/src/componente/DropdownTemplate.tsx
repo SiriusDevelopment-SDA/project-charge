@@ -1,111 +1,151 @@
 "use client";
 
-import * as React from "react";
-import Box from "@mui/material/Box";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import Select from "@mui/material/Select";
-import type { SelectChangeEvent } from "@mui/material/Select";
-
+import { useEffect, useRef, useState } from "react";
 import "../styles/DropdownTemplate.css";
 
+/* ===============================
+   TYPES
+================================ */
 type Template = {
   id: number;
   nome: string;
   conteudo: string;
 };
 
-const templatesMock: Template[] = [
-  { id: 1, nome: "Marketing", conteudo: "Olá {{nome}}, temos novidades exclusivas para você!" },
-  { id: 2, nome: "Aviso", conteudo: "Olá {{nome}}, identificamos pendências em seu cadastro." },
-  {
-    id: 3,
-    nome: "Cobrança",
-    conteudo: "Olá {{nome}}, sua fatura {{fatura}} vence em {{data}} no valor de R$ {{valor}}.",
-  },
-  { id: 4, nome: "Outros", conteudo: "Olá {{nome}}, estamos entrando em contato." },
-];
-
 type Props = {
   onSelectTemplate: (template: Template | null) => void;
 };
 
+/* ===============================
+   MOCK
+================================ */
+const templatesMock: Template[] = [
+  {
+    id: 1,
+    nome: "Marketing",
+    conteudo: "Olá {{nome}}, temos novidades exclusivas para você!",
+  },
+  {
+    id: 2,
+    nome: "Aviso",
+    conteudo: "Olá {{nome}}, identificamos pendências em seu cadastro.",
+  },
+  {
+    id: 3,
+    nome: "Cobrança",
+    conteudo:
+      "Olá {{nome}}, sua fatura {{fatura}} vence em {{data}} no valor de R$ {{valor}}.",
+  },
+  {
+    id: 4,
+    nome: "Outros",
+    conteudo: "Olá {{nome}}, estamos entrando em contato.",
+  },
+];
+
+/* ===============================
+   COMPONENT
+================================ */
 export default function DropdownTemplate({ onSelectTemplate }: Props) {
-  const [value, setValue] = React.useState<number | "">("");
-  const [open, setOpen] = React.useState(false);
+  const [value, setValue] = useState<number | "">("");
+  const [open, setOpen] = useState(false);
 
-  const handleChange = (event: SelectChangeEvent<number | "">) => {
-    const newValue = event.target.value;
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-    setValue(newValue);
+  /* ===============================
+     FECHA AO CLICAR FORA
+  =============================== */
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleSelect(id: number | "") {
+    setValue(id);
     setOpen(false);
 
-    if (newValue === "") {
+    if (id === "") {
       onSelectTemplate(null);
       return;
     }
 
-    const templateSelecionado =
-      templatesMock.find((t) => t.id === Number(newValue)) || null;
+    const template =
+      templatesMock.find((t) => t.id === id) || null;
 
-    onSelectTemplate(templateSelecionado);
-  };
+    onSelectTemplate(template);
+  }
+
+  const selectedTemplate =
+    value === ""
+      ? null
+      : templatesMock.find((t) => t.id === value);
 
   return (
-    <Box className="dropdown-wrapper2 InputTemplate">
-      <FormControl fullWidth variant="outlined" className="dropdown-control2">
-        <InputLabel
-          id="template-label"
-          className="dropdown-label2"
-          shrink={open || value !== ""}
+    <div ref={wrapperRef} className="custom-template-wrapper">
+      {/* LABEL */}
+      <label
+        className={`custom-template-label ${
+          open || value !== ""
+            ? "custom-template-label--shrink"
+            : ""
+        }`}
+      >
+        Template
+      </label>
+
+      {/* CONTROL */}
+      <div
+        className="custom-template-control"
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span
+          className={`custom-template-value ${
+            value === ""
+              ? "custom-template-value--placeholder"
+              : ""
+          }`}
         >
-          Template
-        </InputLabel>
+          {selectedTemplate?.nome ?? ""}
+        </span>
 
-        <Select
-          labelId="template-label"
-          id="template-select"
-          open={open}
-          onOpen={() => setOpen(true)}
-          onClose={() => setOpen(false)}
-          value={value}
-          label="Template"
-          onChange={handleChange}
-          displayEmpty
-          className="dropdown-select2"
-          renderValue={(selected) => {
-            const valueStr = String(selected);
+        <span className={`arrow ${open ? "open" : ""}`} />
+      </div>
 
-            if (valueStr === "") {
-              return (
-                <span style={{ color: "#888" }}>
-                  
-                </span>
-              );
-            }
-
-            const template = templatesMock.find(
-              (t) => t.id === Number(valueStr)
-            );
-
-            return template?.nome ?? "";
-          }}
-          MenuProps={{
-            PaperProps: { className: "dropdown-menu2" },
-          }}
-        >
-          <MenuItem value="">
-            <em>Nenhum template</em>
-          </MenuItem>
+      {/* MENU */}
+      {open && (
+        <div className="custom-template-menu">
+          <div
+            className="custom-template-item custom-template-item--italic"
+            onClick={() => handleSelect("")}
+          >
+            Nenhum template
+          </div>
 
           {templatesMock.map((template) => (
-            <MenuItem key={template.id} value={template.id}>
+            <div
+              key={template.id}
+              className={`custom-template-item ${
+                value === template.id
+                  ? "custom-template-item--selected"
+                  : ""
+              }`}
+              onClick={() => handleSelect(template.id)}
+            >
               {template.nome}
-            </MenuItem>
+            </div>
           ))}
-        </Select>
-      </FormControl>
-    </Box>
+        </div>
+      )}
+    </div>
   );
 }
