@@ -1,9 +1,7 @@
-"use client";
-
-// React
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Componentes globais
+// Componentes
 import Navbar from "../componente/global/Navbar";
 import ClienteSelect from "../componente/filtrocliente";
 import InputFileUpload from "../componente/importar-contatos";
@@ -12,19 +10,18 @@ import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
+import InputNumber from "../componente/inputnumber";
 
 // Styles
 import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
 import "../styles/DropdownCategoria.css";
+import "../styles/MyButtonGlobal.css"
 
 // Toastify
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-/* ===============================
-   FUNÇÃO DE TEMPLATE
-================================ */
 function renderTemplate(
   template: string,
   variaveis: Record<string, string | number | undefined>
@@ -39,9 +36,10 @@ function renderTemplate(
   return resultado;
 }
 
-export default function EfetuarDisparo() {
-  // ✅ AGORA É STRING[]
-  const [clientesSelecionados, setClientesSelecionados] = useState<string[]>([]);
+export default function EfetuarDisparo({page}: {page: string}) {
+  const navigate = useNavigate();
+
+  const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
 
   const previewMessage = useMemo(() => {
@@ -65,24 +63,28 @@ export default function EfetuarDisparo() {
 
       <div className="ContainerConteudo">
         <div className="navigation">
-          <h1 className="pageTitle">Efetuar Disparo</h1>
+          <h1 className="pageTitle">{page === "disparo" ? "Efetuar Disparo" : "Cliente sem cadastro"}</h1>
 
-          <div className="buttons-navigation">
-          <button className="outline">Cliente sem cadastro</button>
-          <button className="outline">Historico</button>
-          </div>
+          {/* 🔹 BOTÃO QUE REDIRECIONA */}
+          <div><button className="outline" onClick={() => navigate("/efetuar-disparo-2")}>
+            Cliente sem cadastro
+          </button>
+          <button className="outline">Historico</button></div>
+          
         </div>
 
         <div className="box-wrapper">
-          {/* 🔹 INPUTS + PREVIEW */}
           <div className="teste">
-            <div className="boxInputs">
-              <ClienteSelect
-                onChangeClientes={setClientesSelecionados}
-              >
-                Buscar clientes no ERP
-              </ClienteSelect>
+            <div className="boxInputs" >
+              {page === "disparo" && (
+  <ClienteSelect onChangeClientes={setClientesSelecionados}>
+    Buscar clientes no ERP
+  </ClienteSelect>
+)}
 
+             
+              {page === "disparo-2" && <InputNumber/> }
+              
               <DropdownTemplate
                 onSelectTemplate={(template) => setTemplateSelecionado(template)}
               />
@@ -98,25 +100,23 @@ export default function EfetuarDisparo() {
 
           <ToastContainer />
 
-          {/* 🔹 PREVIEW MENSAGEM */}
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
 
-          {/* 🔹 UPLOAD */}
           <p className="UploadDescricao">
             Carregar arquivos TXT/CSV com números
           </p>
 
-          <div className="Box-Arquivo">
-            <InputFileUpload />
+          <div className="Box-Arquivo"> <InputFileUpload/>
+         
+            
           </div>
         </div>
 
-        {/* 🔹 BOTÕES */}
         <div className="MyButton">
-          <MyButtonAlert variant="success">Enviar</MyButtonAlert>
-          <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
+          <MyButtonAlert variant="success" text="Enviar" />
+          <MyButtonAlert variant="danger" text="Cancelar" />
         </div>
       </div>
     </div>
