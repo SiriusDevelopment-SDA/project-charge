@@ -1,45 +1,114 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsNumber, IsOptional, IsString } from "class-validator";
+import { ArrayMinSize, IsArray, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, ValidateNested } from "class-validator";
 
 export class SearchRequestDtoTemplates {
-    @ApiProperty({
-      description: 'Account é obrigatório, envie o id da account do sistema que está utilizando.',
-      example: '4',
-    })
-    @Type(() => Number)
-    @IsNumber()
-    account!: number
 
     @ApiProperty({
-        description: 'Para filtragens envie o nome do template',
-        example: 'aviso de comaparecimento',
+      description: 'Account é obrigatório, envie o id da account do sistema que está utilizando.',
+      example: 4,
+    })
+    @Type(() => Number)
+    @IsNumber({}, { message: 'O account deve ser um número' })
+    @IsNotEmpty({ message: 'O account é obrigatório' })
+    account!: number;
+  
+    @ApiProperty({
+      description: 'Para filtragens envie o nome do template',
+      example: 'aviso de comparecimento',
+      required: false,
     })
     @IsString()
     query?: string;
-
+  
     @ApiProperty({
-        description: 'Envie uma page para filtrar para uma pagina específica.',
-        example: '2',
+      description: 'Envie uma page para filtrar para uma pagina específica.',
+      example: 2,
+      required: false,
     })
     @Type(() => Number)
-    @IsNumber()
-    @IsOptional()
-    page?: number;
-
+    @IsInt({ message: 'A page deve ser um número inteiro' })
+    page!: number;
+  
     @ApiProperty({
-        description: 'Por questões de desempenho limitamos em 10 porêm pode ser enviado um novo limite a sua escolha.',
-        example: '8',
+      description: 'Por questões de desempenho limitamos em 10 porém pode ser enviado um novo limite.',
+      example: 8,
+      required: false,
     })
     @Type(() => Number)
-    @IsNumber()
-    @IsOptional()
-    limit?: number;
-
+    @IsInt({ message: 'O limit deve ser um número inteiro' })
+    limit!: number;
+  
     @ApiProperty({
-    description: "Envie 'DESC' ou 'ASC' para odenar uma ordem de listagem.",
-    example: 'DESC',
+      description: "Envie 'DESC' ou 'ASC' para ordenar a listagem.",
+      example: 'DESC',
+      required: false,
     })
+    @IsIn(['ASC', 'DESC'], { message: 'sortorder deve ser ASC ou DESC' })
+    sortorder?: 'ASC' | 'DESC';
+  }
+  
+export class TemplateParameterDto {
+    @ApiProperty({ example: 'text', required: false })
+    @IsString()
+    type!: string;
+  
+    @ApiProperty({ example: 'João', required: false })
     @IsOptional()
-    sortorder?: 'ASC' | 'DESC'
+    @IsString()
+    text?: string;
+  
+    [key: string]: any;
 }
+  
+export class TemplateComponentDto {
+    @ApiProperty({ example: 'body', required: false })
+    @IsString()
+    type!: string;
+  
+    @ApiProperty({ type: [TemplateParameterDto], required: false })
+    @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => TemplateParameterDto)
+    parameters!: TemplateParameterDto[];
+}
+  
+export class SendTemplateDto {
+    @ApiProperty({
+      description: 'ID do template',
+      example: '123e4567-e89b-12d3-a456-426614174000',
+    })
+    @IsUUID('4', { message: 'templateId deve ser um UUID válido' })
+    templateId!: string;
+  
+    @ApiProperty({
+      description: 'ID da account do sistema',
+      example: 4,
+    })
+    @IsNumber({}, { message: 'account deve ser um número' })
+    @Type(() => Number)
+    account!: number;
+  
+    @ApiProperty({
+      description: 'Número de destino',
+      example: '5511999999999',
+    })
+    @IsString()
+    @Matches(/^\d{10,15}$/, {
+      message: 'Número inválido, envie no formato DDI + número',
+    })
+    to!: string;
+  
+    @ApiProperty({
+      description: 'Componentes do template',
+      type: [TemplateComponentDto],
+      required: false
+    })
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => TemplateComponentDto)
+    components!: TemplateComponentDto[];
+  }
+  
+

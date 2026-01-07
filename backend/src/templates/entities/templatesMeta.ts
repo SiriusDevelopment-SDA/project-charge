@@ -6,7 +6,6 @@ import {
     JoinColumn,
     UpdateDateColumn,
     ManyToOne,
-    PrimaryColumn,
     PrimaryGeneratedColumn
   } from 'typeorm';
 import { Company } from '../../companies/entities/companies';
@@ -25,7 +24,7 @@ import { Company } from '../../companies/entities/companies';
 
     @Column()
     message!: string;
-
+    
     @Column({ default: 'Categoria indefinida' })
     category!: string;
 
@@ -44,4 +43,10 @@ import { Company } from '../../companies/entities/companies';
       referencedColumnName: 'id',
     })
     company!: Company;
+
+    @Column({
+      type: 'jsonb',
+      default: () => "'{}'",
+    })
+    variables!: Record<string, any>;
   }

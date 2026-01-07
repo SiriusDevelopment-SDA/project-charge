@@ -4,14 +4,19 @@ import {
   Post,
 } from '@nestjs/common';
 import { AppServiceTemplate } from './app.service.templates';
-import { SearchRequestDtoTemplates } from './dto/search.request.dto.templates';
+import { SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
 
 @Controller()
 export class ControllerTemplates {
   constructor(private readonly appService: AppServiceTemplate) {}
 
-  @Post('buscar/templates')
+  @Post('search/templates')
   getTemplates(@Body() searchDto: SearchRequestDtoTemplates) {
     return this.appService.getTemplates(searchDto);
+  }
+
+  @Post('send/template')
+  sendTemplate(@Body() sendTemplateDto: SendTemplateDto) {
+    return this.appService.sendTemplate(sendTemplateDto);
   }
 }
