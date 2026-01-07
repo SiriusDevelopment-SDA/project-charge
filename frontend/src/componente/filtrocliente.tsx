@@ -95,8 +95,10 @@ export default function ClienteSelect({
         !containerRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
+        setSearch("");
       }
     };
+
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -121,6 +123,7 @@ export default function ClienteSelect({
     e.stopPropagation();
     setSelected([]);
     onChangeClientes([]);
+    setSearch("");
   };
 
   const filtered = clientesMock.filter((c) =>
@@ -133,10 +136,21 @@ export default function ClienteSelect({
 
       <div
         className={`cliente-input ${open ? "active" : ""}`}
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen(true)}
       >
         <div className="cliente-chips">
-          {selected.length === 0 && (
+
+          {/* 🔹 MODO RECOLHIDO (RESUMO) */}
+          {!open && selected.length > 0 && (
+            <span className="summary">
+              {selected.length === 1
+                ? selected[0]
+                : `${selected[0]} + ${selected.length - 1} clientes`}
+            </span>
+          )}
+
+          {/* 🔹 PLACEHOLDER */}
+          {!open && selected.length === 0 && (
             <span className="placeholder">Selecione os clientes</span>
           )}
 
