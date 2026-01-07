@@ -1,25 +1,23 @@
-// src/components/ClienteSelect.tsx
 "use client";
 
-import React, { useState, type ReactNode } from "react";
-import { Autocomplete, Checkbox, Chip, TextField } from "@mui/material";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import "../styles/filtrocliente.css";
 
-/* ✅ PROPS CORRETAS */
 type PropsSelect = {
   children: ReactNode | string;
   className?: string;
-  onChangeClientes: (nomes: string[]) => void; 
+  onChangeClientes: (nomes: string[]) => void;
 };
 
-const ClienteSelect = ({
+export default function ClienteSelect({
   children,
   className,
   onChangeClientes,
-  
-  
-}: PropsSelect) => {
-  const [selectedClientes, setSelectedClientes] = useState<string[]>([]);
+}: PropsSelect) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const clientes = [
     "João Vitor",
@@ -45,48 +43,116 @@ const ClienteSelect = ({
     "Isabela Moreira",
   ];
 
-  /* 🔥 AQUI ESTAVA O PROBLEMA */
-  const handleChange = (_event: any, newValue: string[]) => {
-    setSelectedClientes(newValue);
-    onChangeClientes(newValue); // 👈 AVISA O PAI
+  /* Fecha ao clicar fora */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggleCliente = (nome: string) => {
+    const updated = selected.includes(nome)
+      ? selected.filter((c) => c !== nome)
+      : [...selected, nome];
+
+    setSelected(updated);
+    onChangeClientes(updated);
   };
 
+  const clearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelected([]);
+    onChangeClientes([]);
+  };
+
+  const filtered = clientes.filter((c) =>
+    c.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="dropdown-controlT dropdown-control2">
-      <Autocomplete
-        multiple
-        id="cliente-select"
-        options={clientes}
-        value={selectedClientes}
-        onChange={handleChange}
-        disableCloseOnSelect
-        getOptionLabel={(option) => option}
-        renderOption={(props, option, { selected }) => (
-          <li {...props}>
-            <Checkbox checked={selected} />
-            {option}
-          </li>
-        )}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label={children}
-            className={className}
-            placeholder="Selecione os clientes"
+    <div
+      ref={containerRef}
+      className={`cliente-select ${className || ""}`}
+    >
+      {/* LABEL */}
+      <label className="cliente-label">{children}</label>
+
+      {/* INPUT */}
+      <div
+        className={`cliente-input ${open ? "active" : ""}`}
+        onClick={() => setOpen(!open)}
+      >
+        <div className="cliente-chips">
+          {selected.length === 0 && (
+            <span className="placeholder">Selecione os clientes</span>
+          )}
+
+          {selected.map((nome) => (
+            <span key={nome} className="chip">
+              {nome}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCliente(nome);
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+
+        <div className="actions">
+          {selected.length > 0 && (
+            <button
+              className="clear-all"
+              onClick={clearAll}
+              aria-label="Limpar seleção"
+            >
+              ×
+            </button>
+          )}
+
+          {/* SETA CUSTOM */}
+          <span className={`arrow ${open ? "open" : ""}`} />
+        </div>
+      </div>
+
+      {/* DROPDOWN */}
+      {open && (
+        <div className="cliente-dropdown">
+          <input
+            className="cliente-search"
+            placeholder="Buscar cliente..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-        )}
-        renderTags={(value, getTagProps) =>
-          value.map((option: string, index: number) => (
-            <Chip
-              label={option}
-              {...getTagProps({ index })}
-              key={option}
-            />
-          ))
-        }
-      />
+
+          <ul>
+            {filtered.map((nome) => (
+              <li key={nome} onClick={() => toggleCliente(nome)}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(nome)}
+                  readOnly
+                />
+                <span>{nome}</span>
+              </li>
+            ))}
+
+            {filtered.length === 0 && (
+              <li className="empty">Nenhum cliente encontrado</li>
+            )}
+          </ul>
+        </div>
+      )}
     </div>
   );
-};
-
-export default ClienteSelect;
+}

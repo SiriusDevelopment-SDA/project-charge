@@ -1,31 +1,27 @@
-"use client";
-
-// React
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Componentes globais
+// Componentes
 import Navbar from "../componente/global/Navbar";
 import ClienteSelect from "../componente/filtrocliente";
 import InputFileUpload from "../componente/importar-contatos";
-import InputNumber from "../componente/inputnumber";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
-import VariablesPreview from "../componente/VariablesPreview";
+import ClientsSelectedCard from "../componente/ClientsSelectedCard";
+import InputNumber from "../componente/inputnumber";
 
 // Styles
 import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
 import "../styles/DropdownCategoria.css";
+import "../styles/MyButtonGlobal.css"
 
 // Toastify
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-/* ===============================
-   FUNÇÃO DE TEMPLATE
-================================ */
 function renderTemplate(
   template: string,
   variaveis: Record<string, string | number | undefined>
@@ -40,7 +36,9 @@ function renderTemplate(
   return resultado;
 }
 
-export default function EfetuarDisparo() {
+export default function EfetuarDisparo({page}: {page: string}) {
+  const navigate = useNavigate();
+
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
 
@@ -51,13 +49,11 @@ export default function EfetuarDisparo() {
     if (clientesSelecionados.length === 0)
       return "Selecione ao menos um cliente para visualizar a mensagem";
 
-    const cliente = clientesSelecionados[0];
+    // 👇 agora é só o nome
+    const nomeCliente = clientesSelecionados[0];
 
     return renderTemplate(templateSelecionado.conteudo, {
-      nome: cliente.nome,
-      valor: cliente.valor?.toFixed(2),
-      fatura: cliente.fatura,
-      data: cliente.data,
+      nome: nomeCliente,
     });
   }, [clientesSelecionados, templateSelecionado]);
 
@@ -66,63 +62,61 @@ export default function EfetuarDisparo() {
       <Navbar />
 
       <div className="ContainerConteudo">
-        <h1 className="pageTitle">Efetuar Disparo</h1>
+        <div className="navigation">
+          <h1 className="pageTitle">{page === "disparo" ? "Efetuar Disparo" : "Cliente sem cadastro"}</h1>
+
+          {/* 🔹 BOTÃO QUE REDIRECIONA */}
+          <div><button className="outline" onClick={() => navigate("/efetuar-disparo-2")}>
+            Cliente sem cadastro
+          </button>
+          <button className="outline">Historico</button></div>
+          
+        </div>
 
         <div className="box-wrapper">
-          {/* 🔹 INPUTS + PREVIEW */}
           <div className="teste">
-            <div className="boxInputs">
-              <ClienteSelect
-                className="ClienteSelectInput"
-                onChangeClientes={(nomes) => {
-                  const clientes = nomes.map((nome: string) => ({
-                    nome,
-                    valor: 99.9,
-                    fatura: "FT-0000",
-                    data: "31/12/2025",
-                  }));
-                  setClientesSelecionados(clientes);
-                }}
-              >
-                Buscar clientes no ERP
-              </ClienteSelect>
+            <div className="boxInputs" >
+              {page === "disparo" && (
+  <ClienteSelect onChangeClientes={setClientesSelecionados}>
+    Buscar clientes no ERP
+  </ClienteSelect>
+)}
 
-              <InputNumber />
-
+             
+              {page === "disparo-2" && <InputNumber/> }
+              
               <DropdownTemplate
-                onSelectTemplate={(template: any) =>
-                  setTemplateSelecionado(template)
-                }
+                onSelectTemplate={(template) => setTemplateSelecionado(template)}
               />
+
+
 
               <DropdownCategoria />
             </div>
 
-            <div className="VariablesPreviewBox">
-              <VariablesPreview />
-            </div>
+            {/* CARD DE CONTADOR */}
+            <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />
 
-          {/* 🔹 PREVIEW MENSAGEM */}
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
-          {/* 🔹 PREVIEW */}
 
-          {/* 🔹 UPLOAD */}
+          <p className="UploadDescricao">
+            Carregar arquivos TXT/CSV com números
+          </p>
 
-<p className="UploadDescricao">Carregar arquivos TXT/CSV com números</p>
-<div className="Box-Arquivo">
-  <InputFileUpload/>
-</div>
+          <div className="Box-Arquivo"> <InputFileUpload/>
+         
+            
+          </div>
         </div>
 
-        {/* 🔹 BOTÕES */}
         <div className="MyButton">
-          <MyButtonAlert variant="success">Enviar</MyButtonAlert>
-          <MyButtonAlert variant="danger">Cancelar</MyButtonAlert>
+          <MyButtonAlert variant="success" text="Enviar" />
+          <MyButtonAlert variant="danger" text="Cancelar" />
         </div>
       </div>
     </div>

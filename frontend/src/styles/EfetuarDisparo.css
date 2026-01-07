@@ -50,6 +50,41 @@ body {
   margin-right: 80px;
 }
 
+
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: transparent;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.buttons-navigation {
+  display: flex;
+  gap: 6px;
+}
+
+
+.navigation button {
+  background: transparent;
+  border: 2px solid #f4c400;
+  color: #f4c400;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease; 
+  margin-left: 10px;
+}
+
+.navigation button:hover {
+  background-color: #f4c400;
+  color: #000000;
+}
+
+
+
 /* =========================
    BORDAS / BOX
 ========================= */
@@ -66,7 +101,11 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 32px;
+  justify-content: center;
+
+  margin: 20px 0;
 }
+
 
 .boxInputs {
   width: 50%;
@@ -76,6 +115,7 @@ body {
   flex-direction: column;
   gap: 16px;
   height: fit-content;
+  
 }
 
 
