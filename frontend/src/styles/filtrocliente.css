@@ -169,3 +169,14 @@
   text-align: center;
   opacity: 0.6;
 }
+
+.toastify__toast--success {
+  background: #0f0f0f;
+  border-left: 6px solid #22c55e;
+  color: #ffffff;
+}
+
+.toastify__progress-bar--success {
+  background: #c52222;
+}
+

@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 // Componentes
 import Navbar from "../componente/global/Navbar";
@@ -16,12 +15,15 @@ import InputNumber from "../componente/inputnumber";
 import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
 import "../styles/DropdownCategoria.css";
-import "../styles/MyButtonGlobal.css"
+import "../styles/MyButtonGlobal.css";
 
 // Toastify
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+/* ======================================================
+   Função para renderizar template
+====================================================== */
 function renderTemplate(
   template: string,
   variaveis: Record<string, string | number | undefined>
@@ -36,70 +38,104 @@ function renderTemplate(
   return resultado;
 }
 
-export default function EfetuarDisparo({page}: {page: string}) {
-  const navigate = useNavigate();
+/* ======================================================
+   Página
+====================================================== */
+export default function EfetuarDisparo() {
+  // 🔥 controla o modo da tela
+  const [modoCliente, setModoCliente] = useState<"com" | "sem">("com");
 
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
 
+  /* ======================================================
+     Preview da mensagem
+  ====================================================== */
   const previewMessage = useMemo(() => {
     if (!templateSelecionado?.conteudo)
       return "Selecione um template para visualizar a mensagem";
 
-    if (clientesSelecionados.length === 0)
+    if (modoCliente === "com" && clientesSelecionados.length === 0)
       return "Selecione ao menos um cliente para visualizar a mensagem";
 
-    // 👇 agora é só o nome
-    const nomeCliente = clientesSelecionados[0];
+    const nomeCliente =
+      modoCliente === "com" ? clientesSelecionados[0] : "Cliente";
 
     return renderTemplate(templateSelecionado.conteudo, {
       nome: nomeCliente,
     });
-  }, [clientesSelecionados, templateSelecionado]);
+  }, [clientesSelecionados, templateSelecionado, modoCliente]);
+
+  /* ======================================================
+     Toggle Cliente com / sem cadastro
+  ====================================================== */
+  function toggleModoCliente() {
+    setModoCliente((prev) => (prev === "com" ? "sem" : "com"));
+    setClientesSelecionados([]); // 🔥 reseta seleção ao trocar
+  }
 
   return (
     <div>
       <Navbar />
 
       <div className="ContainerConteudo">
+        {/* ======================================================
+            TOPO / NAVEGAÇÃO
+        ====================================================== */}
         <div className="navigation">
-          <h1 className="pageTitle">{page === "disparo" ? "Efetuar Disparo" : "Cliente sem cadastro"}</h1>
+          <h1 className="pageTitle">
+            {modoCliente === "com"
+              ? "Efetuar Disparo"
+              : "Cliente sem cadastro"}
+          </h1>
 
-          {/* 🔹 BOTÃO QUE REDIRECIONA */}
-          <div><button className="outline" onClick={() => navigate("/efetuar-disparo-2")}>
-            Cliente sem cadastro
-          </button>
-          <button className="outline">Historico</button></div>
-          
+          <div className="buttons-navigation">
+            <button className="outline" onClick={toggleModoCliente}>
+              {modoCliente === "com"
+                ? "Cliente sem cadastro"
+                : "Cliente com cadastro"}
+            </button>
+
+            <button className="outline">Histórico</button>
+          </div>
         </div>
 
+        {/* ======================================================
+            CONTEÚDO
+        ====================================================== */}
         <div className="box-wrapper">
           <div className="teste">
-            <div className="boxInputs" >
-              {page === "disparo" && (
-  <ClienteSelect onChangeClientes={setClientesSelecionados}>
-    Buscar clientes no ERP
-  </ClienteSelect>
-)}
+            <div className="boxInputs">
+              {/* CLIENTE COM CADASTRO */}
+              {modoCliente === "com" && (
+                <ClienteSelect onChangeClientes={setClientesSelecionados}>
+                  Buscar clientes no ERP
+                </ClienteSelect>
+              )}
 
-             
-              {page === "disparo-2" && <InputNumber/> }
-              
+              {/* CLIENTE SEM CADASTRO */}
+              {modoCliente === "sem" && (
+                <div className="InputNumber">
+                  <InputNumber />
+                </div>
+              )}
+
               <DropdownTemplate
-                onSelectTemplate={(template) => setTemplateSelecionado(template)}
+                onSelectTemplate={(template) =>
+                  setTemplateSelecionado(template)
+                }
               />
-
-
 
               <DropdownCategoria />
             </div>
 
-            {/* CARD DE CONTADOR */}
+            {/* CONTADOR */}
             <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />
 
+          {/* PREVIEW */}
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
@@ -108,12 +144,14 @@ export default function EfetuarDisparo({page}: {page: string}) {
             Carregar arquivos TXT/CSV com números
           </p>
 
-          <div className="Box-Arquivo"> <InputFileUpload/>
-         
-            
+          <div className="Box-Arquivo">
+            <InputFileUpload />
           </div>
         </div>
 
+        {/* ======================================================
+            BOTÕES
+        ====================================================== */}
         <div className="MyButton">
           <MyButtonAlert variant="success" text="Enviar" />
           <MyButtonAlert variant="danger" text="Cancelar" />
