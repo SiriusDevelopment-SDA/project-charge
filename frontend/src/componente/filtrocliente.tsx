@@ -43,7 +43,7 @@ export default function ClienteSelect({
     "Isabela Moreira",
   ];
 
-  /* Fecha ao clicar fora */
+  /* 🔽 Fecha SOMENTE ao clicar fora */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -51,8 +51,10 @@ export default function ClienteSelect({
         !containerRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
+        setSearch("");
       }
     };
+
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -70,6 +72,7 @@ export default function ClienteSelect({
     e.stopPropagation();
     setSelected([]);
     onChangeClientes([]);
+    setSearch("");
   };
 
   const filtered = clientes.filter((c) =>
@@ -84,33 +87,46 @@ export default function ClienteSelect({
       {/* LABEL */}
       <label className="cliente-label">{children}</label>
 
-      {/* INPUT */}
+      {/* INPUT / RESUMO */}
       <div
         className={`cliente-input ${open ? "active" : ""}`}
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen(true)}
       >
         <div className="cliente-chips">
-          {selected.length === 0 && (
+
+          {/* 🔹 MODO RECOLHIDO (RESUMO) */}
+          {!open && selected.length > 0 && (
+            <span className="summary">
+              {selected.length === 1
+                ? selected[0]
+                : `${selected[0]} + ${selected.length - 1} clientes`}
+            </span>
+          )}
+
+          {/* 🔹 PLACEHOLDER */}
+          {!open && selected.length === 0 && (
             <span className="placeholder">Selecione os clientes</span>
           )}
 
-          {selected.map((nome) => (
-            <span key={nome} className="chip">
-              {nome}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleCliente(nome);
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+          {/* 🔹 MODO ABERTO (EDIÇÃO) */}
+          {open &&
+            selected.map((nome) => (
+              <span key={nome} className="chip">
+                {nome}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleCliente(nome);
+                  }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
         </div>
 
         <div className="actions">
-          {selected.length > 0 && (
+          {open && selected.length > 0 && (
             <button
               className="clear-all"
               onClick={clearAll}
@@ -120,7 +136,6 @@ export default function ClienteSelect({
             </button>
           )}
 
-          {/* SETA CUSTOM */}
           <span className={`arrow ${open ? "open" : ""}`} />
         </div>
       </div>
@@ -137,7 +152,10 @@ export default function ClienteSelect({
 
           <ul>
             {filtered.map((nome) => (
-              <li key={nome} onClick={() => toggleCliente(nome)}>
+              <li
+                key={nome}
+                onClick={() => toggleCliente(nome)}
+              >
                 <input
                   type="checkbox"
                   checked={selected.includes(nome)}

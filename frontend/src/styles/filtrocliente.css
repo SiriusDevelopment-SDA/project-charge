@@ -169,3 +169,14 @@
   text-align: center;
   opacity: 0.6;
 }
+
+.summary {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
