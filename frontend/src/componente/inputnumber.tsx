@@ -44,7 +44,7 @@ export default function InputNumber() {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           name="whatsapp"
-          placeholder="Digite o número do WhatsApp do cliente"
+          placeholder="Digite o WhatsApp do cliente"
           inputComponent={TextMaskCustom as any}
           disableUnderline
           startAdornment={

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 
 // Componentes
 import Navbar from "../componente/global/Navbar";
@@ -18,11 +19,11 @@ import "../styles/DropdownCategoria.css";
 import "../styles/MyButtonGlobal.css";
 
 // Toastify
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 /* ======================================================
-   Função para renderizar template
+   Utilitário
 ====================================================== */
 function renderTemplate(
   template: string,
@@ -42,15 +43,12 @@ function renderTemplate(
    Página
 ====================================================== */
 export default function EfetuarDisparo() {
-  // 🔥 controla o modo da tela
   const [modoCliente, setModoCliente] = useState<"com" | "sem">("com");
-
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
+  const [resetKey, setResetKey] = useState(0);
 
-  /* ======================================================
-     Preview da mensagem
-  ====================================================== */
+  /* ================= PREVIEW ================= */
   const previewMessage = useMemo(() => {
     if (!templateSelecionado?.conteudo)
       return "Selecione um template para visualizar a mensagem";
@@ -66,27 +64,66 @@ export default function EfetuarDisparo() {
     });
   }, [clientesSelecionados, templateSelecionado, modoCliente]);
 
-  /* ======================================================
-     Toggle Cliente com / sem cadastro
-  ====================================================== */
+  /* ================= AÇÕES ================= */
   function toggleModoCliente() {
     setModoCliente((prev) => (prev === "com" ? "sem" : "com"));
-    setClientesSelecionados([]); // 🔥 reseta seleção ao trocar
+    setClientesSelecionados([]);
+    setTemplateSelecionado(null);
+    setResetKey((k) => k + 1);
   }
 
+  function handleCancelar() {
+    setClientesSelecionados([]);
+    setTemplateSelecionado(null);
+    setResetKey((k) => k + 1);
+
+    toast.info("Formulário limpo!", {
+      theme: "dark",
+      autoClose: 2500,
+    });
+  }
+
+  /* ================= DOWNLOAD XLSX ================= */
+  function handleDownloadModelo() {
+    const TOTAL_LINHAS = 500;
+
+    const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
+      nome: "",
+      telefone: 0,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows, {
+      header: ["nome", "telefone"],
+    });
+
+    ws["!cols"] = [{ wch: 35 }, { wch: 20 }];
+
+    for (let r = 2; r <= TOTAL_LINHAS + 1; r++) {
+      const addr = `B${r}`;
+      if (!ws[addr]) continue;
+
+      ws[addr].t = "n";
+      ws[addr].v = 0;
+      ws[addr].z = "(##) #####-####;;;";
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Contatos");
+
+    XLSX.writeFile(wb, "modelo_contatos.xlsx");
+  }
+
+  /* ================= JSX ================= */
   return (
     <div>
       <Navbar />
 
       <div className="ContainerConteudo">
-        {/* ======================================================
-            TOPO / NAVEGAÇÃO
-        ====================================================== */}
         <div className="navigation">
           <h1 className="pageTitle">
             {modoCliente === "com"
-              ? "Efetuar Disparo"
-              : "Cliente sem cadastro"}
+              ? "Disparo clientes ativos"
+              : "Disparo novos clientes"}
           </h1>
 
           <div className="buttons-navigation">
@@ -100,61 +137,63 @@ export default function EfetuarDisparo() {
           </div>
         </div>
 
-        {/* ======================================================
-            CONTEÚDO
-        ====================================================== */}
         <div className="box-wrapper">
-          <div className="teste">
-            <div className="boxInputs">
-              {/* CLIENTE COM CADASTRO */}
-              {modoCliente === "com" && (
-                <ClienteSelect onChangeClientes={setClientesSelecionados}>
-                  Buscar clientes no ERP
-                </ClienteSelect>
-              )}
+          <div className="top-row">
+            <div className="inputs-column">
+              <div className="boxInputs">
+                {modoCliente === "com" && (
+                  <ClienteSelect
+                    key={`cliente-${resetKey}`}
+                    onChangeClientes={setClientesSelecionados}
+                  >
+                    Buscar clientes no ERP
+                  </ClienteSelect>
+                )}
 
-              {/* CLIENTE SEM CADASTRO */}
-              {modoCliente === "sem" && (
-                <div className="InputNumber">
-                  <InputNumber />
-                </div>
-              )}
+                {modoCliente === "sem" && (
+                  <InputNumber key={`number-${resetKey}`} />
+                )}
 
-              <DropdownTemplate
-                onSelectTemplate={(template) =>
-                  setTemplateSelecionado(template)
-                }
-              />
+                <DropdownTemplate
+                  key={`template-${resetKey}`}
+                  onSelectTemplate={setTemplateSelecionado}
+                />
 
-              <DropdownCategoria />
+                <DropdownCategoria key={`categoria-${resetKey}`} />
+              </div>
             </div>
 
-            {/* CONTADOR */}
             <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />
 
-          {/* PREVIEW */}
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
 
-          <p className="UploadDescricao">
-            Carregar arquivos TXT/CSV com números
-          </p>
+          <p className="UploadDescricao">Carregar arquivos .XLSX</p>
 
           <div className="Box-Arquivo">
-            <InputFileUpload />
+            <InputFileUpload key={`upload-${resetKey}`} />
+
+            <div className="download-wrapper">
+              <MyButtonAlert
+                variant="secondary"
+                text="Baixar modelo XLSX"
+                onClick={handleDownloadModelo}
+              />
+            </div>
           </div>
         </div>
 
-        {/* ======================================================
-            BOTÕES
-        ====================================================== */}
         <div className="MyButton">
           <MyButtonAlert variant="success" text="Enviar" />
-          <MyButtonAlert variant="danger" text="Cancelar" />
+          <MyButtonAlert
+            variant="danger"
+            text="Cancelar"
+            onClick={handleCancelar}
+          />
         </div>
       </div>
     </div>
