@@ -10,11 +10,13 @@ import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
+import InputNumber from "../componente/inputnumber";
 
 // Styles
 import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
 import "../styles/DropdownCategoria.css";
+import "../styles/MyButtonGlobal.css"
 
 // Toastify
 import { ToastContainer } from "react-toastify";
@@ -61,26 +63,28 @@ export default function EfetuarDisparo({page}: {page: string}) {
 
       <div className="ContainerConteudo">
         <div className="navigation">
-          <h1 className="pageTitle">{page === "disparo" ? "Efetuar Disparo" : "Efetuar Disparo 2"}</h1>
+          <h1 className="pageTitle">{page === "disparo" ? "Efetuar Disparo" : "Cliente sem cadastro"}</h1>
 
           {/* 🔹 BOTÃO QUE REDIRECIONA */}
-          <button
-            className="outline"
-            onClick={() => navigate("/efetuar-disparo-2")}
-          >
+          <div><button className="outline" onClick={() => navigate("/efetuar-disparo-2")}>
             Cliente sem cadastro
           </button>
+          <button className="outline">Historico</button></div>
+          
         </div>
 
         <div className="box-wrapper">
           <div className="teste">
-            <div className="boxInputs">
-              <ClienteSelect
-                onChangeClientes={setClientesSelecionados}
-              >
-                Buscar clientes no ERP
-              </ClienteSelect>
+            <div className="boxInputs" >
+              {page === "disparo" && (
+  <ClienteSelect onChangeClientes={setClientesSelecionados}>
+    Buscar clientes no ERP
+  </ClienteSelect>
+)}
 
+             
+              {page === "disparo-2" && <InputNumber/> }
+              
               <DropdownTemplate
                 onSelectTemplate={(template) => setTemplateSelecionado(template)}
               />
@@ -88,9 +92,10 @@ export default function EfetuarDisparo({page}: {page: string}) {
 
 
               <DropdownCategoria />
-            </div >
+            </div>
 
-            <ClientsSelectedCard total={clientesSelecionados.length } />
+            {/* CARD DE CONTADOR */}
+            <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />
@@ -103,7 +108,7 @@ export default function EfetuarDisparo({page}: {page: string}) {
             Carregar arquivos TXT/CSV com números
           </p>
 
-          <div className="Box-Arquivo"> {page === "disparo" && <InputFileUpload/>}
+          <div className="Box-Arquivo"> <InputFileUpload/>
          
             
           </div>

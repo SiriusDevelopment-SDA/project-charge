@@ -36,8 +36,9 @@
   background: linear-gradient(to bottom, #666, #444);
 }
 
-.outline {
+.outline1 {
   background: transparent;
   border: 2px solid #aaa;
   color: #aaa;
 }
+
