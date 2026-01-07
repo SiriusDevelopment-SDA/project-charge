@@ -36,7 +36,7 @@ function renderTemplate(
   return resultado;
 }
 
-export default function EfetuarDisparo({page}: {page: string}) {
+export default function EfetuarDisparo({ page }: { page: string }) {
   const navigate = useNavigate();
 
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
@@ -69,22 +69,28 @@ export default function EfetuarDisparo({page}: {page: string}) {
           <div><button className="outline" onClick={() => navigate("/efetuar-disparo-2")}>
             Cliente sem cadastro
           </button>
-          <button className="outline">Historico</button></div>
-          
+            <button
+              className="outline"
+              onClick={() => navigate("/historicodisparo")}
+            >
+              Historico
+            </button>
+          </div>
+
         </div>
 
         <div className="box-wrapper">
           <div className="teste">
             <div className="boxInputs" >
               {page === "disparo" && (
-  <ClienteSelect onChangeClientes={setClientesSelecionados}>
-    Buscar clientes no ERP
-  </ClienteSelect>
-)}
+                <ClienteSelect onChangeClientes={setClientesSelecionados}>
+                  Buscar clientes no ERP
+                </ClienteSelect>
+              )}
 
-             
-              {page === "disparo-2" && <InputNumber/> }
-              
+
+              {page === "disparo-2" && <InputNumber />}
+
               <DropdownTemplate
                 onSelectTemplate={(template) => setTemplateSelecionado(template)}
               />
@@ -108,9 +114,9 @@ export default function EfetuarDisparo({page}: {page: string}) {
             Carregar arquivos TXT/CSV com números
           </p>
 
-          <div className="Box-Arquivo"> <InputFileUpload/>
-         
-            
+          <div className="Box-Arquivo"> <InputFileUpload />
+
+
           </div>
         </div>
 
