@@ -66,9 +66,10 @@ export default function EfetuarDisparo({ page }: { page: string }) {
           <h1 className="pageTitle">{page === "disparo" ? "Efetuar Disparo" : "Cliente sem cadastro"}</h1>
 
           {/* 🔹 BOTÃO QUE REDIRECIONA */}
-          <div><button className="outline" onClick={() => navigate("/efetuar-disparo-2")}>
+          <div>
+            <button className="outline" onClick={() => navigate("/efetuar-disparo-2")}>
             Cliente sem cadastro
-          </button>
+            </button>
             <button
               className="outline"
               onClick={() => navigate("/historicodisparo")}

@@ -263,52 +263,88 @@ export default function AdvancedFilterDemo() {
   return (
     <div className="card">
       <DataTable
-        value={disparos}
-        loading={loading}
-        paginator
-        rows={10}
-        dataKey="id"
-        filters={filters}
-        filterDisplay="menu"
-        globalFilterFields={[
-          "cliente",
-          "numero",
-          "campanha",
-          "template",
-          "status",
-          "resposta",
-        ]}
-        header={header}
-        showGridlines
-        emptyMessage="Nenhum registro encontrado"
-      >
-        <Column field="cliente" header="Cliente" filter />
-        <Column field="numero" header="Número" filter />
-        <Column field="campanha" header="Campanha" filter />
+  value={disparos}
+  loading={loading}
+  paginator
+  rows={10}
+  dataKey="id"
+  filters={filters}
+  filterDisplay="menu"
+  globalFilterFields={[
+    "cliente",
+    "numero",
+    "campanha",
+    "template",
+    "status",
+    "resposta",
+  ]}
+  header={header}
+  showGridlines
+  emptyMessage="Nenhum registro encontrado"
+>
+  <Column
+    field="cliente"
+    header="Cliente"
+    filter
+    bodyClassName="text-center"
+    headerClassName="text-center"
+  />
 
-        {/* ✅ AGORA O FUNIL APARECE */}
-        <Column
-          field="dataHora"
-          header="Data/Hora"
-          dataType="date"
-          body={(row) => row.dataHora.toLocaleString("pt-BR")}
-          filter
-          filterElement={dateFilterTemplate}
-        />
+  <Column
+    field="numero"
+    header="Número"
+    filter
+    bodyClassName="text-center"
+    headerClassName="text-center"
+  />
 
-        <Column field="template" header="Template" filter />
+  <Column
+    field="campanha"
+    header="Campanha"
+    filter
+    bodyClassName="text-center"
+    headerClassName="text-center"
+  />
 
-        <Column
-          field="status"
-          header="Status"
-          body={(row) => (
-            <Tag value={row.status} severity={statusSeverity(row.status)} />
-          )}
-          filter
-        />
+  <Column
+    field="dataHora"
+    header="Data/Hora"
+    dataType="date"
+    body={(row) => row.dataHora.toLocaleString("pt-BR")}
+    filter
+    filterElement={dateFilterTemplate}
+    bodyClassName="text-center"
+    headerClassName="text-center"
+  />
 
-        <Column field="resposta" header="Resposta" filter />
-      </DataTable>
+  <Column
+    field="template"
+    header="Template"
+    filter
+    bodyClassName="text-center"
+    headerClassName="text-center"
+  />
+
+  <Column
+    field="status"
+    header="Status"
+    body={(row) => (
+      <Tag value={row.status} severity={statusSeverity(row.status)} />
+    )}
+    filter
+    bodyClassName="text-center"
+    headerClassName="text-center"
+  />
+
+  <Column
+    field="resposta"
+    header="Resposta"
+    filter
+    bodyClassName="text-center"
+    headerClassName="text-center"
+  />
+</DataTable>
+
     </div>
   );
 }

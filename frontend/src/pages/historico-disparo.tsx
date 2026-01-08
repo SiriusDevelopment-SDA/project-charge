@@ -1,27 +1,54 @@
+import { useNavigate } from "react-router-dom";
 
+// componentes
 import Navbar from "../componente/global/Navbar";
-// import DataTable from "../componente/DataTable";
 import DateTabela from "../componente/DateTabela";
 
 // style
-// import "../styles/HistoricoDIsparos.module.css";
+import "../styles/HistoricoDisparos.module.css";
+import "../styles/MyButtonGlobal.css";
 
 // PrimeReact styles
-import 'primereact/resources/themes/lara-dark-indigo/theme.css';
-import 'primereact/resources/primereact.min.css';
-import 'primeicons/primeicons.css';
-import 'primeflex/primeflex.css';
+import "primereact/resources/themes/lara-dark-indigo/theme.css";
+import "primereact/resources/primereact.min.css";
+import "primeicons/primeicons.css";
+import "primeflex/primeflex.css";
 
 function HistoricoDisparoPage() {
-  return <div>
-    <Navbar />
-    <h1 className="pageTitle">Histórico de Disparos</h1>
-    {/* <DataTable /> */}
-    <div style={{ padding: '2rem' }}>
+  const navigate = useNavigate();
+  return (
+    <div>
+      <Navbar />
+      <div className="ContainerConteudo">
 
-    <DateTabela />
+        {/* 🔹 BOTÃO QUE REDIRECIONA */}
+        <div className="navigation">  
+          <h1 className="pageTitle">Histórico de Disparos</h1>
+          <div>
+            <button
+              className="outline"
+              onClick={() => navigate("/efetuar-disparo-2")}
+            >
+              Cliente sem cadastro
+            </button>
+            <button
+              className="outline"
+              onClick={() => navigate("/historicodisparo")}
+            >
+              Historico
+            </button>
+          </div>
+        </div>
+
+        <div className="box-wrapper">
+        {/* <DataTable /> */}
+        <div style={{ padding: "2rem" }}>
+          <DateTabela />
+        </div>
+        </div>
+      </div>
     </div>
-  </div>;
+  );
 }
 
 export default HistoricoDisparoPage;
