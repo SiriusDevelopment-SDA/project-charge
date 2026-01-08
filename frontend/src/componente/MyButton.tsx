@@ -9,24 +9,26 @@ interface MyButtonAlertProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "success" | "danger" | "secondary" | "outline";
   text: string;
+  acao?: string;
 }
 
 export default function MyButtonAlert({
   variant = "success",
   text,
+  acao,
   onClick,
   ...rest
 }: MyButtonAlertProps) {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (variant === "danger") {
-      toast.error("Ação cancelada", {
+      toast.error(acao, {
         theme: "dark",
         transition: Bounce,
       });
     }
 
     if (variant === "success") {
-      toast.success("Enviado com sucesso", {
+      toast.success(acao, {
         theme: "dark",
         transition: Bounce,
       });

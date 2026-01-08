@@ -20,7 +20,7 @@ import "../styles/DropdownCategoria.css";
 import "../styles/MyButtonGlobal.css";
 
 // Toastify
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 /* ======================================================
@@ -78,11 +78,6 @@ export default function EfetuarDisparo() {
     setClientesSelecionados([]);
     setTemplateSelecionado(null);
     setResetKey((k) => k + 1);
-
-    toast.info("Formulário limpo!", {
-      theme: "dark",
-      autoClose: 2500,
-    });
   }
 
   /* ================= DOWNLOAD XLSX ================= */
@@ -185,7 +180,7 @@ export default function EfetuarDisparo() {
             <InputFileUpload key={`upload-${resetKey}`} />
 
             <div className="download-wrapper">
-              <MyButtonAlert
+              <MyButtonAlert 
                 variant="secondary"
                 text="Baixar modelo XLSX"
                 onClick={handleDownloadModelo}
@@ -195,10 +190,11 @@ export default function EfetuarDisparo() {
         </div>
 
         <div className="MyButton">
-          <MyButtonAlert variant="success" text="Enviar" />
+          <MyButtonAlert variant="success" text="Enviar" acao="Enviado com sucesso"/>
           <MyButtonAlert
+           acao="Formulário limpo!"
             variant="danger"
-            text="Cancelar"
+            text="Limpar"
             onClick={handleCancelar}
           />
         </div>
