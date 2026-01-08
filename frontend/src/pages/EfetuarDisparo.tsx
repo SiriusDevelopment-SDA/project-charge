@@ -140,8 +140,8 @@ export default function EfetuarDisparo() {
         </div>
 
         <div className="box-wrapper">
-          <div className="top-row">
-            <div className="inputs-column">
+          <div className="teste">
+            
               <div className="boxInputs">
                 {modoCliente === "com" && (
                   <ClienteSelect
@@ -163,7 +163,7 @@ export default function EfetuarDisparo() {
 
                 <DropdownCategoria key={`categoria-${resetKey}`} />
               </div>
-            </div>
+            
 
             <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>

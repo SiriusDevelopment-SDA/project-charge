@@ -154,21 +154,22 @@ export default function ClienteSelect({
             <span className="placeholder">Selecione os clientes</span>
           )}
 
-          {selected.map((nome) => (
-            <span key={nome} className="chip">
-              {nome}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const updated = selected.filter((c) => c !== nome);
-                  setSelected(updated);
-                  onChangeClientes(updated);
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+          {open &&
+  selected.map((nome) => (
+    <span key={nome} className="chip">
+      {nome}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          const updated = selected.filter((c) => c !== nome);
+          setSelected(updated);
+          onChangeClientes(updated);
+        }}
+      >
+        ×
+      </button>
+    </span>
+  ))}
         </div>
 
         <div className="actions">

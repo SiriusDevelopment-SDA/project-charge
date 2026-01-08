@@ -20,7 +20,7 @@
    INPUT
 ============================= */
 .cliente-input {
-  min-height: 48px;
+  min-height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
