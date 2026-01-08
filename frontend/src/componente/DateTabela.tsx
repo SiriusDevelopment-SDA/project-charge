@@ -136,6 +136,17 @@ const MOCK_DISPAROS = [
     resposta: "Número inválido",
     valorCobrado: 99,
   },
+  {
+    id: 12,
+    cliente: "Vinicius Lima",
+    numero: "+351 912 345 678",
+    campanha: "Cobrança Final",
+    dataHora: new Date("2025-01-04T18:45:00"),
+    template: "Último Aviso",
+    status: "erro",
+    resposta: "Número inválido",
+    valorCobrado: 99,
+  },
 ];
 
 /* ======================================================
