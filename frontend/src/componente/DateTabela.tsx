@@ -310,14 +310,6 @@ export default function AdvancedFilterDemo() {
   />
 
   <Column
-    field="campanha"
-    header="Campanha"
-    filter
-    bodyClassName="text-center"
-    headerClassName="text-center"
-  />
-
-  <Column
     field="dataHora"
     header="Data/Hora"
     dataType="date"
