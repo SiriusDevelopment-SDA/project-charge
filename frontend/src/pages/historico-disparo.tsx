@@ -43,7 +43,7 @@ function HistoricoDisparoPage() {
         <div className="box-wrapper">
         {/* <DataTable /> */}
         <div style={{ padding: "2rem" }}>
-          <DateTabela />
+          <DateTabela  />
         </div>
         </div>
       </div>
