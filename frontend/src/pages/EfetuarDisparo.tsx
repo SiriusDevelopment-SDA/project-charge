@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import { useNavigate } from "react-router-dom";
 
 // Componentes
 import Navbar from "../componente/global/Navbar";
@@ -43,6 +44,7 @@ function renderTemplate(
    Página
 ====================================================== */
 export default function EfetuarDisparo() {
+  const navigate = useNavigate();
   const [modoCliente, setModoCliente] = useState<"com" | "sem">("com");
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
@@ -133,7 +135,12 @@ export default function EfetuarDisparo() {
                 : "Cliente com cadastro"}
             </button>
 
-            <button className="outline">Histórico</button>
+              <button
+              className="outline"
+              onClick={() => navigate("/historicodisparo")}
+            >
+              Historico
+            </button>
           </div>
         </div>
 
