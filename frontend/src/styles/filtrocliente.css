@@ -170,13 +170,13 @@
   opacity: 0.6;
 }
 
-.summary {
-  font-size: 14px;
-  font-weight: 500;
+.toastify__toast--success {
+  background: #0f0f0f;
+  border-left: 6px solid #22c55e;
   color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+}
+
+.toastify__progress-bar--success {
+  background: #c52222;
 }
 

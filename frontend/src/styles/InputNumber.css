@@ -1,9 +1,11 @@
  .MuiInputBase-root1 {
     background: linear-gradient(50deg, #be9800 50%, #473900 100%);
     color: #fff;
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 10px;
-    margin-top: 10px;
+    margin-top: 23px;
+    height: 60px;
+width: 130%;
   }
 /* Container do input */
 .whatsapp-form-control {
@@ -25,7 +27,11 @@
   font-size: 20px;
 }
 .InputNumber {
-  margin-top: 30px;
+   width: 130%;
+  position: relative;
+  font-family: inherit;
+  height: 74px;
+  margin-top: 9px;
 }
 /* Hover / TextField */
   .dropdown-controlN .MuiInputBase-root:hover {
