@@ -42,3 +42,21 @@
   color: #aaa;
 }
 
+.btn {
+  border: 2px solid #d4a600;
+  background: transparent;
+  color: #d4a600;
+  padding: 8px 14px;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  background: #d4a600;
+  color: #000;
+}
+
+.btn.active {
+  background: #d4a600;
+  color: #000;
+}

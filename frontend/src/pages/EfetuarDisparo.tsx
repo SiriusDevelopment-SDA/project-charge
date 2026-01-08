@@ -12,6 +12,7 @@ import DropdownTemplate from "../componente/DropdownTemplate";
 import DropdownCategoria from "../componente/DropdownCategoria";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 import InputNumber from "../componente/inputnumber";
+import FilterButton from "../componente/ButtonNavigation";
 
 // Styles
 import "../styles/importar-contatos.css";
@@ -49,6 +50,14 @@ export default function EfetuarDisparo() {
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
   const [resetKey, setResetKey] = useState(0);
+  const handleApply = (filtro: any) => {
+    console.log("Filtro aplicado:", filtro);
+    // aqui você faz o que quiser
+  };
+
+  const handleClear = () => {
+    console.log("Filtro limpo");
+  };
 
   /* ================= PREVIEW ================= */
   const previewMessage = useMemo(() => {
@@ -129,6 +138,12 @@ export default function EfetuarDisparo() {
                 ? "Cliente sem cadastro"
                 : "Cliente com cadastro"}
             </button>
+
+            <div>
+
+              {/* BOTAO DE NAVEGAÇÃO QUE EU ESTOU FAZENDO TÁ AQUI */}
+      <FilterButton onApply={handleApply} onClear={handleClear}/>
+    </div>
 
               <button
               className="outline"

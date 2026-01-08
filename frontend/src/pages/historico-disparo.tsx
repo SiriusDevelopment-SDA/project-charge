@@ -27,9 +27,9 @@ function HistoricoDisparoPage() {
           <div>
             <button
               className="outline"
-              onClick={() => navigate("/efetuar-disparo-2")}
+              onClick={() => navigate("/EfetuarDisparo")}
             >
-              Cliente sem cadastro
+              Cliente com cadastro
             </button>
             <button
               className="outline"
