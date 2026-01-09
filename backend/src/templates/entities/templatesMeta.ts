@@ -31,6 +31,12 @@ import { Company } from '../../companies/entities/companies';
     @Column()
     active!: boolean;
 
+    @Column({ default: 'pt_BR' })
+    language!: string;
+
+    @Column({ default: 'Não encontrado' })
+    meta_status!: string;
+
     @CreateDateColumn()
     createdAt!: Date;
   

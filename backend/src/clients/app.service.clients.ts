@@ -12,8 +12,7 @@ export class AppServiceClient {
   ) {}
 
   async getClients({
-    name,
-    whatsapp,
+    query,
     account,
     page = 1,
     limit = 10,
@@ -31,17 +30,12 @@ export class AppServiceClient {
     let where: any;
   
     // 🔹 Sempre filtra pelo account (company)
-    if (name || whatsapp) {
+    if (query) {
       where = [
-        name
+        query
           ? {
-              name: ILike(`%${name}%`),
-              company: { account_chatwoot: account },
-            }
-          : null,
-        whatsapp
-          ? {
-              whatsapp: ILike(`%${whatsapp}%`),
+              name: ILike(`%${query}%`),
+              whatsapp: ILike(`%${query}%`),
               company: { account_chatwoot: account },
             }
           : null,
@@ -53,7 +47,7 @@ export class AppServiceClient {
         },
       };
     }
-  
+
     const [data, total] = await this.clientRepository.findAndCount({
       where,
       skip,
@@ -63,8 +57,8 @@ export class AppServiceClient {
       },
       relations: {
         company: true,
-        services: !!relationService,
-        invoices: !!relationInvoices,
+        services: !!relationService || false,
+        invoices: !!relationInvoices || false,
       },
       select: {
         id: true,
