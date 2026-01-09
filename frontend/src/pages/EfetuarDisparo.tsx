@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useNavigate } from "react-router-dom";
 
+
 // Componentes
 import Navbar from "../componente/global/Navbar";
 import ClienteSelect from "../componente/filtrocliente";
@@ -9,7 +10,7 @@ import InputFileUpload from "../componente/importar-contatos";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
-import DropdownCategoria from "../componente/DropdownCategoria";
+// import DropdownCategoria from "../componente/DropdownCategoria";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 import InputNumber from "../componente/inputnumber";
 
@@ -81,7 +82,7 @@ export default function EfetuarDisparo() {
   }
 
   /* ================= DOWNLOAD XLSX ================= */
-  function handleDownloadModelo() {
+function handleDownloadModelo() {
     const TOTAL_LINHAS = 500;
 
     const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
@@ -101,7 +102,7 @@ export default function EfetuarDisparo() {
 
       ws[addr].t = "n";
       ws[addr].v = 0;
-      ws[addr].z = "(##) #####-####;;;";
+      ws[addr].z = "###########;;;";
     }
 
     const wb = XLSX.utils.book_new();
@@ -109,6 +110,7 @@ export default function EfetuarDisparo() {
 
     XLSX.writeFile(wb, "modelo_contatos.xlsx");
   }
+
 
   /* ================= JSX ================= */
   return (
@@ -120,13 +122,13 @@ export default function EfetuarDisparo() {
           <h1 className="pageTitle">
             {modoCliente === "com"
               ? "Disparo clientes ativos"
-              : "Disparo novos clientes"}
+              : "Disparo nova lead"}
           </h1>
 
           <div className="buttons-navigation">
             <button className="outline" onClick={toggleModoCliente}>
               {modoCliente === "com"
-                ? "Cliente sem cadastro"
+                ? "Nova lead"
                 : "Cliente com cadastro"}
             </button>
 
@@ -140,8 +142,13 @@ export default function EfetuarDisparo() {
         </div>
 
         <div className="box-wrapper">
+          
           <div className="teste">
-            
+            <div>
+              <DropdownTemplate
+                  key={`template-${resetKey}`}
+                  onSelectTemplate={setTemplateSelecionado}
+                />
               <div className="boxInputs">
                 {modoCliente === "com" && (
                   <ClienteSelect
@@ -156,13 +163,13 @@ export default function EfetuarDisparo() {
                   <InputNumber key={`number-${resetKey}`} />
                 )}
 
-                <DropdownTemplate
-                  key={`template-${resetKey}`}
-                  onSelectTemplate={setTemplateSelecionado}
-                />
+                
 
-                <DropdownCategoria key={`categoria-${resetKey}`} />
-              </div>
+                {/* <DropdownCategoria key={`categoria-${resetKey}`} /> */}
+
+
+                
+              </div></div>
             
 
             <ClientsSelectedCard total={clientesSelecionados.length} />

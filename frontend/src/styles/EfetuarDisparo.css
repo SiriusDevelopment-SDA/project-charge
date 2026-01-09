@@ -17,7 +17,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   padding: 0;
-  
 }
 
 /* =========================
@@ -27,8 +26,6 @@ body {
   margin: 10px 0;
   padding: 0;
   box-sizing: border-box;
-
-  /* 🔥 GRADIENTE QUE NÃO QUEBRA */
   background: linear-gradient(
     50deg,
     #000000 0%,
@@ -37,7 +34,6 @@ body {
     #997a00 88%,
     #ffcc00 100%
   );
-
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
@@ -50,7 +46,9 @@ body {
   margin-right: 80px;
 }
 
-
+/* =========================
+   NAVIGATION
+========================= */
 .navigation {
   display: flex;
   align-items: center;
@@ -64,7 +62,6 @@ body {
   display: flex;
   gap: 6px;
 }
-
 
 .navigation button {
   background: transparent;
@@ -83,8 +80,6 @@ body {
   color: #000000;
 }
 
-
-
 /* =========================
    BORDAS / BOX
 ========================= */
@@ -102,37 +97,24 @@ body {
   align-items: flex-start;
   gap: 32px;
   justify-content: center;
-
   margin: 20px 0;
 }
-
 
 .boxInputs {
   width: 50%;
   min-width: 480px;
-
   display: flex;
   flex-direction: column;
   gap: 16px;
   height: fit-content;
-  
+  margin-top: 15px;
 }
-
-
 
 .VariablesPreviewBox {
   width: 50%;
   display: flex;
   justify-content: center;
 }
-
-.ClienteSelectInput,
-.inputNumber,
-.InputTemplate,
-.InputCategoria {
-  width: 100% !important;
-}
-
 
 /* =========================
    TÍTULO
@@ -149,7 +131,6 @@ body {
   display: flex;
 }
 
-/* Barra inferior do título */
 .pageTitle::after {
   content: '';
   position: absolute;
@@ -214,7 +195,7 @@ body {
   font-weight: 500;
   text-align: center;
   margin-bottom: 8px;
-  margin-top: 24px;
+  margin-top: 10px;
 }
 
 .top-row {
@@ -225,5 +206,51 @@ body {
 }
 
 .download-wrapper {
-  margin-left: 16px; /* espaçamento para a direita */
+  margin-left: 16px;
+}
+
+/* =========================
+   NOVAS ALTERAÇÕES (dropdown-container)
+========================= */
+.dropdown-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-buscar {
+  padding: 10px 20px;
+  background-color: #be9800;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.btn-buscar:hover {
+  background-color: #473900;
+  transform: translateY(-1px);
+}
+
+.upload-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.btn-upload,
+.btn-baixar {
+  padding: 8px 12px;
+  font-size: 14px;
+  background-color: #f4c400;
+  color: #000;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-upload:hover,
+.btn-baixar:hover {
+  background-color: #473900;
+  transform: translateY(-1px);
 }
