@@ -6,14 +6,16 @@ import { Client } from './clients/entities.ts/clients';
 import { ControllerClients } from './clients/app.controllers.clients';
 import { ControllerTemplates } from './templates/app.controllers.templates';
 import { AppServiceClient } from './clients/app.service.clients';
-import { Templates } from './templates/entities/templatesMeta';
 import { AppServiceTemplate } from './templates/app.service.templates';
+import { Templates } from './templates/entities/templatesMeta';
+import { RelatoryDispatchTemplate } from './templates/entities/relatory.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forFeature([Client]),
     TypeOrmModule.forFeature([Templates]),
+    TypeOrmModule.forFeature([RelatoryDispatchTemplate]),
     DatabaseModule,
   ],
   controllers: [ControllerClients, ControllerTemplates],

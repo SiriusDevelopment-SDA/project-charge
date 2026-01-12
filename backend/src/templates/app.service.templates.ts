@@ -3,13 +3,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { Templates } from './entities/templatesMeta';
 import { SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
+import { RelatoryDispatchTemplate } from './entities/relatory.entity';
 
 @Injectable()
 export class AppServiceTemplate {
-  private readonly baseUrl = 'https://api.notificame.com.br/v1';
+  private readonly baseUrl = 'https://api.notificame.com.br/v2';
   constructor(
     @InjectRepository(Templates)
     private templateRepository: Repository<Templates>,
+    
+    @InjectRepository(RelatoryDispatchTemplate)
+    private readonly relatoryDispatchRepository: Repository<RelatoryDispatchTemplate>,
   ) {}
 
   async getTemplates(dto: SearchRequestDtoTemplates) {
@@ -55,64 +59,87 @@ export class AppServiceTemplate {
   }
 
   async sendTemplate(data: SendTemplateDto) {
-    const { templateId, account, to, components } = data;
-    const where: FindOptionsWhere<Templates> = {
-      id: templateId,
-      company: {
-        account_chatwoot: String(account),
+    const { templateId, account, to } = data;
+  
+    const template = await this.templateRepository.findOne({
+      where: {
+        id: templateId,
+        company: {
+          account_chatwoot: String(account),
+        },
       },
-    };
-    const [template,] = await this.templateRepository.findAndCount({
-      where,
       relations: {
         company: true,
       },
       select: {
+        id: true,
+        name: true,
+        language: true,
+        variables: true,
         company: {
           id: true,
-          account_chatwoot: true,
           canalId_notificameHub: true,
-          token_notificameHub: true
+          token_notificameHub: true,
         },
       },
     });
+  
     if (!template)throw new NotFoundException('Template não encontrado');
-    if (template.length === 0)throw new NotFoundException('Template não encontrado');
-    const expected = Object.keys(template[0].variables || {}).length
+  
+    const expected = Object.keys(template.variables || {}).length;
 
-    const safeComponents = Array.isArray(components) ? components : []
+    for (const recipient of to) {
+      const safeComponents = Array.isArray(recipient.components) ? recipient.components : [];
+      const templatePayload = {
+        name: template.name,
+        language: { code: template.language },
+        components: expected > 0
+          ? safeComponents
+          : [{ type: 'BODY', parameters: [] }],
+      };
 
-    const templatePayload: any = {
-      name: template[0].name,
-      language: { code: 'pt_BR' },
-      components: expected > 0 ? safeComponents : [
-        { type: "BODY", parameters: [] }
-      ]
-    }
-
-    const content = {
-      from: template[0].company.canalId_notificameHub,
-      to: to,
-      contents: [
-        {
-          type: "template",
-          template: templatePayload
-        }
-      ]
-    }
+      const bodyComponent = safeComponents.find(c => c.type === 'BODY');
+      const parametersLength = bodyComponent?.parameters?.length ?? 0;
     
-    console.log("content", content)
-    console.log("templatePayload", templatePayload)
-    const dispatchNotificameHub = await fetch(`${this.baseUrl}/channels/whatsapp/messages`, {
-      method: 'POST',
-      body: JSON.stringify(content),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Token': template[0].company.token_notificameHub
-      },
-    })
-    return {
-      data: dispatchNotificameHub,
-    };
+      if (expected !== parametersLength)throw new NotFoundException('Todas as variáveis não foram mapeadas!');
+
+      const content = {
+        from: template.company.canalId_notificameHub,
+        to: recipient.number, // 👈 agora é UM número
+        contents: [
+          {
+            type: 'template',
+            template: templatePayload,
+          },
+        ],
+        message_activity_sharing: true,
+        message_send_ttl_seconds: 3600,
+      };
+    
+      const response = await fetch(
+        `${this.baseUrl}/channels/whatsapp/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Token': template.company.token_notificameHub,
+          },
+          body: JSON.stringify(content),
+        },
+      );
+    
+      const responseData = await response.json();
+    
+      await this.relatoryDispatchRepository.insert({
+        external_message_id: responseData.id,
+        status_sent: responseData.status,
+        date_dispatch: new Date(),
+        template: { id: template.id },
+        name: recipient.name ?? recipient.number,
+        number: recipient.number,
+        components_maped: { components: safeComponents },
+      });
+      return responseData
+    }
   }
 }

@@ -62,9 +62,9 @@ export class TemplateParameterDto {
 }
   
 export class TemplateComponentDto {
-    @ApiProperty({ example: 'body', required: false })
+    @ApiProperty({ example: 'BODY', required: false })
     @IsString()
-    type!: string;
+    type!: "BODY" | "HEADER" | "FOOTER";
   
     @ApiProperty({ type: [TemplateParameterDto], required: false })
     @IsArray()
@@ -72,6 +72,31 @@ export class TemplateComponentDto {
     @ValidateNested({ each: true })
     @Type(() => TemplateParameterDto)
     parameters!: TemplateParameterDto[];
+}
+export class ToComponentDto {
+  @ApiProperty({ example: 'João', required: false })
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
+    description: 'Número de destino',
+    example: '5511999999999',
+  })
+  @IsString()
+  @Matches(/^\d{10,15}$/, {
+    message: 'Número inválido, envie no formato DDI + número',
+  })
+  number!: string;
+
+  @ApiProperty({
+    description: 'Componentes do template',
+    type: [TemplateComponentDto],
+    required: false
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TemplateComponentDto)
+  components!: TemplateComponentDto[];
 }
   
 export class SendTemplateDto {
@@ -91,24 +116,10 @@ export class SendTemplateDto {
     account!: number;
   
     @ApiProperty({
-      description: 'Número de destino',
-      example: '5511999999999',
+      description: 'Destino do disparo',
+      type: [ToComponentDto],
     })
-    @IsString()
-    @Matches(/^\d{10,15}$/, {
-      message: 'Número inválido, envie no formato DDI + número',
-    })
-    to!: string;
-  
-    @ApiProperty({
-      description: 'Componentes do template',
-      type: [TemplateComponentDto],
-      required: false
-    })
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => TemplateComponentDto)
-    components!: TemplateComponentDto[];
+    to!: ToComponentDto[];
   }
   
 

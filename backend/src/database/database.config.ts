@@ -10,6 +10,7 @@ import { Company } from '../companies/entities/companies';
 import { Templates } from '../templates/entities/templatesMeta';
 import { Service } from '../services/entities/services';
 import { Invoice } from '../invoices/entities/invoices';
+import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 
 export default <TypeOrmModuleAsyncOptions>{
   inject: [ConfigService],
@@ -23,7 +24,7 @@ export default <TypeOrmModuleAsyncOptions>{
       username: configService.get('DB_USER_NAME'),
       password: configService.get('DB_PASSWORD'),
       database: configService.get('DB_DATABASE'),
-      entities: [Invoice, Client, Service, Company, Templates],
+      entities: [Invoice, Client, Service, Company, Templates, RelatoryDispatchTemplate],
       synchronize: true,
     };
   },

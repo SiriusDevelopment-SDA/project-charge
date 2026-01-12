@@ -1,58 +1,61 @@
-
 import {
-    Column,
-    CreateDateColumn,
-    Entity,
-    JoinColumn,
-    UpdateDateColumn,
-    ManyToOne,
-    PrimaryGeneratedColumn
-  } from 'typeorm';
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  OneToMany,
+} from 'typeorm';
 import { Company } from '../../companies/entities/companies';
-  
-  @Entity()
-  export class Templates {
+import { RelatoryDispatchTemplate } from './relatory.entity';
 
-    @PrimaryGeneratedColumn("uuid")
-    id!: string
+@Entity()
+export class Templates {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
 
-    @Column({ nullable: true, unique: true })
-    meta_id!: string
-  
-    @Column()
-    name!: string;
+  @Column({ nullable: true, unique: true })
+  meta_id!: string;
 
-    @Column()
-    message!: string;
-    
-    @Column({ default: 'Categoria indefinida' })
-    category!: string;
+  @Column()
+  name!: string;
 
-    @Column()
-    active!: boolean;
+  @Column()
+  message!: string;
 
-    @Column({ default: 'pt_BR' })
-    language!: string;
+  @Column({ default: 'Categoria indefinida' })
+  category!: string;
 
-    @Column({ default: 'Não encontrado' })
-    meta_status!: string;
+  @Column()
+  active!: boolean;
 
-    @CreateDateColumn()
-    createdAt!: Date;
-  
-    @UpdateDateColumn()
-    updatedAt!: Date;
-  
-    @ManyToOne(() => Company, (company) => company.templates)
-    @JoinColumn({
-      name: 'companyId',
-      referencedColumnName: 'id',
-    })
-    company!: Company;
+  @Column({ default: 'pt_BR' })
+  language!: string;
 
-    @Column({
-      type: 'jsonb',
-      default: () => "'{}'",
-    })
-    variables!: Record<string, any>;
-  }
+  @Column({ default: 'Não encontrado' })
+  meta_status!: string;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+
+  @ManyToOne(() => Company, (company) => company.templates)
+  @JoinColumn({ name: 'companyId' })
+  company!: Company;
+
+  @OneToMany(
+    () => RelatoryDispatchTemplate,
+    (relatory: RelatoryDispatchTemplate) => relatory.template
+  )
+  relatories!: RelatoryDispatchTemplate[];
+
+  @Column({
+    type: 'jsonb',
+    default: () => "'{}'",
+  })
+  variables!: Record<string, any>;
+}
