@@ -17,8 +17,14 @@ type Cliente = {
 type PropsSelect = {
   children: ReactNode | string;
   className?: string;
+  disabled?: boolean;
+  value?: string[]; 
   onChangeClientes: (nomes: string[]) => void;
 };
+
+
+
+
 
 /* ======================================================
    MOCK DE CLIENTES
@@ -80,28 +86,33 @@ function showClienteToast(cliente: Cliente) {
 export default function ClienteSelect({
   children,
   className,
+  disabled = false,
+  value, // <--- importante que isso exista nas props
   onChangeClientes,
 }: PropsSelect) {
+
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(value || []);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  /* Fecha dropdown ao clicar fora */
+  
+  /* ======================================================
+     Fecha dropdown ao clicar fora
+  ====================================================== */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
-        containerRef.current &&
+        containerRef.current && 
         !containerRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
         setSearch("");
       }
     };
-
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
 
   /* Selecionar / desmarcar cliente */
   const toggleCliente = (cliente: Cliente) => {
@@ -131,13 +142,19 @@ export default function ClienteSelect({
   );
 
   return (
-    <div ref={containerRef} className={`cliente-select ${className || ""}`}>
+    <div
+  ref={containerRef}
+  className={`cliente-select ${className || ""} ${disabled ? "cliente-disabled" : ""}`}
+  onClick={() => !disabled && setOpen(true)}
+>
+
       <label className="cliente-label">{children}</label>
 
       <div
-        className={`cliente-input ${open ? "active" : ""}`}
-        onClick={() => setOpen(true)}
-      >
+  className={`cliente-input ${open ? "active" : ""} ${disabled ? "cliente-disabled" : ""}`}
+  onClick={() => !disabled && setOpen(true)}
+>
+
         <div className="cliente-chips">
 
           {/* 🔹 MODO RECOLHIDO (RESUMO) */}
@@ -174,7 +191,12 @@ export default function ClienteSelect({
 
         <div className="actions">
           {selected.length > 0 && (
-            <button className="clear-all" onClick={clearAll}>
+           <button
+  className="clear-all"
+  onClick={(e) => disabled ? e.stopPropagation() : clearAll(e)}
+  disabled={disabled}
+>
+
               ×
             </button>
           )}
@@ -193,10 +215,12 @@ export default function ClienteSelect({
 
           <ul>
             {filtered.map((cliente) => (
-              <li
-                key={cliente.nome}
-                onClick={() => toggleCliente(cliente)}
-              >
+             <li
+  key={cliente.nome}
+  onClick={() => !disabled && toggleCliente(cliente)}
+  className={disabled ? "disabled-item" : ""}
+>
+
                 <input
                   type="checkbox"
                   checked={selected.includes(cliente.nome)}

@@ -1,7 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState } from "react"; 
 import * as XLSX from "xlsx";
 import { useNavigate } from "react-router-dom";
-
 
 // Componentes
 import Navbar from "../componente/global/Navbar";
@@ -10,7 +9,6 @@ import InputFileUpload from "../componente/importar-contatos";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import DropdownTemplate from "../componente/DropdownTemplate";
-// import DropdownCategoria from "../componente/DropdownCategoria";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 import InputNumber from "../componente/inputnumber";
 
@@ -47,7 +45,7 @@ function renderTemplate(
 export default function EfetuarDisparo() {
   const navigate = useNavigate();
   const [modoCliente, setModoCliente] = useState<"com" | "sem">("com");
-  const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
+  const [clientesSelecionados, setClientesSelecionados] = useState<string[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
   const [resetKey, setResetKey] = useState(0);
 
@@ -82,7 +80,7 @@ export default function EfetuarDisparo() {
   }
 
   /* ================= DOWNLOAD XLSX ================= */
-function handleDownloadModelo() {
+  function handleDownloadModelo() {
     const TOTAL_LINHAS = 500;
 
     const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
@@ -111,7 +109,6 @@ function handleDownloadModelo() {
     XLSX.writeFile(wb, "modelo_contatos.xlsx");
   }
 
-
   /* ================= JSX ================= */
   return (
     <div>
@@ -132,7 +129,7 @@ function handleDownloadModelo() {
                 : "Cliente com cadastro"}
             </button>
 
-              <button
+            <button
               className="outline"
               onClick={() => navigate("/historicodisparo")}
             >
@@ -146,31 +143,62 @@ function handleDownloadModelo() {
           <div className="teste">
             <div>
               <DropdownTemplate
-                  key={`template-${resetKey}`}
-                  onSelectTemplate={setTemplateSelecionado}
-                />
-              <div className="boxInputs">
-                {modoCliente === "com" && (
-                  <ClienteSelect
-                    key={`cliente-${resetKey}`}
-                    onChangeClientes={setClientesSelecionados}
-                  >
-                    Buscar clientes no ERP
-                  </ClienteSelect>
-                )}
+                key={`template-${resetKey}`}
+                onSelectTemplate={setTemplateSelecionado}
+              />
 
-                {modoCliente === "sem" && (
-                  <InputNumber key={`number-${resetKey}`} />
-                )}
+           <div className="boxInputs">
+  {modoCliente === "com" && (
 
-                
-
-                {/* <DropdownCategoria key={`categoria-${resetKey}`} /> */}
+  <ClienteSelect
+  disabled={!templateSelecionado}
+  value={clientesSelecionados}          
+  onChangeClientes={(novos) => {
+    setClientesSelecionados(novos);     
+  }}
+>
+  Buscar clientes no ERP
+</ClienteSelect>
 
 
-                
-              </div></div>
-            
+
+
+  )}
+
+  {modoCliente === "sem" && <InputNumber key={`number-${resetKey}`} />}
+</div>
+
+{/* BOTÕES AGORA AQUI, FORA DO .teste */}
+{modoCliente === "com" && (
+  <div className={`mini-actions ${!templateSelecionado ? "disabled-block" : ""}`}>
+ <div
+  className="btn-mini file-wrapper"
+  style={{ pointerEvents: !templateSelecionado ? "none" : "auto" }}
+>
+  <InputFileUpload
+  onClientesImportados={(validos) => {
+    setClientesSelecionados((prev) =>
+      Array.from(new Set([...prev, ...validos])) // ⬅ aqui somamos
+    );
+  }}
+/>
+
+
+</div>
+
+
+  <button
+    className="btn-mini"
+    onClick={handleDownloadModelo}
+    disabled={!templateSelecionado}
+  >
+    Baixar planilha
+  </button>
+</div>
+
+)}
+
+            </div>
 
             <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
@@ -181,25 +209,12 @@ function handleDownloadModelo() {
             <MessagePreview message={previewMessage} />
           </div>
 
-          <p className="UploadDescricao">Carregar arquivos .XLSX</p>
-
-          <div className="Box-Arquivo">
-            <InputFileUpload key={`upload-${resetKey}`} />
-
-            <div className="download-wrapper">
-              <MyButtonAlert 
-                variant="secondary"
-                text="Baixar modelo XLSX"
-                onClick={handleDownloadModelo}
-              />
-            </div>
-          </div>
         </div>
 
         <div className="MyButton">
           <MyButtonAlert variant="success" text="Enviar" acao="Enviado com sucesso"/>
           <MyButtonAlert
-           acao="Formulário limpo!"
+            acao="Formulário limpo!"
             variant="danger"
             text="Limpar"
             onClick={handleCancelar}

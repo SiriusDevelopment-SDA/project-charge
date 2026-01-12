@@ -92,6 +92,7 @@ body {
   gap: 15px;
 }
 
+/* Estrutura superior */
 .teste {
   display: flex;
   align-items: flex-start;
@@ -100,6 +101,7 @@ body {
   margin: 20px 0;
 }
 
+/* Inputs da esquerda */
 .boxInputs {
   width: 50%;
   min-width: 480px;
@@ -108,12 +110,6 @@ body {
   gap: 16px;
   height: fit-content;
   margin-top: 15px;
-}
-
-.VariablesPreviewBox {
-  width: 50%;
-  display: flex;
-  justify-content: center;
 }
 
 /* =========================
@@ -148,7 +144,7 @@ body {
 }
 
 /* =========================
-   BOTÕES
+   BOTÕES FINAIS
 ========================= */
 .MyButton {
   margin-top: 2rem;
@@ -157,100 +153,54 @@ body {
   gap: 20px;
 }
 
-.ClienteSelectInput {
-  width: 50% !important;
-  display: flex;
-}
-
-.inputNumber {
-  width: 50% !important;
-  display: flex;
-}
-
-.InputTemplate {
-  width: 50% !important;
-  display: flex;
-}
-
-.InputCategoria {
-  width: 50% !important;
-  display: flex;
-}
-
 .PreviewMensagemTemplate {
   display: flex;
   justify-content: center;
 }
 
-.Box-Arquivo {
+/* ===============================
+   BOTÕES MINI (ABAIXO DO DROPDOWN)
+=============================== */
+.mini-actions {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: -20px;
-}
-
-.UploadDescricao {
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  text-align: center;
-  margin-bottom: 8px;
-  margin-top: 10px;
-}
-
-.top-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 32px;
+  justify-content: flex-start;  
+  gap: 10px;
   width: 100%;
+  margin-top: 15px; 
+  margin-left: 60px; 
 }
 
-.download-wrapper {
-  margin-left: 16px;
-}
 
-/* =========================
-   NOVAS ALTERAÇÕES (dropdown-container)
-========================= */
-.dropdown-container {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.btn-buscar {
-  padding: 10px 20px;
-  background-color: #be9800;
-  color: #fff;
-  border: none;
+.btn-mini {
+  padding: 4px 10px;          
+  height: 34px;                
+  min-width: 105px;            
+  font-size: 12.5px;           
+  font-weight: 500;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 16px;
-}
-
-.btn-buscar:hover {
-  background-color: #473900;
-  transform: translateY(-1px);
-}
-
-.upload-container {
+  background: linear-gradient(50deg, #be9800 50%, #473900 100%);
   display: flex;
-  gap: 10px;
+  align-items: center;
   justify-content: center;
-  margin-top: 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.20),
+    0 3px 8px rgba(0,0,0,0.35);
+  transition: all 0.2s ease;
 }
 
-.btn-upload,
-.btn-baixar {
-  padding: 8px 12px;
-  font-size: 14px;
-  background-color: #f4c400;
-  color: #000;
-  border: none;
-  cursor: pointer;
+
+.btn-mini:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    0 6px 14px rgba(244,196,0,0.6);
+    
 }
 
-.btn-upload:hover,
-.btn-baixar:hover {
-  background-color: #473900;
-  transform: translateY(-1px);
+.disabled-block {
+  opacity: 0.4;
+  pointer-events: none;
 }
