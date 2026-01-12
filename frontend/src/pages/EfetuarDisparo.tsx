@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"; 
+import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useNavigate } from "react-router-dom";
 
@@ -48,7 +48,7 @@ export default function EfetuarDisparo() {
   const [clientesSelecionados, setClientesSelecionados] = useState<string[]>([]);
   const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
   const [resetKey, setResetKey] = useState(0);
-
+  const [openDropdownCliente, setOpenDropdownCliente] = useState(false);
   /* ================= PREVIEW ================= */
   const previewMessage = useMemo(() => {
     if (!templateSelecionado?.conteudo)
@@ -84,24 +84,15 @@ export default function EfetuarDisparo() {
     const TOTAL_LINHAS = 500;
 
     const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
-      nome: "",
-      telefone: 0,
+      CPF: "",
+      Telefone: "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows, {
-      header: ["nome", "telefone"],
+      header: ["CPF", "Telefone"],
     });
 
-    ws["!cols"] = [{ wch: 35 }, { wch: 20 }];
-
-    for (let r = 2; r <= TOTAL_LINHAS + 1; r++) {
-      const addr = `B${r}`;
-      if (!ws[addr]) continue;
-
-      ws[addr].t = "n";
-      ws[addr].v = 0;
-      ws[addr].z = "###########;;;";
-    }
+    ws["!cols"] = [{ wch: 20 }, { wch: 20 }];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Contatos");
@@ -139,65 +130,65 @@ export default function EfetuarDisparo() {
         </div>
 
         <div className="box-wrapper">
-          
-          <div className="teste">
+          <div className="teste" onClick={() => setOpenDropdownCliente(false)}>
             <div>
               <DropdownTemplate
                 key={`template-${resetKey}`}
                 onSelectTemplate={setTemplateSelecionado}
               />
 
-           <div className="boxInputs">
-  {modoCliente === "com" && (
+              <div className="boxInputs" >
+                {modoCliente === "com" && (
+                  <ClienteSelect
+                    disabled={!templateSelecionado}
+                    value={clientesSelecionados}
+                    setSelected={setClientesSelecionados}
+                    selected={clientesSelecionados}
+                    onChangeClientes={(novos) => {
+                      setClientesSelecionados(novos);
+                    }}
+                    open={openDropdownCliente}
+                    setOpen={setOpenDropdownCliente}
+                  >
+                    Buscar clientes no ERP
+                  </ClienteSelect>
+                )}
 
-  <ClienteSelect
-  disabled={!templateSelecionado}
-  value={clientesSelecionados}          
-  onChangeClientes={(novos) => {
-    setClientesSelecionados(novos);     
-  }}
->
-  Buscar clientes no ERP
-</ClienteSelect>
+                {modoCliente === "sem" && (
+                  <InputNumber key={`number-${resetKey}`} />
+                )}
+              </div>
 
+              {modoCliente === "com" && (
+                <div
+                  className={`mini-actions ${
+                    !templateSelecionado ? "disabled-block" : ""
+                  }`}
+                >
+                  <div
+                    className="btn-mini file-wrapper"
+                    style={{
+                      pointerEvents: !templateSelecionado ? "none" : "auto",
+                    }}
+                  >
+                    <InputFileUpload
+                      onClientesImportados={(validos) => {
+                        setClientesSelecionados((prev) =>
+                          Array.from(new Set([...prev, ...validos]))
+                        );
+                      }}
+                    />
+                  </div>
 
-
-
-  )}
-
-  {modoCliente === "sem" && <InputNumber key={`number-${resetKey}`} />}
-</div>
-
-{/* BOTÕES AGORA AQUI, FORA DO .teste */}
-{modoCliente === "com" && (
-  <div className={`mini-actions ${!templateSelecionado ? "disabled-block" : ""}`}>
- <div
-  className="btn-mini file-wrapper"
-  style={{ pointerEvents: !templateSelecionado ? "none" : "auto" }}
->
-  <InputFileUpload
-  onClientesImportados={(validos) => {
-    setClientesSelecionados((prev) =>
-      Array.from(new Set([...prev, ...validos])) // ⬅ aqui somamos
-    );
-  }}
-/>
-
-
-</div>
-
-
-  <button
-    className="btn-mini"
-    onClick={handleDownloadModelo}
-    disabled={!templateSelecionado}
-  >
-    Baixar planilha
-  </button>
-</div>
-
-)}
-
+                  <button
+                    className="btn-mini"
+                    onClick={handleDownloadModelo}
+                    disabled={!templateSelecionado}
+                  >
+                    Baixar planilha
+                  </button>
+                </div>
+              )}
             </div>
 
             <ClientsSelectedCard total={clientesSelecionados.length} />
@@ -208,11 +199,14 @@ export default function EfetuarDisparo() {
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
-
         </div>
 
         <div className="MyButton">
-          <MyButtonAlert variant="success" text="Enviar" acao="Enviado com sucesso"/>
+          <MyButtonAlert
+            variant="success"
+            text="Enviar"
+            acao="Enviado com sucesso"
+          />
           <MyButtonAlert
             acao="Formulário limpo!"
             variant="danger"
