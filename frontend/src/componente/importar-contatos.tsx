@@ -1,11 +1,16 @@
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
-import { validarTelefone } from "../utils/ValidarTelefone";
 import "../styles/importar-contatos.css";
 
+function formatarCPF(cpf: string) {
+  const digits = cpf.replace(/\D/g, "");
+  if (digits.length !== 11) return cpf;
+  return `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`;
+}
+
 type Props = {
-  onClientesImportados: (nomes: string[]) => void;
+  onClientesImportados: (cpfs: string[]) => void;
 };
 
 export default function InputFileUpload({ onClientesImportados }: Props) {
@@ -19,12 +24,10 @@ export default function InputFileUpload({ onClientesImportados }: Props) {
       const data = e.target?.result;
       if (!data) return;
 
-      // Lê a planilha
       const workbook = XLSX.read(data, { type: "binary" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
 
-      // Converte para JSON
       const rows: any[] = XLSX.utils.sheet_to_json(sheet);
 
       let total = 0;
@@ -32,44 +35,38 @@ export default function InputFileUpload({ onClientesImportados }: Props) {
       const validos: string[] = [];
 
       rows.forEach((row) => {
-        const nome = row.nome;
-        const telefone = row.telefone;
+        const cpfRaw = row.CPF || row.cpf;
+        if (!cpfRaw) return;
 
-        if (!nome || !telefone) return;
-
+        const cpfLimpo = String(cpfRaw).replace(/\D/g, "");
         total++;
 
-        const { ok } = validarTelefone(telefone);
-
-        if (!ok) {
+        if (cpfLimpo.length !== 11) {
           invalidos++;
         } else {
-          validos.push(nome);
+          validos.push(formatarCPF(cpfLimpo)); // já retorna formatado
         }
       });
 
-      // Nenhuma linha encontrada
       if (total === 0) {
-        toast.warn("Nenhum contato encontrado na planilha.", {
+        toast.warn("Nenhum CPF encontrado na planilha.", {
           position: "top-right",
           theme: "dark",
         });
         return;
       }
 
-      // Nenhum válido
       if (validos.length === 0) {
-        toast.error("Nenhum telefone válido encontrado na planilha.", {
+        toast.error("Nenhum CPF válido encontrado na planilha.", {
           position: "top-right",
           theme: "dark",
         });
         return;
       }
 
-      // Resultado válido porém com inválidos
       if (invalidos > 0) {
-        toast.error(
-          `${total} contatos encontrados e ${invalidos} telefones incorretos.`,
+        toast.warn(
+          `${total} CPFs encontrados e ${invalidos} inválidos.`,
           {
             position: "top-right",
             theme: "dark",
@@ -77,7 +74,7 @@ export default function InputFileUpload({ onClientesImportados }: Props) {
         );
       } else {
         toast.success(
-          `${total} contatos encontrados e todos os telefones estão corretos!`,
+          `${total} CPFs encontrados e todos válidos!`,
           {
             position: "top-right",
             theme: "dark",
@@ -85,13 +82,11 @@ export default function InputFileUpload({ onClientesImportados }: Props) {
         );
       }
 
-      // callback para o componente pai
       onClientesImportados(validos);
     };
 
     reader.readAsBinaryString(file);
     event.target.value = "";
-
   };
 
   return (
@@ -101,7 +96,6 @@ export default function InputFileUpload({ onClientesImportados }: Props) {
       <input
         type="file"
         accept=".xlsx"
-        multiple
         className="hidden-file-input"
         onChange={handleFileChange}
       />

@@ -19,20 +19,16 @@ type PropsSelect = {
   className?: string;
   disabled?: boolean;
   value?: string[];
-  onChangeClientes: (nomes: string[]) => void;
-  setSelected?: (nomes: string[]) => void;
+  onChangeClientes: (cpfs: string[]) => void; // agora trabalha com CPF
+  setSelected?: (cpfs: string[]) => void;
   selected?: string[];
   setOpen?: Dispatch<React.SetStateAction<boolean>>;
   open?: boolean;
 };
 
-
-
-
-
-
 /* ======================================================
    MOCK DE CLIENTES
+   (depois você troca pelos dados do ERP)
 ====================================================== */
 const clientesMock: Cliente[] = [
   { nome: "Ana Pereira", cpf: "111.111.111-11", telefone: "(11) 90001-0001" },
@@ -64,7 +60,7 @@ const clientesMock: Cliente[] = [
 ];
 
 /* ======================================================
-   TOAST CUSTOMIZADO
+   TOAST
 ====================================================== */
 function showClienteToast(cliente: Cliente) {
   toast.success(
@@ -76,10 +72,6 @@ function showClienteToast(cliente: Cliente) {
     {
       position: "top-right",
       autoClose: 4000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: false,
       theme: "dark",
     }
   );
@@ -92,63 +84,36 @@ export default function ClienteSelect({
   children,
   className,
   disabled = false,
-  // value, // <--- importante que isso exista nas props
   onChangeClientes,
   setSelected,
-  selected,
+  selected = [],
   setOpen,
   open,
 }: PropsSelect) {
-
-  
   const [search, setSearch] = useState("");
 
-// sincroniza estado quando value mudar
-  // const containerRef = useRef<HTMLDivElement>(null);
-  
-  /* ======================================================
-     Fecha dropdown ao clicar fora
-  ====================================================== */
-// Fecha dropdown ao clicar fora
-// useEffect(() => {
-//   const handler = (e: MouseEvent) => {
-//     if (
-//       containerRef.current &&
-//       !containerRef.current.contains(e.target as Node)
-//     ) {
-//       setOpen(false);
-//       setSearch("");
-//     }
-//   };
+  /* Selecionar / desmarcar cliente (usa CPF como chave) */
+  const toggleCliente = (cliente: Cliente) => {
+    const cpfLimpo = cliente.cpf.replace(/\D/g, "");
 
-//   document.addEventListener("mousedown", handler);
-//   return () => document.removeEventListener("mousedown", handler);
-// }, []);
+    const jaSelecionado = selected.includes(cpfLimpo);
 
+    const updated = jaSelecionado
+      ? selected.filter((c) => c !== cpfLimpo)
+      : [...selected, cpfLimpo];
 
+    setSelected?.(updated);
+    onChangeClientes(updated); // 1º lugar: quando clica no item da lista
 
-
-  /* Selecionar / desmarcar cliente */
-const toggleCliente = (cliente: Cliente) => {
-  const jaSelecionado = selected!.includes(cliente.nome);
-
-  const updated = jaSelecionado
-    ? selected!.filter((c) => c !== cliente.nome)
-    : [...selected!, cliente.nome];
-
-  setSelected!(updated);
-  onChangeClientes(updated);
-
-  if (!jaSelecionado) {
-    showClienteToast(cliente);
-  }
-};
-
+    if (!jaSelecionado) {
+      showClienteToast(cliente);
+    }
+  };
 
   const clearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelected!([]);
-    onChangeClientes([]);
+    setSelected?.([]);
+    onChangeClientes([]); // limpa tudo
     setSearch("");
   };
 
@@ -156,62 +121,72 @@ const toggleCliente = (cliente: Cliente) => {
     c.nome.toLowerCase().includes(search.toLowerCase())
   );
 
+  // helper para achar nome pelo CPF
+  const getNomeByCpf = (cpf: string) => {
+    const cliente = clientesMock.find(
+      (c) => c.cpf.replace(/\D/g, "") === cpf.replace(/\D/g, "")
+    );
+    return cliente?.nome ?? cpf;
+  };
+
   return (
     <div
-      className={`cliente-select ${className || ""} ${disabled ? "cliente-disabled" : ""}`}
+      className={`cliente-select ${className || ""} ${
+        disabled ? "cliente-disabled" : ""
+      }`}
       onClick={(e) => e.stopPropagation()}
     >
-
       <label className="cliente-label">{children}</label>
 
       <div
-        className={`cliente-input ${open ? "active" : ""} ${disabled ? "cliente-disabled" : ""}`}
-        onClick={() => !disabled && setOpen!((prev) => !prev)}
+        className={`cliente-input ${open ? "active" : ""} ${
+          disabled ? "cliente-disabled" : ""
+        }`}
+        onClick={() => !disabled && setOpen?.((prev) => !prev)}
       >
-
         <div className="cliente-chips">
-
-          {/* 🔹 MODO RECOLHIDO (RESUMO) */}
-          {!open && selected!.length > 0 && (
+          {/* Resumo quando fechado */}
+          {!open && selected.length > 0 && (
             <span className="summary">
-              {selected!.length === 1
-                ? selected![0]
-                : `${selected![0]} + ${selected!.length - 1} clientes`}
+              {selected.length === 1
+                ? getNomeByCpf(selected[0])
+                : `${getNomeByCpf(selected[0])} + ${
+                    selected.length - 1
+                  } clientes`}
             </span>
           )}
 
-          {/* 🔹 PLACEHOLDER */}
-          {!open && selected!.length === 0 && (
+          {/* Placeholder quando nada selecionado */}
+          {!open && selected.length === 0 && (
             <span className="placeholder">Selecione os clientes</span>
           )}
 
+          {/* Chips quando aberto */}
           {open &&
-  selected!.map((nome) => (
-    <span key={nome} className="chip">
-      {nome}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          const updated = selected!.filter((c) => c !== nome);
-setSelected!(updated);
-onChangeClientes(updated);
+            selected.map((cpf) => {
+              const nomeExibicao = getNomeByCpf(cpf);
 
-        }}
-      >
-        ×
-      </button>
-    </span>
-  ))}
+              return (
+                <span key={cpf} className="chip">
+                  {nomeExibicao}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const updated = selected.filter((c) => c !== cpf);
+                      setSelected?.(updated);
+                      onChangeClientes(updated); // 2º lugar: quando clica no "x" do chip
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
         </div>
 
         <div className="actions">
-          {selected!.length > 0 && (
-           <button
-  className="clear-all"
-  onClick={(e) => disabled ? e.stopPropagation() : clearAll(e)}
-  disabled={disabled}
->
-
+          {selected.length > 0 && (
+            <button className="clear-all" onClick={(e) => clearAll(e)}>
               ×
             </button>
           )}
@@ -229,21 +204,23 @@ onChangeClientes(updated);
           />
 
           <ul>
-            {filtered.map((cliente) => (
-             <li
-  key={cliente.nome}
-  onClick={() => !disabled && toggleCliente(cliente)}
-  className={disabled ? "disabled-item" : ""}
->
-
-                <input
-                  type="checkbox"
-                  checked={selected!.includes(cliente.nome)}
-                  readOnly
-                />
-                <span>{cliente.nome}</span>
-              </li>
-            ))}
+            {filtered.map((cliente) => {
+              const cpfLimpo = cliente.cpf.replace(/\D/g, "");
+              return (
+                <li
+                  key={cpfLimpo}
+                  onClick={() => !disabled && toggleCliente(cliente)}
+                  className={disabled ? "disabled-item" : ""}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(cpfLimpo)}
+                    readOnly
+                  />
+                  <span>{cliente.nome}</span>
+                </li>
+              );
+            })}
 
             {filtered.length === 0 && (
               <li className="empty">Nenhum cliente encontrado</li>

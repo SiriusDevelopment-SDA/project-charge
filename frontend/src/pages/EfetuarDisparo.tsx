@@ -12,6 +12,7 @@ import DropdownTemplate from "../componente/DropdownTemplate";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 import InputNumber from "../componente/inputnumber";
 
+
 // Styles
 import "../styles/importar-contatos.css";
 import "../styles/EfetuarDisparo.css";
@@ -81,24 +82,35 @@ export default function EfetuarDisparo() {
 
   /* ================= DOWNLOAD XLSX ================= */
   function handleDownloadModelo() {
-    const TOTAL_LINHAS = 500;
+  const TOTAL_LINHAS = 500;
 
-    const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
-      CPF: "",
-      Telefone: "",
-    }));
+  const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
+    CPF: "",
+    Telefone: "",
+  }));
 
-    const ws = XLSX.utils.json_to_sheet(rows, {
-      header: ["CPF", "Telefone"],
-    });
+  const ws = XLSX.utils.json_to_sheet(rows, {
+    header: ["CPF", "Telefone"],
+  });
 
-    ws["!cols"] = [{ wch: 20 }, { wch: 20 }];
+  // Largura das colunas (opcional)
+  ws["!cols"] = [{ wch: 20 }, { wch: 20 }];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Contatos");
-
-    XLSX.writeFile(wb, "modelo_contatos.xlsx");
+  // Adiciona o formato customizado para a primeira coluna (CPF)
+  // Coluna A = índice 0
+  for (let i = 1; i <= TOTAL_LINHAS; i++) {
+    const cellAddress = `A${i}`;
+    if (!ws[cellAddress]) ws[cellAddress] = { t: "s", v: "" };
+    ws[cellAddress].z = '000"."000"."000"-"00';
   }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Contatos");
+
+  XLSX.writeFile(wb, "modelo_contatos.xlsx");
+}
+
+  
 
   /* ================= JSX ================= */
   return (
@@ -173,10 +185,11 @@ export default function EfetuarDisparo() {
                   >
                     <InputFileUpload
                       onClientesImportados={(validos) => {
-                        setClientesSelecionados((prev) =>
-                          Array.from(new Set([...prev, ...validos]))
-                        );
-                      }}
+  setClientesSelecionados((prev) =>
+    Array.from(new Set([...prev, ...validos]))
+  );
+}}
+
                     />
                   </div>
 
