@@ -51,7 +51,7 @@ export default function EfetuarDisparo() {
   const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
   const [openTemplate, setOpenTemplate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-
+  const [openDropdownCliente, setOpenDropdownCliente] = useState(false);
   /* ================= PREVIEW ================= */
   const previewMessage = useMemo(() => {
     if (!templateSelecionado?.conteudo)
@@ -87,24 +87,15 @@ export default function EfetuarDisparo() {
     const TOTAL_LINHAS = 500;
 
     const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
-      nome: "",
-      telefone: 0,
+      CPF: "",
+      Telefone: "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows, {
-      header: ["nome", "telefone"],
+      header: ["CPF", "Telefone"],
     });
 
-    ws["!cols"] = [{ wch: 35 }, { wch: 20 }];
-
-    for (let r = 2; r <= TOTAL_LINHAS + 1; r++) {
-      const addr = `B${r}`;
-      if (!ws[addr]) continue;
-
-      ws[addr].t = "n";
-      ws[addr].v = 0;
-      ws[addr].z = "(##) #####-####;;;";
-    }
+    ws["!cols"] = [{ wch: 20 }, { wch: 20 }];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Contatos");
@@ -122,13 +113,13 @@ export default function EfetuarDisparo() {
           <h1 className="pageTitle">
             {modoCliente === "com"
               ? "Disparo clientes ativos"
-              : "Disparo novos clientes"}
+              : "Disparo nova lead"}
           </h1>
 
           <div className="buttons-navigation">
             <button className="outline" onClick={toggleModoCliente}>
               {modoCliente === "com"
-                ? "Cliente sem cadastro"
+                ? "Nova lead"
                 : "Cliente com cadastro"}
             </button>
 
@@ -154,8 +145,15 @@ export default function EfetuarDisparo() {
                 {/* 🔹 Componente busca de clientes */}
                 {modoCliente === "com" && (
                   <ClienteSelect
-                    key={`cliente-${resetKey}`}
-                    onChangeClientes={setClientesSelecionados}
+                    disabled={!templateSelecionado}
+                    value={clientesSelecionados}
+                    setSelected={setClientesSelecionados}
+                    selected={clientesSelecionados}
+                    onChangeClientes={(novos) => {
+                      setClientesSelecionados(novos);
+                    }}
+                    open={openDropdownCliente}
+                    setOpen={setOpenDropdownCliente}
                   >
                     Buscar clientes no ERP
                   </ClienteSelect>
@@ -178,26 +176,16 @@ export default function EfetuarDisparo() {
           <div className="PreviewMensagemTemplate">
             <MessagePreview message={previewMessage} />
           </div>
-
-          <p className="UploadDescricao">Carregar arquivos .XLSX</p>
-
-          <div className="Box-Arquivo">
-            <InputFileUpload key={`upload-${resetKey}`} />
-
-            <div className="download-wrapper">
-              <MyButtonAlert 
-                variant="secondary"
-                text="Baixar modelo XLSX"
-                onClick={handleDownloadModelo}
-              />
-            </div>
-          </div>
         </div>
 
         <div className="MyButton">
-          <MyButtonAlert variant="success" text="Enviar" acao="Enviado com sucesso"/>
           <MyButtonAlert
-           acao="Formulário limpo!"
+            variant="success"
+            text="Enviar"
+            acao="Enviado com sucesso"
+          />
+          <MyButtonAlert
+            acao="Formulário limpo!"
             variant="danger"
             text="Limpar"
             onClick={handleCancelar}

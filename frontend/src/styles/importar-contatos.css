@@ -89,3 +89,23 @@
 margin-left: -15%;
 }
 
+.file-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini-upload-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  height: 100%;
+  width: 100%;
+  justify-content: center;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+
