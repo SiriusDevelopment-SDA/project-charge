@@ -4,7 +4,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { AppServiceTemplate } from './app.service.templates';
-import { SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
+import { SearchRequestDtoRelatories, SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
 
 @Controller()
 export class ControllerTemplates {
@@ -18,5 +18,10 @@ export class ControllerTemplates {
   @Post('send/template')
   sendTemplate(@Body() sendTemplateDto: SendTemplateDto) {
     return this.appService.sendTemplate(sendTemplateDto);
+  }
+
+  @Post('search/relatories')
+  getRelatoriesDispatchTemplates(@Body() searchDto: SearchRequestDtoRelatories) {
+    return this.appService.getRelatoriesDispatchTemplate(searchDto);
   }
 }

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Client } from '../clients/entities.ts/clients';
 import { SearchRequestDtoClients } from './dto/search.request.dto.clients';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, FindOptionsWhere } from 'typeorm';
 
 @Injectable()
 export class AppServiceClient {
@@ -26,27 +26,21 @@ export class AppServiceClient {
   
     const order =
       sortorder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  
-    let where: any;
-  
-    // 🔹 Sempre filtra pelo account (company)
-    if (query) {
-      where = [
-        query
-          ? {
-              name: ILike(`%${query}%`),
-              whatsapp: ILike(`%${query}%`),
-              company: { account_chatwoot: account },
-            }
-          : null,
-      ].filter(Boolean);
-    } else {
-      where = {
+ 
+    const where: FindOptionsWhere<Client>[] = [
+      {
         company: {
-          account_chatwoot: account,
+          account_chatwoot: String(account),
         },
-      };
-    }
+        name: ILike(`%${query}%`),
+      },
+      {
+        company: {
+          account_chatwoot: String(account),
+        },
+        whatsapp: ILike(`%${query}%`),
+      },
+    ];
 
     const [data, total] = await this.clientRepository.findAndCount({
       where,

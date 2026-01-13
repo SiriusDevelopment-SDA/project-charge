@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { Templates } from './entities/templatesMeta';
-import { SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
+import { SearchRequestDtoRelatories, SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
 import { RelatoryDispatchTemplate } from './entities/relatory.entity';
 
 @Injectable()
@@ -60,7 +60,7 @@ export class AppServiceTemplate {
 
   async sendTemplate(data: SendTemplateDto) {
     const { templateId, account, to } = data;
-  
+    const results = [];
     const template = await this.templateRepository.findOne({
       where: {
         id: templateId,
@@ -86,22 +86,21 @@ export class AppServiceTemplate {
   
     if (!template)throw new NotFoundException('Template não encontrado');
   
-    const expected = Object.keys(template.variables || {}).length;
-
+    
     for (const recipient of to) {
+      const expected = Object.keys(template.variables || {}).length;
       const safeComponents = Array.isArray(recipient.components) ? recipient.components : [];
+      const bodyComponent = safeComponents.find(c => c.type === 'BODY');
+      const parametersLength = bodyComponent?.parameters?.length ?? 0;
+      if (expected !== parametersLength)throw new NotFoundException(`Template exige ${expected} variáveis, recebido ${parametersLength}`);
+
       const templatePayload = {
         name: template.name,
         language: { code: template.language },
-        components: expected > 0
+        components: expected > 0 && parametersLength > 0
           ? safeComponents
           : [{ type: 'BODY', parameters: [] }],
       };
-
-      const bodyComponent = safeComponents.find(c => c.type === 'BODY');
-      const parametersLength = bodyComponent?.parameters?.length ?? 0;
-    
-      if (expected !== parametersLength)throw new NotFoundException('Todas as variáveis não foram mapeadas!');
 
       const content = {
         from: template.company.canalId_notificameHub,
@@ -138,8 +137,61 @@ export class AppServiceTemplate {
         name: recipient.name ?? recipient.number,
         number: recipient.number,
         components_maped: { components: safeComponents },
+        company: { id: template.company.id }
       });
-      return responseData
+      results.push(responseData);
     }
+    return results
+  }
+
+  async getRelatoriesDispatchTemplate(dto: SearchRequestDtoRelatories) {
+    const { account, page, limit, sortorder, query } = dto;
+    const safeLimit = limit > 0 ? limit : 10;
+    const safePage = page > 0 ? page : 1;
+    const skip = (safePage - 1) * safeLimit;
+
+    const order =
+      sortorder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+      const where: FindOptionsWhere<RelatoryDispatchTemplate>[] = [
+        {
+          company: {
+            account_chatwoot: String(account),
+          },
+          name: ILike(`%${query}%`),
+        },
+        {
+          company: {
+            account_chatwoot: String(account),
+          },
+          number: ILike(`%${query}%`),
+        },
+      ];
+      
+
+    const [data,] = await this.relatoryDispatchRepository.findAndCount({
+      where,
+      relations: {
+        template: true
+        },
+        select: {
+          template: {
+            id: true,
+            category: true,
+            variables: true
+          },
+        },
+        skip,
+        take: safeLimit,
+        order: {
+          createdAt: order,
+        },
+      });
+    
+    
+    return {
+      page: safePage,
+      total: data.length,
+      data
+    };
   }
 }

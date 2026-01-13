@@ -62,17 +62,17 @@ export class TemplateParameterDto {
 }
   
 export class TemplateComponentDto {
-    @ApiProperty({ example: 'BODY', required: false })
+    @ApiProperty({ example: 'BODY', required: true })
     @IsString()
     type!: "BODY" | "HEADER" | "FOOTER";
   
-    @ApiProperty({ type: [TemplateParameterDto], required: false })
+    @ApiProperty({ type: [TemplateParameterDto], required: true })
     @IsArray()
-    @ArrayMinSize(1)
     @ValidateNested({ each: true })
     @Type(() => TemplateParameterDto)
     parameters!: TemplateParameterDto[];
 }
+
 export class ToComponentDto {
   @ApiProperty({ example: 'João', required: false })
   @IsString()
@@ -91,7 +91,7 @@ export class ToComponentDto {
   @ApiProperty({
     description: 'Componentes do template',
     type: [TemplateComponentDto],
-    required: false
+    required: true
   })
   @IsArray()
   @ValidateNested({ each: true })
@@ -119,7 +119,54 @@ export class SendTemplateDto {
       description: 'Destino do disparo',
       type: [ToComponentDto],
     })
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ToComponentDto)
     to!: ToComponentDto[];
   }
   
+  export class SearchRequestDtoRelatories {
 
+    @ApiProperty({
+      description: 'Account é obrigatório, envie o id da account do sistema que está utilizando.',
+      example: 4,
+    })
+    @Type(() => Number)
+    @IsNumber({}, { message: 'O account deve ser um número' })
+    @IsNotEmpty({ message: 'O account é obrigatório' })
+    account!: number;
+  
+    @ApiProperty({
+      description: 'Nome ou Whatsapp para buscar um relatorio específico',
+      example: '5511999999999 ou Juliana Lima',
+      required: false,
+    })
+    @IsString()
+    query?: string
+  
+    @ApiProperty({
+      description: 'Envie uma page para filtrar para uma pagina específica.',
+      example: 2,
+      required: false,
+    })
+    @Type(() => Number)
+    @IsInt({ message: 'A page deve ser um número inteiro' })
+    page!: number;
+  
+    @ApiProperty({
+      description: 'Por questões de desempenho limitamos em 10 porém pode ser enviado um novo limite.',
+      example: 8,
+      required: false,
+    })
+    @Type(() => Number)
+    @IsInt({ message: 'O limit deve ser um número inteiro' })
+    limit!: number;
+  
+    @ApiProperty({
+      description: "Envie 'DESC' ou 'ASC' para ordenar a listagem.",
+      example: 'DESC',
+      required: false,
+    })
+    @IsIn(['ASC', 'DESC'], { message: 'sortorder deve ser ASC ou DESC' })
+    sortorder?: 'ASC' | 'DESC';
+  }

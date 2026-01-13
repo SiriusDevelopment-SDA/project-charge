@@ -8,6 +8,7 @@ import {
     PrimaryGeneratedColumn,
   } from 'typeorm';
 import { Templates } from './templatesMeta';
+import { Company } from '../../companies/entities/companies';
 
   
   @Entity()
@@ -51,5 +52,12 @@ import { Templates } from './templatesMeta';
   
     @UpdateDateColumn()
     updatedAt!: Date;
+    
+    @Column({nullable: true})
+    providerMessageId!: string
+
+    @ManyToOne(() => Company, (company) => company.relatories)
+    @JoinColumn({ name: 'companyId' })
+    company!: Company;
   }
   
