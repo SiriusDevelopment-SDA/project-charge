@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import "../styles/DropdownTemplate.css";
 import type { propTemplate, Template } from "../types";
 import FilterButton from "./ButtonNavigation";
@@ -29,6 +29,42 @@ export default function DropdownPersonalized({
   const [value, setValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // 1. Verifica se o clique foi dentro do container principal
+      const isInsideDropdown = dropdownRef.current?.contains(target);
+
+      // 2. PROTEÇÃO ESPECIAL PARA O SELECT:
+      // Verificamos se o clique foi em um <select> ou <option>
+      // Isso é necessário porque o dropdown nativo do navegador muitas vezes 
+      // dispara eventos que o React interpreta como sendo "fora" do DOM.
+      const isSelectClick = target.tagName === "SELECT" || target.tagName === "OPTION";
+
+      // 3. Verifica se o clique foi em qualquer parte do filtro (mesmo que flutuante)
+      const isInsideFilter = target.closest(".filter-container") || 
+                             target.closest(".dropdown-categoria") || 
+                             target.closest(".filter-button");
+
+      // SÓ fecha se NÃO for dentro do dropdown, NÃO for um select e NÃO for no filtro
+      if (!isInsideDropdown && !isSelectClick && !isInsideFilter) {
+        setOpenState(false);
+      }
+    };
+
+    if (open) {
+      // Usamos capture: true para garantir a detecção correta
+      document.addEventListener("mousedown", handleClickOutside, true);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, [open, setOpenState]);
 
   const filteredTemplates = templatesMock.filter((template) => {
     const matchNome = template.nome.toLowerCase().includes(searchTerm.toLowerCase());
@@ -37,8 +73,7 @@ export default function DropdownPersonalized({
   });
 
   return (
-    <div className="custom-dropdown-wrapper" onClick={(e) => e.stopPropagation()}>
-      
+    <div className="custom-dropdown-wrapper" ref={dropdownRef}>
       <label
         className={`custom-dropdown-label ${
           open || value !== "" ? "custom-dropdown-label--shrink" : ""
@@ -47,9 +82,13 @@ export default function DropdownPersonalized({
         Template
       </label>
 
-      <div
-        className="custom-dropdown-control"
-        onClick={() => setOpenState((prev) => !prev)}
+      <div 
+        className="custom-dropdown-control" 
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpenState(!open);
+        }}
       >
         <span
           className={`custom-dropdown-value ${
@@ -58,13 +97,11 @@ export default function DropdownPersonalized({
         >
           {value === "" ? "" : capitalize(value)}
         </span>
-
         <span className={`arrow ${open ? "open" : ""}`} />
       </div>
 
       {open && (
         <div className="custom-template-menu" onClick={(e) => e.stopPropagation()}>
-
           <div className="dropdown-header">
             <input
               type="text"
@@ -72,14 +109,17 @@ export default function DropdownPersonalized({
               className="search-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
             />
 
             {FilterButtonProp && (
-              <FilterButton
-                templates={templatesMock}
-                selectedCategory={categoryFilter}
-                onCategoryChange={(cat) => setCategoryFilter(cat)}
-              />
+              <div className="filter-wrapper-internal" onClick={(e) => e.stopPropagation()}>
+                <FilterButton
+                  templates={templatesMock}
+                  selectedCategory={categoryFilter}
+                  onCategoryChange={(cat) => setCategoryFilter(cat)}
+                />
+              </div>
             )}
           </div>
 
@@ -91,9 +131,10 @@ export default function DropdownPersonalized({
                   className={`custom-template-item ${
                     value === template.nome ? "custom-template-item--selected" : ""
                   }`}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setValue(template.nome);
-                    onSelectTemplate(template); // CORREÇÃO: Chama a função de seleção
+                    onSelectTemplate(template);
                     setOpenState(false);
                   }}
                 >

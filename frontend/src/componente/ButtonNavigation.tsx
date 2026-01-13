@@ -1,9 +1,12 @@
 "use client";
-
+// Componente de botão de filtro de categoria usando PrimeReact
 import { useRef } from "react";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { Button } from "primereact/button";
 import type { Template } from "../types";
+
+// styles
+import "../styles/ButtonFIlter.module.css";
 
 
 type FilterButtonProps = {

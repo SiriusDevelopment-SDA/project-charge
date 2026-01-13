@@ -1,4 +1,4 @@
-import {  useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useNavigate } from "react-router-dom";
 
@@ -26,7 +26,6 @@ import DropdownPersonalized from "../componente/Dropdown";
 /* ======================================================
    Utilitário
 ====================================================== */
-
 function renderTemplate(
   template: string,
   variaveis: Record<string, string | number | undefined>
@@ -48,10 +47,38 @@ export default function EfetuarDisparo() {
   const navigate = useNavigate();
   const [modoCliente, setModoCliente] = useState<"com" | "sem">("com");
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
-  const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
+  const [templateSelecionado, setTemplateSelecionado] =
+    useState<Template | null>(null);
   const [openTemplate, setOpenTemplate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [openDropdownCliente, setOpenDropdownCliente] = useState(false);
+
+  /* ================= LÓGICA PARA FECHAR DROPDOWNS AO CLICAR FORA ================= */
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      const isInsideTemplate = target.closest(".custom-dropdown-wrapper");
+      const isInsideFilter = target.closest(".filter-container") || 
+                             target.closest(".dropdown-categoria") || 
+                             target.closest(".filter-button") ||
+                             target.tagName === "SELECT" || 
+                             target.tagName === "OPTION";
+
+      if (!isInsideTemplate && !isInsideFilter) {
+        setOpenTemplate(false);
+      }
+      
+      const isInsideCliente = target.closest(".cliente-select");
+      if (!isInsideCliente) {
+        setOpenDropdownCliente(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside, true);
+    return () => document.removeEventListener("mousedown", handleClickOutside, true);
+  }, []);
+
   /* ================= PREVIEW ================= */
   const previewMessage = useMemo(() => {
     if (!templateSelecionado?.conteudo)
@@ -61,7 +88,7 @@ export default function EfetuarDisparo() {
       return "Selecione ao menos um cliente para visualizar a mensagem";
 
     const nomeCliente =
-      modoCliente === "com" ? clientesSelecionados[0] : "Cliente";
+      modoCliente === "com" ? (clientesSelecionados[0] || "Cliente") : "Cliente";
 
     return renderTemplate(templateSelecionado.conteudo, {
       nome: nomeCliente,
@@ -85,25 +112,17 @@ export default function EfetuarDisparo() {
   /* ================= DOWNLOAD XLSX ================= */
   function handleDownloadModelo() {
     const TOTAL_LINHAS = 500;
-
     const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
       CPF: "",
       Telefone: "",
     }));
-
-    const ws = XLSX.utils.json_to_sheet(rows, {
-      header: ["CPF", "Telefone"],
-    });
-
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ["CPF", "Telefone"] });
     ws["!cols"] = [{ wch: 20 }, { wch: 20 }];
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Contatos");
-
-    XLSX.writeFile(wb, "modelo_contatos.xlsx");
+    XLSX.writeFile(wb, modoCliente === "com" ? "modelo_clientes.xlsx" : "modelo_leads.xlsx");
   }
 
-  /* ================= JSX ================= */
   return (
     <div>
       <Navbar />
@@ -118,16 +137,10 @@ export default function EfetuarDisparo() {
 
           <div className="buttons-navigation">
             <button className="outline" onClick={toggleModoCliente}>
-              {modoCliente === "com"
-                ? "Nova lead"
-                : "Cliente com cadastro"}
+              {modoCliente === "com" ? "Nova lead" : "Cliente com cadastro"}
             </button>
 
-            <div>
-     
-    </div>
-
-              <button
+            <button
               className="outline"
               onClick={() => navigate("/historicodisparo")}
             >
@@ -136,13 +149,25 @@ export default function EfetuarDisparo() {
           </div>
         </div>
 
-        <div className="box-wrapper" onClick={()=> setOpenTemplate(false)}>
-          <div className="teste" >
+        <div className="box-wrapper">
+          <div className="teste">
             
+              
+
               <div className="boxInputs">
-                
-                
-                {/* 🔹 Componente busca de clientes */}
+
+                {/* 🔹 Componente Template */}
+              <DropdownPersonalized
+                key={`template-${resetKey}`}
+                setOpenState={setOpenTemplate}
+                open={openTemplate}
+                FilterButtonProp={true}
+                onSelectTemplate={(t) => {
+                  setTemplateSelecionado(t);
+                  setOpenTemplate(false);
+                }}
+              />
+
                 {modoCliente === "com" && (
                   <ClienteSelect
                     disabled={!templateSelecionado}
@@ -158,17 +183,45 @@ export default function EfetuarDisparo() {
                     Buscar clientes no ERP
                   </ClienteSelect>
                 )}
-                {/* 🔹 Componente de busca de leads por número */}
+
                 {modoCliente === "sem" && (
                   <InputNumber key={`number-${resetKey}`} />
                 )}
-                {/* 🔹 Componente Template */}
-                <DropdownPersonalized key={`template-${resetKey}`} setOpenState={setOpenTemplate} open={openTemplate} FilterButtonProp={true} onSelectTemplate={setTemplateSelecionado}/>
-                
+              
+
+              {/* 🔹 BOTÕES DE AÇÃO COM INTUITOS DIFERENTES */}
+              <div
+                className={`mini-actions ${
+                  !templateSelecionado ? "disabled-block" : ""
+                }`}
+              >
+                <div
+                  className="btn-mini file-wrapper"
+                  style={{
+                    pointerEvents: !templateSelecionado ? "none" : "auto",
+                  }}
+                >
+                  {/* O componente de upload pode receber props diferentes se necessário */}
+                  <InputFileUpload
+                    onClientesImportados={(validos) => {
+                      setClientesSelecionados((prev) =>
+                        Array.from(new Set([...prev, ...validos]))
+                      );
+                    }}
+                  />
+                </div>
+
+                <button
+                  className="btn-mini"
+                  onClick={handleDownloadModelo}
+                  disabled={!templateSelecionado}
+                >
+                  {modoCliente === "com" ? "Baixar modelo clientes" : "Baixar modelo leads"}
+                </button>
               </div>
-            
-                {/* 🔹 Componente de quantidade de clientes selecionados */}
-                <ClientsSelectedCard total={clientesSelecionados.length} />
+            </div>
+
+            <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />
@@ -181,7 +234,7 @@ export default function EfetuarDisparo() {
         <div className="MyButton">
           <MyButtonAlert
             variant="success"
-            text="Enviar"
+            text={modoCliente === "com" ? "Enviar" : "Enviar"}
             acao="Enviado com sucesso"
           />
           <MyButtonAlert

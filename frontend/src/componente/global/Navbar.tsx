@@ -9,7 +9,7 @@ export default function Navbar() {
 
         {/* Logo */}
         <div className={styles.navbarLogo}>
-          <Link to="/EfetuarDisparo" className="outline">
+          <Link to="/" className="outline">
 
             <img src={logo} alt="Coraxy" />
           </Link>
