@@ -1,29 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { OverlayPanel } from "primereact/overlaypanel";
-import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
+import type { Template } from "../types";
+
 
 type FilterButtonProps = {
-  onSelect: (valor: "com" | "sem") => void;
+  templates: Template[];
+  selectedCategory: string;
+  onCategoryChange: (categoria: string) => void;
 };
 
-export default function FilterButton({ onSelect }: FilterButtonProps) {
+export default function FilterButton({
+  templates,
+  selectedCategory,
+  onCategoryChange,
+}: FilterButtonProps) {
   const op = useRef<OverlayPanel>(null);
-  const [operator, setOperator] = useState<"com" | "sem">("com");
 
-  const operators = [
-    { label: "Clientes com Cadastro", value: "com" },
-    { label: "Clientes sem Cadastro", value: "sem" },
-  ];
-
-  const handleChange = (e: any) => {
-    const value = e.value as "com" | "sem";
-    setOperator(value);
-    onSelect(value);     // 🔹 dispara mudança de página/estado
-    op.current?.hide();  // 🔹 fecha popup
-  };
+  const categorias = Array.from(new Set(templates.map((t) => t.categoria)));
 
   return (
     <div>
@@ -34,15 +30,24 @@ export default function FilterButton({ onSelect }: FilterButtonProps) {
         className="p-button-rounded p-button-secondary"
       />
 
-      <OverlayPanel ref={op} className="p-3" style={{ width: "350px" }}>
-        <div className="mb-3">
-          <Dropdown
-            value={operator}
-            options={operators}
-            onChange={handleChange}
-            className="w-full"
-          />
-        </div>
+      <OverlayPanel ref={op} className="p-3" style={{ width: "160px" }}>
+        <label style={{ fontSize: "14px", fontWeight: "500" }}>Categoria:</label>
+
+        <select
+          value={selectedCategory}
+          onChange={(e) => {
+            onCategoryChange(e.target.value);
+            op.current?.hide();
+          }}
+          className="category-select"
+        >
+          <option value="">Todas</option>
+          {categorias.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
       </OverlayPanel>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import {  useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useNavigate } from "react-router-dom";
 
@@ -8,11 +8,8 @@ import ClienteSelect from "../componente/filtrocliente";
 import InputFileUpload from "../componente/importar-contatos";
 import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
-import DropdownTemplate from "../componente/DropdownTemplate";
-import DropdownCategoria from "../componente/DropdownCategoria";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 import InputNumber from "../componente/inputnumber";
-import FilterButton from "../componente/ButtonNavigation";
 
 // Styles
 import "../styles/importar-contatos.css";
@@ -23,10 +20,13 @@ import "../styles/MyButtonGlobal.css";
 // Toastify
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import type { Template } from "../types";
+import DropdownPersonalized from "../componente/Dropdown";
 
 /* ======================================================
    Utilitário
 ====================================================== */
+
 function renderTemplate(
   template: string,
   variaveis: Record<string, string | number | undefined>
@@ -48,16 +48,9 @@ export default function EfetuarDisparo() {
   const navigate = useNavigate();
   const [modoCliente, setModoCliente] = useState<"com" | "sem">("com");
   const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
-  const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
+  const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
+  const [openTemplate, setOpenTemplate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  const handleApply = (filtro: any) => {
-    console.log("Filtro aplicado:", filtro);
-    // aqui você faz o que quiser
-  };
-
-  const handleClear = () => {
-    console.log("Filtro limpo");
-  };
 
   /* ================= PREVIEW ================= */
   const previewMessage = useMemo(() => {
@@ -140,9 +133,7 @@ export default function EfetuarDisparo() {
             </button>
 
             <div>
-
-              {/* BOTAO DE NAVEGAÇÃO QUE EU ESTOU FAZENDO TÁ AQUI */}
-      <FilterButton onApply={handleApply} onClear={handleClear}/>
+     
     </div>
 
               <button
@@ -154,10 +145,13 @@ export default function EfetuarDisparo() {
           </div>
         </div>
 
-        <div className="box-wrapper">
-          <div className="teste">
+        <div className="box-wrapper" onClick={()=> setOpenTemplate(false)}>
+          <div className="teste" >
             
               <div className="boxInputs">
+                
+                
+                {/* 🔹 Componente busca de clientes */}
                 {modoCliente === "com" && (
                   <ClienteSelect
                     key={`cliente-${resetKey}`}
@@ -166,21 +160,17 @@ export default function EfetuarDisparo() {
                     Buscar clientes no ERP
                   </ClienteSelect>
                 )}
-
+                {/* 🔹 Componente de busca de leads por número */}
                 {modoCliente === "sem" && (
                   <InputNumber key={`number-${resetKey}`} />
                 )}
-
-                <DropdownTemplate
-                  key={`template-${resetKey}`}
-                  onSelectTemplate={setTemplateSelecionado}
-                />
-
-                <DropdownCategoria key={`categoria-${resetKey}`} />
+                {/* 🔹 Componente Template */}
+                <DropdownPersonalized key={`template-${resetKey}`} setOpenState={setOpenTemplate} open={openTemplate} FilterButtonProp={true} onSelectTemplate={setTemplateSelecionado}/>
+                
               </div>
             
-
-            <ClientsSelectedCard total={clientesSelecionados.length} />
+                {/* 🔹 Componente de quantidade de clientes selecionados */}
+                <ClientsSelectedCard total={clientesSelecionados.length} />
           </div>
 
           <ToastContainer />

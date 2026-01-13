@@ -226,3 +226,8 @@ body {
 .download-wrapper {
   margin-left: 16px; /* espaçamento para a direita */
 }
+
+.teste22 {
+  display: flex;
+  gap: 20px;
+}

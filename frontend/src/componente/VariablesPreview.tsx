@@ -7,25 +7,28 @@ interface VariableItem {
   value: string;
 }
 
-const variables: VariableItem[] = [
-  { label: "{{1}}", value: "Cartão de crédito CS Mutual" },
-  { label: "{{2}}", value: "US$ 12,34" },
-  { label: "{{3}}", value: "1 de janeiro de 2024" },
-  { label: "{{4}}", value: "Cartão de crédito CS Mutual" },
-];
+interface VariablesPreviewProps {
+  variables: VariableItem[];
+}
 
-export default function VariablesPreview() {
+export default function VariablesPreview({ variables }: VariablesPreviewProps) {
   return (
     <div className={styles.card}>
       <h3 className={styles.title}>Amostra de variáveis</h3>
 
       <div className={styles.list}>
-        {variables.map((item, index) => (
-          <div key={index} className={styles.row}>
-            <div className={styles.variable}>{item.label}</div>
-            <div className={styles.value}>{item.value}</div>
+        {variables.length > 0 ? (
+          variables.map((item, index) => (
+            <div key={index} className={styles.row}>
+              <div className={styles.variable}>{item.label}</div>
+              <div className={styles.value}>{item.value || "(vazio)"}</div>
+            </div>
+          ))
+        ) : (
+          <div className={styles.noVariables}>
+            Nenhuma variável identificada no template selecionado.
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
