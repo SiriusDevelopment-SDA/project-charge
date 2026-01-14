@@ -5,7 +5,7 @@
     padding: 10px;
     margin-top: 23px;
     height: 60px;
-width: 130%;
+    width: 62%;
   }
 /* Container do input */
 .whatsapp-form-control {
@@ -27,7 +27,7 @@ width: 130%;
   font-size: 20px;
 }
 .InputNumber {
-   width: 130%;
+  width: 65%;
   position: relative;
   font-family: inherit;
   height: 74px;

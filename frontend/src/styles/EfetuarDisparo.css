@@ -204,3 +204,8 @@ body {
   opacity: 0.4;
   pointer-events: none;
 }
+
+.teste22 {
+  display: flex;
+  gap: 20px;
+}

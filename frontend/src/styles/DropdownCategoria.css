@@ -97,3 +97,40 @@
 .custom-dropdown-item--italic {
   opacity: 0.85;
 }
+
+/* ===== SEARCH INPUT ===== */
+.search-input {
+  width: 80%;
+  margin: 8px 5px;
+  margin-bottom: 8px;
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+}
+
+.category-filter {
+  margin-bottom: 15px;
+}
+
+.category-select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 5px;
+  background: #444;
+  color: #fff;
+}
+
+.custom-template-item {
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.custom-template-item--selected {
+  background-color: #3e8e41;
+}
+
+.custom-template-item:hover {
+  background-color: #555;
+}
+
