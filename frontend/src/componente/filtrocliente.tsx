@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, type ReactNode } from "react";
+import React, { useState, type Dispatch, type ReactNode } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../styles/filtrocliente.css";
@@ -17,8 +17,19 @@ type Cliente = {
 type PropsSelect = {
   children: ReactNode | string;
   className?: string;
+  disabled?: boolean;
+  value?: string[];
   onChangeClientes: (nomes: string[]) => void;
+  setSelected?: (nomes: string[]) => void;
+  selected?: string[];
+  setOpen?: Dispatch<React.SetStateAction<boolean>>;
+  open?: boolean;
 };
+
+
+
+
+
 
 /* ======================================================
    MOCK DE CLIENTES
@@ -80,47 +91,65 @@ function showClienteToast(cliente: Cliente) {
 export default function ClienteSelect({
   children,
   className,
+  disabled = false,
+  // value, // <--- importante que isso exista nas props
   onChangeClientes,
+  setSelected,
+  selected,
+  setOpen,
+  open,
 }: PropsSelect) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  /* Fecha dropdown ao clicar fora */
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  
+  const [search, setSearch] = useState("");
+
+// sincroniza estado quando value mudar
+  // const containerRef = useRef<HTMLDivElement>(null);
+  
+  /* ======================================================
+     Fecha dropdown ao clicar fora
+  ====================================================== */
+// Fecha dropdown ao clicar fora
+// useEffect(() => {
+//   const handler = (e: MouseEvent) => {
+//     if (
+//       containerRef.current &&
+//       !containerRef.current.contains(e.target as Node)
+//     ) {
+//       setOpen(false);
+//       setSearch("");
+//     }
+//   };
+
+//   document.addEventListener("mousedown", handler);
+//   return () => document.removeEventListener("mousedown", handler);
+// }, []);
+
+
+
 
   /* Selecionar / desmarcar cliente */
-  const toggleCliente = (cliente: Cliente) => {
-    const jaSelecionado = selected.includes(cliente.nome);
+const toggleCliente = (cliente: Cliente) => {
+  const jaSelecionado = selected!.includes(cliente.nome);
 
-    const updated = jaSelecionado
-      ? selected.filter((c) => c !== cliente.nome)
-      : [...selected, cliente.nome];
+  const updated = jaSelecionado
+    ? selected!.filter((c) => c !== cliente.nome)
+    : [...selected!, cliente.nome];
 
-    setSelected(updated);
-    onChangeClientes(updated);
+  setSelected!(updated);
+  onChangeClientes(updated);
 
-    if (!jaSelecionado) {
-      showClienteToast(cliente);
-    }
-  };
+  if (!jaSelecionado) {
+    showClienteToast(cliente);
+  }
+};
+
 
   const clearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelected([]);
+    setSelected!([]);
     onChangeClientes([]);
+    setSearch("");
   };
 
   const filtered = clientesMock.filter((c) =>
@@ -128,38 +157,61 @@ export default function ClienteSelect({
   );
 
   return (
-    <div ref={containerRef} className={`cliente-select ${className || ""}`}>
+    <div
+      className={`cliente-select ${className || ""} ${disabled ? "cliente-disabled" : ""}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+
       <label className="cliente-label">{children}</label>
 
       <div
-        className={`cliente-input ${open ? "active" : ""}`}
-        onClick={() => setOpen(!open)}
+        className={`cliente-input ${open ? "active" : ""} ${disabled ? "cliente-disabled" : ""}`}
+        onClick={() => !disabled && setOpen!((prev) => !prev)}
       >
+
         <div className="cliente-chips">
-          {selected.length === 0 && (
+
+          {/* 🔹 MODO RECOLHIDO (RESUMO) */}
+          {!open && selected!.length > 0 && (
+            <span className="summary">
+              {selected!.length === 1
+                ? selected![0]
+                : `${selected![0]} + ${selected!.length - 1} clientes`}
+            </span>
+          )}
+
+          {/* 🔹 PLACEHOLDER */}
+          {!open && selected!.length === 0 && (
             <span className="placeholder">Selecione os clientes</span>
           )}
 
-          {selected.map((nome) => (
-            <span key={nome} className="chip">
-              {nome}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const updated = selected.filter((c) => c !== nome);
-                  setSelected(updated);
-                  onChangeClientes(updated);
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+          {open &&
+  selected!.map((nome) => (
+    <span key={nome} className="chip">
+      {nome}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          const updated = selected!.filter((c) => c !== nome);
+setSelected!(updated);
+onChangeClientes(updated);
+
+        }}
+      >
+        ×
+      </button>
+    </span>
+  ))}
         </div>
 
         <div className="actions">
-          {selected.length > 0 && (
-            <button className="clear-all" onClick={clearAll}>
+          {selected!.length > 0 && (
+           <button
+  className="clear-all"
+  onClick={(e) => disabled ? e.stopPropagation() : clearAll(e)}
+  disabled={disabled}
+>
+
               ×
             </button>
           )}
@@ -178,13 +230,15 @@ export default function ClienteSelect({
 
           <ul>
             {filtered.map((cliente) => (
-              <li
-                key={cliente.nome}
-                onClick={() => toggleCliente(cliente)}
-              >
+             <li
+  key={cliente.nome}
+  onClick={() => !disabled && toggleCliente(cliente)}
+  className={disabled ? "disabled-item" : ""}
+>
+
                 <input
                   type="checkbox"
-                  checked={selected.includes(cliente.nome)}
+                  checked={selected!.includes(cliente.nome)}
                   readOnly
                 />
                 <span>{cliente.nome}</span>

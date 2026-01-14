@@ -1,5 +1,6 @@
 import styles from '../../styles/Navbar.module.css'
 import logo from '../../assets/icons/coraxy fundo preto 4.svg'
+import { Link } from "react-router-dom";
 
 export default function Navbar() {
   return (
@@ -8,7 +9,10 @@ export default function Navbar() {
 
         {/* Logo */}
         <div className={styles.navbarLogo}>
-          <img src={logo} alt="Coraxy" />
+          <Link to="/" className="outline">
+
+            <img src={logo} alt="Coraxy" />
+          </Link>
         </div>
 
         {/* Menu 

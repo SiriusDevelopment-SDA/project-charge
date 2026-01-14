@@ -1,0 +1,23 @@
+.p-overlaypanel {
+  background: #1b2331 !important;
+  border: 1px solid #3b4a61 !important;
+  color: #dbe5ff !important;
+}
+
+.p-overlaypanel .p-overlaypanel-content {
+    padding: 10px !important;
+}
+
+
+.p-dropdown {
+  background: #1b2331 !important;
+  border: 1px solid #3b4a61 !important;
+  color: #dbe5ff !important;
+}
+
+.p-inputtext {
+  background: #1b2331 !important;
+  border: 1px solid #3b4a61 !important;
+  color: #dbe5ff !important;
+}
+
