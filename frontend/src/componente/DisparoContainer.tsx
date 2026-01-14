@@ -111,7 +111,7 @@ export default function DisparoContainer() {
   return (
     <>
       <ClienteSelect
-        onChangeClientes={(nomes: string[]) => {
+      onChangeClientes={(nomes: string[]) => {
           const clientes = nomes
             .map((nome) => clientesMock[nome])
             .filter(Boolean);
