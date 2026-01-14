@@ -24,13 +24,17 @@ type PropsSelect = {
   selected?: string[];
   setOpen?: Dispatch<React.SetStateAction<boolean>>;
   open?: boolean;
+  clientes?: Cliente[];
+
 };
 
 /* ======================================================
    MOCK DE CLIENTES
    (depois você troca pelos dados do ERP)
 ====================================================== */
-const clientesMock: Cliente[] = [
+export const clientesMock: Cliente[] = [
+
+
   { nome: "Ana Pereira", cpf: "111.111.111-11", telefone: "(11) 90001-0001" },
   { nome: "Bruno Dias", cpf: "222.222.222-22", telefone: "(11) 90002-0002" },
   { nome: "Carlos Souza", cpf: "333.333.333-33", telefone: "(11) 90003-0003" },
@@ -116,6 +120,8 @@ export default function ClienteSelect({
     onChangeClientes([]); // limpa tudo
     setSearch("");
   };
+
+  
 
   const filtered = clientesMock.filter((c) =>
     c.nome.toLowerCase().includes(search.toLowerCase())

@@ -3,17 +3,18 @@ import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
 import "../styles/importar-contatos.css";
 
-function formatarCPF(cpf: string) {
-  const digits = cpf.replace(/\D/g, "");
-  if (digits.length !== 11) return cpf;
-  return `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`;
-}
+type ClienteERP = { nome: string; cpf: string };
 
 type Props = {
-  onClientesImportados: (cpfs: string[]) => void;
+  clientesERP: ClienteERP[];                 // ✅ lista do ERP (por enquanto mock)
+  onClientesImportados: (nomes: string[]) => void; // ✅ retorna NOMES
 };
 
-export default function InputFileUpload({ onClientesImportados }: Props) {
+function cpfDigits(raw: any) {
+  return String(raw ?? "").replace(/\D/g, "");
+}
+
+export default function InputFileUpload({ clientesERP, onClientesImportados }: Props) {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -32,57 +33,57 @@ export default function InputFileUpload({ onClientesImportados }: Props) {
 
       let total = 0;
       let invalidos = 0;
-      const validos: string[] = [];
+      let naoEncontrados = 0;
+
+      const nomesValidos: string[] = [];
 
       rows.forEach((row) => {
         const cpfRaw = row.CPF || row.cpf;
         if (!cpfRaw) return;
 
-        const cpfLimpo = String(cpfRaw).replace(/\D/g, "");
+        const cpf = cpfDigits(cpfRaw);
         total++;
 
-        if (cpfLimpo.length !== 11) {
+        if (cpf.length !== 11) {
           invalidos++;
-        } else {
-          validos.push(formatarCPF(cpfLimpo)); // já retorna formatado
+          return;
         }
+
+        const cliente = clientesERP.find(
+          (c) => cpfDigits(c.cpf) === cpf
+        );
+
+        if (!cliente) {
+          naoEncontrados++;
+          return;
+        }
+
+        nomesValidos.push(cliente.nome);
       });
 
       if (total === 0) {
-        toast.warn("Nenhum CPF encontrado na planilha.", {
-          position: "top-right",
-          theme: "dark",
-        });
+        toast.warn("Nenhum CPF encontrado na planilha.", { position: "top-right", theme: "dark" });
         return;
       }
 
-      if (validos.length === 0) {
-        toast.error("Nenhum CPF válido encontrado na planilha.", {
-          position: "top-right",
-          theme: "dark",
-        });
+      if (nomesValidos.length === 0) {
+        toast.error("Nenhum CPF válido/encontrado no ERP.", { position: "top-right", theme: "dark" });
         return;
       }
 
-      if (invalidos > 0) {
+      if (invalidos > 0 || naoEncontrados > 0) {
         toast.warn(
-          `${total} CPFs encontrados e ${invalidos} inválidos.`,
-          {
-            position: "top-right",
-            theme: "dark",
-          }
+          `${total} CPFs lidos • ${invalidos} inválidos • ${naoEncontrados} não encontrados no ERP.`,
+          { position: "top-right", theme: "dark" }
         );
       } else {
-        toast.success(
-          `${total} CPFs encontrados e todos válidos!`,
-          {
-            position: "top-right",
-            theme: "dark",
-          }
-        );
+        toast.success(`${total} clientes encontrados e todos válidos!`, {
+          position: "top-right",
+          theme: "dark",
+        });
       }
 
-      onClientesImportados(validos);
+      onClientesImportados(nomesValidos);
     };
 
     reader.readAsBinaryString(file);
