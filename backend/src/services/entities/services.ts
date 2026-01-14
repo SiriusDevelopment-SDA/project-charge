@@ -22,11 +22,11 @@ import { Company } from '../../companies/entities/companies';
 
     @IsString()
     @Column()
-    cnpj_cpf!: string
+    id_servico!: string
 
     @IsString()
     @Column()
-    value!: string
+    status!: string
 
     @IsString()
     @Column()
@@ -40,7 +40,7 @@ import { Company } from '../../companies/entities/companies';
     
     @ManyToOne(() => Client, (client) => client.services, { nullable: false })
     @JoinColumn({
-      name: 'client',
+      name: 'cnpj_cpf',
       referencedColumnName: 'cnpj_cpf',
     })
     client!: Client;

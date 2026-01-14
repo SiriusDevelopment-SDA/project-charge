@@ -10,7 +10,7 @@ import { AppServiceClient } from './app.service.clients';
 export class ControllerClients {
   constructor(private readonly appService: AppServiceClient) {}
 
-  @Post('buscar/clientes')
+  @Post('search/clients')
   getClients(@Body() searchDto: SearchRequestDtoClients) {
     return this.appService.getClients(searchDto);
   }

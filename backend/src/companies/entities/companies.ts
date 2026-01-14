@@ -12,6 +12,7 @@ import { Client } from '../../clients/entities.ts/clients';
 import { Invoice } from '../../invoices/entities/invoices';
 import { Service } from '../../services/entities/services';
 import { Templates } from '../../templates/entities/templatesMeta';
+import { RelatoryDispatchTemplate } from '../../templates/entities/relatory.entity';
   
   @Entity()
   export class Company {
@@ -98,4 +99,7 @@ import { Templates } from '../../templates/entities/templatesMeta';
 
     @OneToMany(() => Templates, (template) => template.company, { nullable: false })
     templates!: Templates[];
+
+    @OneToMany(() => RelatoryDispatchTemplate, (relatory) => relatory.company, { nullable: false })
+    relatories!: RelatoryDispatchTemplate[];
   }
