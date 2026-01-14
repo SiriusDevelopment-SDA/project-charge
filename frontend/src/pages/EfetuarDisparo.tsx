@@ -23,6 +23,8 @@ import "../styles/MyButtonGlobal.css";
 // Toastify
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+ import type { Template } from "../types";
+import DropdownPersonalized from "../componente/Dropdown";
 
 /* ======================================================
    MOCK — cliente do ERP (pode ser via API futuramente)
@@ -85,13 +87,15 @@ function renderTemplate(
 /* ======================================================
    Página
 ====================================================== */
-xexport default function EfetuarDisparo() {
+export default function EfetuarDisparo() {
   const navigate = useNavigate();
 
   // Vamos sempre armazenar CPF LIMPO aqui
-  const [clientesSelecionados, setClientesSelecionados] = useState<string[]>([]);
   const [modoCliente, setModoCliente] = useState<"com" | "sem">("com");
-  const [templateSelecionado, setTemplateSelecionado] = useState<any>(null);
+  const [clientesSelecionados, setClientesSelecionados] = useState<any[]>([]);
+  const [templateSelecionado, setTemplateSelecionado] =
+    useState<Template | null>(null);
+  const [openTemplate, setOpenTemplate] = useState(false)
   const [resetKey, setResetKey] = useState(0);
   const [openDropdownCliente, setOpenDropdownCliente] = useState(false);
 
@@ -253,6 +257,7 @@ xexport default function EfetuarDisparo() {
                 >
                   {/* O componente de upload pode receber props diferentes se necessário */}
                   <InputFileUpload
+                    clientesERP={clientesERP}
                     onClientesImportados={(validos) => {
                       setClientesSelecionados((prev) =>
                         Array.from(new Set([...prev, ...validos]))
