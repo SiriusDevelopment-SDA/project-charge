@@ -163,11 +163,11 @@ body {
 =============================== */
 .mini-actions {
   display: flex;
-  justify-content: flex-start;  
+  
   gap: 10px;
   width: 100%;
   margin-top: 15px; 
-  margin-left: 60px; 
+  margin-left: 50px; 
 }
 
 

@@ -65,6 +65,7 @@ const clientesERP: ClienteERP[] = [
   { nome: "Xavier Monteiro", cpf: "852.963.741-21", telefone: "(51) 90021-0021" },
   { nome: "Yasmin Azevedo", cpf: "963.741.852-32", telefone: "(61) 90022-0022" },
   { nome: "Zuleica Barros", cpf: "159.357.486-43", telefone: "(71) 90023-0023" },
+  { nome: "Zuleica Barros2", cpf: "44.651.737/0001-40", telefone: "(71) 90023-0023" },
 ];
 
 /* ======================================================
@@ -162,24 +163,51 @@ export default function EfetuarDisparo() {
 
   /* ================= DOWNLOAD XLSX ================= */
   function handleDownloadModelo() {
-    const TOTAL_LINHAS = 500;
-    const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
-      CPF: "",
-      Telefone: "",
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows, { header: ["CPF", "Telefone"] });
-    ws["!cols"] = [{ wch: 20 }, { wch: 20 }];
+  const TOTAL_LINHAS = 500;
 
-    for (let i = 1; i <= TOTAL_LINHAS; i++) {
-      const cellAddress = `A${i}`;
-      if (!ws[cellAddress]) ws[cellAddress] = { t: "s", v: "" };
-      ws[cellAddress].z = '000"."000"."000"-"00';
-    }
+  const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
+    "CPF/CNPJ": "",
+    Telefone: "",
+    Status: "",
+  }));
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Contatos");
-    XLSX.writeFile(wb, modoCliente === "com" ? "modelo_clientes.xlsx" : "modelo_leads.xlsx");
+  const ws = XLSX.utils.json_to_sheet(rows, { header: ["CPF/CNPJ", "Telefone", "Status"] });
+
+  ws["!cols"] = [{ wch: 26 }, { wch: 20 }, { wch: 12 }];
+
+  // Formato condicional (CNPJ se 14 dígitos, senão CPF)
+  const docFormat =
+    '[>=10000000000000]00"."000"."000"/"0000"-"00;000"."000"."000"-"00';
+
+  // Fórmula para validar 11 ou 14 dígitos (aceita digitado com ou sem pontuação)
+  // limpa: . - / espaço
+  const clean = (cell: string) =>
+    `SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(${cell},".",""),"-",""),"/","")," ","")`;
+
+  for (let i = 2; i <= TOTAL_LINHAS + 1; i++) {
+    // Coluna A: CPF/CNPJ
+    const a = `A${i}`;
+    if (!ws[a]) ws[a] = { t: "n" };
+    ws[a].z = docFormat;
+
+    // Coluna C: Status
+    const c = `C${i}`;
+    const cleaned = clean(a);
+    ws[c] = {
+      t: "s",
+      f: `IF(${a}="","",IF(OR(LEN(${cleaned})=11,LEN(${cleaned})=14),"OK","INVÁLIDO"))`,
+    };
   }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Contatos");
+  XLSX.writeFile(
+    wb,
+    modoCliente === "com" ? "modelo_clientes.xlsx" : "modelo_leads.xlsx"
+  );
+}
+
+
 
   return (
     <div>
@@ -196,7 +224,7 @@ export default function EfetuarDisparo() {
           <div className="buttons-navigation">
             <button className="outline" onClick={toggleModoCliente}>
               {modoCliente === "com" ? "Nova lead" : "Cliente com cadastro"}
-              {modoCliente === "com" ? "Nova lead" : "Cliente com cadastro"}
+              
             </button>
 
             <button className="outline" onClick={() => navigate("/historicodisparo")}>

@@ -61,6 +61,10 @@ export const clientesMock: Cliente[] = [
   { nome: "Xavier Monteiro", cpf: "852.963.741-21", telefone: "(51) 90021-0021" },
   { nome: "Yasmin Azevedo", cpf: "963.741.852-32", telefone: "(61) 90022-0022" },
   { nome: "Zuleica Barros", cpf: "159.357.486-43", telefone: "(71) 90023-0023" },
+  { nome: "Zuleica Barros2", cpf: "44.651.737/0001-40", telefone: "(71) 90023-0023" },
+  { nome: "Zuleica Barros3", cpf: "44.651.737/0001-40", telefone: "(71) 90023-0023" },
+  { nome: "Zuleica Barros4", cpf: "44.651.737/0001-40", telefone: "(71) 90023-0023" },
+  { nome: "Zuleica Barros5", cpf: "44.651.737/0001-40", telefone: "(71) 90023-0023" },
 ];
 
 /* ======================================================
