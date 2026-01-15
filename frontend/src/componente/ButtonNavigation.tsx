@@ -3,26 +3,18 @@
 import { useRef } from "react";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { Button } from "primereact/button";
-import type { Template } from "../types";
-
-// styles
+import type { FilterButtonProps } from "../types";
 import "../styles/ButtonFIlter.module.css";
 
-
-type FilterButtonProps = {
-  templates: Template[];
-  selectedCategory: string;
-  onCategoryChange: (categoria: string) => void;
-};
 
 export default function FilterButton({
   templates,
   selectedCategory,
-  onCategoryChange,
+  setSelectedCategory
 }: FilterButtonProps) {
   const op = useRef<OverlayPanel>(null);
 
-  const categorias = Array.from(new Set(templates.map((t) => t.categoria)));
+  const categorias = Array.from(new Set(templates.map((t) => t.category)));
 
   return (
     <div>
@@ -33,24 +25,25 @@ export default function FilterButton({
         className="p-button-rounded p-button-secondary"
       />
 
-      <OverlayPanel ref={op} className="p-3" style={{ width: "160px" }}>
+      <OverlayPanel ref={op} style={{padding: 0}}>
         <label style={{ fontSize: "14px", fontWeight: "500" }}>Categoria:</label>
 
         <select
-          value={selectedCategory}
-          onChange={(e) => {
-            onCategoryChange(e.target.value);
-            op.current?.hide();
-          }}
+          value={selectedCategory || ""}
           className="category-select"
+          onChange={(e) => {
+            setSelectedCategory(e.target.value);
+          }}
         >
           <option value="">Todas</option>
+
           {categorias.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
             </option>
           ))}
         </select>
+
       </OverlayPanel>
     </div>
   );

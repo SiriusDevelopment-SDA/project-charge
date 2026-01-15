@@ -45,7 +45,7 @@ addLocale("pt", {
     "jul","ago","set","out","nov","dez"
   ],
   today: "Hoje",
-  weekHeader: "Sem",
+  weekHeader: "lead",
 });
 
 locale("pt");

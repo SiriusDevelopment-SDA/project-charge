@@ -23,3 +23,19 @@ export function validarTelefone(raw: any) {
     formatted,
   };
 }
+
+export function validarArquivo(file: File) {
+  const permitido = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel'
+  ]
+
+  if (!permitido.includes(file.type)) {
+    throw new Error('Arquivo inválido. Envie um XLSX.')
+  }
+
+  // Ex: limite de 2MB
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('Arquivo muito grande.')
+  }
+}

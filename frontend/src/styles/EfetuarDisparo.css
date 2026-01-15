@@ -96,7 +96,6 @@ body {
 .teste {
   display: flex;
   align-items: flex-start;
-  gap: 32px;
   justify-content: center;
   margin: 20px 0;
 }

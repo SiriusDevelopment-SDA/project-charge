@@ -2,11 +2,10 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
 import "../styles/importar-contatos.css";
+import type { Cliente } from "../types";
 
-type ClienteERP = { nome: string; cpf: string };
-
-type Props = {
-  clientesERP: ClienteERP[];                 // ✅ lista do ERP (por enquanto mock)
+type propsImportarContatos = {
+  clientes: Cliente[];                 // ✅ lista do ERP (por enquanto mock)
   onClientesImportados: (nomes: string[]) => void; // ✅ retorna NOMES
 };
 
@@ -14,7 +13,7 @@ function cpfDigits(raw: any) {
   return String(raw ?? "").replace(/\D/g, "");
 }
 
-export default function InputFileUpload({ clientesERP, onClientesImportados }: Props) {
+export default function InputFileUpload({ clientes, onClientesImportados }: propsImportarContatos) {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -49,8 +48,8 @@ export default function InputFileUpload({ clientesERP, onClientesImportados }: P
           return;
         }
 
-        const cliente = clientesERP.find(
-          (c) => cpfDigits(c.cpf) === cpf
+        const cliente = clientes.find(
+          (c) => cpfDigits(c.cnpj_cpf) === cpf
         );
 
         if (!cliente) {
@@ -58,7 +57,7 @@ export default function InputFileUpload({ clientesERP, onClientesImportados }: P
           return;
         }
 
-        nomesValidos.push(cliente.nome);
+        nomesValidos.push(cliente.name);
       });
 
       if (total === 0) {

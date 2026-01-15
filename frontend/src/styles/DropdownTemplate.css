@@ -127,11 +127,20 @@
 }
 
 .custom-template-item--selected {
-  background-color: #3e8e41;
+  background: linear-gradient(
+    135deg,
+    #f2c010 0%,
+    #f5d033 70%,
+    #f2c010 20%
+  );
+  color: black;
+  font-weight: 500;
 }
 
 .custom-template-item:hover {
   background-color: #555;
+  transition: background-color 0.5s ease-in-out;
+  color: aliceblue;
 }
 
 .dropdown-header {
