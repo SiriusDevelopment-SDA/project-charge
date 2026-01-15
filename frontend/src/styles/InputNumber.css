@@ -5,11 +5,14 @@
     padding: 10px;
     margin-top: 23px;
     height: 60px;
-    width: 62%;
+    
   }
 /* Container do input */
 .whatsapp-form-control {
-  width: 600px;
+  width: 65%;
+  margin-top: 25px;
+  position: relative;
+  font-family: inherit;
 }
 /* Texto digitado */
 .whatsapp-form-control input {

@@ -1,3 +1,4 @@
+
 import { useMemo, useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +14,8 @@ import MessagePreview from "../componente/MessagePreview";
 import MyButtonAlert from "../componente/MyButton";
 import ClientsSelectedCard from "../componente/ClientsSelectedCard";
 import InputNumber from "../componente/inputnumber";
+// import { extractTemplateVars } from "../utils/template";
+
 
 // Styles
 import "../styles/importar-contatos.css";
@@ -25,6 +28,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
  import type { Template } from "../types";
 import DropdownPersonalized from "../componente/Dropdown";
+import { extractTemplateVars } from "../utils/template";
 
 /* ======================================================
    MOCK — cliente do ERP (pode ser via API futuramente)
@@ -160,52 +164,66 @@ export default function EfetuarDisparo() {
     setTemplateSelecionado(null);
     setResetKey((k) => k + 1);
   }
-
+  
   /* ================= DOWNLOAD XLSX ================= */
-  function handleDownloadModelo() {
-  const TOTAL_LINHAS = 500;
+function handleDownloadModelo(templateSelecionado: Template | null) {
+  if (!templateSelecionado) return;
+  console.log("Template Selecionado:", templateSelecionado);
+  
+  // Extraindo as variáveis do template
+  const vars = extractTemplateVars(templateSelecionado.conteudo);
+  console.log("Vars:", vars);
 
-  const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
-    "CPF/CNPJ": "",
-    Telefone: "",
-    Status: "",
-  }));
+  // MODO CLIENTE (com CPF/CNPJ)
+  if (modoCliente) {
+    const TOTAL_LINHAS = 500;
 
-  const ws = XLSX.utils.json_to_sheet(rows, { header: ["CPF/CNPJ", "Telefone", "Status"] });
+    // Criando as linhas para a planilha com cabeçalho de "CPF/CNPJ" e "Status"
+    const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
+    
+      "Status": "",
+    }));
 
-  ws["!cols"] = [{ wch: 26 }, { wch: 20 }, { wch: 12 }];
+    const ws = XLSX.utils.json_to_sheet(rows, { header: modoCliente === "com" ? ["CPF/CNPJ"] : ["Telefone",...vars] });
 
-  // Formato condicional (CNPJ se 14 dígitos, senão CPF)
-  const docFormat =
-    '[>=10000000000000]00"."000"."000"/"0000"-"00;000"."000"."000"-"00';
+    ws["!cols"] = [
+      { wch: 26 }, // CPF/CNPJ
+      { wch: 12 }, // Status
+    ];
 
-  // Fórmula para validar 11 ou 14 dígitos (aceita digitado com ou sem pontuação)
-  // limpa: . - / espaço
-  const clean = (cell: string) =>
-    `SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(${cell},".",""),"-",""),"/","")," ","")`;
+    // Formatação de CPF e CNPJ
+    const docFormat =
+      '[>=10000000000000]00"."000"."000"/"0000"-"00;000"."000"."000"-"00';
 
-  for (let i = 2; i <= TOTAL_LINHAS + 1; i++) {
-    // Coluna A: CPF/CNPJ
-    const a = `A${i}`;
-    if (!ws[a]) ws[a] = { t: "n" };
-    ws[a].z = docFormat;
+    // Função para limpar CPF/CNPJ e remover caracteres como "." "-" "/" e " "
+    const clean = (cell: string) =>
+      `SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(${cell},".",""),"-",""),"/","")," ","")`;
 
-    // Coluna C: Status
-    const c = `C${i}`;
-    const cleaned = clean(a);
-    ws[c] = {
-      t: "s",
-      f: `IF(${a}="","",IF(OR(LEN(${cleaned})=11,LEN(${cleaned})=14),"OK","INVÁLIDO"))`,
-    };
+    // Aplicando a formatação e validação nas células
+    for (let i = 2; i <= TOTAL_LINHAS + 1; i++) {
+      const a = `A${i}`; // CPF/CNPJ
+
+      if (!ws[a]) ws[a] = { t: "n" };
+      ws[a].z = docFormat;
+
+      const c = `B${i}`; // Status
+      const cleaned = clean(a);
+      ws[c] = {
+        t: "s",
+        f: `IF(${a}="","",IF(OR(LEN(${cleaned})=11,LEN(${cleaned})=14),"OK","INVÁLIDO"))`,
+      };
+    }
+
+    // Criando o arquivo e salvando
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Contatos");
+    XLSX.writeFile(wb, `modelo_clientes.xlsx`);
   }
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Contatos");
-  XLSX.writeFile(
-    wb,
-    modoCliente === "com" ? "modelo_clientes.xlsx" : "modelo_leads.xlsx"
-  );
+  
+  return;
 }
+
+
 
 
 
@@ -296,7 +314,10 @@ export default function EfetuarDisparo() {
 
                 <button
                   className="btn-mini"
-                  onClick={handleDownloadModelo}
+                  onClick={() => {
+                    handleDownloadModelo(templateSelecionado);
+                    console.log("Download modelo acionado");
+                  }}
                   disabled={!templateSelecionado}
                 >
                   {modoCliente === "com" ? "Baixar modelo clientes" : "Baixar modelo leads"}
