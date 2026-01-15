@@ -1,13 +1,11 @@
 "use client";
-// Componente de botão de filtro de categoria usando PrimeReact
+
 import { useRef } from "react";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { Button } from "primereact/button";
 import type { Template } from "../types";
 
-// styles
-import "../styles/ButtonFIlter.module.css";
-
+import styles from "../styles/ButtonFIlter.module.css";
 
 type FilterButtonProps = {
   templates: Template[];
@@ -25,32 +23,39 @@ export default function FilterButton({
   const categorias = Array.from(new Set(templates.map((t) => t.categoria)));
 
   return (
-    <div>
+    <div className={styles.wrapper}>
       <Button
         icon="pi pi-filter"
         text
         onClick={(e) => op.current?.toggle(e)}
-        className="p-button-rounded p-button-secondary"
+        className={`p-button-rounded p-button-secondary ${styles.filterBtn}`}
+        aria-label="Filtrar por categoria"
       />
 
-      <OverlayPanel ref={op} className="p-3" style={{ width: "160px" }}>
-        <label style={{ fontSize: "14px", fontWeight: "500" }}>Categoria:</label>
+      <OverlayPanel
+        ref={op}
+        className={styles.overlay}
+        dismissable
+      >
+        <div className={styles.content}>
+          <label className={styles.label}>Categoria</label>
 
-        <select
-          value={selectedCategory}
-          onChange={(e) => {
-            onCategoryChange(e.target.value);
-            op.current?.hide();
-          }}
-          className="category-select"
-        >
-          <option value="">Todas</option>
-          {categorias.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
+          <select
+            value={selectedCategory}
+            onChange={(e) => {
+              onCategoryChange(e.target.value);
+              op.current?.hide();
+            }}
+            className={styles.select}
+          >
+            <option value="">Todas</option>
+            {categorias.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
       </OverlayPanel>
     </div>
   );

@@ -1,23 +1,70 @@
-.p-overlaypanel {
-  background: #1b2331 !important;
-  border: 1px solid #3b4a61 !important;
-  color: #dbe5ff !important;
+.wrapper {
+  display: inline-flex;
+  align-items: center;
 }
 
-.p-overlaypanel .p-overlaypanel-content {
-    padding: 10px !important;
+/* Botão do filtro */
+.filterBtn :global(.p-button) {
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
+/* ===== OverlayPanel (PrimeReact) ===== */
+.overlay :global(.p-overlaypanel) {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 
-.p-dropdown {
-  background: #1b2331 !important;
-  border: 1px solid #3b4a61 !important;
-  color: #dbe5ff !important;
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, 0.45),
+    0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
-.p-inputtext {
-  background: #1b2331 !important;
-  border: 1px solid #3b4a61 !important;
-  color: #dbe5ff !important;
+/* Setinha do overlay */
+.overlay :global(.p-overlaypanel:before),
+.overlay :global(.p-overlaypanel:after) {
+  border-bottom-color: rgba(10, 10, 10, 0.72);
 }
 
+/* Conteúdo interno */
+.overlay :global(.p-overlaypanel-content) {
+  padding: 10px !important;
+}
+
+/* ===== Conteúdo ===== */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.select {
+  width: 100%;
+  height: 38px;
+  border-radius: 10px;
+  padding: 0 10px;
+
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+
+  outline: none;
+}
+
+.select:focus {
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.select option {
+  color: #000;
+}
