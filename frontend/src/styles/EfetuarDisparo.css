@@ -163,11 +163,9 @@ body {
 =============================== */
 .mini-actions {
   display: flex;
-  justify-content: flex-start;  
+  justify-content: flex-end;  
   gap: 10px;
-  width: 100%;
-  margin-top: 15px; 
-  margin-left: 60px; 
+  width: 65%;
 }
 
 
@@ -209,3 +207,4 @@ body {
   display: flex;
   gap: 20px;
 }
+

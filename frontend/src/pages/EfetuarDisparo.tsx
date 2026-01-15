@@ -265,6 +265,7 @@ export default function EfetuarDisparo() {
                     }}
                   />
                 </div>
+                <div className="spacer">
 
                 <button
                   className="btn-mini"
@@ -273,6 +274,8 @@ export default function EfetuarDisparo() {
                 >
                   {modoCliente === "com" ? "Baixar modelo clientes" : "Baixar modelo leads"}
                 </button>
+                </div>
+
               </div>
             </div>
 
