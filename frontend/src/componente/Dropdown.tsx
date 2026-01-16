@@ -73,21 +73,23 @@ export default function DropdownPersonalized({
   });
 
   return (
-    <div className="custom-dropdown-wrapper" ref={dropdownRef}>
-      <label
-        className={`custom-dropdown-label ${
-          open || value !== "" ? "custom-dropdown-label--shrink" : ""
-        }`}
-      >
-        Template
-      </label>
+  <div className="custom-dropdown-wrapper" ref={dropdownRef}>
+    <label
+      className={`custom-dropdown-label ${
+        open || value !== "" ? "custom-dropdown-label--shrink" : ""
+      }`}
+    >
+      Template
+    </label>
 
+    {/* === BLOCO PRINCIPAL DO DROPDOWN === */}
+    {!open ? (
       <div 
-        className="custom-dropdown-control" 
+        className="custom-dropdown-control"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setOpenState(!open);
+          setOpenState(true);
         }}
       >
         <span
@@ -97,56 +99,59 @@ export default function DropdownPersonalized({
         >
           {value === "" ? "" : capitalize(value)}
         </span>
-        <span className={`arrow ${open ? "open" : ""}`} />
+        <span className={`arrow`} />
       </div>
+    ) : (
+      <div className="dropdown-input-bar" onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          type="text"
+          placeholder="Buscar template..."
+          className="search-input"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
-      {open && (
-        <div className="custom-template-menu" onClick={(e) => e.stopPropagation()}>
-          <div className="dropdown-header">
-            <input
-              type="text"
-              placeholder="Buscar template..."
-              className="search-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
+        {FilterButtonProp && (
+          <div className="filter-wrapper-internal">
+            <FilterButton
+              templates={templatesMock}
+              selectedCategory={categoryFilter}
+              onCategoryChange={(cat) => setCategoryFilter(cat)}
             />
+          </div>
+        )}
+      </div>
+    )}
 
-            {FilterButtonProp && (
-              <div className="filter-wrapper-internal" onClick={(e) => e.stopPropagation()}>
-                <FilterButton
-                  templates={templatesMock}
-                  selectedCategory={categoryFilter}
-                  onCategoryChange={(cat) => setCategoryFilter(cat)}
-                />
+    {/* === LISTA QUANDO ABERTO === */}
+    {open && (
+      <div className="custom-template-menu" onClick={(e) => e.stopPropagation()}>
+        <div className="custom-dropdown-menu">
+          {filteredTemplates.length > 0 ? (
+            filteredTemplates.map((template) => (
+              <div
+                key={template.id}
+                className={`custom-template-item ${
+                  value === template.nome ? "custom-template-item--selected" : ""
+                }`}
+                onClick={() => {
+                  setValue(template.nome);
+                  onSelectTemplate(template);
+                  setSearchTerm("");
+                  setOpenState(false);
+                }}
+              >
+                {template.nome}
               </div>
-            )}
-          </div>
-
-          <div className="custom-dropdown-menu">
-            {filteredTemplates.length > 0 ? (
-              filteredTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className={`custom-template-item ${
-                    value === template.nome ? "custom-template-item--selected" : ""
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setValue(template.nome);
-                    onSelectTemplate(template);
-                    setOpenState(false);
-                  }}
-                >
-                  {template.nome}
-                </div>
-              ))
-            ) : (
-              <div className="no-results">Nenhum template encontrado</div>
-            )}
-          </div>
+            ))
+          ) : (
+            <div className="no-results">Nenhum template encontrado</div>
+          )}
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
+
 }

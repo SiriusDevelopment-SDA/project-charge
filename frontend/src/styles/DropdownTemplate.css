@@ -144,3 +144,20 @@
   color: #fff;
   text-align: center;
 }
+
+.dropdown-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 56px;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: linear-gradient(90deg, #b89300, #6f5a00);
+}
+
+
+
+/* Garante que o texto não sobreponha */
+.custom-dropdown-wrapper.open .custom-dropdown-value {
+  display: none;
+}
