@@ -1,10 +1,9 @@
 // IMPORT TYPE INPUTS
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type React from "react";
 
 export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
-  label?:string;
+  label?: string;
 
 };
 
@@ -17,7 +16,7 @@ export type Template = {
   meta_status: string;
   createdAt: Date;
   updatedAt: Date;
-  variables: {};
+  variables: Record<string, string>;
 };
 
 export type propTemplate = {
@@ -25,7 +24,7 @@ export type propTemplate = {
   open: boolean;
   FilterButtonProp: true | false;
   templates: Template[]
-  setTemplateSelecionado: React.Dispatch<React.SetStateAction<Template>> | {};
+  setTemplateSelecionado: React.Dispatch<React.SetStateAction<Template>>;
   templateSelecionado: Template | undefined
 };
 export type Cliente = {
@@ -43,7 +42,7 @@ export type Cliente = {
   updatedAt?: Date;
   invoices?: [];
   services?: [];
-  company?: {};
+  company?: Record<string, string>;
 }
 
 export type PropsSelect = {
@@ -73,10 +72,20 @@ export type responseTemplate = {
 export interface IClientsContext {
   clients: Cliente[] | [];
   setQuery: React.Dispatch<SetStateAction<string>>
+  setPage: React.Dispatch<SetStateAction<number>>;
+  setLimit: React.Dispatch<SetStateAction<number>>;
+  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
+  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
+  selectedClientes: Cliente[];
+  mapClienteVars: Record<string, string>;
+  fetchInvoices: (client: Cliente) => void;
 }
 export interface ITemplatesContext {
   templates: Template[] | [];
-  setQuery: React.Dispatch<SetStateAction<string>>
+  setQuery: React.Dispatch<SetStateAction<string>>;
+  setPage: React.Dispatch<SetStateAction<number>>;
+  setLimit: React.Dispatch<SetStateAction<number>>;
+  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
 }
 export type FilterButtonProps = {
   templates: Template[];

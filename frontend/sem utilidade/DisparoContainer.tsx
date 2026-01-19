@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import ClienteSelect from "../componente/filtrocliente";
+import ClienteSelect from "./filtrocliente";
 import MessagePreview from "./MessagePreview";
 
 /* 🔥 FUNÇÃO GENÉRICA */
@@ -111,7 +111,7 @@ export default function DisparoContainer() {
   return (
     <>
       <ClienteSelect
-      onChangeClientes={(nomes: string[]) => {
+        onChangeClientes={(nomes: string[]) => {
           const clientes = nomes
             .map((nome) => clientesMock[nome])
             .filter(Boolean);

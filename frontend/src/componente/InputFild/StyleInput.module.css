@@ -1,0 +1,40 @@
+ .floatingWrapper {
+    position: relative;
+    width: 100%;
+  }
+  
+  .floatingInput {
+    width: 100%;
+    padding: 14px 14px; /* padding uniforme */
+    border: 1px solid #b89300;
+    border-radius: 8px;
+    background: transparent;
+    color: white;
+    outline: none;
+    font-size: 16px;
+  }
+  .floatingInput:focus {
+    border-color: #f1ce3d;
+  }
+  
+  /* LABEL CENTRALIZADA DENTRO DO INPUT */
+  .floatingLabel {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.75);
+    pointer-events: none;
+    transition: all 0.2s ease;
+  }
+  
+  /* LABEL ATIVA (FOCO / VALOR) */
+  .active {
+    top: -20px; /* sobe pra cima */
+    transform: translateY(0);
+    font-size: 12px;
+    color: #f1ce3d;
+    background: transparent;
+  }
+  

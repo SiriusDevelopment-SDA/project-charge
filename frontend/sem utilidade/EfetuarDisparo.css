@@ -71,7 +71,7 @@ body {
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease; 
+  transition: background-color 0.2s ease, color 0.2s ease;
   margin-left: 10px;
 }
 
@@ -116,7 +116,8 @@ body {
 ========================= */
 .pageTitle {
   position: relative;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter,
+    Helvetica, Arial, sans-serif;
   font-size: 35px;
   font-weight: 500;
   line-height: 1.1;
@@ -127,7 +128,7 @@ body {
 }
 
 .pageTitle::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   bottom: -18px;
@@ -162,19 +163,18 @@ body {
 =============================== */
 .mini-actions {
   display: flex;
-  justify-content: flex-start;  
+  justify-content: flex-start;
   gap: 10px;
   width: 100%;
-  margin-top: 15px; 
-  margin-left: 60px; 
+  margin-top: 15px;
+  margin-left: 60px;
 }
 
-
 .btn-mini {
-  padding: 4px 10px;          
-  height: 34px;                
-  min-width: 105px;            
-  font-size: 12.5px;           
+  padding: 4px 10px;
+  height: 34px;
+  min-width: 105px;
+  font-size: 12.5px;
   font-weight: 500;
   color: #fff !important;
   border: none !important;
@@ -184,19 +184,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.20),
-    0 3px 8px rgba(0,0,0,0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 3px 8px rgba(0, 0, 0, 0.35);
   transition: all 0.2s ease;
 }
 
-
 .btn-mini:hover {
   transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    0 6px 14px rgba(244,196,0,0.6);
-    
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 6px 14px rgba(244, 196, 0, 0.6);
 }
 
 .disabled-block {

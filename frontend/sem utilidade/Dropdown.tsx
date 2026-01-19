@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import "../styles/DropdownTemplate.css";
-import type { propTemplate } from "../types";
+import type { propTemplate } from "../src/types";
 import FilterButton from "./ButtonNavigation";
-import { useTemplate } from "../hooks";
+import { useTemplate } from "../src/hooks";
 
 export default function DropdownPersonalized({
   setOpenState,
@@ -36,9 +36,8 @@ export default function DropdownPersonalized({
     <div className="custom-dropdown-wrapper">
       {/* LABEL */}
       <label
-        className={`custom-dropdown-label ${
-          open || hasSelected ? "custom-dropdown-label--shrink" : ""
-        }`}
+        className={`custom-dropdown-label ${open || hasSelected ? "custom-dropdown-label--shrink" : ""
+          }`}
       >
         Template
       </label>
@@ -102,11 +101,10 @@ export default function DropdownPersonalized({
                 return (
                   <div
                     key={template.id}
-                    className={`custom-template-item ${
-                      isSelected
-                        ? "custom-template-item--selected"
-                        : ""
-                    }`}
+                    className={`custom-template-item ${isSelected
+                      ? "custom-template-item--selected"
+                      : ""
+                      }`}
                     onClick={() => {
                       setTemplateSelecionado(template);
                       setOpenState(false);

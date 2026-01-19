@@ -1,0 +1,87 @@
+.EfeturarDisparoContainer {
+  border-radius: "10px";
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+}
+.navTitlePage {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h5{
+    color: #fff;
+    border-bottom: 2px solid rgba(245, 208, 51, 0.5);
+  }
+
+  button{
+    color: #fff;
+    padding: 10px;
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+  }
+  button:hover{
+    border: 2px solid yellow;
+    background: rgba(255, 255, 255, 0.055);
+  }
+}
+.cardMetricas{
+  width: 400px;
+  height: 120px;
+  padding-top: 15px !important;
+  background: #eab308 !important;
+  border: 1px solid rgba(255, 215, 0, 0.35) !important;
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px !important;
+
+  h1{
+    font-size: 50px;
+    font-weight: 600;
+    color: #ffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+  h3{
+    color: #ffff;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+}
+.contentMetricas{
+  padding-left: 50px;
+}
+.containerCenter{
+  padding: 40px 29px;
+  margin-top: 20PX;
+  border: 1px solid rgba(245, 208, 51, 0.5) ;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow:
+  0 0 10px rgba(255, 215, 0, 0.35),
+  0 0 20px rgba(255, 215, 0, 0.2);
+}
+.containerCenterTop{
+  display: flex;
+  justify-content: space-between;
+  align-items: top;
+  
+}
+.containerInput{
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.containerButtonsPlanilha{
+  display: flex;
+  gap: 20px;
+}
+.containerPreview {
+  box-shadow:
+    0 6px 10px rgba(255, 215, 0, 0.35),
+    0 12px 20px rgba(255, 215, 0, 0.2) !important;
+  
+  background: transparent !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 215, 0, 0.35);
+}

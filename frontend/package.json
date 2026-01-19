@@ -25,7 +25,7 @@
     "react-imask": "^7.6.1",
     "react-input-mask": "^2.0.4",
     "react-number-format": "^5.4.4",
-    "react-router-dom": "^7.11.0",
+    "react-router-dom": "^7.0.0-pre.0",
     "react-toastify": "^11.0.5",
     "xlsx": "^0.18.5"
   },

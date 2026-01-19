@@ -1,19 +1,19 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import App from './App';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import App from "./App";
 import "./lib/primereact-locale";
-import { ClientProvider } from './context/contextClients';
-import { TemplateProvider } from './context/contextTemplates';
+import { ClientProvider } from "./context/contextClients";
+import { TemplateProvider } from "./context/contextTemplates";
+import "./styles/index.css";
 
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <ClientProvider>
-            <TemplateProvider>
-              <App />
-            </TemplateProvider>
+        <TemplateProvider>
+          <App />
+        </TemplateProvider>
       </ClientProvider>
     </BrowserRouter>
   </React.StrictMode>

@@ -4,8 +4,8 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "../styles/filtrocliente.css";
-import type { Cliente, PropsSelect } from "../types";
-import { useClient } from "../hooks";
+import type { Cliente, PropsSelect } from "../src/types";
+import { useClient } from "../src/hooks";
 
 /* ======================================================
    TOAST
@@ -72,9 +72,8 @@ export default function ClienteSelect({
 
   return (
     <div
-      className={`cliente-select ${className || ""} ${
-        disabled ? "cliente-disabled" : ""
-      }`}
+      className={`cliente-select ${className || ""} ${disabled ? "cliente-disabled" : ""
+        }`}
       onClick={(e) => e.stopPropagation()}
     >
       <label className="cliente-label">{children}</label>
@@ -95,7 +94,7 @@ export default function ClienteSelect({
                 {cliente.name}
                 <button
                   type="button"
-                  onClick={(e) => {e.stopPropagation(); toggleCliente(cliente);}}
+                  onClick={(e) => { e.stopPropagation(); toggleCliente(cliente); }}
                 >
                   ×
                 </button>

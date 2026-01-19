@@ -10,7 +10,6 @@ import {
 } from 'typeorm';
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
-import { Service } from '../../services/entities/services';
 
 @Entity()
 export class Invoice {
@@ -22,8 +21,16 @@ export class Invoice {
   value!: string;
 
   @IsString()
+  @Column({ nullable: true })
+  id_fatura!: string;
+
+  @IsString()
+  @Column({ nullable: true })
+  contractId!: string;
+
+  @IsString()
   @Column()
-  cnpj_cpf!: string;
+  status!: string
 
   @IsString()
   @Column()
@@ -41,13 +48,12 @@ export class Invoice {
     referencedColumnName: 'cnpj_cpf',
   })
   client!: Client;
-
-  @ManyToOne(() => Service, (service) => service.invoices)
-  @JoinColumn({
-    name: 'serviceId',
-    referencedColumnName: 'id',
-  })
-  service!: Service;
+  // @ManyToOne(() => Service, (service) => service.invoices)
+  // @JoinColumn({
+  //   name: 'serviceId',
+  //   referencedColumnName: 'id',
+  // })
+  // service?: Service;
 
   @ManyToOne(() => Company, (company) => company.invoices)
   @JoinColumn({

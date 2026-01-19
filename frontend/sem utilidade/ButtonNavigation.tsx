@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { Button } from "primereact/button";
-import type { FilterButtonProps } from "../types";
+import type { FilterButtonProps } from "../src/types";
 import "../styles/ButtonFIlter.module.css";
 
 
@@ -25,7 +25,7 @@ export default function FilterButton({
         className="p-button-rounded p-button-secondary"
       />
 
-      <OverlayPanel ref={op} style={{padding: 0}}>
+      <OverlayPanel ref={op} style={{ padding: 0 }}>
         <label style={{ fontSize: "14px", fontWeight: "500" }}>Categoria:</label>
 
         <select

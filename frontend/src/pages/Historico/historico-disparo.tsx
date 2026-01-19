@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 
 // componentes
-import Navbar from "../componente/global/Navbar";
-import DateTabela from "../componente/DateTabela";
+import Navbar from "../componente/global/navbar/Navbar";
+import DateTabela from "../../sem utilidade/DateTabela";
 
 // style
 import "../styles/HistoricoDisparos.module.css";
@@ -20,15 +20,11 @@ function HistoricoDisparoPage() {
     <div>
       <Navbar />
       <div className="ContainerConteudo">
-
         {/* 🔹 BOTÃO QUE REDIRECIONA */}
-        <div className="navigation">  
+        <div className="navigation">
           <h1 className="pageTitle">Histórico de Disparos</h1>
           <div>
-            <button
-              className="outline"
-              onClick={() => navigate("/")}
-            >
+            <button className="outline" onClick={() => navigate("/")}>
               Cliente com cadastro
             </button>
             <button
@@ -41,10 +37,10 @@ function HistoricoDisparoPage() {
         </div>
 
         <div className="box-wrapper">
-        {/* <DataTable /> */}
-        <div style={{ padding: "2rem" }}>
-          <DateTabela  />
-        </div>
+          {/* <DataTable /> */}
+          <div style={{ padding: "2rem" }}>
+            <DateTabela />
+          </div>
         </div>
       </div>
     </div>
