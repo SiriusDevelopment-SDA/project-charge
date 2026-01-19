@@ -1,4 +1,4 @@
-import type { Template } from "../types";
+import type { Cliente, Template } from "../types";
 import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
 
@@ -131,9 +131,54 @@ export function validar(rows: any[]) {
 
   return { valido: true };
 }
-export function mapVars(message: string, vars: Record<string, string>) {
-  return message.replace(/{{(.*?)}}/g, (match, id) => {
-    const nomeVar = vars[id];
-    return nomeVar ? `{{${nomeVar}}}` : match; // mantém se não existir
-  });
+
+export function compilarTemplate(
+  message: string,
+  variables: Record<string, string>
+) {
+  return (cliente: Cliente) => {
+    const mapClienteVars: Record<string, string> = {
+      nome_cliente: "name",
+      data_vencimento_fatura: "invoices.0.Data_de_vencimento",
+      valor_fatura: "invoices.0.Valor_da_fatura",
+      numero_contrato: "invoices.0.contrato",
+      id_fatura: "invoices.0.id_fatura",
+    };
+
+    function getByPath(obj: any, path: string) {
+      return path.split('.').reduce((acc, key) => acc?.[key], obj);
+    }
+
+    return message.replace(/{{(\d+)}}/g, (_, index) => {
+      const variableKey = variables[index];
+      if (!variableKey) return "";
+
+      const fieldPath = mapClienteVars[variableKey];
+      if (!fieldPath) return "";
+
+      const value = getByPath(cliente, fieldPath);
+      return value ?? "";
+    });
+  };
 }
+export function obterFaturaMaisAntigaAberta(cliente: any) {
+  const abertas = filtrarFaturasAbertas(cliente.invoices || []);
+  if (abertas.length === 0) return null;
+
+  const ordenadas = ordenarPorVencimento(abertas);
+  return ordenadas[0]; // a mais antiga
+}
+
+export function filtrarFaturasAbertas(invoices: any[]) {
+  return invoices.filter(inv =>
+    inv.situacao?.toLowerCase().includes("A Receber")
+  );
+}
+export function ordenarPorVencimento(invoices: any[]) {
+  return invoices.sort((a, b) =>
+    new Date(a.Data_de_vencimento).getTime() - new Date(b.Data_de_vencimento).getTime()
+  );
+}
+
+
+

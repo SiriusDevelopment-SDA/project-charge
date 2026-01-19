@@ -3,13 +3,20 @@ import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
 import { PageContainer, BaseCard, Metricas, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton, InputFields } from "../../componente/Index";
 import type { Cliente, Template } from "../../types";
 import { useClient, useTemplate } from "../../hooks";
+import { compilarTemplate, obterFaturaMaisAntigaAberta } from "../../utils/validation";
 
 export default function EfetuarDisparo() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
   const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
   // const msgComVars = mapVars(selectedTemplate && selectedTemplate?.message, selectedTemplate!.variables);
+  const { templates } = useTemplate()
   const { clients, selectedClientes, setSelectedClientes, fetchInvoices } = useClient()
+  let mensagens
+  if(selectedTemplate){
+    const preencher = compilarTemplate(selectedTemplate.message, selectedTemplate.variables);
+    mensagens = selectedClientes.map(c => preencher(c));
+  }
   if (selectedTemplate?.category === "Cobrança") {
     async function teste() {
       for (const cliente of clients) {
@@ -19,7 +26,8 @@ export default function EfetuarDisparo() {
     teste()
   }
 
-  const { templates } = useTemplate()
+  
+
 
   console.log("template", selectedTemplate);
   console.log("clientes", selectedClientes);
@@ -70,7 +78,7 @@ export default function EfetuarDisparo() {
             <DownloadModeloButton templateSelecionado={selectedTemplate} modo={modoPage} />
           </div>
           <PreviewBox classname={Style.containerPreview}>
-            {selectedTemplate?.message ? selectedTemplate?.message : "Selecione um template"}
+            {selectedClientes.length > 0 ? mensagens![0] : selectedTemplate? selectedTemplate?.message : "Selecione um template"}
           </PreviewBox>
         </div>
       </PageContainer>
