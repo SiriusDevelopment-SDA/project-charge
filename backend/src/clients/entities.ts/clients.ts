@@ -1,13 +1,12 @@
-
 import {
   Column,
   CreateDateColumn,
   Entity,
   JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  ManyToOne
 } from 'typeorm';
 import { Service } from '../../services/entities/services';
 import { Company } from '../../companies/entities/companies';
@@ -15,7 +14,7 @@ import { Invoice } from '../../invoices/entities/invoices';
 
 @Entity()
 export class Client {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @Column({ unique: true })
@@ -27,13 +26,13 @@ export class Client {
   @Column({ nullable: true })
   street?: string;
 
-  @Column()
+  @Column({ nullable: true })
   city?: string;
 
-  @Column()
+  @Column({ nullable: true })
   numberHouse?: string;
 
-  @Column({ length: 9 })
+  @Column({ length: 9, nullable: true })
   zipCode?: string;
 
   @Column()
@@ -42,7 +41,7 @@ export class Client {
   @Column()
   whatsapp!: string;
 
-  @Column()
+  @Column({ nullable: true })
   email?: string;
 
   @CreateDateColumn()
@@ -58,9 +57,10 @@ export class Client {
   services!: Service[];
 
   @ManyToOne(() => Company, (company) => company.clients)
-    @JoinColumn({
-      name: 'companyId',
-      referencedColumnName: 'id',
-    })
+  @JoinColumn({
+    name: 'companyId',
+    referencedColumnName: 'id',
+  })
   company!: Company;
 }
+

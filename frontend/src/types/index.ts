@@ -1,6 +1,124 @@
 // IMPORT TYPE INPUTS
 
-export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
-  label?:string;
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 
+export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  label?: string;
+};
+
+export type Template = {
+  id: string;
+  name: string;
+  message: string;
+  category: string;
+  active: boolean;
+  meta_status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  variables: Record<string, string>;
+};
+
+export type propTemplate = {
+  setOpenState: React.Dispatch<React.SetStateAction<boolean>>;
+  open: boolean;
+  FilterButtonProp: true | false;
+  templates: Template[]
+  setTemplateSelecionado: React.Dispatch<React.SetStateAction<Template>>;
+  templateSelecionado: Template | undefined
+};
+type invoices = {
+ id_fatura: string,
+ contratoId: string,
+ data_vencimento_fatura: string,
+ valor_fatura: string,
+ status: string,
+ Referencia?: string,
+ linha_digitavel_boleto?: string
+ link_boleto_pdf?: string
+}
+type company = {
+  id: string;
+  name: string;
+  account: string
+}
+export type Cliente = {
+  id: string;
+  cnpj_cpf: string;
+  name: string;
+  street?: string;
+  city?: string;
+  numberHouse?: string;
+  zipCode?: string;
+  clientId?: string;
+  whatsapp?: string;
+  email?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  invoices?: invoices[];
+  services?: [];
+  company?: company;
+}
+
+export type PropsSelect = {
+  children: ReactNode | string;
+  className?: string;
+  disabled?: boolean;
+  value?: string[];
+  setSelected: Dispatch<React.SetStateAction<Cliente[]>>;
+  selected: Cliente[];
+  setOpen?: Dispatch<React.SetStateAction<boolean>>;
+  open?: boolean;
+  clientes: Cliente[];
+};
+
+export type responseClients = {
+  data: Cliente[];
+  limit: number;
+  page: number;
+  total: number;
+}
+export type responseTemplate = {
+  data: Template[];
+  limit: number;
+  page: number;
+  total: number;
+}
+export type mappedVars = {
+  nome_cliente?: string;
+  data_vencimento_fatura?: string;
+  nome_empresa?: string;
+  numero_contrato?: string;
+  valor_fatura?: string;
+  linha_digitavel_boleto?: string;
+  link_boleto_pdf?: string;
+  mensagem?: string;
+}
+export interface IClientsContext {
+  clients: Cliente[] | [];
+  setQuery: React.Dispatch<SetStateAction<string>>
+  setPage: React.Dispatch<SetStateAction<number>>;
+  setLimit: React.Dispatch<SetStateAction<number>>;
+  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
+  
+  fetchInvoices: (client: Cliente[]) => void;
+}
+export interface ITemplatesContext {
+  templates: Template[] | [];
+  setQuery: React.Dispatch<SetStateAction<string>>;
+  setPage: React.Dispatch<SetStateAction<number>>;
+  setLimit: React.Dispatch<SetStateAction<number>>;
+  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
+}
+export interface IDispatchTemplateContext {
+  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
+  setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
+  selectedClientes: Cliente[];
+  selectedTemplate: Template | null;
+  templateMapVars: mappedVars[] | null
+}
+export type FilterButtonProps = {
+  templates: Template[];
+  selectedCategory?: string
+  setSelectedCategory: React.Dispatch<SetStateAction<string>>
+  onCategoryChange?: (categoria: string) => void;
 };
