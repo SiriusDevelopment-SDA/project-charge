@@ -83,16 +83,7 @@ export type responseTemplate = {
   page: number;
   total: number;
 }
-export type mappedVars = {
-  nome_cliente?: string;
-  data_vencimento_fatura?: string;
-  nome_empresa?: string;
-  numero_contrato?: string;
-  valor_fatura?: string;
-  linha_digitavel_boleto?: string;
-  link_boleto_pdf?: string;
-  mensagem?: string;
-}
+
 export interface IClientsContext {
   clients: Cliente[] | [];
   setQuery: React.Dispatch<SetStateAction<string>>
@@ -114,11 +105,45 @@ export interface IDispatchTemplateContext {
   setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
   selectedClientes: Cliente[];
   selectedTemplate: Template | null;
-  templateMapVars: mappedVars[] | null
+  templateMapVars: mappedVars[] | null;
+  sendTemplate: () => void
 }
 export type FilterButtonProps = {
   templates: Template[];
   selectedCategory?: string
   setSelectedCategory: React.Dispatch<SetStateAction<string>>
   onCategoryChange?: (categoria: string) => void;
+};
+export type TemplateParameter = {
+  type: "text" | "currency" | "date_time" | "image" | "document"
+  text: string;
+};
+
+export type TemplateComponent = {
+  type: "BODY" | "HEADER" | "FOOTER";
+  parameters: TemplateParameter[];
+};
+
+export type TemplateRecipient = {
+  name: string;
+  number: string;
+  components: TemplateComponent[];
+};
+
+export type SendTemplate = {
+  templateId: string;
+  account: number;
+  to: TemplateRecipient[];
+};
+export type mappedVars = {
+  nome_cliente?: string;
+  nome_atendente?: string; // ✅ ADICIONAR
+  data_vencimento_fatura?: string;
+  nome_empresa?: string;
+  numero_contrato?: string;
+  valor_fatura?: string;
+  linha_digitavel_boleto?: string;
+  link_boleto_pdf?: string;
+  mensagem?: string;
+  cnpj_cpf?: string;
 };

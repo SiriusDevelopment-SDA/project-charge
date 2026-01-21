@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
+import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
+import { validarSelecaoCliente } from "../../utils/validation";
 import type { Cliente, Template } from "../../types";
 import { useClient, useTemplate } from "../../hooks";
 import { 
@@ -11,23 +13,32 @@ import {
   PreviewBox, 
   UploadButton, 
   DownloadModeloButton, 
-  InputFields } from "../../componente/Index";
-import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { validarSelecaoCliente } from "../../utils/validation";
-import AdvancedFilterDemo from "../../../sem utilidade/DateTabela";
+  InputFields, 
+  MyButton} from "../../componente/Index";
 
 export default function EfetuarDisparo() {
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
   const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
   const { templates } = useTemplate()
   const { clients } = useClient()
-  const { selectedClientes,setSelectedClientes, setSelectedTemplate, selectedTemplate, templateMapVars } = useDispatchTemplate()
-
+  const { selectedClientes,setSelectedClientes, setSelectedTemplate, selectedTemplate, templateMapVars, sendTemplate } = useDispatchTemplate()
+  
   return (
     <>
-      <PageContainer className={Style.EfeturarDisparoContainer}>
-        <TitlePage title={modoPage === "clientes" ? "Disparo clientes ativos" : "Disparo para leads"} className={Style.navTitlePage} setModoPage={setModoPage} text={modoPage === "clientes" ? "Disparo para leads" : "Disparo clientes ativos"} />
-        <div className={Style.containerCenter}
+      <PageContainer 
+      className={Style.EfeturarDisparoContainer}>
+        <TitlePage 
+        title={modoPage === "clientes" ? 
+        "Disparo clientes ativos" : 
+        "Disparo para leads"
+        } className={Style.navTitlePage} 
+        setModoPage={setModoPage} 
+        text={modoPage === "clientes" ? 
+        "Disparo para leads" : 
+        "Disparo clientes ativos"} 
+        />
+        <div 
+        className={Style.containerCenter}
           onClick={() => {
             setOpenDropdown(null);
           }}>
@@ -48,10 +59,6 @@ export default function EfetuarDisparo() {
                 options={clients}
                 multiple
                 selected={selectedClientes}
-                // isOptionDisabled={(cliente: Cliente) =>
-                //   selectedTemplate?.category === "Cobrança" &&
-                //   !cliente.invoices?.some(inv => inv.status === "A Receber")
-                // }
                 onChange={(v) => {
                   const novosClientes = v as Cliente[];
                 
@@ -89,8 +96,11 @@ export default function EfetuarDisparo() {
           </PreviewBox>
           
         </div>
+        <section className={Style.containerButtonSend}>
+            <MyButton text="teste"/>
+            <MyButton text="teste2" onClick={() => sendTemplate()}/>
+        </section>
       </PageContainer>
-      <AdvancedFilterDemo/>
     </>
   );
 }
