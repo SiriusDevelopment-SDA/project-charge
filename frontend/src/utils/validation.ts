@@ -1,6 +1,7 @@
 import type { Cliente, Template } from "../types";
 import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
+import { toast } from "react-toastify";
 
 export function validarTelefone(valor: string): boolean {
   const numeric = valor.replace(/\D/g, "");
@@ -134,32 +135,19 @@ export function validar(rows: any[]) {
 
 export function compilarTemplate(
   message: string,
-  variables: Record<string, string>
+  variables: Record<string, string>,
+  templateMapVars: Record<string, string>
 ) {
-  return (cliente: Cliente) => {
-    const mapClienteVars: Record<string, string> = {
-      nome_cliente: "name",
-      data_vencimento_fatura: "invoices.0.Data_de_vencimento",
-      valor_fatura: "invoices.0.Valor_da_fatura",
-      numero_contrato: "invoices.0.contrato",
-      id_fatura: "invoices.0.id_fatura",
-    };
-
-    function getByPath(obj: any, path: string) {
-      return path.split('.').reduce((acc, key) => acc?.[key], obj);
-    }
-
+  
     return message.replace(/{{(\d+)}}/g, (_, index) => {
       const variableKey = variables[index];
       if (!variableKey) return "";
 
-      const fieldPath = mapClienteVars[variableKey];
-      if (!fieldPath) return "";
+      const varMapped = templateMapVars[variableKey];
+      if (!varMapped) return "";
 
-      const value = getByPath(cliente, fieldPath);
-      return value ?? "";
+      return varMapped ?? "";
     });
-  };
 }
 export function obterFaturaMaisAntigaAberta(cliente: any) {
   const abertas = filtrarFaturasAbertas(cliente.invoices || []);
@@ -179,6 +167,24 @@ export function ordenarPorVencimento(invoices: any[]) {
     new Date(a.Data_de_vencimento).getTime() - new Date(b.Data_de_vencimento).getTime()
   );
 }
+export function validarSelecaoCliente(
+  cliente: Cliente,
+  template?: Template
+) {
+  if (template?.category !== "Cobrança") return true;
 
+  const possuiFaturaAberta = cliente.invoices?.some(
+    inv => inv.status === "A Receber"
+  );
+
+  if (!possuiFaturaAberta) {
+    toast.warning(
+      `O cliente ${cliente.name} não possui faturas em aberto e não pode ser selecionado para cobrança.`
+    );
+    return false;
+  }
+
+  return true;
+}
 
 

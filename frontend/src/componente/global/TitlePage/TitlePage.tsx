@@ -1,6 +1,7 @@
 import Typography from "@mui/material/Typography";
 import { MyButton } from "../../Index";
 import S from "./StylesTitlePage.module.css"
+import { Navigate } from "react-router-dom";
 
 export const TitlePage = ({
   title,
@@ -20,7 +21,10 @@ export const TitlePage = ({
       </Typography>
       <div className={S.buttons_container_title}>
         <MyButton text={text} onClick={() => setModoPage(prev => prev === "clientes" ? "leads" : "clientes")} />
-        <MyButton text="Histórico" />
+        <MyButton
+          text="Histórico"
+          onClick={() => window.location.assign("/historicodisparo")}
+        />
       </div>
     </div>
   );

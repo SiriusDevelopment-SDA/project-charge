@@ -4,7 +4,6 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
-
 };
 
 export type Template = {
@@ -27,6 +26,21 @@ export type propTemplate = {
   setTemplateSelecionado: React.Dispatch<React.SetStateAction<Template>>;
   templateSelecionado: Template | undefined
 };
+type invoices = {
+ id_fatura: string,
+ contratoId: string,
+ data_vencimento_fatura: string,
+ valor_fatura: string,
+ status: string,
+ Referencia?: string,
+ linha_digitavel_boleto?: string
+ link_boleto_pdf?: string
+}
+type company = {
+  id: string;
+  name: string;
+  account: string
+}
 export type Cliente = {
   id: string;
   cnpj_cpf: string;
@@ -40,9 +54,9 @@ export type Cliente = {
   email?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  invoices?: [];
+  invoices?: invoices[];
   services?: [];
-  company?: Record<string, string>;
+  company?: company;
 }
 
 export type PropsSelect = {
@@ -69,16 +83,24 @@ export type responseTemplate = {
   page: number;
   total: number;
 }
+export type mappedVars = {
+  nome_cliente?: string;
+  data_vencimento_fatura?: string;
+  nome_empresa?: string;
+  numero_contrato?: string;
+  valor_fatura?: string;
+  linha_digitavel_boleto?: string;
+  link_boleto_pdf?: string;
+  mensagem?: string;
+}
 export interface IClientsContext {
   clients: Cliente[] | [];
   setQuery: React.Dispatch<SetStateAction<string>>
   setPage: React.Dispatch<SetStateAction<number>>;
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
-  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
-  selectedClientes: Cliente[];
-  mapClienteVars: Record<string, string>;
-  fetchInvoices: (client: Cliente) => void;
+  
+  fetchInvoices: (client: Cliente[]) => void;
 }
 export interface ITemplatesContext {
   templates: Template[] | [];
@@ -86,6 +108,13 @@ export interface ITemplatesContext {
   setPage: React.Dispatch<SetStateAction<number>>;
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
+}
+export interface IDispatchTemplateContext {
+  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
+  setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
+  selectedClientes: Cliente[];
+  selectedTemplate: Template | null;
+  templateMapVars: mappedVars[] | null
 }
 export type FilterButtonProps = {
   templates: Template[];

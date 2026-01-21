@@ -6,14 +6,17 @@ import "./lib/primereact-locale";
 import { ClientProvider } from "./context/contextClients";
 import { TemplateProvider } from "./context/contextTemplates";
 import "./styles/index.css";
+import { DispatchTemplateProvider } from "./context/contextDisparo";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <ClientProvider>
-        <TemplateProvider>
-          <App />
-        </TemplateProvider>
+        <DispatchTemplateProvider>
+          <TemplateProvider>
+            <App />
+          </TemplateProvider>
+        </DispatchTemplateProvider>
       </ClientProvider>
     </BrowserRouter>
   </React.StrictMode>

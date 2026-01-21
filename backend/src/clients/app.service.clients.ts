@@ -64,6 +64,7 @@ export class AppServiceClient {
         company: {
           id: true,
           account_chatwoot: true,
+          name: true
         },
       },
     });

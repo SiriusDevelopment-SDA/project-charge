@@ -13,6 +13,7 @@ export type DropdownProps<T> = {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  isOptionDisabled?: (option: T) => boolean;
 };
 
 export function Dropdown<T extends { id: string; name: string }>({
@@ -24,7 +25,8 @@ export function Dropdown<T extends { id: string; name: string }>({
   open,
   onOpen,
   onClose,
-  onChange
+  onChange,
+  isOptionDisabled
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
@@ -95,32 +97,38 @@ export function Dropdown<T extends { id: string; name: string }>({
       {/* OPTIONS */}
       {open && (
         <div className={S.menu}>
-          {options.map((opt) => (
-            <div
-              key={opt.id}
-              className={S.option}
-              onClick={(e) => {
-                e.stopPropagation();
+          {options.map((opt) => {
+      const disabled = isOptionDisabled?.(opt);
 
-                if (multiple) {
-                  const exists = selected?.some(s => s.id === opt.id);
-                  const newList = exists
-                    ? (selected ?? []).filter(s => s.id !== opt.id)
-                    : [...(selected ?? []), opt];
+      return (
+        <div
+          key={opt.id}
+          className={`${S.option} ${disabled ? S.disabled : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
 
-                  onChange(newList);
+            if (disabled) return;
 
+            if (multiple) {
+              const exists = selected?.some(s => s.id === opt.id);
+              const newList = exists
+                ? (selected ?? []).filter(s => s.id !== opt.id)
+                : [...(selected ?? []), opt];
 
-                } else {
-                  onChange(opt);
-                  onClose();
-                  setFocused(false);
-                }
-              }}
-            >
-              {opt.name}
-            </div>
-          ))}
+              onChange(newList);
+            } else {
+              onChange(opt);
+              onClose();
+              setFocused(false);
+            }
+          }}
+          title={disabled ? "Cliente sem faturas em aberto" : undefined}
+        >
+          {opt.name}
+    </div>
+  );
+})}
+
         </div>
       )}
     </div>

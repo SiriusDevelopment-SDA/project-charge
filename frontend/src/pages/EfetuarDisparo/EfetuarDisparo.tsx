@@ -1,36 +1,28 @@
 import { useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
-import { PageContainer, BaseCard, Metricas, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton, InputFields } from "../../componente/Index";
 import type { Cliente, Template } from "../../types";
 import { useClient, useTemplate } from "../../hooks";
-import { compilarTemplate, obterFaturaMaisAntigaAberta } from "../../utils/validation";
+import { 
+  PageContainer,
+  BaseCard,
+  Metricas, 
+  TitlePage, 
+  Dropdown, 
+  PreviewBox, 
+  UploadButton, 
+  DownloadModeloButton, 
+  InputFields } from "../../componente/Index";
+import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
+import { validarSelecaoCliente } from "../../utils/validation";
+import AdvancedFilterDemo from "../../../sem utilidade/DateTabela";
 
 export default function EfetuarDisparo() {
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
   const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
-  // const msgComVars = mapVars(selectedTemplate && selectedTemplate?.message, selectedTemplate!.variables);
   const { templates } = useTemplate()
-  const { clients, selectedClientes, setSelectedClientes, fetchInvoices } = useClient()
-  let mensagens
-  if(selectedTemplate){
-    const preencher = compilarTemplate(selectedTemplate.message, selectedTemplate.variables);
-    mensagens = selectedClientes.map(c => preencher(c));
-  }
-  if (selectedTemplate?.category === "Cobrança") {
-    async function teste() {
-      for (const cliente of clients) {
-        await fetchInvoices(cliente)
-      }
-    }
-    teste()
-  }
+  const { clients } = useClient()
+  const { selectedClientes,setSelectedClientes, setSelectedTemplate, selectedTemplate, templateMapVars } = useDispatchTemplate()
 
-  
-
-
-  console.log("template", selectedTemplate);
-  console.log("clientes", selectedClientes);
   return (
     <>
       <PageContainer className={Style.EfeturarDisparoContainer}>
@@ -56,7 +48,20 @@ export default function EfetuarDisparo() {
                 options={clients}
                 multiple
                 selected={selectedClientes}
-                onChange={(v) => setSelectedClientes(v as Cliente[])}
+                // isOptionDisabled={(cliente: Cliente) =>
+                //   selectedTemplate?.category === "Cobrança" &&
+                //   !cliente.invoices?.some(inv => inv.status === "A Receber")
+                // }
+                onChange={(v) => {
+                  const novosClientes = v as Cliente[];
+                
+                  const clientesValidos = novosClientes.filter(cliente =>
+                    validarSelecaoCliente(cliente, selectedTemplate!)
+                  );
+                
+                  setSelectedClientes(clientesValidos);
+                }}
+                
                 open={openDropdown === "clientes"}
                 onOpen={() => setOpenDropdown("clientes")}
                 onClose={() => setOpenDropdown(null)}
@@ -68,7 +73,7 @@ export default function EfetuarDisparo() {
                 chave={modoPage === "clientes" ?
                   "Clientes selecionados" :
                   "Leads selecionados"}
-                valor={String(selectedClientes.length)}
+                valor={selectedClientes ? String(selectedClientes?.length) : '0'}
                 classname={Style.contentMetricas}
               />
             </BaseCard>
@@ -78,10 +83,14 @@ export default function EfetuarDisparo() {
             <DownloadModeloButton templateSelecionado={selectedTemplate} modo={modoPage} />
           </div>
           <PreviewBox classname={Style.containerPreview}>
-            {selectedClientes.length > 0 ? mensagens![0] : selectedTemplate? selectedTemplate?.message : "Selecione um template"}
+          {!selectedTemplate
+          ? "Selecione um template"
+          : templateMapVars?.[0]?.mensagem ?? selectedTemplate.message}
           </PreviewBox>
+          
         </div>
       </PageContainer>
+      <AdvancedFilterDemo/>
     </>
   );
 }
