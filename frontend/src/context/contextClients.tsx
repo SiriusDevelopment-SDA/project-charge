@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState } from 'react'
 import { Api } from '../services/api'
 import type { Cliente, IClientsContext, responseClients } from '../types'
+import { toast } from 'react-toastify'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ClientContext = createContext<IClientsContext>(
@@ -30,7 +31,8 @@ export const ClientProvider = ({
         );
   
         const clients = response.data.data;
-  
+        if(query.trim() !== '' && clients.length === 0)toast.warning(`Cliente com documento: ${query} não encontrado!!`)
+
         setClient((prev) => {
           const map = new Map<string, Cliente>();
           [...prev, ...clients].forEach((c) => map.set(c.id, c));
@@ -81,7 +83,6 @@ export const ClientProvider = ({
       console.error(err);
     }
   };
-  console.log("clients", clients)
   return (
     <ClientContext.Provider
       value={{ clients, setQuery, setPage, setOrder, setLimit, fetchInvoices }}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { validarSelecaoCliente } from "../../utils/validation";
+import { extrairDocumentosClientes, extrairLeads, getTipoPlanilha, processarDocumentos, validarArquivo, validarSelecaoCliente } from "../../utils/validation";
 import type { Cliente, Template } from "../../types";
 import { useClient, useTemplate } from "../../hooks";
 import { 
@@ -15,12 +15,13 @@ import {
   DownloadModeloButton, 
   InputFields, 
   MyButton} from "../../componente/Index";
+import { toast } from "react-toastify";
 
 export default function EfetuarDisparo() {
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
   const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
   const { templates } = useTemplate()
-  const { clients } = useClient()
+  const { clients, setQuery } = useClient()
   const { selectedClientes,setSelectedClientes, setSelectedTemplate, selectedTemplate, templateMapVars, sendTemplate } = useDispatchTemplate()
   
   return (
@@ -86,7 +87,49 @@ export default function EfetuarDisparo() {
             </BaseCard>
           </div>
           <div className={Style.containerButtonsPlanilha}>
-            <UploadButton onUpload={(file) => console.log(file)} />
+          <UploadButton
+            onUpload={(file, data) => {
+              try {
+                validarArquivo(file)
+
+                const tipo = getTipoPlanilha(file.name)
+
+                if (tipo === "cliente") {
+                  const documents = extrairDocumentosClientes(data)
+                  processarDocumentos(documents)
+                  documents.forEach((cnpjCpf, index) => {
+                    setTimeout(() => {
+                      setQuery(cnpjCpf)
+                    }, index * 1000)
+                  })
+                  setSelectedClientes(prev => {
+                    const clientesFromPlanilha = clients.filter(cliente =>
+                      documents.includes(cliente.cnpj_cpf.replace(/\D/g, ""))
+                    )
+                
+                    const novosClientes = clientesFromPlanilha.filter(cliente =>
+                      !prev.some(c => c.cnpj_cpf === cliente.cnpj_cpf)
+                    )
+                
+                    return [...prev, ...novosClientes]
+                  })
+                  return
+                }
+
+                if (tipo === "lead") {
+                  const leads = extrairLeads(data)
+                  toast.success(`${leads.length} leads importados`)
+                  return
+                }
+
+                toast.error("Tipo de planilha não reconhecido nunca troque o nome do arquivo!!")
+              } catch (err: any) {
+                toast.error(err.message)
+              }
+            }}
+          />
+
+
             <DownloadModeloButton templateSelecionado={selectedTemplate} modo={modoPage} />
           </div>
           <PreviewBox classname={Style.containerPreview}>

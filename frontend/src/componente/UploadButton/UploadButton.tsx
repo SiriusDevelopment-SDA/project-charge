@@ -1,21 +1,34 @@
 import { Button } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-// import * as XLSX from "xlsx";
+import * as XLSX from "xlsx";
 // import { validar } from "../../utils/validation";
 type UploadButtonProps = {
-    onUpload: (file: File) => void;
+    onUpload: (file: File, rows: Record<string, string>[]) => void;
 };
 
 export function UploadButton({ onUpload }: UploadButtonProps) {
     async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files![0];
-        if (file) onUpload(file);
-        // const data = await file.arrayBuffer();
-        // const workbook = XLSX.read(data);
-        // const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        // const rows = XLSX.utils.sheet_to_json(sheet);
-        // validar(rows);
-    }
+        const file = e.target.files?.[0];
+        if (!file) return;
+    
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    
+        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet);
+    
+        // remove linhas totalmente vazias
+        const filteredRows = rows.filter(row =>
+          Object.values(row).some(
+            value =>
+              value !== undefined &&
+              value !== null &&
+              String(value).trim() !== ""
+          )
+        );
+    
+        onUpload(file, filteredRows);
+      }
 
     return (
         <Button
