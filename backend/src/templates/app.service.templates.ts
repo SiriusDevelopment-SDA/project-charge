@@ -41,6 +41,7 @@ export class AppServiceTemplate {
           company: {
             id: true,
             account_chatwoot: true,
+            name: true
           },
         },
         skip,

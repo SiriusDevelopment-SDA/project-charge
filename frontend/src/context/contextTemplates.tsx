@@ -52,7 +52,7 @@ export const TemplateProvider = ({
     fetchTemplates()
   }, [query, page, limit, order])
 
-
+  console.log(templates)
   return (
     <TemplateContext.Provider
       value={{ templates, setQuery, setPage, setLimit, setOrder }}

@@ -26,8 +26,9 @@ export function UploadButton({ onUpload }: UploadButtonProps) {
               String(value).trim() !== ""
           )
         );
-    
+        
         onUpload(file, filteredRows);
+        
       }
 
     return (

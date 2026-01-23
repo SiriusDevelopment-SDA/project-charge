@@ -13,14 +13,11 @@ export function extrairDocumentosClientes (data: any[]){
     .filter(doc => doc.length === 11 || doc.length === 14)
 }
 export function extrairLeads(data: any[]){
-  if (!data.every(row => "telefone" in row)) {
-    throw new Error("Planilha de lead inválida: coluna telefone ausente")
+  if (!data.every(row => "whatsapp" in row)) {
+    toast.warning("Planilha de lead inválida: coluna telefone ausente")
   }
 
-  return data.map(row => ({
-    telefone: String(row.telefone).replace(/\D/g, ""),
-    nome: row.nome ?? null,
-  }))
+  return data
 }
 export const processarDocumentos = (documents: string[]) => {
   if (documents.length === 0) {
@@ -49,6 +46,17 @@ export function validarArquivo(file: File) {
     throw new Error('Arquivo muito grande.');
   }
 }
+export function todasColunasPreenchidas(lead: Record<string, any>) {
+  const camposIgnorados = ["status"];
+
+  return Object.entries(lead)
+    .filter(([key]) => !camposIgnorados.includes(key))
+    .every(([, value]) =>
+      value !== "" &&
+      value !== null &&
+      value !== undefined
+    );
+}
 
 export function gerarModeloPlanilha(template: Template | null, modo: "clientes" | "leads") {
   if (modo === "clientes") {
@@ -63,18 +71,6 @@ export function getTipoPlanilha(fileName: string){
   if (name.includes("cliente")) return "cliente"
 
   return "desconhecida"
-}
-
-export function processarLeads(dados: any[]) {
-  return dados.map(row => {
-    const contato = row.contato?.toString().trim();
-    const status =
-      validarTelefone(contato) || validarEmail(contato)
-        ? "válido"
-        : "inválido";
-
-    return { ...row, status };
-  });
 }
 
 export function compilarTemplate(
