@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState } from 'react'
 import { Api } from '../services/api'
 import type { Cliente, IClientsContext, responseClients } from '../types'
+import { toast } from 'react-toastify'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ClientContext = createContext<IClientsContext>(
@@ -14,9 +15,11 @@ export const ClientProvider = ({
 }) => {
   const [clients, setClient] = useState<Cliente[]>([])
   const [page, setPage] = useState<number>(1)
-  const [limit, setLimit] = useState<number>(30)
+  const [limit, setLimit] = useState<number>(10)
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC")
   const [query, setQuery] = useState<string>('')
+  const [groupInvoices, setGroupInvoices] = useState<boolean>(false)
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -30,14 +33,15 @@ export const ClientProvider = ({
         );
   
         const clients = response.data.data;
-  
+        if(query.trim() !== '' && clients.length === 0)toast.warning(`Cliente com documento: ${query} não encontrado!!`)
+
         setClient((prev) => {
           const map = new Map<string, Cliente>();
           [...prev, ...clients].forEach((c) => map.set(c.id, c));
           return Array.from(map.values());
         });
   
-         await fetchInvoices(clients);
+        if(groupInvoices) await fetchInvoices(clients);
   
       } catch (err) {
         console.error('Erro ao buscar clientes:', err);
@@ -45,11 +49,10 @@ export const ClientProvider = ({
     };
   
     fetchAll();
-  }, [query, page, limit, order]);
+  }, [query, page, limit, order, groupInvoices]);
   
 
   const fetchInvoices = async (clients: Cliente[]) => {
-    
     try {
       const res = await fetch(
         'https://webhooks.coraxy.com.br/webhook/faturas',
@@ -57,7 +60,7 @@ export const ClientProvider = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            cnpj_cpf: clients.map(c => c.cnpj_cpf).join(','),
+            docoumento: clients.map(c => c.cnpj_cpf),
           }),
         }
       );
@@ -76,15 +79,14 @@ export const ClientProvider = ({
           invoices: invoicesByDoc[c.cnpj_cpf] || [],
         }))
       );
-  
+      return [...clients, invoices]
     } catch (err) {
       console.error(err);
     }
   };
-  console.log("clients", clients)
   return (
     <ClientContext.Provider
-      value={{ clients, setQuery, setPage, setOrder, setLimit, fetchInvoices }}
+      value={{ clients, setQuery, setPage, setOrder, setLimit, fetchInvoices, setGroupInvoices }}
     >
       {children}
     </ClientContext.Provider>

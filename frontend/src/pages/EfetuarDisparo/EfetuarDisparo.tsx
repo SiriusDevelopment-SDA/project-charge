@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { validarSelecaoCliente } from "../../utils/validation";
+import { extrairDocumentosClientes, extrairLeads, getTipoPlanilha, processarDocumentos, todasColunasPreenchidas, validarArquivo, validarSelecaoCliente } from "../../utils/validation";
 import type { Cliente, Template } from "../../types";
 import { useClient, useTemplate } from "../../hooks";
+import * as XLSX from "xlsx";
 import { 
   PageContainer,
   BaseCard,
@@ -14,15 +15,34 @@ import {
   UploadButton, 
   DownloadModeloButton, 
   InputFields, 
-  MyButton} from "../../componente/Index";
+  MyButton
+} from "../../componente/Index";
+import { toast } from "react-toastify";
+import { handleUploadPlanilha } from "../../utils/hendleUploadSpreadSheat";
 
 export default function EfetuarDisparo() {
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
-  const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
-  const { templates } = useTemplate()
-  const { clients } = useClient()
-  const { selectedClientes,setSelectedClientes, setSelectedTemplate, selectedTemplate, templateMapVars, sendTemplate } = useDispatchTemplate()
   
+  const { templates } = useTemplate()
+  const { clients, setQuery, setGroupInvoices } = useClient()
+  const { selectedClientes, 
+    setSelectedClientes, 
+    setSelectedTemplate, 
+    selectedTemplate, 
+    templateMapVars, 
+    sendTemplate, 
+    modoPage, 
+    setModoPage,
+    setSelectedLeads,
+    selectedLeads
+  } = useDispatchTemplate()
+
+  useEffect(() => {
+    console.log("aquii teste useeffect")
+    console.log("categoria", selectedTemplate?.category)
+    setGroupInvoices(selectedTemplate?.category === "Cobrança");
+  }, [selectedTemplate]);
+
   return (
     <>
       <PageContainer 
@@ -73,21 +93,34 @@ export default function EfetuarDisparo() {
                 onOpen={() => setOpenDropdown("clientes")}
                 onClose={() => setOpenDropdown(null)}
               /> :
-                <InputFields label="Whatsapp Number" />}
+              <InputFields label="Whatsapp Number" /> }
             </div>
             <BaseCard classname={Style.cardMetricas}>
               <Metricas
                 chave={modoPage === "clientes" ?
                   "Clientes selecionados" :
-                  "Leads selecionados"}
+                  "Leads selecionados"
+                }
                 valor={selectedClientes ? String(selectedClientes?.length) : '0'}
                 classname={Style.contentMetricas}
               />
             </BaseCard>
           </div>
           <div className={Style.containerButtonsPlanilha}>
-            <UploadButton onUpload={(file) => console.log(file)} />
-            <DownloadModeloButton templateSelecionado={selectedTemplate} modo={modoPage} />
+          <UploadButton
+            onUpload={(file) =>
+              handleUploadPlanilha({
+                file,
+                clients,
+                setQuery,
+                setSelectedClientes,
+                setSelectedLeads,
+                processarDocumentos
+              })
+            }
+            disabled={modoPage === "leads" && !selectedTemplate ? true : false}
+          />
+          <DownloadModeloButton templateSelecionado={selectedTemplate} modo={modoPage}/>
           </div>
           <PreviewBox classname={Style.containerPreview}>
           {!selectedTemplate

@@ -3,63 +3,28 @@ import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
 import { toast } from "react-toastify";
 
-export function validarTelefone(valor: string): boolean {
-  const numeric = valor.replace(/\D/g, "");
-  return numeric.length >= 10 && numeric.length <= 14;
-}
-
-export function validarEmail(email: string): boolean {
-  return /\S+@\S+\.\S+/.test(email);
-}
-
-export function validarCPF(cpf: string): boolean {
-  const cleaned = cpf.replace(/\D/g, "");
-  if (cleaned.length !== 11) return false;
-  if (/^(\d)\1+$/.test(cleaned)) return false;
-
-  let soma = 0;
-  for (let i = 0; i < 9; i++) soma += +cleaned[i] * (10 - i);
-  let resto = 11 - (soma % 11);
-  resto = resto >= 10 ? 0 : resto;
-  if (resto !== +cleaned[9]) return false;
-
-  soma = 0;
-  for (let i = 0; i < 10; i++) soma += +cleaned[i] * (11 - i);
-  resto = 11 - (soma % 11);
-  resto = resto >= 10 ? 0 : resto;
-  return resto === +cleaned[10];
-}
-
-export function validarCNPJ(cnpj: string): boolean {
-  const cleaned = cnpj.replace(/\D/g, "");
-  if (cleaned.length !== 14) return false;
-
-  let size = cleaned.length - 2;
-  let numbers = cleaned.substring(0, size);
-  const digits = cleaned.substring(size);
-  let sum = 0;
-  let pos = size - 7;
-
-  for (let i = size; i >= 1; i--) {
-    sum += +numbers[size - i] * pos--;
-    if (pos < 2) pos = 9;
+export function extrairDocumentosClientes (data: any[]){
+  if (!data.every(row => "cnpj_cpf" in row)) {
+    throw new Error("Planilha inválida: coluna cnpj_cpf ausente")
   }
 
-  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  if (result !== +digits[0]) return false;
-
-  size++;
-  numbers = cleaned.substring(0, size);
-  sum = 0;
-  pos = size - 7;
-
-  for (let i = size; i >= 1; i--) {
-    sum += +numbers[size - i] * pos--;
-    if (pos < 2) pos = 9;
+  return data
+    .map(row => String(row.cnpj_cpf).replace(/\D/g, ""))
+    .filter(doc => doc.length === 11 || doc.length === 14)
+}
+export function extrairLeads(data: any[]){
+  if (!data.every(row => "whatsapp" in row)) {
+    toast.warning("Planilha de lead inválida: coluna telefone ausente")
   }
 
-  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-  return result === +digits[1];
+  return data
+}
+export const processarDocumentos = (documents: string[]) => {
+  if (documents.length === 0) {
+    toast.error("Nenhum CNPJ/CPF válido encontrado")
+    return
+  }
+  toast.success(`${documents.length} documentos processados com sucesso`)
 }
 
 export function validarData(valor: string): boolean {
@@ -81,6 +46,17 @@ export function validarArquivo(file: File) {
     throw new Error('Arquivo muito grande.');
   }
 }
+export function todasColunasPreenchidas(lead: Record<string, any>) {
+  const camposIgnorados = ["status"];
+
+  return Object.entries(lead)
+    .filter(([key]) => !camposIgnorados.includes(key))
+    .every(([, value]) =>
+      value !== "" &&
+      value !== null &&
+      value !== undefined
+    );
+}
 
 export function gerarModeloPlanilha(template: Template | null, modo: "clientes" | "leads") {
   if (modo === "clientes") {
@@ -88,49 +64,13 @@ export function gerarModeloPlanilha(template: Template | null, modo: "clientes" 
   }
   return gerarModeloLeads(template);
 }
+export function getTipoPlanilha(fileName: string){
+  const name = fileName.toLowerCase()
 
-export function processarLeads(dados: any[]) {
-  return dados.map(row => {
-    const contato = row.contato?.toString().trim();
-    const status =
-      validarTelefone(contato) || validarEmail(contato)
-        ? "válido"
-        : "inválido";
+  if (name.includes("lead")) return "lead"
+  if (name.includes("cliente")) return "cliente"
 
-    return { ...row, status };
-  });
-}
-
-// NOVO → unifica CPF/CNPJ
-export function validarCpfCnpj(valor: string): boolean {
-  const cleaned = (valor || "").replace(/\D/g, "");
-  if (cleaned.length === 11) return validarCPF(cleaned);
-  if (cleaned.length === 14) return validarCNPJ(cleaned);
-  return false;
-}
-
-// CORRIGIDO
-export function validar(rows: any[]) {
-  const erros: string[] = [];
-
-  rows.forEach((row, index) => {
-    const linha = index + 2;
-
-    if (!validarCpfCnpj(row.cnpj_cpf)) {
-      erros.push(`Linha ${linha}: CPF/CNPJ inválido`);
-    }
-
-    if (!["valido", "invalido", "erro"].includes((row.status || "").toLowerCase())) {
-      erros.push(`Linha ${linha}: status inválido`);
-    }
-  });
-
-  if (erros.length > 0) {
-    console.table(erros);
-    return { valido: false, erros };
-  }
-
-  return { valido: true };
+  return "desconhecida"
 }
 
 export function compilarTemplate(

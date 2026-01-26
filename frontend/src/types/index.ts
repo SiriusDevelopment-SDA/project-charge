@@ -12,6 +12,7 @@ export type Template = {
   message: string;
   category: string;
   active: boolean;
+  company: company;
   meta_status: string;
   createdAt: Date;
   updatedAt: Date;
@@ -58,7 +59,10 @@ export type Cliente = {
   services?: [];
   company?: company;
 }
-
+export type Lead = {
+  [key: string]: any;
+  nome_cliente?: string;
+}
 export type PropsSelect = {
   children: ReactNode | string;
   className?: string;
@@ -90,7 +94,7 @@ export interface IClientsContext {
   setPage: React.Dispatch<SetStateAction<number>>;
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
-  
+  setGroupInvoices: React.Dispatch<SetStateAction<boolean>>;
   fetchInvoices: (client: Cliente[]) => void;
 }
 export interface ITemplatesContext {
@@ -102,10 +106,14 @@ export interface ITemplatesContext {
 }
 export interface IDispatchTemplateContext {
   setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
+  setSelectedLeads: React.Dispatch<SetStateAction<Lead[]>>;
   setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
   selectedClientes: Cliente[];
+  selectedLeads: Lead[];
   selectedTemplate: Template | null;
   templateMapVars: mappedVars[] | null;
+  setModoPage: React.Dispatch<SetStateAction<"clientes" | "leads">>;
+  modoPage: "clientes" | "leads";
   sendTemplate: () => void
 }
 export type FilterButtonProps = {
@@ -139,6 +147,7 @@ export type mappedVars = {
   nome_cliente?: string;
   nome_atendente?: string; // ✅ ADICIONAR
   data_vencimento_fatura?: string;
+  whatsapp?: string;
   nome_empresa?: string;
   numero_contrato?: string;
   valor_fatura?: string;
@@ -146,4 +155,8 @@ export type mappedVars = {
   link_boleto_pdf?: string;
   mensagem?: string;
   cnpj_cpf?: string;
+};
+export type UploadButtonProps = {
+  onUpload: (file: File, rows?: Record<string, string>[]) => void;
+  disabled?: boolean;
 };
