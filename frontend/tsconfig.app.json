@@ -35,7 +35,7 @@
     "src",
     "sem utilidade/ButtonNavigation.tsx",
     "sem utilidade/alert.tsx",
-    "sem utilidade/DateTabela.tsx",
+    "src/componente/table/tableHistory.tsx",
     "sem utilidade/ClientsSelectedCard.tsx",
     "sem utilidade/DisparoContainer.tsx",
     "sem utilidade/Dropdown.tsx",

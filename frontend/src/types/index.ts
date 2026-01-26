@@ -93,3 +93,32 @@ export type FilterButtonProps = {
   setSelectedCategory: React.Dispatch<SetStateAction<string>>
   onCategoryChange?: (categoria: string) => void;
 };
+
+export type Historico = {
+  id: string;
+  cliente_name?: string;
+  cliente_document?: string;
+  cliente_whatsapp?: string;
+  message: string;
+  templateId?: string;
+  category?: string;
+  status: string;
+  errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type responseHistorico = {
+  data: Historico[];
+  limit: number;
+  page: number;
+  total: number;
+};
+
+export interface IHistoricoContext {
+  historico: Historico[] | [];
+  setQuery: React.Dispatch<SetStateAction<string>>;
+  setPage: React.Dispatch<SetStateAction<number>>;
+  setLimit: React.Dispatch<SetStateAction<number>>;
+  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
+}

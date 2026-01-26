@@ -1,0 +1,430 @@
+/* ESTRUTURA GERAL */
+/* Linhas da tabela */
+.p-datatable tbody tr {
+  background-color: #111827;
+  transition: background-color 0.2s ease;
+}
+/* Hover das linhas */
+.p-datatable tbody tr:hover {
+  background-color: #006aff75;
+}
+/* Células */
+.p-datatable tbody td {
+  padding: 12px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 247, 0, 0.27);
+}
+/* Cabeçalho das colunas */
+.p-datatable thead th {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Conteúdo interno do cabeçalho (texto + ícone) */
+.p-datatable thead th .p-column-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1px 0 85px;
+}
+
+/* ======================================================
+   FILTRO DE COLUNA (ÍCONE FUNIL)
+====================================================== */
+
+.p-column-filter-menu-button {
+  color: #ffffff !important;
+  border-radius: 100px;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: background-color 0.4s ease;
+}
+/* Hover normal */
+.p-column-filter-menu-button:hover {
+  background-color: #ffdd0053 !important;
+}
+
+/* Botão do funil quando o filtro está aplicado */
+.p-column-filter-menu-button.p-column-filter-menu-button-active {
+  background-color: #ffdd0053 !important;
+  color: #ffdd00 !important;
+  box-shadow: none !important;
+}
+
+/* Espaçamento do botão "Remover regra" */
+.p-column-filter-remove-rule-button,
+.p-column-filter-remove-button {
+  margin-top: 20px !important;
+  margin-bottom: 12px !important;
+}
+.p-column-filter-remove-button.p-button.p-component {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+/* Espaçamento entre ícone de lixeira e texto */
+.p-column-filter-remove-rule .p-icon {
+  margin-right: 8px !important;
+}
+
+/* Espaçamento entre lixeira e texto */
+.p-column-filter-remove-button {
+  column-gap: 5px !important; 
+}
+/* Container do menu */
+.p-column-filter-overlay {
+  background: #0f172a !important;
+  border: 1px solid #ffdd00 !important;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 0 25px rgba(255, 221, 0, 0.25);
+  min-width: 260px;
+}
+.p-column-filter-overlay:hover {
+  box-shadow: 0 0 30px rgba(255, 221, 0, 0.45);
+}
+/* Inputs do filtro */
+.p-column-filter-overlay .p-inputtext {
+  background: #020617;
+  border: 0px solid #554e33;
+  color: #ffffff;
+}
+/* BOTÕES LIMPAR / APLICAR */
+.p-column-filter-buttonbar {
+  margin-top: 10px;
+}
+/* BOTÃO + ADICIONAR REGRA */
+/* remove o fundo do botão */
+.p-column-filter-overlay
+.p-column-filter-add-rule
+button.p-button {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.p-column-filter-overlay .p-column-filter-add-rule button.p-button,
+.p-column-filter-overlay .p-column-filter-add-rule .p-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.p-column-filter-overlay .p-column-filter-add-rule :is(
+  .p-button-icon,
+  .p-button-icon-left,
+  .p-button-icon-right,
+  .pi
+) {
+  color: #ffdd00 !important;
+}
+/* o texto do botão adicionar regra */
+.p-column-filter-overlay .p-column-filter-add-rule,
+.p-column-filter-overlay .p-column-filter-add-rule span {
+  color: #ffdd00 !important;
+}
+/* Texto como link */
+.p-column-filter-overlay .p-column-filter-add-rule .p-button-label {
+  color: #ffdd00 !important;
+  font-weight: 600;
+  text-transform: none;
+}
+.p-column-filter-overlay .p-column-filter-add-rule:hover .p-button-label {
+  text-decoration: underline;
+  color: #ffe55c !important;
+}
+/* espaço abaixo de cada dropdown do menu */
+.p-column-filter-overlay .p-column-filter-operator-dropdown,
+.p-column-filter-overlay .p-column-filter-matchmode-dropdown {
+  margin-bottom: 10px !important;
+}
+
+/* INPUT do valor do filtro (campo abaixo do "Contém") */
+.p-column-filter-overlay .p-column-filter-constraint input.p-inputtext {
+  border: 1px solid #ffdd00 !important;
+  background: #ffffff11 !important;
+  color: #ffffff !important;
+  border-radius: 5px !important;
+  padding: 0px 0px !important;
+}
+/* cor dos dropdowns */
+.p-column-filter-overlay .p-dropdown {
+  border: 1px solid #ffdd00 !important;
+}
+
+   /* COR DO ÍCONE "+" DO "ADICIONAR REGRA" */
+
+.p-column-filter-overlay
+.p-column-filter-add-rule
+svg {
+  color: #ffdd00 !important;   /* amarelo */
+  fill: #ffdd00 !important;    /* garante em SVG */
+}
+
+   /* BOTÕES DO MENU DE FILTRO (Aplicar = igual Limpar) */
+
+/* Botão Aplicar */
+.p-column-filter-overlay .p-column-filter-buttonbar .p-button {
+  font-size: 15px;
+  background: transparent!important;
+  border: 1px solid #ffdd00 !important;
+  color: #ffdd00 !important;
+  border-radius: 30px !important;
+  box-shadow: none !important;
+  transition: all 0.15s ease;
+  padding: 4px;
+}
+/* Hover igual ao Limpar */
+.p-column-filter-overlay .p-column-filter-buttonbar .p-button:hover {
+  background: rgba(255, 221, 0, 0.15) !important;
+  color: #ffdd00 !important;
+  box-shadow: none !important;
+}
+
+   /* BOTÃO DO CALENDÁRIO (ícone) */
+
+.p-column-filter-overlay .p-datepicker-trigger {
+  background: #ffdd00 !important;
+  left: 5px;
+  
+  color: #000000 !important;
+  border-radius: 100px !important;
+}
+/* Espaçamento entre mês e ano (mantém) */
+.p-datepicker .p-datepicker-title {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+}
+/* Remove fundo em hover/focus/active */
+.p-datepicker .p-datepicker-title button:hover,
+.p-datepicker .p-datepicker-title button:focus,
+.p-datepicker .p-datepicker-title button:focus-visible,
+.p-datepicker .p-datepicker-title button:active,
+.p-datepicker .p-datepicker-title .p-datepicker-month:hover,
+.p-datepicker .p-datepicker-title .p-datepicker-year:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: #ffdd00 !important;
+}
+
+   /* PRIME CALENDAR - MÊS/ANO: TROCAR BORDA AZUL POR AMARELA */
+   
+/* remove fundo azul  */
+.p-datepicker *:focus,
+.p-datepicker *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* Item selecionado (mês/ano) costuma usar */
+.p-datepicker .p-highlight {
+  border: 2px solid #ffdd00 !important;
+  background: transparent !important;
+  color: #ffdd00 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+/* Hover nos itens do mês/ano (grid) */
+.p-datepicker .p-monthpicker-month:hover,
+.p-datepicker .p-yearpicker-year:hover,
+.p-datepicker td span:hover {
+  background: rgba(255, 221, 0, 0.15) !important;
+  color: #ffdd00 !important;
+  
+}
+
+/* ======================================================
+   BARRA SUPERIOR DA TABELA
+   (Limpar filtros + Busca global)
+====================================================== */
+
+.p-datatable-header {
+  background-color: #1f2937 !important;
+  border-bottom: 2px solid #ffee00;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 0;
+
+ .global-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.global-search:hover .global-search-input {
+  border-color: #c09d03ae;
+  
+}
+
+/* Ícone da busca */
+.global-search-icon {
+  position: absolute;
+  left: 190px;
+  color: #ffdd00;
+  transition: color 0.1s ease;
+}
+
+.global-search:hover .global-search-icon,
+.global-search:focus-within .global-search-icon {
+  color: #9ca3af;
+}
+
+.global-search:hover .global-search-input,
+.global-search:focus-within .global-search-input {
+  border-color: #c09d03ae !important;
+}
+
+
+/* Input da busca */
+.global-search-input {
+  height: 35px;
+  min-width: 10px;
+  padding-left: 10px !important;
+  border-radius: 999px;
+  text-align: left;
+}
+
+/* Input padrão (PrimeReact) */
+.p-inputtext {
+  background-color: #0f172a;
+  border: 2px solid #ffdd00;
+  color: #e5e7eb;
+  border-radius: 100px;
+  text-align: center;
+}
+
+.p-inputtext::placeholder {
+  color: #94a3b8;
+}
+
+}
+
+/* ======================================================
+   TÍTULO DA PÁGINA
+====================================================== */
+
+.tittlehistorico {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tittlehistorico h5 {
+  color: #ffffff;
+  border-bottom: 2px solid rgba(245, 208, 51, 0.5);
+  margin-bottom: 20px;
+}
+
+/* ======================================================
+   STATUS (TAG)
+====================================================== */
+
+.p-tag-success {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+  width: 60px;
+}
+
+.p-tag-info {
+  background-color: #0284c7 !important;
+  color: #e0f2fe !important;
+  width: 60px;
+}
+
+.p-tag-warning {
+  background-color: #f59e0b !important;
+  color: #fff7ed !important;
+  width: 60px;
+}
+
+.p-tag-danger {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  width: 60px;
+}
+
+.p-tag-secondary {
+  background-color: #6b7280 !important;
+  color: #f9fafb !important; width: 60px;
+}
+
+/* ======================================================
+   Botão "Limpar filtros"
+====================================================== */
+
+.p-button-outlined {
+  border-color: #fff200;
+  color: #ffdd00;
+  padding: 5px;
+}
+
+/* Espaçamento entre o ícone e o texto do botão */
+.btn-icon-left {
+  margin-right: 8px;
+}
+
+/* ======================================================
+   PAGINAÇÃO
+====================================================== */
+
+.p-paginator {
+  background: transparent;
+  border: none;
+  margin-top: 10px;
+}
+
+/* Botões base */
+.p-paginator .p-paginator-page,
+.p-paginator .p-paginator-next,
+.p-paginator .p-paginator-prev,
+.p-paginator .p-paginator-first,
+.p-paginator .p-paginator-last {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  line-height: 32px;
+  font-size: 14px;
+}
+
+/* Espaçamento das setas */
+.p-paginator .p-paginator-prev,
+.p-paginator .p-paginator-next,
+.p-paginator .p-paginator-first,
+.p-paginator .p-paginator-last {
+  
+}
+
+/* Hover da paginação */
+.p-paginator .p-paginator-page:hover,
+.p-paginator .p-paginator-next:hover,
+.p-paginator .p-paginator-prev:hover,
+.p-paginator .p-paginator-first:hover,
+.p-paginator .p-paginator-last:hover {
+  background: #ffcc00 !important;
+  box-shadow: none !important;
+  color: #000000 !important;
+  margin: 0 2px;
+}
+
+/* Página ativa */
+.p-paginator .p-highlight {
+  background-color: #ffcc00a8 !important;
+  color: #000000 !important;
+  box-shadow: none !important;
+}
+
+/* ======================================================
+   RESPONSIVIDADE
+====================================================== */
+
+@media (max-width: 768px) {
+  .history-title {
+    font-size: 18px;
+  }
+
+  .p-datatable tbody td {
+    font-size: 13px;
+  }
+}

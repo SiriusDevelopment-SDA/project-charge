@@ -1,9 +1,10 @@
 import { useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
-import { PageContainer, BaseCard, Metricas, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton, InputFields } from "../../componente/Index";
+import { PageContainer, BaseCard, Metricas, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton, InputFields} from "../../componente/Index";
 import type { Cliente, Template } from "../../types";
 import { useClient, useTemplate } from "../../hooks";
-import { compilarTemplate, obterFaturaMaisAntigaAberta } from "../../utils/validation";
+import { compilarTemplate} from "../../utils/validation";
+import { useHistorico } from "../../hooks/useHistorico";
 
 export default function EfetuarDisparo() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -25,12 +26,8 @@ export default function EfetuarDisparo() {
     }
     teste()
   }
-
-  
-
-
-  console.log("template", selectedTemplate);
-  console.log("clientes", selectedClientes);
+  const { historico } = useHistorico()
+  console.log("AQUI ESTÁ O HISTÓRICO ", historico);
   return (
     <>
       <PageContainer className={Style.EfeturarDisparoContainer}>
@@ -82,6 +79,7 @@ export default function EfetuarDisparo() {
           </PreviewBox>
         </div>
       </PageContainer>
+   
     </>
   );
 }
