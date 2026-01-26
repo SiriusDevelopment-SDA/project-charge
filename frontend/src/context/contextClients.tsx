@@ -15,9 +15,11 @@ export const ClientProvider = ({
 }) => {
   const [clients, setClient] = useState<Cliente[]>([])
   const [page, setPage] = useState<number>(1)
-  const [limit, setLimit] = useState<number>(30)
+  const [limit, setLimit] = useState<number>(10)
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC")
   const [query, setQuery] = useState<string>('')
+  const [groupInvoices, setGroupInvoices] = useState<boolean>(false)
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -39,7 +41,7 @@ export const ClientProvider = ({
           return Array.from(map.values());
         });
   
-         await fetchInvoices(clients);
+        if(groupInvoices) await fetchInvoices(clients);
   
       } catch (err) {
         console.error('Erro ao buscar clientes:', err);
@@ -47,11 +49,10 @@ export const ClientProvider = ({
     };
   
     fetchAll();
-  }, [query, page, limit, order]);
+  }, [query, page, limit, order, groupInvoices]);
   
 
   const fetchInvoices = async (clients: Cliente[]) => {
-    
     try {
       const res = await fetch(
         'https://webhooks.coraxy.com.br/webhook/faturas',
@@ -59,7 +60,7 @@ export const ClientProvider = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            cnpj_cpf: clients.map(c => c.cnpj_cpf).join(','),
+            docoumento: clients.map(c => c.cnpj_cpf),
           }),
         }
       );
@@ -78,14 +79,14 @@ export const ClientProvider = ({
           invoices: invoicesByDoc[c.cnpj_cpf] || [],
         }))
       );
-  
+      return [...clients, invoices]
     } catch (err) {
       console.error(err);
     }
   };
   return (
     <ClientContext.Provider
-      value={{ clients, setQuery, setPage, setOrder, setLimit, fetchInvoices }}
+      value={{ clients, setQuery, setPage, setOrder, setLimit, fetchInvoices, setGroupInvoices }}
     >
       {children}
     </ClientContext.Provider>

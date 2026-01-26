@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from 'react'
-import type { Cliente, IDispatchTemplateContext, Lead, mappedVars, SendTemplate, Template, TemplateRecipient } from '../types'
+import type { Cliente, IDispatchTemplateContext, Lead, mappedVars, Template, TemplateRecipient } from '../types'
 import { compilarTemplate } from '../utils/validation'
 import { Api } from '../services/api'
 import { toast } from 'react-toastify'
@@ -201,8 +201,7 @@ const handleSubmit = async (
       toast.warning("Nenhum cliente válido para envio");
       return;
     }
-  console.log("teste", selectedTemplate.id, send)
-    // handleSubmit(selectedTemplate.id, send);
+    handleSubmit(selectedTemplate.id, send);
   };
   
   return (

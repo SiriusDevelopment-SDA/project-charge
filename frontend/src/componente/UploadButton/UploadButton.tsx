@@ -1,41 +1,27 @@
-import { Button } from "@mui/material";
+import { Button, CircularProgress } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import * as XLSX from "xlsx";
-// import { validar } from "../../utils/validation";
-type UploadButtonProps = {
-    onUpload: (file: File, rows: Record<string, string>[]) => void;
-};
+import type { UploadButtonProps } from "../../types";
+import { useState } from "react";
 
-export function UploadButton({ onUpload }: UploadButtonProps) {
+
+export function UploadButton({ onUpload, disabled }: UploadButtonProps) {
+    const [loading, setLoading] = useState(false);
     async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file) return;
-    
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data);
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    
-        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet);
-    
-        // remove linhas totalmente vazias
-        const filteredRows = rows.filter(row =>
-          Object.values(row).some(
-            value =>
-              value !== undefined &&
-              value !== null &&
-              String(value).trim() !== ""
-          )
-        );
-        
-        onUpload(file, filteredRows);
-        
+        try {
+            setLoading(true)
+            const file = e.target.files?.[0];
+            if (!file) return;
+            onUpload(file);
+        } finally {
+            setLoading(false)
+        }
       }
 
     return (
         <Button
-            variant="contained"
+            variant="outlined"
             component="label"
-            startIcon={<CloudUploadIcon />}
+            startIcon={loading ? <CircularProgress size={18} /> : <CloudUploadIcon />}
             sx={{
                 backgroundColor: "#967d0fdd",
                 color: "#fff",
@@ -45,8 +31,9 @@ export function UploadButton({ onUpload }: UploadButtonProps) {
                     borderColor: "1px solid #967d0fdd"
                 },
             }}
+            disabled={disabled || loading}
         >
-            Upload planilha
+            {loading ? "Baixando arquivo...": "Baixar planilha"}
             <input
                 type="file"
                 hidden

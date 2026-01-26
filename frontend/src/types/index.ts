@@ -94,7 +94,7 @@ export interface IClientsContext {
   setPage: React.Dispatch<SetStateAction<number>>;
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
-  
+  setGroupInvoices: React.Dispatch<SetStateAction<boolean>>;
   fetchInvoices: (client: Cliente[]) => void;
 }
 export interface ITemplatesContext {
@@ -155,4 +155,8 @@ export type mappedVars = {
   link_boleto_pdf?: string;
   mensagem?: string;
   cnpj_cpf?: string;
+};
+export type UploadButtonProps = {
+  onUpload: (file: File, rows?: Record<string, string>[]) => void;
+  disabled?: boolean;
 };
