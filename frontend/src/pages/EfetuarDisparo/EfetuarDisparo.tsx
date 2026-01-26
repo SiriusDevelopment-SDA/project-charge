@@ -38,8 +38,6 @@ export default function EfetuarDisparo() {
   } = useDispatchTemplate()
 
   useEffect(() => {
-    console.log("aquii teste useeffect")
-    console.log("categoria", selectedTemplate?.category)
     setGroupInvoices(selectedTemplate?.category === "Cobrança");
   }, [selectedTemplate]);
 
@@ -74,7 +72,22 @@ export default function EfetuarDisparo() {
                 onClose={() => setOpenDropdown(null)}
               />
 
-              {modoPage === "clientes" ? <Dropdown<Cliente>
+            {/* === DROPDOWN TEMPLATE COM CATEGORIA INTERNA === */}
+            <Dropdown<Template>
+              label="Buscar template"
+              options={filteredTemplates}
+              value={selectedTemplate}
+              onChange={(v) => setSelectedTemplate(v as Template)}
+              open={openDropdown === "template"}
+              onOpen={() => setOpenDropdown("template")}
+              onClose={() => setOpenDropdown(null)}
+              enableCategoryFilter
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+            />
+
+            {modoPage === "clientes" ? (
+              <Dropdown<Cliente>
                 label="Buscar clientes no ERP"
                 options={clients}
                 multiple
