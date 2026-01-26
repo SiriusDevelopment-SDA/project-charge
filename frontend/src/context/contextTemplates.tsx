@@ -18,7 +18,6 @@ export const TemplateProvider = ({
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC")
   const [query, setQuery] = useState<string>('')
 
-  console.log("context templates", templates)
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
@@ -45,7 +44,6 @@ export const TemplateProvider = ({
 
           return Array.from(map.values());
         });
-        console.log('response templates', response)
       } catch (error) {
         console.error('Erro ao buscar os clientes:', error)
       }
@@ -54,7 +52,7 @@ export const TemplateProvider = ({
     fetchTemplates()
   }, [query, page, limit, order])
 
-
+  console.log(templates)
   return (
     <TemplateContext.Provider
       value={{ templates, setQuery, setPage, setLimit, setOrder }}

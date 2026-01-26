@@ -15,10 +15,10 @@ export type DropdownProps<T> = {
   onOpen: () => void;
   onClose: () => void;
   className?: string;
-
   enableCategoryFilter?: boolean;
   selectedCategory?: string | null;
   setSelectedCategory?: (cat: string | null) => void;
+  isOptionDisabled?: (option: T) => boolean;
 };
 
 export function Dropdown<
@@ -38,6 +38,7 @@ export function Dropdown<
   enableCategoryFilter = false,
   selectedCategory,
   setSelectedCategory,
+  isOptionDisabled
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
@@ -154,22 +155,26 @@ export function Dropdown<
           {displayOptions.map(opt => (
             <div
               key={opt.id}
-              className={S.option}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (multiple) {
-                  const exists = selected?.some(s => s.id === opt.id);
-                  const newList = exists
-                    ? selected!.filter(s => s.id !== opt.id)
-                    : [...(selected ?? []), opt];
+          className={`${S.option} ${disabled ? S.disabled : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
 
-                  onChange(newList);
-                } else {
-                  onChange(opt);
-                  onClose();
-                  setFocused(false);
-                }
-              }}
+            if (disabled) return;
+
+            if (multiple) {
+              const exists = selected?.some(s => s.id === opt.id);
+              const newList = exists
+                ? (selected ?? []).filter(s => s.id !== opt.id)
+                : [...(selected ?? []), opt];
+
+              onChange(newList);
+            } else {
+              onChange(opt);
+              onClose();
+              setFocused(false);
+            }
+          }}
+          title={disabled ? "Cliente sem faturas em aberto" : undefined}
             >
               {typeCategory ? opt.category : opt.name}
             </div>

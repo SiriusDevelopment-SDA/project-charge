@@ -4,8 +4,19 @@ import type { Template } from "../types";
 export function gerarModeloLeads(template?: Template | null) {
     const TOTAL_LINHAS = 500;
 
-    const variaveis = template ? Object.keys(template.variables ?? {}) : [];
-    const headers = ["contato", ...variaveis, "status"];
+    const variaveis = template
+        ? Object.values(template.variables ?? {})
+        : [];
+
+        const variaveisNormalizadas = variaveis.map(v => v.toLowerCase());
+
+        const headers = [
+        ...(variaveisNormalizadas.includes("whatsapp") ? [] : ["whatsapp"]),
+        ...(variaveisNormalizadas.includes("nome_cliente") ? [] : ["nome_cliente"]),
+        // ...(variaveisNormalizadas.some(v => v.includes("nome_cliente")) ? [] : ["nome_cliente"]),
+        ...variaveis,
+        "status",
+        ];
 
     const rows = Array.from({ length: TOTAL_LINHAS }, () =>
         Object.fromEntries(headers.map((h) => [h, ""]))
