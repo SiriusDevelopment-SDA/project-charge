@@ -1,50 +1,29 @@
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 
 // componentes
-import Navbar from "../componente/global/navbar/Navbar";
-import DateTabela from "../../sem utilidade/DateTabela";
+// import Navbar from "../componente/global/navbar/Navbar";
+// import DateTabela from "../Historico/historico-disparo";
 
 // style
-import "../styles/HistoricoDisparos.module.css";
-import "../styles/MyButtonGlobal.css";
+// import "../styles/HistoricoDisparos.module.css";
+// import "../styles/MyButtonGlobal.css";
 
 // PrimeReact styles
 import "primereact/resources/themes/lara-dark-indigo/theme.css";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
+import { PageContainer, TitlePage } from "../../componente/Index";
+import AdvancedFilterDemo from "../../componente/table/tableHistory";
+import { useHistorico } from "../../hooks/useHistorico";
 
-function HistoricoDisparoPage() {
-  const navigate = useNavigate();
+export function HistoricoDisparoPage() {
+  const {historico} = useHistorico();
   return (
-    <div>
-      <Navbar />
-      <div className="ContainerConteudo">
-        {/* 🔹 BOTÃO QUE REDIRECIONA */}
-        <div className="navigation">
-          <h1 className="pageTitle">Histórico de Disparos</h1>
-          <div>
-            <button className="outline" onClick={() => navigate("/")}>
-              Cliente com cadastro
-            </button>
-            <button
-              className="outline"
-              onClick={() => navigate("/historicodisparo")}
-            >
-              Historico
-            </button>
-          </div>
-        </div>
-
-        <div className="box-wrapper">
-          {/* <DataTable /> */}
-          <div style={{ padding: "2rem" }}>
-            <DateTabela />
-          </div>
-        </div>
-      </div>
-    </div>
+    <PageContainer className="teste">
+      <TitlePage title="Históricos de disparos" className="tittlehistorico"/>
+      <AdvancedFilterDemo data={historico} />
+    </PageContainer>
   );
 }
 
-export default HistoricoDisparoPage;

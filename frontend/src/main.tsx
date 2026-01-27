@@ -6,6 +6,7 @@ import "./lib/primereact-locale";
 import { ClientProvider } from "./context/contextClients";
 import { TemplateProvider } from "./context/contextTemplates";
 import "./styles/index.css";
+import { HistoricoProvider } from "./context/contextHistorico";
 import { DispatchTemplateProvider } from "./context/contextDisparo";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -14,7 +15,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <ClientProvider>
         <DispatchTemplateProvider>
           <TemplateProvider>
+            <HistoricoProvider>
             <App />
+           </HistoricoProvider>
           </TemplateProvider>
         </DispatchTemplateProvider>
       </ClientProvider>

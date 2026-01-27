@@ -3,7 +3,7 @@ import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 import { extrairDocumentosClientes, extrairLeads, getTipoPlanilha, processarDocumentos, todasColunasPreenchidas, validarArquivo, validarSelecaoCliente } from "../../utils/validation";
 import type { Cliente, Template } from "../../types";
-import { useClient, useTemplate } from "../../hooks";
+import { useClient, useTemplate, useHistorico } from "../../hooks";
 import * as XLSX from "xlsx";
 import { 
   PageContainer,
@@ -147,6 +147,7 @@ export default function EfetuarDisparo() {
             <MyButton text="teste2" onClick={() => sendTemplate()}/>
         </section>
       </PageContainer>
+   
     </>
   );
 }
