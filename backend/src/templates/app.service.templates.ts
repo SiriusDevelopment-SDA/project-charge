@@ -41,6 +41,7 @@ export class AppServiceTemplate {
           company: {
             id: true,
             account_chatwoot: true,
+            name: true
           },
         },
         skip,
@@ -141,7 +142,13 @@ export class AppServiceTemplate {
       });
       results.push(responseData);
     }
-    return results
+    return {
+      success: true,
+      total: results.length,
+      status: 'DISPATCHED',
+      messages: results
+    };
+    
   }
 
   async getRelatoriesDispatchTemplate(dto: SearchRequestDtoRelatories) {

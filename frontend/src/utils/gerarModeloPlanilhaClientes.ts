@@ -5,12 +5,12 @@ export function gerarModeloClientes() {
 
     // Criar linhas vazias com headers
     const rows = Array.from({ length: TOTAL_LINHAS }, () => ({
-        "CPF/CNPJ": "",
+        "cnpj_cpf": "",
         "Status": "",
     }));
 
     // Criar sheet com header fixo
-    const ws = XLSX.utils.json_to_sheet(rows, { header: ["CPF/CNPJ", "Status"] });
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ["cnpj_cpf", "Status"] });
 
     // Definir largura das colunas
     ws["!cols"] = [

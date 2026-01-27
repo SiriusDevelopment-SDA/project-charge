@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Client } from '../clients/entities.ts/clients';
 import { SearchRequestDtoClients } from './dto/search.request.dto.clients';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, FindOptionsWhere } from 'typeorm';
+import { Repository, ILike, FindOptionsWhere, Raw } from 'typeorm';
 
 @Injectable()
 export class AppServiceClient {
@@ -26,6 +26,7 @@ export class AppServiceClient {
   
     const order =
       sortorder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const normalizedQuery = query?.replace(/\D/g, '');
  
     const where: FindOptionsWhere<Client>[] = [
       {
@@ -40,7 +41,21 @@ export class AppServiceClient {
         },
         whatsapp: ILike(`%${query}%`),
       },
+      ...(normalizedQuery
+        ? [
+            {
+              company: {
+                account_chatwoot: String(account),
+              },
+              cnpj_cpf: Raw(
+                (alias: string) =>
+                  `regexp_replace(${alias}, '\\D', '', 'g') ILIKE '%${normalizedQuery}%'`
+              ),
+            },
+          ]
+        : []),
     ];
+    
 
     const [data, total] = await this.clientRepository.findAndCount({
       where,
@@ -64,6 +79,7 @@ export class AppServiceClient {
         company: {
           id: true,
           account_chatwoot: true,
+          name: true
         },
       },
     });
