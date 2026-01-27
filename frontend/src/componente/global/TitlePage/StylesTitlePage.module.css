@@ -1,3 +1,13 @@
+.container_title{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+h5{
+    color: #fff;
+    border-bottom: 2px solid rgba(245, 208, 51, 0.5);
+}
 .buttons_container_title{
     display: flex;
     flex-direction: row;

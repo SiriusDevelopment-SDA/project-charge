@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import S from "./StyleDropdown.module.css";
 
 export type DropdownProps<T> = {
@@ -21,74 +21,41 @@ export type DropdownProps<T> = {
   isOptionDisabled?: (option: T) => boolean;
 };
 
-export function Dropdown<
-  T extends { id: string; name: string; category: string }
->({
+export function Dropdown<T extends { id: string; name: string }>({
   label,
   options,
   value,
   selected,
   multiple = false,
   open,
-  typeCategory,
   onOpen,
   onClose,
   onChange,
-  className,
-  enableCategoryFilter = false,
-  selectedCategory,
-  setSelectedCategory,
-  isOptionDisabled
+  className
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
 
-  const hasValue = multiple ? selected && selected.length > 0 : Boolean(value);
+  const hasValue = multiple
+    ? selected && selected.length > 0
+    : Boolean(value);
+
   const selectedLabel = value?.name ?? "";
 
-  const categories = Array.from(new Set(options.map(o => o.category)));
-
-  const displayOptions = enableCategoryFilter && selectedCategory
-    ? options.filter(o => o.category === selectedCategory)
-    : options;
-
-  // === CLOSE GLOBAL AJUSTADO ===
-  useEffect(() => {
-    function closeAll() {
-      onClose();
-      if (!hasValue) {
-        setFocused(false);
-      }
-    }
-    window.addEventListener("closeAllDropdowns", closeAll);
-    return () => window.removeEventListener("closeAllDropdowns", closeAll);
-  }, [onClose, hasValue]);
-
-  // === FIX DO LABEL (ACTIVE RESET) ===
-  useEffect(() => {
-    if (!open && !hasValue) {
-      setFocused(false);
-    }
-  }, [open, hasValue]);
-
-  const handleToggle = () => {
-    if (open) {
-      onClose();
-      if (!hasValue) {
-        setFocused(false);
-      }
-    } else {
-      window.dispatchEvent(new Event("closeAllDropdowns"));
-      onOpen();
-      setFocused(true);
-    }
-  };
-
+  if (!open && !hasValue && focused)setTimeout(() => setFocused(false), 0);
   return (
     <div className={`${S.wrapper} ${className ?? ""}`}>
       <div
         className={`${S.control} ${open ? S.activeBorder : ""}`}
-        onClick={handleToggle}
+        onClick={() => {
+          if (open) {
+            onClose();
+            if (!hasValue) setFocused(false);
+          } else {
+            onOpen();
+            setFocused(true);
+          }
+        }}
       >
         <span className={`${S.label} ${focused || hasValue ? S.active : ""}`}>
           {label}
@@ -122,23 +89,6 @@ export function Dropdown<
             <span className={S.value}>{selectedLabel}</span>
           )}
         </div>
-        {/* FILTRO DE CATEGORIA INTERNO */}
-        {open && enableCategoryFilter && selectedCategory !== undefined && setSelectedCategory && (
-          <div className={S.categoryFilter} onClick={(e) => e.stopPropagation()}>
-            <select
-              className={S.categorySelect}
-              value={selectedCategory ?? ""}
-              onChange={(e) => setSelectedCategory(e.target.value || null)}
-              onClick={(e) => e.stopPropagation()} // <-- evita fechar ao clicar no SELECT
-            >
-              <option value="">Todas as categorias</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
 
         <span className={`${S.arrow} ${open ? S.rotate : ""}`}>▼</span>
       </div>
@@ -148,18 +98,12 @@ export function Dropdown<
           className={S.menu}
           onClick={(e) => e.stopPropagation()}
         >
-
-
-
-          {/* OPÇÕES */}
-          {displayOptions.map(opt => (
+          {options.map(opt => (
             <div
               key={opt.id}
-          className={`${S.option} ${disabled ? S.disabled : ""}`}
+          className={`${S.option}`}
           onClick={(e) => {
             e.stopPropagation();
-
-            if (disabled) return;
 
             if (multiple) {
               const exists = selected?.some(s => s.id === opt.id);
@@ -174,9 +118,9 @@ export function Dropdown<
               setFocused(false);
             }
           }}
-          title={disabled ? "Cliente sem faturas em aberto" : undefined}
+          title={"Cliente sem faturas em aberto"}
             >
-              {typeCategory ? opt.category : opt.name}
+              {opt.name}
             </div>
           ))}
         </div>

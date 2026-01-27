@@ -5,7 +5,6 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
 };
-
 export type Template = {
   id: string;
   name: string;

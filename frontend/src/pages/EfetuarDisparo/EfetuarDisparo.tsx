@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { extrairDocumentosClientes, extrairLeads, getTipoPlanilha, processarDocumentos, todasColunasPreenchidas, validarArquivo, validarSelecaoCliente } from "../../utils/validation";
 import type { Cliente, Template } from "../../types";
-import { useClient, useTemplate, useHistorico } from "../../hooks";
-import * as XLSX from "xlsx";
+import { useClient, useTemplate } from "../../hooks";
+import { processarDocumentos,
+   validarSelecaoCliente 
+  } from "../../utils/validation";
 import { 
   PageContainer,
   BaseCard,
@@ -17,7 +18,6 @@ import {
   InputFields, 
   MyButton
 } from "../../componente/Index";
-import { toast } from "react-toastify";
 import { handleUploadPlanilha } from "../../utils/hendleUploadSpreadSheat";
 
 export default function EfetuarDisparo() {
@@ -34,7 +34,6 @@ export default function EfetuarDisparo() {
     modoPage, 
     setModoPage,
     setSelectedLeads,
-    selectedLeads
   } = useDispatchTemplate()
 
   useEffect(() => {
@@ -71,22 +70,7 @@ export default function EfetuarDisparo() {
                 onOpen={() => setOpenDropdown("template")}
                 onClose={() => setOpenDropdown(null)}
               />
-
-            {/* === DROPDOWN TEMPLATE COM CATEGORIA INTERNA === */}
-            <Dropdown<Template>
-              label="Buscar template"
-              options={filteredTemplates}
-              value={selectedTemplate}
-              onChange={(v) => setSelectedTemplate(v as Template)}
-              open={openDropdown === "template"}
-              onOpen={() => setOpenDropdown("template")}
-              onClose={() => setOpenDropdown(null)}
-              enableCategoryFilter
-              selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-            />
-
-            {modoPage === "clientes" ? (
+            {modoPage === "clientes" ?
               <Dropdown<Cliente>
                 label="Buscar clientes no ERP"
                 options={clients}
@@ -105,8 +89,8 @@ export default function EfetuarDisparo() {
                 open={openDropdown === "clientes"}
                 onOpen={() => setOpenDropdown("clientes")}
                 onClose={() => setOpenDropdown(null)}
-              /> :
-              <InputFields label="Whatsapp Number" /> }
+              /> : <InputFields label="Whatsapp Number" />
+              }
             </div>
             <BaseCard classname={Style.cardMetricas}>
               <Metricas

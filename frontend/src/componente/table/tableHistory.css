@@ -1,5 +1,8 @@
 /* ESTRUTURA GERAL */
 /* Linhas da tabela */
+table{
+  height: -webkit-fill-available;
+}
 .p-datatable tbody tr {
   background-color: #111827;
   transition: background-color 0.2s ease;
@@ -26,8 +29,8 @@
 .p-datatable thead th .p-column-header-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 1px 0 85px;
+  justify-content: center;
+  text-align: center;
 }
 
 /* ======================================================
@@ -414,17 +417,9 @@ svg {
   color: #000000 !important;
   box-shadow: none !important;
 }
-
-/* ======================================================
-   RESPONSIVIDADE
-====================================================== */
-
-@media (max-width: 768px) {
-  .history-title {
-    font-size: 18px;
-  }
-
-  .p-datatable tbody td {
-    font-size: 13px;
-  }
+.p-datatable{
+  height: 100%;
 }
+/* .p-datatable-wrapper{
+  height: 85%;
+} */

@@ -24,6 +24,7 @@ export function UploadButton({ onUpload, disabled }: UploadButtonProps) {
             startIcon={loading ? <CircularProgress size={18} /> : <CloudUploadIcon />}
             sx={{
                 backgroundColor: "#967d0fdd",
+                border: "1px solid rgba(255, 204, 0, 0.4)",
                 color: "#fff",
                 "&:hover": {
                     backgroundColor: "#f2c010",
