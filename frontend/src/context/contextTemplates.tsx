@@ -13,6 +13,8 @@ export const TemplateProvider = ({
   children: React.ReactNode
 }) => {
   const [templates, setTemplates] = useState<Template[]>([])
+  const [searchTemplateName, setSearchTemplateName] = useState("")
+  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null)
   const [page, setPage] = useState<number>(1)
   const [limit, setLimit] = useState<number>(10)
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC")
@@ -52,10 +54,9 @@ export const TemplateProvider = ({
     fetchTemplates()
   }, [query, page, limit, order])
 
-  console.log(templates)
   return (
     <TemplateContext.Provider
-      value={{ templates, setQuery, setPage, setLimit, setOrder }}
+      value={{ templates, categoryTemplateFilter, setCategoryTemplateFilter, searchTemplateName, setSearchTemplateName, setQuery, setPage, setLimit, setOrder }}
     >
       {children}
     </TemplateContext.Provider>
