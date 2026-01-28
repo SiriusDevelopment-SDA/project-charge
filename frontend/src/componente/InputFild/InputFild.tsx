@@ -6,13 +6,13 @@ type Props = React.InputHTMLAttributes<HTMLInputElement> & {
     label?: string;
 };
 
-export function InputFields({ label, value, ...props }: Props) {
+export function InputFields({ label, value, className, ...props }: Props) {
     const [focused, setFocused] = useState(false);
 
     const hasValue = value !== undefined && value !== "";
 
     return (
-        <div className={S.floatingWrapper}>
+        <div className={`${className ? className : S.floatingWrapper}`}>
             <label
                 className={`${S.floatingLabel} ${focused || hasValue ? S.active : ""
                     }`}

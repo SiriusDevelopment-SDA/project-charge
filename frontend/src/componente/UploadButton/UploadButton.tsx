@@ -4,9 +4,10 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 // import { validar } from "../../utils/validation";
 type UploadButtonProps = {
     onUpload: (file: File) => void;
+    className?: string;
 };
 
-export function UploadButton({ onUpload }: UploadButtonProps) {
+export function UploadButton({ onUpload, className }: UploadButtonProps) {
     async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files![0];
         if (file) onUpload(file);
@@ -19,6 +20,7 @@ export function UploadButton({ onUpload }: UploadButtonProps) {
 
     return (
         <Button
+        className={className}
             variant="contained"
             component="label"
             startIcon={<CloudUploadIcon />}

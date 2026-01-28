@@ -1,0 +1,302 @@
+/* ===== TÍTULO ===== */
+.CreateTemplateTitle {
+  color: #ffffff;
+  text-align: center;
+  margin-bottom: 10px;
+  margin-top: 20px;
+}
+
+/* ===== GRID PRINCIPAL ===== */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: 35px;
+  max-width: 100%;
+  padding: 19.89px;
+}
+
+.formRowThree {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 20px;
+  align-items: end;
+}
+
+.pageContainer{
+height: 100%;
+overflow-y: auto;
+
+}
+
+/* ===== CARD ESQUERDO ===== */
+.formCard {
+  border: 1px solid #ffdd00;
+  border-radius: 12px;
+  padding: 25px;
+}
+
+/* ===== TÍTULO DO CARD ===== */
+.sectionTitle {
+  color: #ffffff;
+  text-align: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+label.Titulosinputs {
+  display: inline-block;
+  margin-bottom: 25px !important;
+}
+
+.dropdownCustom {
+  width: 100%;
+}
+
+/* mexe só nesse dropdown */
+.dropdownCustom :global(.control) {
+  border-color: #ffdd00;
+}
+
+.dropdownCustom :global(.menu) {
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 999;
+}
+
+
+
+/* ===== GRUPOS ===== */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+
+.containerI1{
+  input{
+    padding: 5px;
+  width: 90%;
+  }
+}
+
+.bordaformGroup{
+margin-top: 20px;
+ border: 1px solid #ffdd00;
+border-radius: 5px;
+padding: 25px;
+
+}
+
+.formGroup label {
+  color: #ffffff;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+/* ===== LINHA (2 COLUNAS) ===== */
+.formRow {
+  display: grid;
+  grid-template-columns: 0.6fr 1fr;
+  gap: 20px;
+}
+.row2{
+   display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.TituloFormGroup {
+  text-align: center;
+  margin-bottom: 0px;
+}
+
+
+.formGroupChamada {
+  margin-top: 10px;
+  position: relative;
+  overflow: visible;
+}
+.UploadButton{
+  width: 100%;
+  height: 60px;
+  font-size: 15px;
+  padding: 20px !important;
+  background-color: #dc2626  !important;
+}
+
+/* ===== UPLOAD ===== */
+.UploadButtonT1{
+  border: 3px rgba(255, 238, 0, 0.466);
+padding: 20px;
+border-style: dashed;
+margin-top: 1px;
+input{
+  width: 100%;
+}
+}
+
+.ButtnUpload{
+width: 100%;
+}
+
+.UploadButton1 {
+  display: block;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+
+/* ===== BOTÕES ===== */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.btnCancel {
+  background: #dc2626;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 18px;
+  border: none;
+}
+
+
+.btnSave {
+  background: #16a34a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 18px;
+  border: none;
+}
+
+/* ===== COLUNA DIREITA ===== */
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.previewCard,
+.variablesCard {
+  border: 1px solid #ffdd00;
+  border-radius: 12px;
+  padding: 15px;
+}
+
+.previewCard1 {
+  border: 1px solid #000000;
+  border-radius: 12px;
+  padding: 30px;
+  background-image: url("/imagens/fundoWpp.jpeg");
+  background-size: cover;
+ 
+  
+}
+.conteudoTitle{
+h6{
+  display: none;
+}
+
+}
+
+.previewTitle,
+.variablesTitle {
+  color: #ffffff;
+  text-align: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.previewTitle1 {
+  color: #000000;
+  text-align: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+/* ===== VARIÁVEIS ===== */
+.variableItem {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.variableKey {
+  background: #ffdd00;
+  color: #000;
+  padding:  10px;
+  border-radius: 6px;
+  font-size: 15px;
+ 
+}
+
+.variableValue {
+  background: #ffffff;
+  color: #000;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  flex: 1;
+}
+
+/* ===== PREVIEW WHATSAPP ===== */
+.previewWhatsapp {
+  font-family: Arial, sans-serif;
+}
+
+.previewMedia {
+  background: #e9ecef;
+  height: 120px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  
+}
+.uploadWrapper {
+  margin-top: 10px;
+}
+
+
+.previewMediaIcon {
+  font-size: 40px;
+  padding: 20px;
+}
+
+.previewHeader {
+  font-size: 14px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.previewBody {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.previewFooter {
+  font-size: 12px;
+  color: #939393;
+}
+
+.previewActions {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 8px;
+}
+
+.previewActionPrimary,
+.previewActionSecondary {
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  color: #00a0e0;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.previewActionSecondary {
+  border-top: 1px solid #e5e7eb;
+}

@@ -9,10 +9,11 @@ type MyButtonProps = {
 export function MyButton({
   text,
   variant = "primary",
+  className,
   ...rest
 }: MyButtonProps) {
   return (
-    <button {...rest} className={`button button--${variant}`}>
+    <button {...rest} className={`button button--${variant} ${className}`}>
       {text}
     </button>
   );

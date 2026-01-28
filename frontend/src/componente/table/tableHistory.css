@@ -300,23 +300,6 @@ svg {
 }
 
 }
-
-/* ======================================================
-   TÍTULO DA PÁGINA
-====================================================== */
-
-.tittlehistorico {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.tittlehistorico h5 {
-  color: #ffffff;
-  border-bottom: 2px solid rgba(245, 208, 51, 0.5);
-  margin-bottom: 20px;
-}
-
 /* ======================================================
    STATUS (TAG)
 ====================================================== */

@@ -1,13 +1,3 @@
-// import { useNavigate } from "react-router-dom";
-
-// componentes
-// import Navbar from "../componente/global/navbar/Navbar";
-// import DateTabela from "../Historico/historico-disparo";
-
-// style
-// import "../styles/HistoricoDisparos.module.css";
-// import "../styles/MyButtonGlobal.css";
-
 // PrimeReact styles
 import "primereact/resources/themes/lara-dark-indigo/theme.css";
 import "primereact/resources/primereact.min.css";
