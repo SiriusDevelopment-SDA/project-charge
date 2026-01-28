@@ -98,6 +98,10 @@ export interface IClientsContext {
 }
 export interface ITemplatesContext {
   templates: Template[] | [];
+  categoryTemplateFilter: string | null;
+  setCategoryTemplateFilter: React.Dispatch<SetStateAction<string | null>>;
+  searchTemplateName: string;
+  setSearchTemplateName: React.Dispatch<SetStateAction<string>>;
   setQuery: React.Dispatch<SetStateAction<string>>;
   setPage: React.Dispatch<SetStateAction<number>>;
   setLimit: React.Dispatch<SetStateAction<number>>;

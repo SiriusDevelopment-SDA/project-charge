@@ -25,8 +25,6 @@ export const HistoricoProvider = ({
   const [order, setOrder] = useState<'DESC' | 'ASC'>('DESC')
   const [query, setQuery] = useState<string>('')
 
-  console.log('context histórico', historico)
-
   useEffect(() => {
     const fetchHistorico = async () => {
       try {
@@ -56,7 +54,6 @@ export const HistoricoProvider = ({
           return Array.from(map.values())
         })
 
-        console.log('response historico', response)
       } catch (error) {
         console.error('Erro ao buscar o histórico:', error)
       }
