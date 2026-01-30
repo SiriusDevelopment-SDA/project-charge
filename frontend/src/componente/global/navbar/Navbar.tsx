@@ -41,8 +41,8 @@ export function Navbar() {
 
         <NavLink
           to="/templates"
-          className={({ isActive }) => (isActive ? styles.active : styles.disabled)}
-          onClick={(e) => e.preventDefault()}
+          className={({ isActive }) => (isActive ? styles.active : '')}
+          // onClick={(e) => e.preventDefault()}
         >
           Templates
         </NavLink>
@@ -53,7 +53,7 @@ export function Navbar() {
             location.pathname === "/" ||
             location.pathname.startsWith("/historico")
               ? styles.active
-              : styles.disabled
+              : ''
           }
         >
           Disparo Ativo

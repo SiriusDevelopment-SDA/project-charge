@@ -24,7 +24,6 @@ export const TitlePage = ({
         {setModoPage && text && <MyButton text={text} onClick={() => setModoPage(prev => prev === "clientes" ? "leads" : "clientes")} />}
         {setModoPage && <MyButton text="Histórico" onClick={() => navigate("/historico")}/>}
       </div>
-      )}
     </div>
   );
 };
