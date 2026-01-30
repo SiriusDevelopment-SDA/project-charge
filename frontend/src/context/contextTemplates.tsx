@@ -37,12 +37,14 @@ export const TemplateProvider = ({
         })
 
         // setClient(prev => [...prev, ...response.data.data])
-        setTemplates((prev) => {
-          const map = new Map<string, Template>();
+        // setTemplates((prev) => {
+        //   const map = new Map<string, Template>();
 
-          [...prev, ...response.data.data].forEach((c) => {
-            map.set(c.id, c); // garante unicidade
-          });
+        //   [...prev, ...response.data.data].forEach((c) => {
+        //     map.set(c.id, c); // garante unicidade
+        //   });
+        setTemplates(response.data.data);
+
 
           return Array.from(map.values());
         });
