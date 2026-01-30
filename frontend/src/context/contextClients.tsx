@@ -86,7 +86,15 @@ export const ClientProvider = ({
   };
   return (
     <ClientContext.Provider
-      value={{ clients, setQuery, setPage, setOrder, setLimit, fetchInvoices, setGroupInvoices }}
+      value={{ 
+        clients, 
+        setQuery, 
+        setPage, 
+        setOrder, 
+        setLimit, 
+        fetchInvoices, 
+        setGroupInvoices 
+      }}
     >
       {children}
     </ClientContext.Provider>

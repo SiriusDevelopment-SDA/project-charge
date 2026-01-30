@@ -4,56 +4,28 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Client } from '../../clients/entities.ts/clients';
-
-interface SGPTitulo {
-  id: number;
-  clienteNome?: string;
-  clienteCpfcnpj?: string;
-  clienteContrato?: number;
-  status?: string;
-  valor?: number;
-  dataVencimento?: string;
-  linhaDigitavel?: string;
-  codigoBarras?: string;
-  codigoPix?: string;
-  link?: string;
-}
+import { InvoicesResponse } from '../types';
+import { formatarDataBR } from '../../utils';
 
 @Injectable()
 export class SGPInvoicesService {
-  async buscarFaturas(cliente: Client) {
+  async getInvoices(cliente: Client): Promise<InvoicesResponse> {
     const empresa = cliente.company;
-
-    //Validações
-    if (!empresa) {
-      throw new NotFoundException('Empresa não vinculada ao cliente');
-    }
-
-    if (empresa.erp !== 'SGP') {
-      return null;
-    }
-
     const config = empresa.config ?? {};
     const username = config.username;
     const password = config.password;
+    if (!username || !password)throw new BadRequestException('Credenciais da SGP não configuradas (username/password)');
 
-    if (!username || !password) {
-      throw new BadRequestException(
-        'Credenciais da SGP não configuradas (username/password)',
-      );
-    }
 
     const cpfCliente = String(cliente.cnpj_cpf).replace(/\D/g, '');
 
-    const auth = `Basic ${Buffer.from(
-      `${username}:${password}`,
-    ).toString('base64')}`;
+    const auth = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
 
-    const baseUrl = empresa.url.startsWith('http')
-      ? empresa.url
-      : `https://${empresa.url}`;
+    const url = `https://${empresa.url}/api/ura/titulos`;
+    const endDate = new Date(); // hoje
+    const startDate = new Date();
 
-    const url = `${baseUrl}/api/ura/titulos`;
+    startDate.setFullYear(startDate.getFullYear() - 50);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -63,59 +35,34 @@ export class SGPInvoicesService {
       },
       body: JSON.stringify({
         cpfcnpj: cpfCliente,
-        cliente_id: cliente.clientId,
+        status: 'abertos',
+        ordenar: 'data_vencimento',
+        ordenar_ordem: 'desc',
+        data_vencimento_inicio: startDate.toISOString().split('T')[0],
+        data_vencimento_fim: endDate.toISOString().split('T')[0]
       }),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      throw new BadRequestException(
-        `Erro no ERP (SGP): ${response.status} -> ${err}`,
-      );
+      throw new BadRequestException(`Erro no ERP (SGP): ${response.status} -> ${err}`);
     }
 
-    const data: { titulos?: SGPTitulo[] } = await response.json();
-
-    const titulosFiltrados: SGPTitulo[] = Array.isArray(data?.titulos)
-      ? data.titulos.filter((t: SGPTitulo) => {
-          const cpfTitulo = t.clienteCpfcnpj
-            ? String(t.clienteCpfcnpj).replace(/\D/g, '')
-            : null;
-
-          // Retorna só faturas com status "aberto"
-          return (
-            cpfTitulo === cpfCliente &&
-            t.status?.toLowerCase() === 'aberto'
-          );
-        })
-      : [];
-
-    return this.mapearFaturasSGP(titulosFiltrados);
-  }
-
-  // Formata o retorno da requisição
-  private mapearFaturasSGP(titulos: SGPTitulo[]) {
+    const data = await response.json();
+    const map = data.titulos.map((t: any) => ({
+      invoice_id: String(t.id),
+      contract_id: String(t.clienteContrato),
+      invoice_due_date: formatarDataBR(t.dataVencimento),
+      invoice_amount: String(t.valorCorrigido),
+      invoice_status: 'A Receber',
+      ticket_digitable_line: t.codigoBarras || "",
+      code_pix: t.codigoPix,
+      ticket_pdf_link: t.link || "",
+    }))
     return {
-      status: 'success',
-      msg: titulos.length
-        ? 'Faturas em aberto encontradas'
-        : 'Nenhuma fatura em aberto encontrada',
-      faturas: titulos.map((t: SGPTitulo) => ({
-        id_fatura: t.id ?? null,
-        contratoId: t.clienteContrato ?? null,
-        status: t.status ?? null,
-        quitado: false,
-        valor_fatura: Number(t.valor ?? 0),
-        data_vencimento_fatura: t.dataVencimento ?? null,
-        linha_digitavel_boleto: t.linhaDigitavel ?? null,
-        codigo_barras: t.codigoBarras ?? null,
-        pix_copia_cola: t.codigoPix ?? null,
-        link_boleto_pdf: t.link ?? null,
-        cliente: {
-          nome: t.clienteNome ?? null,
-          documento: t.clienteCpfcnpj ?? null,
-        },
-      })),
+      status: `${!map ? "error": "success"}`,
+      message: `${!map ? "Falha ao consultar dados!" : "Dados consultados com sucesso"}`,
+      invoices: map,
     };
   }
 }
