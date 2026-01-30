@@ -1,6 +1,7 @@
 import Typography from "@mui/material/Typography";
 import { MyButton } from "../../Index";
 import S from "./StylesTitlePage.module.css"
+import { useNavigate } from "react-router-dom";
 
 export const TitlePage = ({
   title,
@@ -9,19 +10,19 @@ export const TitlePage = ({
   text
 }: {
   title: string;
-  className: string;
+  className?: string;
   setModoPage?: React.Dispatch<React.SetStateAction<"clientes" | "leads">>;
   text?: string;
 }) => {
+  const navigate = useNavigate();
   return (
-    <div className={className}>
+    <div className={`${className} ${S.container_title}`}>
       <Typography variant="h5">
         {title}
       </Typography>
-      {setModoPage && text && (
-        <div className={S.buttons_container_title}>
-        <MyButton text={text} onClick={() => setModoPage(prev => prev === "clientes" ? "leads" : "clientes")} />
-        <MyButton text="Histórico" />
+      <div className={S.buttons_container_title}>
+        {setModoPage && text && <MyButton text={text} onClick={() => setModoPage(prev => prev === "clientes" ? "leads" : "clientes")} />}
+        {setModoPage && <MyButton text="Histórico" onClick={() => navigate("/historico")}/>}
       </div>
       )}
     </div>

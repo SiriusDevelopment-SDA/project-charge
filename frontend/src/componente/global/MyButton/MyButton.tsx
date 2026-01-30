@@ -1,5 +1,5 @@
 import { type ButtonHTMLAttributes } from "react";
-import styles from "./StyleMyButton.module.css";
+ import styles from "./StyleMyButton.module.css";
 
 type MyButtonProps = {
   text: string;
