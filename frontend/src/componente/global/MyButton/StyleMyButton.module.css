@@ -1,0 +1,17 @@
+.secondary {
+  border: 2px solid #d4a600;
+  background: transparent;
+  color: #d4a600;
+  padding: 8px 14px;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.btn-card {
+  border: 2px solid #d4a600;
+  background: black;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  transition: 0.2s;
+}

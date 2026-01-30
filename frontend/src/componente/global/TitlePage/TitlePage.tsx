@@ -10,18 +10,20 @@ export const TitlePage = ({
 }: {
   title: string;
   className: string;
-  setModoPage: React.Dispatch<React.SetStateAction<"clientes" | "leads">>;
-  text: string;
+  setModoPage?: React.Dispatch<React.SetStateAction<"clientes" | "leads">>;
+  text?: string;
 }) => {
   return (
     <div className={className}>
       <Typography variant="h5">
         {title}
       </Typography>
-      <div className={S.buttons_container_title}>
+      {setModoPage && text && (
+        <div className={S.buttons_container_title}>
         <MyButton text={text} onClick={() => setModoPage(prev => prev === "clientes" ? "leads" : "clientes")} />
         <MyButton text="Histórico" />
       </div>
+      )}
     </div>
   );
 };

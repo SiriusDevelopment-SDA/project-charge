@@ -43,10 +43,9 @@ export function Navbar() {
 
         <NavLink
           // to="/templates"
-          // className={({ isActive }) => (isActive ? styles.active : "")}
-          to="#"
-          onClick={(e) => e.preventDefault()}
-          className={styles.disabled}
+           className={({ isActive }) => (isActive ? styles.active : "")}
+          to="/templates"
+          
         >
           Templates
         </NavLink>

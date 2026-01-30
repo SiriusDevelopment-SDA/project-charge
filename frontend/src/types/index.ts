@@ -7,6 +7,17 @@ export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 
 };
 
+
+
+export type PaginationProps = {
+  className?: string;
+  page: number;
+  onPrev: () => void;
+  onNext: () => void;
+  disablePrev?: boolean;
+  disableNext?: boolean;
+};
+
 export type Template = {
   id: string;
   name: string;
@@ -86,6 +97,7 @@ export interface ITemplatesContext {
   setPage: React.Dispatch<SetStateAction<number>>;
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
+  page: number;
 }
 export type FilterButtonProps = {
   templates: Template[];

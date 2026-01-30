@@ -13,6 +13,7 @@ export type DropdownProps<T> = {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  className?: string;
 };
 
 export function Dropdown<T extends { id: string; name: string }>({
@@ -24,7 +25,8 @@ export function Dropdown<T extends { id: string; name: string }>({
   open,
   onOpen,
   onClose,
-  onChange
+  onChange,
+  className
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
@@ -40,7 +42,7 @@ export function Dropdown<T extends { id: string; name: string }>({
   }
 
   return (
-    <div className={S.wrapper}>
+    <div className={`${S.wrapper} ${className ?? ""}`}>
       <div
         className={`${S.control} ${open ? S.activeBorder : ""}`}
         onClick={() => {
