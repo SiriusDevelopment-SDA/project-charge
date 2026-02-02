@@ -5,6 +5,7 @@ import {
 
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
+import { InvoiceMapResult } from '../types';
 
 @Injectable()
 export class HubsoftInvoicesService {
@@ -61,16 +62,25 @@ async getInvoices(cliente: Client) {
     }
 
     const data = await response.json();
-    const map = data.faturas.map((t: any) => ({
+    const map = data.faturas.map((t: any): InvoiceMapResult => ({
       invoice_id: String(t.id_fatura) ?? null,
       contract_id: String(t.cliente.servico.id_cliente_servico) ?? null,
       invoice_due_date: String(t.data_vencimento) ?? null,
       invoice_amount: String(t.valor),
-      status: 'A Receber',
+      invoice_status: 'A Receber',
       ticket_digitable_line: t.codigo_barras ?? null,
       code_pix: t.pix_copia_cola ?? null,
       ticket_pdf_link: t.link ?? null,
-    }))
+    })).sort((a: any, b: any) => {
+      const parseDate = (str?: string) => {
+        if (!str) return 0;
+        const [day, month, year] = str.split('/');
+        const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
+        return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
+      };
+      return parseDate(b.invoice_due_date) - parseDate(a.invoice_due_date);
+    });
+    
     return {
       status: data.status,
       message: data.msg,

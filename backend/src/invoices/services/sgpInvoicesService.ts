@@ -1,10 +1,9 @@
 import {
   Injectable,
-  BadRequestException,
-  NotFoundException,
+  BadRequestException
 } from '@nestjs/common';
 import { Client } from '../../clients/entities.ts/clients';
-import { InvoicesResponse } from '../types';
+import { InvoiceMapResult, InvoicesResponse } from '../types';
 import { formatarDataBR } from '../../utils';
 
 @Injectable()
@@ -49,7 +48,7 @@ export class SGPInvoicesService {
     }
 
     const data = await response.json();
-    const map = data.titulos.map((t: any) => ({
+    const map = data.titulos.map((t: any): InvoiceMapResult => ({
       invoice_id: String(t.id),
       contract_id: String(t.clienteContrato),
       invoice_due_date: formatarDataBR(t.dataVencimento),
@@ -58,7 +57,15 @@ export class SGPInvoicesService {
       ticket_digitable_line: t.codigoBarras || "",
       code_pix: t.codigoPix,
       ticket_pdf_link: t.link || "",
-    }))
+    })).sort((a: any, b: any) => {
+      const parseDate = (str?: string) => {
+        if (!str) return 0;
+        const [day, month, year] = str.split('/');
+        const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
+        return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
+      };
+      return parseDate(b.invoice_due_date) - parseDate(a.invoice_due_date);
+    });
     return {
       status: `${!map ? "error": "success"}`,
       message: `${!map ? "Falha ao consultar dados!" : "Dados consultados com sucesso"}`,

@@ -39,7 +39,6 @@ export class InvoicesController {
         },
         relations: ['company'],
       });
-      console.log("client", cliente)
       if (!cliente) {
         errors.push({
           document: doc,
