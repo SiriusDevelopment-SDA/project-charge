@@ -1,27 +1,22 @@
 // React
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pagination } from "../../componente/global/Pagination/Pagination";
 import {
   PageContainer,
   TitlePage,
   MyButton,
-  Dropdown,
   BaseCard,
+  InputFields,
 } from "../../componente/Index";
 import { useTemplate } from "../../hooks";
 
 // Styles
 import Style from "./Styles/TemplatesMeta.module.css";
 import { Play, Trash2 } from "lucide-react";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates";
-
-/* =========================
-   TIPAGEM
-========================= */
-type Option = {
-  id: string;
-  name: string;
-};
+import DynamicModal from "../../componente/modal/modalAlertTemplate";
+import { toast } from "react-toastify";
 
 /* =========================
    COMPONENTE
@@ -33,14 +28,12 @@ export default function Templates() {
      STATES
   ========================= */
   const [openTemplateId, setOpenTemplateId] = useState<string | null>(null);
+  const [searchTemplateName, setSearchTemplateName] = useState("");
+  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null);
+  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
 
-  const [categoria, setCategoria] = useState<Option | null>(null);
-  const [openCategoria, setOpenCategoria] =
-    useState<"categoria" | null>(null);
-
-  const [filtro, setFiltro] = useState<Option | null>(null);
-  const [openFiltro, setOpenFiltro] =
-    useState<"filtro" | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const filterIconRef = useRef<HTMLDivElement | null>(null);
 
   /* =========================
      LIMIT POR PÁGINA
@@ -50,26 +43,62 @@ export default function Templates() {
   }, [setLimit]);
 
   /* =========================
-     OPTIONS
+     RESET PAGINA AO FILTRAR
   ========================= */
-  const categoriaOptions: Option[] = [
-    { id: "1", name: "Cobrança" },
-    { id: "2", name: "Suporte" },
-  ];
+  useEffect(() => {
+    setPage(1);
+  }, [searchTemplateName, categoryTemplateFilter, setPage]);
 
-  const filtroOptions: Option[] = [
-    { id: "3", name: "Mais usados" },
-    { id: "4", name: "Menos usados" },
-  ];
+  /* =========================
+     FECHAR DROPDOWN AO CLICAR FORA
+  ========================= */
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+
+      if (
+        openCategoryDropdown &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        filterIconRef.current &&
+        !filterIconRef.current.contains(target)
+      ) {
+        setOpenCategoryDropdown(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openCategoryDropdown]);
 
   /* =========================
      HANDLERS
   ========================= */
   function handleToggle(templateId: string) {
-    setOpenTemplateId((prev) =>
-      prev === templateId ? null : templateId
-    );
+    setOpenTemplateId((prev) => (prev === templateId ? null : templateId));
   }
+
+  /* =========================
+     CATEGORIAS ÚNICAS
+  ========================= */
+  const categories = Array.from(
+    new Set(templates.map((template) => template.category))
+  );
+
+  /* =========================
+     FILTROS (NOME + CATEGORIA)
+  ========================= */
+  const filteredTemplates = templates.filter((template) => {
+    const matchName = template.name
+      .toLowerCase()
+      .includes(searchTemplateName.toLowerCase());
+
+    const matchCategory =
+      !categoryTemplateFilter ||
+      template.category === categoryTemplateFilter;
+
+    return matchName && matchCategory;
+  });
 
   /* =========================
      DADOS DO GRÁFICO
@@ -80,6 +109,13 @@ export default function Templates() {
     { id: 3, nome: "Comercial", quantidade: 80 },
     { id: 4, nome: "Outros", quantidade: 60 },
   ];
+  /* =========================
+     MODAL
+  ========================= */
+  const [templateToDelete, setTemplateToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   return (
     <PageContainer className={Style.TemplatesContainer}>
@@ -103,29 +139,58 @@ export default function Templates() {
           />
 
           <div className={Style.ContainerFiltros}>
-            {/* FILTRO */}
-            <Dropdown
-              label="Filtrar por"
-              options={filtroOptions}
-              value={filtro}
-              open={openFiltro === "filtro"}
-              className={Style.DropdownCategoria}
-              onOpen={() => setOpenFiltro("filtro")}
-              onClose={() => setOpenFiltro(null)}
-              onChange={(val) => setFiltro(val as Option)}
+            {/* BUSCA POR NOME */}
+            <InputFields
+              className={Style.InputFiltro}
+              placeholder="Buscar template pelo nome"
+              value={searchTemplateName}
+              onChange={(e) => setSearchTemplateName(e.target.value)}
             />
 
-            {/* CATEGORIA */}
-            <Dropdown
-              label="Categoria"
-              options={categoriaOptions}
-              value={categoria}
-              open={openCategoria === "categoria"}
-              className={Style.DropdownCategoria}
-              onOpen={() => setOpenCategoria("categoria")}
-              onClose={() => setOpenCategoria(null)}
-              onChange={(val) => setCategoria(val as Option)}
-            />
+            {/* FILTRO POR CATEGORIA */}
+            <div ref={filterIconRef} className={Style.FilterWrapper}>
+              <FilterAltOutlinedIcon
+                className={`${Style.iconFilterDropdownTemplate} ${categoryTemplateFilter ? Style.activeFilter : ""
+                  }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenCategoryDropdown((prev) => !prev);
+                }}
+              />
+
+              {openCategoryDropdown && (
+                <div ref={dropdownRef} className={Style.CategoryDropdown}>
+                  <button
+                    className={`${Style.CategoryOption} ${categoryTemplateFilter === null
+                      ? Style.activeOption
+                      : ""
+                      }`}
+                    onClick={() => {
+                      setCategoryTemplateFilter(null);
+                      setOpenCategoryDropdown(false);
+                    }}
+                  >
+                    Todas
+                  </button>
+
+                  {categories.map((category) => (
+                    <button
+                      key={category}
+                      className={`${Style.CategoryOption} ${categoryTemplateFilter === category
+                        ? Style.activeOption
+                        : ""
+                        }`}
+                      onClick={() => {
+                        setCategoryTemplateFilter(category);
+                        setOpenCategoryDropdown(false);
+                      }}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -134,7 +199,7 @@ export default function Templates() {
          CARDS
       ========================= */}
       <div className={Style.Cards}>
-        {templates.map((template) => {
+        {filteredTemplates.map((template) => {
           const isOpen = openTemplateId === template.id;
 
           return (
@@ -166,9 +231,18 @@ export default function Templates() {
                         <button className={Style.BtnUse}>
                           <Play size={16} />
                         </button>
-                        <button className={Style.BtnDelete}>
+                        <button
+                          className={Style.BtnDelete}
+                          onClick={() =>
+                            setTemplateToDelete({
+                              id: template.id,
+                              name: template.name,
+                            })
+                          }
+                        >
                           <Trash2 size={16} />
                         </button>
+
                       </div>
                     </div>
                   </div>
@@ -190,6 +264,47 @@ export default function Templates() {
         })}
       </div>
 
+      {/* MODAL*/}
+      {templateToDelete && (
+        <DynamicModal
+          open={true}
+          type="warning"
+          title="Excluir template"
+          description={
+            <>
+              Tem certeza que deseja excluir o template{" "}
+              <b>{templateToDelete.name}</b>? <br />
+              Essa ação não poderá ser desfeita.
+            </>
+          }
+          onClose={() => setTemplateToDelete(null)}
+          buttons={[
+            {
+              label: "Cancelar",
+              variant: "success",
+              onClick: () => setTemplateToDelete(null),
+            },
+            {
+              label: "Excluir",
+              variant: "danger",
+              onClick: async () => {
+                try {
+                  // await deleteTemplate(templateToDelete.id);
+
+                  toast.success("Template excluído com sucesso!");
+
+                  setTemplateToDelete(null);
+                } catch {
+                  toast.error("Não foi possível excluir o template.");
+                }
+              },
+            },
+          ]}
+        />
+      )}
+
+
+
       {/* =========================
          PAGINAÇÃO
       ========================= */}
@@ -199,7 +314,7 @@ export default function Templates() {
         onPrev={() => setPage((p) => Math.max(p - 1, 1))}
         onNext={() => setPage((p) => p + 1)}
         disablePrev={page === 1}
-        disableNext={templates.length < 4}
+        disableNext={filteredTemplates.length < 4}
       />
     </PageContainer>
   );
