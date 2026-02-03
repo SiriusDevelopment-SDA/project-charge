@@ -30,6 +30,14 @@ export type Template = {
   variables: Record<string, string>;
 };
 
+export type PropsCardTemplates = {
+  template: Template;
+  isOpen: boolean;
+  onToggle: (id: string) => void;
+  setOpenModal: React.Dispatch<React.SetStateAction<boolean>>;
+  onDelete: (template: Template) => void
+};
+
 export type propTemplate = {
   setOpenState: React.Dispatch<React.SetStateAction<boolean>>;
   open: boolean;
