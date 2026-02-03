@@ -1,13 +1,15 @@
 "use client";
 
-// PrimeReact styles
+//PrimeReact styles
 import "primereact/resources/themes/lara-dark-indigo/theme.css";
+import { toast } from "react-toastify";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
-
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Style from "../Styles/Create-template.module.css";
+import { TemplateBody } from "../../../componente/Index";
+import { AmostraVariaveis } from "../../../componente/Index";
 
 import {
   Dropdown,
@@ -19,9 +21,9 @@ import {
   MyButton,
 } from "../../../componente/Index";
 
-/* =========================
-   MOCKS
-========================= */
+//Dados mockados
+
+//Mock amostra de mídia
 const mediaOptions = [
   { id: "Nenhum", name: "Nenhum" },
   { id: "Localizacao", name: "Localização" },
@@ -30,6 +32,7 @@ const mediaOptions = [
   { id: "Documento", name: "Documento" },
 ];
 
+//Mock categoria
 const categoryOptions = [
   { id: "Marketing", name: "Marketing" },
   { id: "Aviso", name: "Aviso" },
@@ -37,42 +40,51 @@ const categoryOptions = [
   { id: "Outros", name: "Outros" },
 ];
 
-const ctaOptions = [
-  { id: "Pix", name: "Pagar agora" },
-  { id: "Pdf", name: "Copy offer code" },
-  { id: "Link", name: "Ver todas opções" },
-];
-
+//Mock variáveis
 const varOptions = [
   { id: "Nome_cliente", name: "Nome_cliente" },
   { id: "Valor_fatura", name: "Valor_fatura" },
   { id: "Data_vencimento", name: "Data_vencimento" },
 ];
 
+//Mock chamada para ação
+const ctaOptions = [
+  { id: "Pix", name: "Pagar agora" },
+  { id: "Pdf", name: "Copy offer code" },
+  { id: "Link", name: "Ver todas opções" },
+];
+
+{
+  /*Exports*/
+}
 export default function CreateTemplate() {
   const [mediaOpen, setMediaOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [ctaOpen, setCtaOpen] = useState(false);
   const [varOpen, setVarOpen] = useState(false);
-
   const [media, setMedia] = useState<any>(null);
   const [category, setCategory] = useState<any>(null);
   const [ctas, setCtas] = useState<any[]>([]);
-  const [Var, setVar] = useState<any>(null);
-
+  const [varsSelected, setVarsSelected] = useState<any[]>([]);
   const [header, setHeader] = useState("");
   const [corpo, setCorpo] = useState("");
   const [rodape, setRodape] = useState("");
-
+  const [variablesMap, setVariablesMap] = useState<Record<string, string>>({});
   const isMediaNone = media?.id === "Nenhum" || media === null;
 
-  useEffect(() => {
-    if (!isMediaNone);
-  }, [isMediaNone]);
+  if (!isMediaNone && header) setHeader("");
+  {
+    /*Prévia já com substituição*/
+  }
+  function renderPreview(text: string) {
+    let result = text;
+    Object.entries(variablesMap).forEach(([key, value]) => {
+      result = result.replaceAll(`{{${key}}}`, value || `{{${key}}}`);
+    });
+    return result;
+  }
+  /*Prévia de modelo*/
 
-  /* =========================
-     PREVIEW
-  ========================= */
   const whatsappPreview = (
     <div className={Style.previewWhatsapp}>
       {!isMediaNone && (
@@ -84,7 +96,9 @@ export default function CreateTemplate() {
       {header && <p className={Style.previewHeader}>{header}</p>}
 
       <p className={Style.previewBody}>
-        {corpo || "Veja neste campo, a prévia do corpo de seu disparo"}
+        {renderPreview(
+          corpo || "Veja neste campo, a prévia do corpo de seu disparo",
+        )}
       </p>
 
       {rodape && <p className={Style.previewFooter}>{rodape}</p>}
@@ -114,22 +128,25 @@ export default function CreateTemplate() {
         title="Criar templates"
         className={Style.CreateTemplateTitle}
       />
-
       <div className={Style.contentGrid}>
         <div className={Style.formCard}>
           <h4 className={Style.sectionTitle}>Dados do Template</h4>
 
+          {/*Nome*/}
           <div className={Style.formGroup}>
             <label>Nome*</label>
-            <InputFields className={Style.containerI1} />
+            <InputFields maxLength={512} className={Style.containerI1} />
           </div>
 
+          {/*Amostra de mídia e categoria*/}
           <div className={Style.formRow}>
+            {/*Amostra de mídia*/}
             <div className={Style.formGroup}>
               <label className={Style.Titulosinputs}>
                 Amostra de mídia (Opcional)
               </label>
               <Dropdown
+                className={Style.dropdown1}
                 label="Amostra de mídia"
                 options={mediaOptions}
                 value={media}
@@ -140,9 +157,11 @@ export default function CreateTemplate() {
               />
             </div>
 
+            {/*Categoria*/}
             <div className={Style.formGroup}>
               <label className={Style.Titulosinputs}>Categoria*</label>
               <Dropdown
+                className={Style.dropdown1}
                 label="Categoria"
                 options={categoryOptions}
                 value={category}
@@ -154,7 +173,7 @@ export default function CreateTemplate() {
             </div>
           </div>
 
-          {/* ===== UPLOAD (SÓ SE MÍDIA ≠ NENHUM) ===== */}
+          {/*Upload de arquivos*/}
           {!isMediaNone && (
             <div className={Style.uploadWrapper}>
               <label className={Style.UploadButton1}>Upload arquivos</label>
@@ -167,31 +186,30 @@ export default function CreateTemplate() {
             </div>
           )}
 
+          {/*corpo*/}
           <div className={Style.bordaformGroup}>
-            <div className={Style.formGroup}>
-              <label>Corpo*</label>
-              <div className={Style.actions}>
-                <InputFields className={Style.containerI1} value={corpo} onChange={(e: any) => setCorpo(e.target.value)}/>
-                
-                <label className={Style.Titulosinputs}>Variáveis*</label>
-                
-                <Dropdown
-                  label="Variáveis"
-                  options={varOptions}
-                  value={Var}
-                  open={varOpen}
-                  onOpen={() => setVarOpen(true)}
-                  onClose={() => setVarOpen(false)}
-                  onChange={setVar}
-                  className={Style.dropdownCustom}
-                 />
-              </div>
-            </div>
+            <TemplateBody
+              containerClassName={Style.bordaformGroup}
+              textareaClassName={Style.textarea}
+              labelClassName={Style.Titulosinputs}
+              corpo={corpo}
+              setCorpo={setCorpo}
+              varsSelected={varsSelected}
+              setVarsSelected={setVarsSelected}
+              varOptions={varOptions}
+              varOpen={varOpen}
+              onOpen={() => setVarOpen(true)}
+              onClose={() => setVarOpen(false)}
+              setVariablesMap={setVariablesMap}
+            />
 
+            {/* Cabeçalho e Rodapé */}
             <div className={Style.row2}>
+              {/* Cabeçalho */}
               <div className={Style.formGroup}>
                 <label>Cabeçalho (Opcional)</label>
                 <InputFields
+                  maxLength={60}
                   className={Style.containerI1}
                   value={header}
                   onChange={(e: any) => setHeader(e.target.value)}
@@ -204,9 +222,11 @@ export default function CreateTemplate() {
                 />
               </div>
 
+              {/* Rodapé */}
               <div className={Style.formGroup}>
                 <label>Rodapé (Opcional)</label>
                 <InputFields
+                  maxLength={60}
                   className={Style.containerI1}
                   value={rodape}
                   onChange={(e: any) => setRodape(e.target.value)}
@@ -215,6 +235,7 @@ export default function CreateTemplate() {
             </div>
           </div>
 
+          {/* Chamada para ação */}
           <div className={Style.formGroupChamada}>
             <Dropdown
               label="Chamada para ação (Opcional)"
@@ -229,40 +250,32 @@ export default function CreateTemplate() {
           </div>
         </div>
 
-        {/* ===== LADO DIREITO ===== */}
+        {/* <---------------------------LADO DIREITO DA PÁGINA ---------------------------> */}
+
         <div className={Style.sideColumn}>
           <div className={Style.previewCard1}>
-            <h4 className={Style.previewTitle1}>Prévia do modelo</h4>
-
             <PreviewBox classname={Style.conteudoTitle}>
               {whatsappPreview}
             </PreviewBox>
           </div>
 
-          <div className={Style.variablesCard}>
-            <h4 className={Style.variablesTitle}>Amostras de variáveis</h4>
-
-            <div className={Style.variableItem}>
-              <span className={Style.variableKey}>Nome_client</span>
-              <InputFields></InputFields>
-            </div>
-
-            <div className={Style.variableItem}>
-              <span className={Style.variableKey}>Valor_fatura</span>
-              <InputFields></InputFields>
-            </div>
-
-            <div className={Style.variableItem}>
-              <span className={Style.variableKey}>Data_vencimento</span>
-              <InputFields></InputFields>
-            </div>
-          </div>
-
-          {/* ===== AÇÕES ===== */}
+          {/* Amostra de variáveis */}
+          <AmostraVariaveis
+            variablesMap={variablesMap}
+            setVariablesMap={setVariablesMap}
+          />
 
           <div className={Style.actions}>
             <MyButton text="Voltar" className={Style.btnCancel} />
-            <MyButton text="Salvar" className={Style.btnSave} />
+            <MyButton
+              text="Salvar"
+              className={Style.btnSave}
+              onClick={() =>
+                toast.success(
+                  "Template criado com sucesso! Aguardando a validação do META, verifique o status na aba templates",
+                )
+              }
+            />
           </div>
         </div>
       </div>

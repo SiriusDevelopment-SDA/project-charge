@@ -1,4 +1,4 @@
-/* ===== TÍTULO ===== */
+/* TÍTULO DA PÁGINA */
 .CreateTemplateTitle {
   color: #ffffff;
   text-align: center;
@@ -6,36 +6,29 @@
   margin-top: 20px;
 }
 
-/* ===== GRID PRINCIPAL ===== */
+/* CONTAINER PRINCIPAL */
+.pageContainer {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Grid geral (form + coluna direita) */
 .contentGrid {
   display: grid;
   grid-template-columns: 2.2fr 1fr;
   gap: 35px;
   max-width: 100%;
-  padding: 19.89px;
+  padding: 19.89px;  
 }
 
-.formRowThree {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
-  gap: 20px;
-  align-items: end;
-}
-
-.pageContainer{
-height: 100%;
-overflow-y: auto;
-
-}
-
-/* ===== CARD ESQUERDO ===== */
+/* CARD ESQUERDO — FORMULÁRIO */
 .formCard {
   border: 1px solid #ffdd00;
   border-radius: 12px;
   padding: 25px;
 }
 
-/* ===== TÍTULO DO CARD ===== */
+/* Título interno */
 .sectionTitle {
   color: #ffffff;
   text-align: center;
@@ -43,16 +36,50 @@ overflow-y: auto;
   font-size: 14px;
 }
 
+/* GRUPOS DE FORMULÁRIO */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  margin: 10px 0 18px;
+}
+
+.formGroup label {
+ color: #ffffff;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
 label.Titulosinputs {
   display: inline-block;
   margin-bottom: 25px !important;
 }
 
-.dropdownCustom {
-  width: 100%;
+/* Linhas */
+.formRow {
+  display: grid;
+  grid-template-columns: 0.6fr 1fr;
+  gap: 20px;
 }
 
-/* mexe só nesse dropdown */
+.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* INPUTS */
+.containerI1 input {
+  width: 100%;
+  padding: 5px;
+}
+
+/* DROPDOWNS */
+.dropdown1,
+.dropdownCustom {
+  width: 100%;
+
+}
+
+/* customização visual */
 .dropdownCustom :global(.control) {
   border-color: #ffdd00;
 }
@@ -63,89 +90,173 @@ label.Titulosinputs {
   z-index: 999;
 }
 
-
-
-/* ===== GRUPOS ===== */
-.formGroup {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 18px;
-}
-
-.containerI1{
-  input{
-    padding: 5px;
-  width: 90%;
-  }
-}
-
-.bordaformGroup{
-margin-top: 20px;
- border: 1px solid #ffdd00;
-border-radius: 5px;
-padding: 25px;
-
-}
-
-.formGroup label {
-  color: #ffffff;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-/* ===== LINHA (2 COLUNAS) ===== */
-.formRow {
-  display: grid;
-  grid-template-columns: 0.6fr 1fr;
-  gap: 20px;
-}
-.row2{
-   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-.TituloFormGroup {
-  text-align: center;
-  margin-bottom: 0px;
-}
-
-
-.formGroupChamada {
+/* UPLOAD */
+.uploadWrapper {
   margin-top: 10px;
-  position: relative;
-  overflow: visible;
-}
-.UploadButton{
-  width: 100%;
-  height: 60px;
-  font-size: 15px;
-  padding: 20px !important;
-  background-color: #dc2626  !important;
-}
-
-/* ===== UPLOAD ===== */
-.UploadButtonT1{
-  border: 3px rgba(255, 238, 0, 0.466);
-padding: 20px;
-border-style: dashed;
-margin-top: 1px;
-input{
-  width: 100%;
-}
-}
-
-.ButtnUpload{
-width: 100%;
 }
 
 .UploadButton1 {
-  display: block;
   text-align: center;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.UploadButtonT1 {
+  border: 3px dashed rgba(255, 238, 0, 0.466);
+  padding: 20px;
+}
+
+.ButtnUpload {
+  width: 100%;
+}
+
+/* CORPO DO TEMPLATE */
+.bordaformGroup {
+  margin-top: 20px;
+  border: 1px solid #ffdd00;
+  border-radius: 5px;
+  padding: 25px;
+}
+
+.textarea {
+  width: 100%;
+  height: 180px;
+  padding: 10px;
+  border: 1px solid #ffdd00;
+  background-color: #ffdd0044;
+  resize: none;
+  overflow-y: auto;
+}
+
+.textarea:focus {
+  outline: none;
+}
+
+/* CHAMADA PARA AÇÃO */
+.formGroupChamada {
+  margin-top: 25px;
+  position: relative;
+  overflow: visible;
+}
+
+/* COLUNA DIREITA */
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* PRÉVIA DO WHATSAPP */
+.previewCard1 {
+  border-radius: 12px;
+  padding: 30px;
+  background-image: url("/imagens/fundoWpp.jpeg");
+  background-size: cover;
+}
+
+/* COR Cabeçalho */
+.previewHeader {
+  font-size: 14px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #111111; 
+}
+
+/* COR corpo */
+.previewBody {
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #111111;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* COR Roda-pé */
+.previewFooter {
+  font-size: 12px;
+  color: #939393; /* cinza claro igual antes */
+  margin-top: 4px;
+}
+
+.previewMediaIcon {
+  font-size: 80px;
+  padding: 20px;
+}
+
+.previewActionSecondary {
+  border-top: 1px solid #e5e7eb;
+}
+
+.previewText{
+  text-align: center;
+}
+
+.previewActionPrimary,
+.previewActionSecondary {
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  color: #00a0e0;
+  font-size: 14px;
+  font-weight: 400;
+}
+.previewActions {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 8px;
+}
+.conteudoTitle {
+  text-align: center;
+}
+.previewWhatsapp {
+  font-family: Arial, sans-serif;
+}
+
+.previewMedia {
+  background: #e9ecef;
+  height: 120px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.previewBody {
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* AMOSTRAS DE VARIÁVEIS */
+.variablesCard {
+  border: 1px solid #ffdd00;
+  border-radius: 12px;
+  padding: 15px;
+}
+
+.variablesTitle {
+  color: #ffffff;
+  text-align: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.variableItem {
+  display: flex;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
+.variableKey {
+  background: #ffdd00;
+  color: #000;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 15px;
+}
 
-/* ===== BOTÕES ===== */
+/* BOTÕES DE AÇÃO (FINAL DA PÁGINA) */
 .actions {
   display: flex;
   justify-content: center;
@@ -161,7 +272,6 @@ width: 100%;
   border: none;
 }
 
-
 .btnSave {
   background: #16a34a;
   color: #fff;
@@ -170,133 +280,32 @@ width: 100%;
   border: none;
 }
 
-/* ===== COLUNA DIREITA ===== */
-.sideColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+/* CORPO DO TEMPLATE */
+.templateBody {
+  .bordaformGroup {
+    margin-top: 30px;
+    border: 1px solid #ffdd00;
+    border-radius: 5px;
+    padding: 25px;
+  }
 
-.previewCard,
-.variablesCard {
-  border: 1px solid #ffdd00;
-  border-radius: 12px;
-  padding: 15px;
-}
+  .textarea {
+    width: 100%;
+    height: 180px;
+    padding: 10px;
+    border: 1px solid #ffdd00;
+    background-color: #ffdd0044;
+    resize: none;
+    overflow-y: auto;
+  }
 
-.previewCard1 {
-  border: 1px solid #000000;
-  border-radius: 12px;
-  padding: 30px;
-  background-image: url("/imagens/fundoWpp.jpeg");
-  background-size: cover;
- 
-  
-}
-.conteudoTitle{
-h6{
-  display: none;
-}
+  .textarea:focus {
+    outline: none;
+  }
 
-}
-
-.previewTitle,
-.variablesTitle {
-  color: #ffffff;
-  text-align: center;
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
-.previewTitle1 {
-  color: #000000;
-  text-align: center;
-  margin-bottom: 10px;
-  font-size: 14px;
-}
-
-/* ===== VARIÁVEIS ===== */
-.variableItem {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.variableKey {
-  background: #ffdd00;
-  color: #000;
-  padding:  10px;
-  border-radius: 6px;
-  font-size: 15px;
- 
-}
-
-.variableValue {
-  background: #ffffff;
-  color: #000;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  flex: 1;
-}
-
-/* ===== PREVIEW WHATSAPP ===== */
-.previewWhatsapp {
-  font-family: Arial, sans-serif;
-}
-
-.previewMedia {
-  background: #e9ecef;
-  height: 120px;
-  border-radius: 8px 8px 0 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-  
-}
-.uploadWrapper {
-  margin-top: 10px;
-}
-
-
-.previewMediaIcon {
-  font-size: 40px;
-  padding: 20px;
-}
-
-.previewHeader {
-  font-size: 14px;
-  margin-bottom: 6px;
-  font-weight: 600;
-}
-
-.previewBody {
-  font-size: 14px;
-  margin-bottom: 6px;
-}
-
-.previewFooter {
-  font-size: 12px;
-  color: #939393;
-}
-
-.previewActions {
-  border-top: 1px solid #e5e7eb;
-  margin-top: 8px;
-}
-
-.previewActionPrimary,
-.previewActionSecondary {
-  width: 100%;
-  padding: 10px;
-  text-align: center;
-  cursor: pointer;
-  color: #00a0e0;
-  font-size: 14px;
-  font-weight: 400;
-}
-
-.previewActionSecondary {
-  border-top: 1px solid #e5e7eb;
+  /* DROPDOWNS */
+  .dropdown1,
+  .dropdownCustom {
+    width: 100%;
+  }
 }
