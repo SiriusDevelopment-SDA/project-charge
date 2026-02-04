@@ -11,45 +11,11 @@ import { FilterMatchMode, FilterOperator } from "primereact/api";
 import { FilterX, Search } from "lucide-react";
 
 import "./tableHistory.css";
+import { statusSeverity, traduzirStatus } from "./utils/utilsTable";
 
-export default function AdvancedFilterDemo({ data }: { data: any[] }) {
+export default function Table({ data, className }: { data: any[], className: string }) {
   const [filters, setFilters] = useState<any>({});
   const [globalFilterValue, setGlobalFilterValue] = useState("");
-
-  /* ================= TRADUÇÃO DE STATUS ================= */
-  const traduzirStatus = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case "DELIVERED":
-        return "Entregue";
-      case "READ":
-        return "Lido";
-      case "SENT":
-        return "Enviado";
-      case "QUEUED":
-        return "Em fila";
-      case "ERROR":
-        return "Erro";
-      default:
-        return status || "-";
-    }
-  };
-
-  const statusSeverity = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case "DELIVERED":
-        return "success";
-      case "READ":
-        return "info";
-      case "SENT":
-        return "warning";
-      case "QUEUED":
-        return "secondary";
-      case "ERROR":
-        return "danger";
-      default:
-        return "secondary";
-    }
-  };
 
   const parsedData = useMemo(() => {
     return data.map((item) => {
@@ -99,10 +65,7 @@ export default function AdvancedFilterDemo({ data }: { data: any[] }) {
     setGlobalFilterValue("");
   };
 
-  useEffect(() => {
-    initFilters();
-  }, []);
-
+  
   const onGlobalFilterChange = (e: any) => {
     const value = e.target.value;
 
@@ -110,10 +73,10 @@ export default function AdvancedFilterDemo({ data }: { data: any[] }) {
       ...prev,
       global: { value, matchMode: FilterMatchMode.CONTAINS },
     }));
-
+    
     setGlobalFilterValue(value);
   };
-
+  
   /* ================= FILTRO DATA ================= */
   const dateFilterTemplate = (options: any) => (
     <Calendar
@@ -124,7 +87,10 @@ export default function AdvancedFilterDemo({ data }: { data: any[] }) {
       mask="99/99/9999"
     />
   );
-
+  
+  useEffect(() => {
+    initFilters();
+  }, []);
   /* ================= HEADER ================= */
   const header = (
     <div className="p-datatable-header">
@@ -151,7 +117,7 @@ export default function AdvancedFilterDemo({ data }: { data: any[] }) {
 
   /* ================= RENDER ================= */
   return (
-    <div className="card">
+    <div className={className}>
       <DataTable
         value={parsedData}
         paginator

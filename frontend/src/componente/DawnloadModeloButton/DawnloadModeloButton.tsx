@@ -54,7 +54,6 @@ export function DownloadModeloButton({
                     boxShadow: "0 0 16px rgba(255, 204, 0, 0.4)",
                 },
             }}
-            disabled={(modo === "leads" && !templateSelecionado) || loading}
             onClick={handleClick}
         >
             {loading ? "Gerando modelo..." : modo === "clientes" ? "Baixar modelo clientes" : "Baixar modelo leads"}

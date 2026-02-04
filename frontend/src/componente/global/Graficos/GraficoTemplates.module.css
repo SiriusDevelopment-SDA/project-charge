@@ -1,0 +1,64 @@
+/* TemplatesUsageCard.module.css */
+
+.card {
+  background: linear-gradient(135deg, #2a2100, #5c4a00);
+  border-radius: 12px;
+  padding: 18px 20px;
+  color: #fff;
+  width: 100%;
+  max-width: 520px;
+}
+
+.title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #facc15;
+  margin-bottom: 16px;
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 40px 1fr 160px;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.header {
+  font-weight: 600;
+  color: #e5e7eb;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 6px;
+}
+
+.index {
+  color: #facc15;
+}
+
+.name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barWrapper {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #facc15, #f59e0b);
+  border-radius: 4px;
+}

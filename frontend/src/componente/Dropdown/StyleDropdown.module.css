@@ -117,3 +117,31 @@
 .rotate {
   transform: rotate(180deg);
 }
+.categoryFilter {
+  cursor: pointer;
+}
+
+.categorySelect {
+  width: 100%;
+  background: #1a1a1a;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+.option {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}

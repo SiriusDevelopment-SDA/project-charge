@@ -6,18 +6,23 @@ import S from "./StyleDropdown.module.css";
 
 export type DropdownProps<T> = {
   label: string;
+  typeCategory?: boolean;
   options: T[];
-  value?: T | null;            // single
-  selected?: T[];       // multiple
+  value?: T | null;
+  selected?: T[];
   multiple?: boolean;
   onChange: (value: T | T[]) => void;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
   className?: string;
+  selectedCategory?: string | null;
+  setSelectedCategory?: (cat: string | null) => void;
+  isOptionDisabled?: (option: T) => boolean;
+  children?: React.ReactNode;
 };
 
-export function Dropdown<T extends { id: string; name: string }>({
+export function Dropdown<T extends { id: string; name: string; category?: string }>({
   label,
   options,
   value,
@@ -27,7 +32,9 @@ export function Dropdown<T extends { id: string; name: string }>({
   onOpen,
   onClose,
   onChange,
-  className
+  className,
+  children,
+  typeCategory
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
@@ -38,12 +45,8 @@ export function Dropdown<T extends { id: string; name: string }>({
 
   const selectedLabel = value?.name ?? "";
 
-  if (!open && !hasValue && focused) {
-    setTimeout(() => setFocused(false), 0);
-  }
-
+  if (!open && !hasValue && focused)setTimeout(() => setFocused(false), 0);
   return (
-    
     <div className={`${S.wrapper} ${className ?? ""}`}>
       <div
         className={`${S.control} ${open ? S.activeBorder : ""}`}
@@ -60,8 +63,7 @@ export function Dropdown<T extends { id: string; name: string }>({
         <span className={`${S.label} ${focused || hasValue ? S.active : ""}`}>
           {label}
         </span>
-
-        {/* VALUE DISPLAY */}
+        
         <div className={S.valueContainer}>
           {multiple ? (
             <div className={S.chipsContainer}>
@@ -84,8 +86,6 @@ export function Dropdown<T extends { id: string; name: string }>({
                   </span>
                 </div>
               ))}
-
-              {/* Para o label subir mesmo vazio */}
               {!selected?.length && <span className={S.placeholder}></span>}
             </div>
           ) : (
@@ -93,36 +93,42 @@ export function Dropdown<T extends { id: string; name: string }>({
           )}
         </div>
 
-        <span className={`${S.arrow} ${open ? S.rotate : ""}`}>▼</span>
+        {!typeCategory && <span className={`${S.arrow} ${open ? S.rotate : ""}`}>▼</span>}
       </div>
 
-      {/* OPTIONS */}
+      {children}
       {open && (
-        <div className={S.menu}>
-          {options.map((opt) => (
+        <div
+          className={S.menu}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {options.map(opt => (
             <div
               key={opt.id}
-              className={S.option}
-              onClick={(e) => {
-                e.stopPropagation();
+          className={S.option}
+          onClick={(e) => {
+            e.stopPropagation();
 
-                if (multiple) {
-                  const exists = selected?.some(s => s.id === opt.id);
-                  const newList = exists
-                    ? (selected ?? []).filter(s => s.id !== opt.id)
-                    : [...(selected ?? []), opt];
+            if (multiple) {
+              const exists = selected?.some(s => s.id === opt.id);
+              const newList = exists
+                ? (selected ?? []).filter(s => s.id !== opt.id)
+                : [...(selected ?? []), opt];
 
-                  onChange(newList);
-
-
-                } else {
-                  onChange(opt);
-                  onClose();
-                  setFocused(false);
-                }
-              }}
+              onChange(newList);
+            } else {
+              onChange(opt);
+              onClose();
+              setFocused(false);
+            }
+          }}
+          title={"Cliente sem faturas em aberto"}
             >
-              {opt.name}
+              {typeCategory ? (
+                <span>{opt.category}</span>
+              ) : (
+                <span>{opt.name}</span>
+              )}
             </div>
           ))}
         </div>

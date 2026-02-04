@@ -7,16 +7,19 @@ import { ClientProvider } from "./context/contextClients";
 import { TemplateProvider } from "./context/contextTemplates";
 import "./styles/index.css";
 import { HistoricoProvider } from "./context/contextHistorico";
+import { DispatchTemplateProvider } from "./context/contextDisparo";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <ClientProvider>
-        <TemplateProvider>
-         <HistoricoProvider>
-          <App />
-         </HistoricoProvider>
-        </TemplateProvider>
+        <DispatchTemplateProvider>
+          <TemplateProvider>
+            <HistoricoProvider>
+            <App />
+           </HistoricoProvider>
+          </TemplateProvider>
+        </DispatchTemplateProvider>
       </ClientProvider>
     </BrowserRouter>
   </React.StrictMode>

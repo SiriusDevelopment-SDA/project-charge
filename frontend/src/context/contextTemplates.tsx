@@ -13,12 +13,13 @@ export const TemplateProvider = ({
   children: React.ReactNode
 }) => {
   const [templates, setTemplates] = useState<Template[]>([])
+  const [searchTemplateName, setSearchTemplateName] = useState("")
+  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null)
   const [page, setPage] = useState<number>(1)
   const [limit, setLimit] = useState<number>(10)
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC")
   const [query, setQuery] = useState<string>('')
 
-  console.log("context templates", templates)
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
@@ -35,17 +36,17 @@ export const TemplateProvider = ({
           sortorder: order
         })
 
-        // setClient(prev => [...prev, ...response.data.data])
         setTemplates((prev) => {
           const map = new Map<string, Template>();
 
           [...prev, ...response.data.data].forEach((c) => {
             map.set(c.id, c); // garante unicidade
           });
+        setTemplates(response.data.data);
+
 
           return Array.from(map.values());
         });
-        console.log('response templates', response)
       } catch (error) {
         console.error('Erro ao buscar os clientes:', error)
       }
@@ -54,10 +55,9 @@ export const TemplateProvider = ({
     fetchTemplates()
   }, [query, page, limit, order])
 
-
   return (
     <TemplateContext.Provider
-      value={{ templates, setQuery, setPage, setLimit, setOrder }}
+      value={{ templates, categoryTemplateFilter, setCategoryTemplateFilter, searchTemplateName, setSearchTemplateName, setQuery, setPage, setLimit, setOrder }}
     >
       {children}
     </TemplateContext.Provider>

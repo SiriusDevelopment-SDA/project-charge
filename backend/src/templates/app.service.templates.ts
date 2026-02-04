@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { Templates } from './entities/templatesMeta';
 import { SearchRequestDtoRelatories, SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
 import { RelatoryDispatchTemplate } from './entities/relatory.entity';
+import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
 
 @Injectable()
 export class AppServiceTemplate {
@@ -41,6 +42,7 @@ export class AppServiceTemplate {
           company: {
             id: true,
             account_chatwoot: true,
+            name: true
           },
         },
         skip,
@@ -141,7 +143,13 @@ export class AppServiceTemplate {
       });
       results.push(responseData);
     }
-    return results
+    return {
+      success: true,
+      total: results.length,
+      status: 'DISPATCHED',
+      messages: results
+    };
+    
   }
 
   async getRelatoriesDispatchTemplate(dto: SearchRequestDtoRelatories) {
@@ -193,5 +201,27 @@ export class AppServiceTemplate {
       total: data.length,
       data
     };
+  }
+  
+  async disableTemplate(templateId: string){
+    const template = await this.templateRepository.findOne({
+      where: {
+        id: templateId,
+        isEnabled: true
+      }
+    });
+
+    if(!template){
+      throw new HttpException('Template não encontrado ou já desativado', HttpStatus.NOT_FOUND)
+    }
+
+    template.isEnabled = false;
+
+    await this.templateRepository.save(template)
+
+    return {
+      'statusCode': 204,
+      'message': 'Template desativado!'
+    }
   }
 }

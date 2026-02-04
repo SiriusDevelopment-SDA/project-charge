@@ -58,4 +58,7 @@ export class Templates {
     default: () => "'{}'",
   })
   variables!: Record<string, any>;
+
+  @Column({ default: true })
+  isEnabled!: boolean;
 }

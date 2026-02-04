@@ -10,13 +10,13 @@ export const TitlePage = ({
   text
 }: {
   title: string;
-  className: string;
+  className?: string;
   setModoPage?: React.Dispatch<React.SetStateAction<"clientes" | "leads">>;
   text?: string;
 }) => {
   const navigate = useNavigate();
   return (
-    <div className={className}>
+    <div className={`${className} ${S.container_title}`}>
       <Typography variant="h5">
         {title}
       </Typography>

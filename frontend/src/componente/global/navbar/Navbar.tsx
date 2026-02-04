@@ -1,15 +1,18 @@
 // import styles from "../../styles/Navbar.module.css";
-import logo from "../../../assets/icons/coraxy fundo preto 4.svg";
+import logo from "../../../assets/icons/coraxy.svg";
 import { NavLink } from "react-router-dom";
 import styles from "./StyleNavbar.module.css";
+import { useLocation } from "react-router-dom";
 
 
 export function Navbar() {
+  const location = useLocation();
   return (
     <div className={styles.navbar}>
-      <NavLink to="/" className="outline" style={{ padding: 0 }}>
+      <NavLink to="/">
         <img src={logo} alt="Coraxy" />
       </NavLink>
+
 
       <div className={styles.navbarMenu}>
         <NavLink
@@ -38,15 +41,20 @@ export function Navbar() {
 
         <NavLink
           to="/templates"
-          className={({ isActive }) => (isActive ? styles.active : styles.disabled)}
-          onClick={(e) => e.preventDefault()}
+          className={({ isActive }) => (isActive ? styles.active : '')}
+          // onClick={(e) => e.preventDefault()}
         >
           Templates
         </NavLink>
 
         <NavLink
-            to="/"
-          className={({ isActive }) => (isActive || location.pathname.startsWith("/historico") ? styles.active : styles.disabled)}
+          to="/"
+          className={() =>
+            location.pathname === "/" ||
+            location.pathname.startsWith("/historico")
+              ? styles.active
+              : ''
+          }
         >
           Disparo Ativo
         </NavLink>
