@@ -3,7 +3,6 @@
 import { useState } from "react";
 import S from "./StyleDropdown.module.css";
 
-
 export type DropdownProps<T> = {
   label: string;
   typeCategory?: boolean;
@@ -134,6 +133,5 @@ export function Dropdown<T extends { id: string; name: string; category?: string
         </div>
       )}
     </div>
-   
   );
 }
