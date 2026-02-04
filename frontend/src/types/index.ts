@@ -175,6 +175,10 @@ export interface IHistoricoContext {
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
 }
+export type propAmostras={
+    variablesMap: Record<string, string>
+    setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>
+}
 export type TemplateParameter = {
   type: "text" | "currency" | "date_time" | "image" | "document"
   text: string;
