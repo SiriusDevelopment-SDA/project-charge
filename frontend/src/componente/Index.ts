@@ -9,8 +9,4 @@ import { MyButton } from "./global/MyButton/MyButton"
 import { PageContainer } from "./global/PageComponente/PageComponente"
 import { TitlePage } from "./global/TitlePage/TitlePage"
 import { Navbar } from "./global/navbar/Navbar"
-import { TemplateBody } from "../componente/TemplateBody/TemplateBody";
-import AmostraVariaveis from "../componente/AmostraVariaveis/AmostraVariaveis";
-
-export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage, Dropdown
-         , PreviewBox, UploadButton, DownloadModeloButton,TemplateBody, AmostraVariaveis }
+export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton }

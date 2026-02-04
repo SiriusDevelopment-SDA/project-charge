@@ -4,8 +4,6 @@ import Templates from "../pages/TemplatesMeta/TemplatesMeta";
 // import HistoricoDisparo from "../pages/historico-disparo";
 import {HistoricoDisparoPage} from "../pages/Historico/historico-disparo";
 
-import CreateTemplate from "../pages/TemplatesMeta/Subpages/CreateTemplate";
-
 
 
 export default function AppRoutes() {
@@ -14,7 +12,6 @@ export default function AppRoutes() {
       <Route path="/" element={<EfetuarDisparo />} />
       <Route path="/templates" element={<Templates />} />
       <Route path="/historico" element={<HistoricoDisparoPage />} />
-      <Route path="/CreateTemplate" element={<CreateTemplate />} />
     </Routes>
   );
 }
