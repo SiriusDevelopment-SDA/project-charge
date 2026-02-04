@@ -1,14 +1,13 @@
 import {
   Injectable,
-  NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { Client } from '../../clients/entities.ts/clients';
-import { InvoiceMapResult, InvoicesResponse } from '../types';
+import { InvoiceMapResult, InvoicesResponse, ReqPixInvoice } from '../types';
 import { formatarDataBR, formatDateLocal2 } from '../../utils';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Company } from '../../companies/entities/companies';
-import { FindOptionsWhere, Like, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class IXCInvoicesService {
@@ -20,9 +19,6 @@ export class IXCInvoicesService {
   async getInvoices(cliente: Client): Promise<InvoicesResponse> {
     const fim = new Date()
     fim.setDate(fim.getDate() + 33)
-  
-    // const formatDateISO = (d: Date) =>
-    //   d.toISOString().slice(0, 10) // yyyy-MM-dd
 
     const content = {
       qtype: 'fn_areceber.id_cliente',
@@ -81,18 +77,10 @@ export class IXCInvoicesService {
           ? t.id_contrato_avulso
           : null;
 
-      // Chama o fetch para pegar o boleto
-      // const boletoData = await this.getInvoiceById({
-      //   companyId: empresa.id,
-      //   invoices: String(t.id),
-      //   interest: "S",
-      //   fine: "S",
-      //   update_ticket: "S",
-      //   ticket_type: "dados",
-      //   base64: "N"
-      // });
-      
-      
+      const pix =  await this.getPixByInvoice({
+        companyId: empresa.id,
+        invoiceId: String(t.id),
+      })
       return {
         invoice_id: String(t.id) ?? null,
         contract_id: contractId,
@@ -100,7 +88,7 @@ export class IXCInvoicesService {
         invoice_amount: String(t.valor_aberto),
         invoice_status: 'A Receber',
         ticket_digitable_line: t.codigo_barras ?? null,
-        code_pix: null,
+        code_pix: pix,
         // ticket_pdf_link: boletoData?.registros?.[0]?.link ?? null,
       };
     })
@@ -124,62 +112,92 @@ export class IXCInvoicesService {
   };
   }
   
+  async getInvoiceById(invoice: {
+    companyId: string,
+    invoices: string,
+    interest?: "S" | "N",
+    fine?: "S" | "N",
+    update_ticket?: "S" | "N",
+    ticket_type?: "dados" | "email" | "sms",
+    base64?: "S" | "N",
+    print_layout?: "",
+  }) {
+   const content = {
+      boletos: invoice.invoices,
+      juro: invoice.interest || "S",
+      multa: invoice.fine || "S",
+      atualiza_boleto: invoice.update_ticket || "S",
+      tipo_boleto: invoice.ticket_type || "dados",
+      base64 : invoice.base64 || "N",
+      layout_impressao: invoice.print_layout || ""
+    }
+
+    try{
+      const empresa = await this.companyRepository.findOne({where: { id: invoice.companyId }});
+      if(!empresa)throw new BadRequestException(`EmpresaId: ${invoice.companyId} não encontrado!`);
+      const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
+      const url = `https://${empresa.url}/webservice/v1/get_boleto`;
+
+
+    console.log("content", content)
+    console.log("url", url)
+    console.log("password", authorizationHeader)
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: authorizationHeader,
+        // 'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(content),
+    });
+    const boletoData = await response.json();
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new BadRequestException(
+        `Erro no ERP (IXC): ${response.status} -> ${err}`,
+      );
+    }
+    return boletoData;
+    }catch(err: any){
+      throw new BadRequestException(
+        `${err.message ? err.message : "Falha ao encontrar boleto!"}`,
+      );
+    }
+
+  }
+
+  async getPixByInvoice(data: ReqPixInvoice) {
   
-  // async getInvoiceById(invoice: {
-  //   companyId: string,
-  //   invoices: string,
-  //   interest?: "S" | "N",
-  //   fine?: "S" | "N",
-  //   update_ticket?: "S" | "N",
-  //   ticket_type?: "dados" | "email" | "sms",
-  //   base64?: "S" | "N",
-  //   print_layout?: ""
-  // }) {
-  //  const content = {
-  //     boletos: invoice.invoices,
-  //     juro: invoice.interest || "S",
-  //     multa: invoice.fine || "S",
-  //     atualiza_boleto: invoice.update_ticket || "S",
-  //     tipo_boleto: invoice.ticket_type || "dados",
-  //     base64 : invoice.base64 || "N",
-  //     layout_impressao: invoice.print_layout || ""
-  //   }
-
-  //   try{
-  //     const empresa = await this.companyRepository.findOne({where: { id: invoice.companyId }});
-  //     if(!empresa)throw new BadRequestException(`EmpresaId: ${invoice.companyId} não encontrado!`);
-  //     const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
-  //     const url = `https://${empresa.url}/webservice/v1/get_boleto`;
-
-
-  //   console.log("content", content)
-  //   console.log("url", url)
-  //   console.log("password", authorizationHeader)
-
-  //   const response = await fetch(url, {
-  //     method: 'POST',
-  //     headers: {
-  //       Authorization: authorizationHeader,
-  //       // 'Content-Type': 'application/json'
-  //     },
-  //     body: JSON.stringify(content),
-  //   });
-  //   const boletoData = await response.json();
-
-  //   console.log("boletoData", boletoData);
-
-  //   if (!response.ok) {
-  //     const err = await response.text();
-  //     throw new BadRequestException(
-  //       `Erro no ERP (IXC): ${response.status} -> ${err}`,
-  //     );
-  //   }
-  //   return boletoData;
-  //   }catch(err: any){
-  //     throw new BadRequestException(
-  //       `${err.message ? err.message : "Falha ao encontrar boleto!"}`,
-  //     );
-  //   }
-
-  // }
+    try{
+      const empresa = await this.companyRepository.findOne({where: { id: data.companyId }});
+      if(!empresa)throw new BadRequestException(`EmpresaId: ${data.companyId} não encontrado!`);
+      const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
+      const url = `https://${empresa.url}/webservice/v1/get_pix`;
+  
+    console.log("url", url)
+    console.log("password", authorizationHeader)
+  
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: authorizationHeader,
+        'Content-Type': 'application/json',
+        'ixcsoft': 'listar'
+      },
+      body: JSON.stringify({id_areceber: data.invoiceId}),
+    });
+    const boletoData = await response.json();
+    return {
+      pix: (boletoData.pix.dadosPix.pixCopiaECola && boletoData.pix.dadosPix.status === "ATIVA") || boletoData.pix.qrCode.qrcode,
+      status: boletoData.type
+    };
+    }catch(err: any){
+      throw new BadRequestException(
+        `${err.message ? err.message : "Falha ao encontrar boleto!"}`,
+      );
+    }
+  
+  }
 }

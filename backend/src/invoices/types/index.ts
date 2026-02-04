@@ -21,7 +21,10 @@ export interface InvoicesResponse {
   message: string;
   invoices: InvoiceMapResult[];
 }
-
+export interface ReqPixInvoice {
+  companyId: string;
+  invoiceId: string;
+}
 export interface InvoiceBatchResponse {
     status: 'success' | 'partial' | 'error';
     message: string;
