@@ -1,0 +1,24 @@
+.container_title{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+h5{
+    color: #fff;
+    border-bottom: 2px solid rgba(245, 208, 51, 0.5);
+}
+.buttons_container_title{
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
+}
+button{
+    cursor: pointer;
+    transition: border 0.7s ease-in;
+}
+button:hover{
+    transform: translateY(-1px);
+    box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 10px 22px rgba(0, 0, 0, 0.45), 0 0 18px rgba(244, 196, 0, 0.6);
+    filter: brightness(1.01);
+}

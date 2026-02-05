@@ -1,10 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
   Post,
+  Param,
+  ParseUUIDPipe
 } from '@nestjs/common';
 import { AppServiceTemplate } from './app.service.templates';
 import { SearchRequestDtoRelatories, SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
+import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
 
 @Controller()
 export class ControllerTemplates {
@@ -23,5 +27,10 @@ export class ControllerTemplates {
   @Post('search/relatories')
   getRelatoriesDispatchTemplates(@Body() searchDto: SearchRequestDtoRelatories) {
     return this.appService.getRelatoriesDispatchTemplate(searchDto);
+  }
+
+  @Post('delete/template')
+  disableTemplate(@Body() deleteTemplateDto: DeleteTemplateDto) {
+    return this.appService.disableTemplate(deleteTemplateDto.templateId);
   }
 }

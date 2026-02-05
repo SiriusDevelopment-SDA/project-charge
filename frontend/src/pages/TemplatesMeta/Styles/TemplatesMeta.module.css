@@ -1,0 +1,154 @@
+/* =========================
+   CONTAINER
+========================= */
+.TemplatesContainer {
+  min-height: calc(100vh - 14vh) !important;
+  overflow-y: auto;
+}
+/* =========================
+   GRAFICO
+========================= */
+.Grafico {
+  display: flex;
+  justify-content: space-between;
+}
+/* =========================
+   TÍTULO DA PÁGINA
+========================= */
+.ContainerSubMenu {
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  
+}
+.TitlePage {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+}
+.TitlePage h5 {
+  font-size: 2.5rem;
+  color: #fff;
+  border-bottom: 2px solid rgba(245, 208, 51, 0.5);
+}
+/* =========================
+   BOTÃO
+========================= */
+.BtnCriarTemplate {
+  margin-top: 0px;
+}
+
+/* =========================
+   CONTAINER DE FILTROS
+========================= */
+.ContainerFiltros {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative; /* base para o dropdown */
+}
+/* =========================
+   INPUT DE BUSCA
+========================= */
+.InputFiltro {
+  min-width: 260px !important;
+  padding: 7px 14px !important;
+}
+
+/*Container do Filtro Dropdown*/
+.ContainerFiltro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+/* =========================
+   WRAPPER DO ÍCONE DE FILTRO
+========================= */
+.FilterWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+/* =========================
+   ÍCONE DE FILTRO
+========================= */
+.iconFilterDropdownTemplate {
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.iconFilterDropdownTemplate:hover {
+  color: #f5d033;
+  transform: scale(1.08);
+}
+
+/* Ícone ativo (categoria selecionada) */
+.activeFilter {
+  color: #f5d033;
+}
+
+/* =========================
+   DROPDOWN DE CATEGORIAS
+========================= */
+.CategoryDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: #0f1117;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 30;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+.CategoryOption {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  padding: 9px 12px;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.CategoryOption:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.activeOption {
+  background: rgba(245, 208, 51, 0.18);
+  color: #f5d033;
+}
+
+/* =========================
+   GRID DE CARDS (4 POR LINHA)
+========================= */
+.Cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+/* Responsivo */
+@media (max-width: 1400px) {
+  .Cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 1024px) {
+  .Cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .Cards {
+    grid-template-columns: 1fr;
+  }
+}
+
