@@ -1,55 +1,41 @@
-// React
-import { useEffect, useRef, useState, useMemo } from "react";
-
-// Components
-import { Pagination } from "../../componente/global/Pagination/Pagination";
-import {
-  PageContainer,
-  TitlePage,
-  MyButton,
-  InputFields,
-} from "../../componente/Index";
-import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates";
-import { CardTemplates } from "../../componente/Card/CardTemplates";
-
-// Hooks
-import { useTemplate } from "../../hooks";
-import { toast } from "react-toastify";
-
-// Styles
-import Style from "./Styles/TemplatesMeta.module.css";
-import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
-import DynamicModal from "../../componente/modal/modalAlertTemplate";
-import type { Template } from "../../types";
+import { useNavigate } from "react-router-dom"; // Importando o hook useNavigate para navegação
+import { useEffect, useRef, useState, useMemo } from "react"; // Hooks
+import { Pagination } from "../../componente/global/Pagination/Pagination"; // Componente de Paginação
+import { PageContainer, TitlePage, MyButton, InputFields } from "../../componente/Index"; // Componentes
+import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates"; // Componentes de gráficos
+import { CardTemplates } from "../../componente/Card/CardTemplates"; // Cards de templates
+import { useTemplate } from "../../hooks"; // Hook de templates
+import { toast } from "react-toastify"; // Notificação de sucesso
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined"; // Ícone de filtro
+import DynamicModal from "../../componente/modal/modalAlertTemplate"; // Modal para exclusão
+import Style from "./Styles/TemplatesMeta.module.css"; // Estilos do componente
+import type { Template } from "../../types"; // Tipo de template
 
 /* =========================
    COMPONENTE
 ========================= */
 export default function Templates() {
-  const { templates } = useTemplate();
+  const navigate = useNavigate(); // Inicializando o hook useNavigate
+  const { templates } = useTemplate(); // Hook para pegar templates
 
   /* =========================
      STATES
   ========================= */
   const [page, setPage] = useState(1);
   const [openTemplateId, setOpenTemplateId] = useState<string | null>(null);
-  const [searchTemplateName, setSearchTemplateName] = useState("");
-  const [categoryTemplateFilter, setCategoryTemplateFilter] =
-    useState<string | null>(null);
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [loadingDelete, setLoadingDelete] = useState(false);
-  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(
-    null
-  );
-  const [deletedTemplates, setDeletedTemplates] = useState<string[]>([]);
+  const [searchTemplateName, setSearchTemplateName] = useState(""); // Para filtrar pelo nome do template
+  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null); // Para filtro de categoria
+  const [openDeleteModal, setOpenDeleteModal] = useState(false); // Modal de exclusão
+  const [loadingDelete, setLoadingDelete] = useState(false); // Estado de carregamento durante a exclusão
+  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false); // Controle do dropdown de categorias
+  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null); // Template a ser deletado
+  const [deletedTemplates, setDeletedTemplates] = useState<string[]>([]); // Templates deletados
 
+  // Refs para o dropdown
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const filterIconRef = useRef<HTMLDivElement | null>(null);
 
-  /* =========================
-     CONFIG
-  ========================= */
+  // Limite de templates por página
   const LIMIT = 8;
 
   /* =========================
@@ -58,14 +44,7 @@ export default function Templates() {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
-
-      if (
-        openCategoryDropdown &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(target) &&
-        filterIconRef.current &&
-        !filterIconRef.current.contains(target)
-      ) {
+      if (openCategoryDropdown && dropdownRef.current && !dropdownRef.current.contains(target) && filterIconRef.current && !filterIconRef.current.contains(target)) {
         setOpenCategoryDropdown(false);
       }
     }
@@ -94,13 +73,8 @@ export default function Templates() {
   ========================= */
   const filteredTemplates = useMemo(() => {
     return templates.filter((template) => {
-      const matchName = template.name
-        .toLowerCase()
-        .includes(searchTemplateName.toLowerCase());
-
-      const matchCategory =
-        !categoryTemplateFilter || template.category === categoryTemplateFilter;
-
+      const matchName = template.name.toLowerCase().includes(searchTemplateName.toLowerCase());
+      const matchCategory = !categoryTemplateFilter || template.category === categoryTemplateFilter;
       const notDeleted = !deletedTemplates.includes(template.id);
 
       return matchName && matchCategory && notDeleted;
@@ -121,11 +95,7 @@ export default function Templates() {
      PAGINAÇÃO REAL
   ========================= */
   const startIndex = (page - 1) * LIMIT;
-  const paginatedTemplates = filteredTemplates.slice(
-    startIndex,
-    startIndex + LIMIT
-  );
-
+  const paginatedTemplates = filteredTemplates.slice(startIndex, startIndex + LIMIT);
   /* =========================
      HANDLERS
   ========================= */
@@ -137,18 +107,17 @@ export default function Templates() {
      DADOS DO GRÁFICO
   ========================= */
   const graphData = Object.values(
-    templates.reduce<Record<string, { id: number; nome: string; quantidade: number }>>(
-      (acc, template, index) => {
-        const category = template.category || "Outros";
-        if (!acc[category]) {
-          acc[category] = { id: index + 1, nome: category, quantidade: 0 };
-        }
-        acc[category].quantidade += 1;
-        return acc;
-      },
-      {}
-    )
+    templates.reduce<Record<string, { id: number; nome: string; quantidade: number }>>((acc, template, index) => {
+      const category = template.category || "Outros";
+      if (!acc[category]) {
+        acc[category] = { id: index + 1, nome: category, quantidade: 0 };
+      }
+      acc[category].quantidade += 1;
+      return acc;
+    }, {})
   );
+
+
 
   return (
     <PageContainer className={Style.TemplatesContainer}>
@@ -162,11 +131,11 @@ export default function Templates() {
       <div className={Style.ContainerSubMenu}>
         <div className={Style.ContainerFiltro}>
           <MyButton
-            text="Criar Template"
-            variant="secondary"
-            className={Style.BtnCriarTemplate}
+            text="Criar Template" // Texto do botão
+            variant="secondary" // Estilo do botão
+            className={Style.BtnCriarTemplate} // Estilo customizado
+              onClick={() => navigate("/CreateTemplate")}
           />
-
           <div className={Style.ContainerFiltros}>
             <InputFields
               className={Style.InputFiltro}
@@ -175,23 +144,19 @@ export default function Templates() {
               onChange={(e) => setSearchTemplateName(e.target.value)}
             />
 
+            {/* Filtro de categoria */}
             <div ref={filterIconRef} className={Style.FilterWrapper}>
               <FilterAltOutlinedIcon
-                className={`${Style.iconFilterDropdownTemplate} ${
-                  categoryTemplateFilter ? Style.activeFilter : ""
-                }`}
+                className={`${Style.iconFilterDropdownTemplate} ${categoryTemplateFilter ? Style.activeFilter : ""}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpenCategoryDropdown((prev) => !prev);
                 }}
               />
-
               {openCategoryDropdown && (
                 <div ref={dropdownRef} className={Style.CategoryDropdown}>
                   <button
-                    className={`${Style.CategoryOption} ${
-                      categoryTemplateFilter === null ? Style.activeOption : ""
-                    }`}
+                    className={`${Style.CategoryOption} ${categoryTemplateFilter === null ? Style.activeOption : ""}`}
                     onClick={() => {
                       setCategoryTemplateFilter(null);
                       setOpenCategoryDropdown(false);
@@ -199,15 +164,10 @@ export default function Templates() {
                   >
                     Todas
                   </button>
-
                   {categories.map((category) => (
                     <button
                       key={category}
-                      className={`${Style.CategoryOption} ${
-                        categoryTemplateFilter === category
-                          ? Style.activeOption
-                          : ""
-                      }`}
+                      className={`${Style.CategoryOption} ${categoryTemplateFilter === category ? Style.activeOption : ""}`}
                       onClick={() => {
                         setCategoryTemplateFilter(category);
                         setOpenCategoryDropdown(false);
@@ -281,16 +241,11 @@ export default function Templates() {
               variant: "danger",
               onClick: () => {
                 if (!templateToDelete) return;
-
                 setLoadingDelete(true);
-
                 setTimeout(() => {
                   setDeletedTemplates((prev) =>
-                    prev.includes(templateToDelete.id)
-                      ? prev
-                      : [...prev, templateToDelete.id]
+                    prev.includes(templateToDelete.id) ? prev : [...prev, templateToDelete.id]
                   );
-
                   toast.success("Template excluído com sucesso!");
                   setOpenDeleteModal(false);
                   setTemplateToDelete(null);
