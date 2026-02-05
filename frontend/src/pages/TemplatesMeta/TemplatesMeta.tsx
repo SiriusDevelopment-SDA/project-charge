@@ -22,11 +22,16 @@ import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import type { Template } from "../../types";
 
+// Context
+import { useContext } from "react";
+import { TemplateContext } from "../../context/contextTemplates";
+
 /* =========================
    COMPONENTE
 ========================= */
 export default function Templates() {
   const { templates } = useTemplate();
+  const { deleteTemplate } = useContext(TemplateContext);
 
   /* =========================
      STATES
@@ -150,6 +155,21 @@ export default function Templates() {
     )
   );
 
+  const handleDelete = async (templateId: string) => {
+    setLoadingDelete(true)
+    const result = await deleteTemplate(templateId)
+
+    if (result.success) {
+      toast.success('Template deletado com sucesso!')
+      setOpenDeleteModal(false)
+      setTemplateToDelete(null)
+    } else {
+      toast.error('Erro ao Deletar template')
+    }
+
+    setLoadingDelete(false);
+  }
+
   return (
     <PageContainer className={Style.TemplatesContainer}>
       {/* TOPO */}
@@ -177,9 +197,8 @@ export default function Templates() {
 
             <div ref={filterIconRef} className={Style.FilterWrapper}>
               <FilterAltOutlinedIcon
-                className={`${Style.iconFilterDropdownTemplate} ${
-                  categoryTemplateFilter ? Style.activeFilter : ""
-                }`}
+                className={`${Style.iconFilterDropdownTemplate} ${categoryTemplateFilter ? Style.activeFilter : ""
+                  }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpenCategoryDropdown((prev) => !prev);
@@ -189,9 +208,8 @@ export default function Templates() {
               {openCategoryDropdown && (
                 <div ref={dropdownRef} className={Style.CategoryDropdown}>
                   <button
-                    className={`${Style.CategoryOption} ${
-                      categoryTemplateFilter === null ? Style.activeOption : ""
-                    }`}
+                    className={`${Style.CategoryOption} ${categoryTemplateFilter === null ? Style.activeOption : ""
+                      }`}
                     onClick={() => {
                       setCategoryTemplateFilter(null);
                       setOpenCategoryDropdown(false);
@@ -203,11 +221,10 @@ export default function Templates() {
                   {categories.map((category) => (
                     <button
                       key={category}
-                      className={`${Style.CategoryOption} ${
-                        categoryTemplateFilter === category
+                      className={`${Style.CategoryOption} ${categoryTemplateFilter === category
                           ? Style.activeOption
                           : ""
-                      }`}
+                        }`}
                       onClick={() => {
                         setCategoryTemplateFilter(category);
                         setOpenCategoryDropdown(false);
@@ -281,6 +298,7 @@ export default function Templates() {
               variant: "danger",
               onClick: () => {
                 if (!templateToDelete) return;
+                handleDelete(templateToDelete.id),
 
                 setLoadingDelete(true);
 
