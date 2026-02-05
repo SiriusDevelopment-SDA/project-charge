@@ -29,8 +29,8 @@ export class ControllerTemplates {
     return this.appService.getRelatoriesDispatchTemplate(searchDto);
   }
 
-  @Delete('delete/template')
+  @Post('delete/template')
   disableTemplate(@Body() deleteTemplateDto: DeleteTemplateDto) {
-    return this.appService.disableTemplate(deleteTemplateDto.id);
+    return this.appService.disableTemplate(deleteTemplateDto.templateId);
   }
 }

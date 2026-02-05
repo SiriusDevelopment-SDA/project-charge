@@ -1,42 +1,61 @@
-import { useNavigate } from "react-router-dom"; // Importando o hook useNavigate para navegação
-import { useEffect, useRef, useState, useMemo } from "react"; // Hooks
-import { Pagination } from "../../componente/global/Pagination/Pagination"; // Componente de Paginação
-import { PageContainer, TitlePage, MyButton, InputFields } from "../../componente/Index"; // Componentes
-import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates"; // Componentes de gráficos
-import { CardTemplates } from "../../componente/Card/CardTemplates"; // Cards de templates
-import { useTemplate } from "../../hooks"; // Hook de templates
-import { toast } from "react-toastify"; // Notificação de sucesso
-import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined"; // Ícone de filtro
-import DynamicModal from "../../componente/modal/modalAlertTemplate"; // Modal para exclusão
-import Style from "./Styles/TemplatesMeta.module.css"; // Estilos do componente
-import type { Template } from "../../types"; // Tipo de template
+import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState, useMemo, useContext } from "react";
+import { toast } from "react-toastify";
+
+/* =========================
+   COMPONENTES
+========================= */
+import { Pagination } from "../../componente/global/Pagination/Pagination";
+import {
+  PageContainer,
+  TitlePage,
+  MyButton,
+  InputFields,
+} from "../../componente/Index";
+import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates";
+import { CardTemplates } from "../../componente/Card/CardTemplates";
+import DynamicModal from "../../componente/modal/modalAlertTemplate";
+
+/* =========================
+   HOOKS / CONTEXT
+========================= */
+import { useTemplate } from "../../hooks";
+import { TemplateContext } from "../../context/contextTemplates";
+
+/* =========================
+   TYPES / STYLES
+========================= */
+import type { Template } from "../../types";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import Style from "./Styles/TemplatesMeta.module.css";
 
 /* =========================
    COMPONENTE
 ========================= */
-export default function Templates() {
-  const navigate = useNavigate(); // Inicializando o hook useNavigate
-  const { templates } = useTemplate(); // Hook para pegar templates
+export default function TemplatesMeta() {
+  const navigate = useNavigate();
+  const { templates } = useTemplate();
+  const { deleteTemplate } = useContext(TemplateContext);
 
   /* =========================
      STATES
   ========================= */
   const [page, setPage] = useState(1);
   const [openTemplateId, setOpenTemplateId] = useState<string | null>(null);
-  const [searchTemplateName, setSearchTemplateName] = useState(""); // Para filtrar pelo nome do template
-  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null); // Para filtro de categoria
-  const [openDeleteModal, setOpenDeleteModal] = useState(false); // Modal de exclusão
-  const [loadingDelete, setLoadingDelete] = useState(false); // Estado de carregamento durante a exclusão
-  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false); // Controle do dropdown de categorias
-  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null); // Template a ser deletado
-  const [deletedTemplates, setDeletedTemplates] = useState<string[]>([]); // Templates deletados
+  const [searchTemplateName, setSearchTemplateName] = useState("");
+  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
 
-  // Refs para o dropdown
+  const LIMIT = 8;
+
+  /* =========================
+     REFS
+  ========================= */
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const filterIconRef = useRef<HTMLDivElement | null>(null);
-
-  // Limite de templates por página
-  const LIMIT = 8;
 
   /* =========================
      FECHAR DROPDOWN AO CLICAR FORA
@@ -44,7 +63,13 @@ export default function Templates() {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
-      if (openCategoryDropdown && dropdownRef.current && !dropdownRef.current.contains(target) && filterIconRef.current && !filterIconRef.current.contains(target)) {
+      if (
+        openCategoryDropdown &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        filterIconRef.current &&
+        !filterIconRef.current.contains(target)
+      ) {
         setOpenCategoryDropdown(false);
       }
     }
@@ -69,33 +94,32 @@ export default function Templates() {
   );
 
   /* =========================
-     FILTROS
+     FILTRO DE TEMPLATES
   ========================= */
   const filteredTemplates = useMemo(() => {
     return templates.filter((template) => {
-      const matchName = template.name.toLowerCase().includes(searchTemplateName.toLowerCase());
-      const matchCategory = !categoryTemplateFilter || template.category === categoryTemplateFilter;
-      const notDeleted = !deletedTemplates.includes(template.id);
+      const matchName = template.name
+        .toLowerCase()
+        .includes(searchTemplateName.toLowerCase());
 
-      return matchName && matchCategory && notDeleted;
+      const matchCategory =
+        !categoryTemplateFilter ||
+        template.category === categoryTemplateFilter;
+
+      return matchName && matchCategory;
     });
-  }, [templates, searchTemplateName, categoryTemplateFilter, deletedTemplates]);
+  }, [templates, searchTemplateName, categoryTemplateFilter]);
 
   /* =========================
-     GARANTIR PAGE VÁLIDA
+     PAGINAÇÃO
   ========================= */
   const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / LIMIT));
-
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-    if (page < 1) setPage(1);
-  }, [page, totalPages]);
-
-  /* =========================
-     PAGINAÇÃO REAL
-  ========================= */
   const startIndex = (page - 1) * LIMIT;
-  const paginatedTemplates = filteredTemplates.slice(startIndex, startIndex + LIMIT);
+  const paginatedTemplates = filteredTemplates.slice(
+    startIndex,
+    startIndex + LIMIT
+  );
+
   /* =========================
      HANDLERS
   ========================= */
@@ -103,22 +127,45 @@ export default function Templates() {
     setOpenTemplateId((prev) => (prev === templateId ? null : templateId));
   }
 
+  async function handleDelete(templateId: string) {
+    try {
+      setLoadingDelete(true);
+      const result = await deleteTemplate(templateId);
+
+      if (result.success) {
+        toast.success("Template deletado com sucesso!");
+        setOpenDeleteModal(false);
+        setTemplateToDelete(null);
+      } else {
+        toast.error("Erro ao deletar template");
+      }
+    } catch {
+      toast.error("Erro inesperado ao deletar template");
+    } finally {
+      setLoadingDelete(false);
+    }
+  }
+
   /* =========================
      DADOS DO GRÁFICO
   ========================= */
   const graphData = Object.values(
-    templates.reduce<Record<string, { id: number; nome: string; quantidade: number }>>((acc, template, index) => {
-      const category = template.category || "Outros";
-      if (!acc[category]) {
-        acc[category] = { id: index + 1, nome: category, quantidade: 0 };
-      }
-      acc[category].quantidade += 1;
-      return acc;
-    }, {})
+    templates.reduce<Record<string, { id: number; nome: string; quantidade: number }>>(
+      (acc, template, index) => {
+        const category = template.category || "Outros";
+        if (!acc[category]) {
+          acc[category] = { id: index + 1, nome: category, quantidade: 0 };
+        }
+        acc[category].quantidade += 1;
+        return acc;
+      },
+      {}
+    )
   );
 
-
-
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <PageContainer className={Style.TemplatesContainer}>
       {/* TOPO */}
@@ -131,11 +178,12 @@ export default function Templates() {
       <div className={Style.ContainerSubMenu}>
         <div className={Style.ContainerFiltro}>
           <MyButton
-            text="Criar Template" // Texto do botão
-            variant="secondary" // Estilo do botão
-            className={Style.BtnCriarTemplate} // Estilo customizado
-              onClick={() => navigate("/CreateTemplate")}
+            text="Criar Template"
+            variant="secondary"
+            className={Style.BtnCriarTemplate}
+            onClick={() => navigate("/CreateTemplate")}
           />
+
           <div className={Style.ContainerFiltros}>
             <InputFields
               className={Style.InputFiltro}
@@ -144,19 +192,24 @@ export default function Templates() {
               onChange={(e) => setSearchTemplateName(e.target.value)}
             />
 
-            {/* Filtro de categoria */}
+            {/* FILTRO DE CATEGORIA */}
             <div ref={filterIconRef} className={Style.FilterWrapper}>
               <FilterAltOutlinedIcon
-                className={`${Style.iconFilterDropdownTemplate} ${categoryTemplateFilter ? Style.activeFilter : ""}`}
+                className={`${Style.iconFilterDropdownTemplate} ${
+                  categoryTemplateFilter ? Style.activeFilter : ""
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpenCategoryDropdown((prev) => !prev);
                 }}
               />
+
               {openCategoryDropdown && (
                 <div ref={dropdownRef} className={Style.CategoryDropdown}>
                   <button
-                    className={`${Style.CategoryOption} ${categoryTemplateFilter === null ? Style.activeOption : ""}`}
+                    className={`${Style.CategoryOption} ${
+                      categoryTemplateFilter === null ? Style.activeOption : ""
+                    }`}
                     onClick={() => {
                       setCategoryTemplateFilter(null);
                       setOpenCategoryDropdown(false);
@@ -164,10 +217,13 @@ export default function Templates() {
                   >
                     Todas
                   </button>
+
                   {categories.map((category) => (
                     <button
                       key={category}
-                      className={`${Style.CategoryOption} ${categoryTemplateFilter === category ? Style.activeOption : ""}`}
+                      className={`${Style.CategoryOption} ${
+                        categoryTemplateFilter === category ? Style.activeOption : ""
+                      }`}
                       onClick={() => {
                         setCategoryTemplateFilter(category);
                         setOpenCategoryDropdown(false);
@@ -241,16 +297,7 @@ export default function Templates() {
               variant: "danger",
               onClick: () => {
                 if (!templateToDelete) return;
-                setLoadingDelete(true);
-                setTimeout(() => {
-                  setDeletedTemplates((prev) =>
-                    prev.includes(templateToDelete.id) ? prev : [...prev, templateToDelete.id]
-                  );
-                  toast.success("Template excluído com sucesso!");
-                  setOpenDeleteModal(false);
-                  setTemplateToDelete(null);
-                  setLoadingDelete(false);
-                }, 200);
+                handleDelete(templateToDelete.id);
               },
             },
           ]}
