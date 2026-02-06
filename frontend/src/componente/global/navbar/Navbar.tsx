@@ -40,9 +40,13 @@ export function Navbar() {
         </NavLink>
 
         <NavLink
-          to="/templates"
-          className={({ isActive }) => (isActive ? styles.active : '')}
-          // onClick={(e) => e.preventDefault()}
+            to="/Templates"
+          className={() =>
+            location.pathname === "/Templates" ||
+            location.pathname.startsWith("/CreateTemplate")
+              ? styles.active
+              : ''
+          }
         >
           Templates
         </NavLink>
