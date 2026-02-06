@@ -121,7 +121,7 @@ export interface ITemplatesContext {
   page: number;
 }
 export interface IDispatchTemplateContext {
-  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
+  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[] >>;
   setSelectedLeads: React.Dispatch<SetStateAction<Lead[]>>;
   setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
   selectedClientes: Cliente[];
