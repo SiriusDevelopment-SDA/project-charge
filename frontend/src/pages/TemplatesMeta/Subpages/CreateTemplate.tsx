@@ -20,6 +20,7 @@ import {
   PreviewBox,
   MyButton,
 } from "../../../componente/Index";
+import { useNavigate } from "react-router-dom";
 
 //Dados mockados
 
@@ -50,7 +51,7 @@ const varOptions = [
 //Mock chamada para ação
 const ctaOptions = [
   { id: "Pix", name: "Pagar agora" },
-  { id: "Pdf", name: "Copy offer code" },
+  { id: "Pdf", name: "Copiar código" },
   { id: "Link", name: "Ver todas opções" },
 ];
 
@@ -71,6 +72,7 @@ export default function CreateTemplate() {
   const [rodape, setRodape] = useState("");
   const [variablesMap, setVariablesMap] = useState<Record<string, string>>({});
   const isMediaNone = media?.id === "Nenhum" || media === null;
+  const navigate = useNavigate();
 
   if (!isMediaNone && header) setHeader("");
   {
@@ -187,66 +189,85 @@ export default function CreateTemplate() {
           )}
 
           {/*corpo*/}
-          
-            <TemplateBody
-              containerClassName={Style.bordaformGroup}
-              textareaClassName={Style.textarea}
-              labelClassName={Style.Titulosinputs}
-              corpo={corpo}
-              setCorpo={setCorpo}
-              varsSelected={varsSelected}
-              setVarsSelected={setVarsSelected}
-              varOptions={varOptions}
-              varOpen={varOpen}
-              onOpen={() => setVarOpen(true)}
-              onClose={() => setVarOpen(false)}
-              setVariablesMap={setVariablesMap}
-            />
 
-            {/* Cabeçalho e Rodapé */}
-            <div className={Style.row2}>
-              {/* Cabeçalho */}
-              <div className={Style.formGroup}>
-                <label>Cabeçalho (Opcional)</label>
-                <InputFields
-                  maxLength={60}
-                  className={Style.containerI1}
-                  value={header}
-                  onChange={(e: any) => setHeader(e.target.value)}
-                  disabled={!isMediaNone}
-                  placeholder={
-                    isMediaNone
-                      ? "Digite o cabeçalho"
-                      : "Selecione (Nenhum) para usar cabeçalho"
-                  }
-                />
-              </div>
+          <TemplateBody
+            containerClassName={Style.bordaformGroup}
+            textareaClassName={Style.textarea}
+            labelClassName={Style.Titulosinputs}
+            corpo={corpo}
+            setCorpo={setCorpo}
+            varsSelected={varsSelected}
+            setVarsSelected={setVarsSelected}
+            varOptions={varOptions}
+            varOpen={varOpen}
+            onOpen={() => setVarOpen(true)}
+            onClose={() => setVarOpen(false)}
+            setVariablesMap={setVariablesMap}
+          />
 
-              {/* Rodapé */}
-              <div className={Style.formGroup}>
-                <label>Rodapé (Opcional)</label>
-                <InputFields
-                  maxLength={60}
-                  className={Style.containerI1}
-                  value={rodape}
-                  onChange={(e: any) => setRodape(e.target.value)}
-                />
-              </div>
+          {/* Cabeçalho e Rodapé */}
+          <div className={Style.row2}>
+            {/* Cabeçalho */}
+            <div className={Style.formGroup}>
+              <label>Cabeçalho (Opcional)</label>
+              <InputFields
+                maxLength={60}
+                className={Style.containerI1}
+                value={header}
+                onChange={(e: any) => setHeader(e.target.value)}
+                disabled={!isMediaNone}
+                placeholder={
+                  isMediaNone
+                    ? "Digite o cabeçalho"
+                    : "Selecione (Nenhum) para usar cabeçalho"
+                }
+              />
             </div>
-          
+
+            {/* Rodapé */}
+            <div className={Style.formGroup}>
+              <label>Rodapé (Opcional)</label>
+              <InputFields
+                maxLength={60}
+                className={Style.containerI1}
+                value={rodape}
+                onChange={(e: any) => setRodape(e.target.value)}
+              />
+            </div>
+          </div>
 
           {/* Chamada para ação */}
-          <div className={Style.formGroupChamada}>
-            <Dropdown
-              label="Chamada para ação (Opcional)"
-              options={ctaOptions}
-              selected={ctas}
-              multiple
-              open={ctaOpen}
-              onOpen={() => setCtaOpen(true)}
-              onClose={() => setCtaOpen(false)}
-              onChange={(vals) => setCtas(vals as any[])}
-            />
+
+          <div className={Style.rowCta}>
+            <div className={Style.formGroupChamada}>
+              <Dropdown
+                label="Chamada para ação (Opcional)"
+                options={ctaOptions}
+                selected={ctas}
+                multiple
+                open={ctaOpen}
+                onOpen={() => setCtaOpen(true)}
+                onClose={() => setCtaOpen(false)}
+                onChange={(vals) => setCtas(vals as any[])}
+              />
+            </div>
+
+            <div className={Style.actions}>
+              <MyButton
+                text="Voltar"
+                className={Style.btnCancel}
+                onClick={() => navigate("/templates")}
+              />
+              <MyButton
+                text="Salvar"
+                className={Style.btnSave}
+                onClick={() =>
+                  toast.success(
+                    "Template criado com sucesso! Aguardando a validação do META, verifique o status na aba templates",
+                  )
+                }
+              />
+            </div>
           </div>
         </div>
 
@@ -255,7 +276,7 @@ export default function CreateTemplate() {
         <div className={Style.sideColumn}>
           <div className={Style.previewCard1}>
             <PreviewBox classname={Style.conteudoTitle}>
-              {whatsappPreview}   
+              {whatsappPreview}
             </PreviewBox>
           </div>
 
@@ -264,19 +285,6 @@ export default function CreateTemplate() {
             variablesMap={variablesMap}
             setVariablesMap={setVariablesMap}
           />
-
-          <div className={Style.actions}>
-            <MyButton text="Voltar" className={Style.btnCancel} />
-            <MyButton
-              text="Salvar"
-              className={Style.btnSave}
-              onClick={() =>
-                toast.success(
-                  "Template criado com sucesso! Aguardando a validação do META, verifique o status na aba templates",
-                )
-              }
-            />
-          </div>
         </div>
       </div>
     </PageContainer>

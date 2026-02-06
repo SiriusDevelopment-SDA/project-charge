@@ -2,8 +2,8 @@
 .CreateTemplateTitle {
   color: #ffffff;
   text-align: center;
-  margin-bottom: 10px;
-  margin-top: 20px;
+  margin-bottom: 30px;
+  margin-top: 10px;
 }
 
 /* CONTAINER PRINCIPAL */
@@ -12,13 +12,18 @@
   overflow-y: auto;
 }
 
+.contentGrid {
+  align-items: start; 
+}
+
 /* Grid geral (form + coluna direita) */
 .contentGrid {
   display: grid;
-  grid-template-columns: 2.2fr 1fr;
+  grid-template-columns: 3fr 1fr;
   gap: 35px;
   max-width: 100%;
-  padding: 19.89px;  
+  margin-top: 10px;
+  align-items: start;
 }
 
 /* CARD ESQUERDO — FORMULÁRIO */
@@ -135,13 +140,35 @@ label.Titulosinputs {
 
 /* CHAMADA PARA AÇÃO */
 .formGroupChamada {
-  margin-top: 25px;
   position: relative;
   overflow: visible;
+  width: 70%;
+}
+
+.rowCta {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  width: 100%;
+}
+
+.formGroupChamada {
+  flex: 1; 
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  white-space: nowrap; 
+margin-bottom: 7px;
 }
 
 /* COLUNA DIREITA */
 .sideColumn {
+  position: sticky;
+  top: 20px; /* distância do topo */
+  align-self: start;
+
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -234,6 +261,11 @@ label.Titulosinputs {
   padding: 15px;
 }
 
+.previewText {
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+} 
+
 .variablesTitle {
   color: #ffffff;
   text-align: center;
@@ -255,13 +287,7 @@ label.Titulosinputs {
   font-size: 15px;
 }
 
-/* BOTÕES DE AÇÃO (FINAL DA PÁGINA) */
-.actions {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin-top: 30px;
-}
+
 
 .btnCancel {
   background: #dc2626;
