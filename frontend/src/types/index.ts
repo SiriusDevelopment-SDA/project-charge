@@ -133,7 +133,7 @@ export interface ITemplatesContext {
   deleteTemplate: (id: string) => Promise<{ success: boolean; error?: any }>;
 }
 export interface IDispatchTemplateContext {
-  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
+  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[] >>;
   setSelectedLeads: React.Dispatch<SetStateAction<Lead[]>>;
   setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
   selectedClientes: Cliente[];
