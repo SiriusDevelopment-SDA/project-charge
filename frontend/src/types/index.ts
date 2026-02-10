@@ -27,6 +27,7 @@ export type PaginationProps = {
 };
 
 export type Template = {
+  [x: string]: unknown;
   id: string;
   name: string;
   message: string;
@@ -37,6 +38,15 @@ export type Template = {
   createdAt: Date;
   updatedAt: Date;
   variables: Record<string, string>;
+  isEnabled: boolean;
+};
+
+export type PropsCardTemplates = {
+  template: Template;
+  isOpen: boolean;
+  onToggle: (id: string) => void;
+  setOpenModal: React.Dispatch<React.SetStateAction<boolean>>;
+  onDelete: (template: Template) => void
 };
 
 export type propTemplate = {
@@ -102,6 +112,7 @@ export type responseClients = {
   total: number;
 }
 export type responseTemplate = {
+  filter(arg0: (template: { isEnabled: any; }) => any): unknown;
   data: Template[];
   limit: number;
   page: number;
@@ -128,6 +139,7 @@ export interface ITemplatesContext {
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
   page: number;
+  deleteTemplate: (id: string) => Promise<{ success: boolean; error?: any }>;
 }
 export interface IDispatchTemplateContext {
   setSelectedClientes: React.Dispatch<SetStateAction<Cliente[] >>;
@@ -176,6 +188,10 @@ export interface IHistoricoContext {
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
 }
+export type propAmostras={
+    variablesMap: Record<string, string>
+    setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>
+}
 export type TemplateParameter = {
   type: "text" | "currency" | "date_time" | "image" | "document"
   text: string;
@@ -209,8 +225,10 @@ export type mappedVars = {
   link_boleto_pdf?: string;
   mensagem?: string;
   cnpj_cpf?: string;
+
 };
 export type UploadButtonProps = {
   onUpload: (file: File, rows?: Record<string, string>[]) => void;
   disabled?: boolean;
+  className?: string;
 };

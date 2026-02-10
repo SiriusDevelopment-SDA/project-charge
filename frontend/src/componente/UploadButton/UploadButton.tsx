@@ -4,7 +4,7 @@ import type { UploadButtonProps } from "../../types";
 import { useState } from "react";
 
 
-export function UploadButton({ onUpload, disabled }: UploadButtonProps) {
+export function UploadButton({ onUpload, disabled, className }: UploadButtonProps) {
     const [loading, setLoading] = useState(false);
     async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
         try {
@@ -22,6 +22,7 @@ export function UploadButton({ onUpload, disabled }: UploadButtonProps) {
             variant="outlined"
             component="label"
             startIcon={loading ? <CircularProgress size={18} /> : <CloudUploadIcon />}
+            className={className}
             sx={{
                 backgroundColor: "#967d0fdd",
                 border: "1px solid rgba(255, 204, 0, 0.4)",
