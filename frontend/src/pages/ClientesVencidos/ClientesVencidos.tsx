@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
 
@@ -23,6 +23,8 @@ import {
 } from "../../componente/Index";
 import { Pagination } from "../../componente/global/Pagination/Pagination";
 import RangeSlider from "../../componente/Slider/RangeSlider";
+import DynamicModal from "../../componente/modal/modalAlertTemplate";
+import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard";
 
 /* =========================
    HOOKS
@@ -35,13 +37,35 @@ import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 ========================= */
 import Style from "./Styles/ClientesVencidos.module.css";
 
+/* =========================
+   CONSTANTES
+========================= */
+const ITEMS_PER_PAGE = 8;
+
+const VAR_OPTIONS = [
+  { id: "1", name: "Plano 40MB" },
+  { id: "2", name: "Plano 80MB" },
+  { id: "3", name: "Plano 90MB" },
+  { id: "4", name: "Plano 100MB" },
+  { id: "5", name: "Plano 110MB" },
+  { id: "6", name: "Plano 120MB" },
+];
+
 export function ClientesVencidos() {
   /* =========================
-     ESTADOS LOCAIS
+     ESTADOS
   ========================= */
   const [varOpen, setVarOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<"clientes" | null>(null);
   const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
+
+  const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
+  const [openTemplateModal, setOpenTemplateModal] = useState(false);
+  const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
+
+  const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
+  const [modalPage, setModalPage] = useState(1);
+
 
   const [selectedVar] = useState<{
     id: string;
@@ -50,39 +74,32 @@ export function ClientesVencidos() {
   } | null>(null);
 
   /* =========================
-     DADOS FIXOS
-  ========================= */
-  const varOptions = [
-    { id: "1", name: "Plano 40MB" },
-    { id: "2", name: "Plano 80MB" },
-    { id: "3", name: "Plano 90MB" },
-    { id: "4", name: "Plano 100MB" },
-    { id: "5", name: "Plano 110MB" },
-    { id: "6", name: "Plano 120MB" },
-  ];
-
-  /* =========================
      CONTEXTOS
   ========================= */
   const {
     selectedClientes,
     setSelectedClientes,
     selectedTemplate,
+    setSelectedTemplate,
     modoPage,
   } = useDispatchTemplate();
 
   const { clients, setGroupInvoices } = useClient();
-  const { page, setPage } = useTemplate();
+  const { page, setPage, templates } = useTemplate();
 
   /* =========================
-     EFFECT
+     EFFECTS
   ========================= */
   useEffect(() => {
     setGroupInvoices(selectedClientes.length > 0);
   }, [selectedClientes, setGroupInvoices]);
 
+  useEffect(() => {
+    if (openTemplateModal) setModalPage(1);
+  }, [openTemplateModal]);
+
   /* =========================
-     AÇÕES
+     HANDLERS
   ========================= */
   function toggleCliente(clienteId: string) {
     setClientesMarcados((prev) =>
@@ -97,9 +114,28 @@ export function ClientesVencidos() {
       toast.warning("Nenhum cliente para selecionar");
       return;
     }
+
     setClientesMarcados(selectedClientes.map((c) => c.id));
     toast.success("Todos os clientes foram selecionados!");
   }
+
+  function handleProsseguir() {
+    setOpenProsseguirModal(true);
+  }
+  /* =========================
+     PAGINAÇÃO MODAL
+  ========================= */
+  const totalModalPages = Math.max(
+    1,
+    Math.ceil(templates.length / ITEMS_PER_PAGE)
+  );
+
+  const paginatedTemplates = useMemo(() => {
+    return templates.slice(
+      (modalPage - 1) * ITEMS_PER_PAGE,
+      modalPage * ITEMS_PER_PAGE
+    );
+  }, [templates, modalPage]);
 
   /* =========================
      RENDER
@@ -109,32 +145,27 @@ export function ClientesVencidos() {
       <TitlePage title="Clientes Vencidos" />
 
       <div className={Style.contentPanel}>
-        {/* =========================
-           FILTROS + MÉTRICAS
-        ========================= */}
+        {/* ================= FILTROS ================= */}
         <div className={Style.filterPanel}>
-          {/* FILTROS */}
           <div className={Style.filterLeft}>
             <div className={Style.ContainerForm}>
-              <div className={Style.ContainerText}>
-                <h2>
-                  <Funnel className={Style.IconFunil} /> Filtros
-                </h2>
-              </div>
+              <h2 className={Style.ContainerText}>
+                <Funnel className={Style.IconFunil} /> Filtros
+              </h2>
 
               <div className={Style.filtersGrid}>
-                <RangeSlider/>
+                <RangeSlider />
 
                 <InputFields
                   className={Style.InputDividas}
                   type="number"
-                  label="R$ Valor minimo da  Dívida"
+                  label="R$ Valor mínimo da Dívida"
                 />
 
                 <Dropdown
                   className={Style.DropdownPlanos}
                   label="Planos por Clientes"
-                  options={varOptions}
+                  options={VAR_OPTIONS}
                   value={selectedVar}
                   open={varOpen}
                   onOpen={() => setVarOpen(true)}
@@ -150,13 +181,11 @@ export function ClientesVencidos() {
                     multiple
                     selected={selectedClientes}
                     onChange={(v) => {
-                      const novosClientes = v as Cliente[];
-
-                      const clientesValidos = novosClientes.filter((cliente) =>
-                        validarSelecaoCliente(cliente, selectedTemplate!)
+                      const clientesValidos = (v as Cliente[]).filter(
+                        (cliente) =>
+                          validarSelecaoCliente(cliente, selectedTemplate!)
                       );
-
-                      setSelectedClientes([...clientesValidos]);
+                      setSelectedClientes(clientesValidos);
                     }}
                     open={openDropdown === "clientes"}
                     onOpen={() => setOpenDropdown("clientes")}
@@ -169,7 +198,7 @@ export function ClientesVencidos() {
             </div>
           </div>
 
-          {/* MÉTRICA */}
+          {/* ================= MÉTRICAS ================= */}
           <div className={Style.filterRight}>
             <BaseCard classname={Style.cardMetricas}>
               <Metricas
@@ -181,26 +210,28 @@ export function ClientesVencidos() {
                 valor={String(selectedClientes.length)}
                 classname={Style.contentMetricas}
               />
-
             </BaseCard>
           </div>
         </div>
 
-        {/* =========================
-           AÇÕES
-        ========================= */}
+        {/* ================= AÇÕES ================= */}
         <div className={Style.submenuActions}>
           <MyButton
+            type="button"
             variant="btn-norm"
             text="Selecionar todos"
             onClick={marcarTodos}
           />
-          <MyButton variant="btn-norm" text="Prosseguir" />
+
+          <MyButton
+            type="button"
+            variant="btn-norm"
+            text="Prosseguir"
+            onClick={handleProsseguir}
+          />
         </div>
 
-        {/* =========================
-           CARDS
-        ========================= */}
+        {/* ================= CARDS ================= */}
         <div className={Style.Cards}>
           {!selectedClientes.length ? (
             <span className={Style.empty}>Nenhum cliente selecionado</span>
@@ -216,16 +247,122 @@ export function ClientesVencidos() {
           )}
         </div>
 
-        {/* =========================
-           MODAL DE 3 OPÇÕES
-        ========================= */}
-        <div className={Style.ModalOpcoes}>
-          
-        </div>
+        {/* ================= MODAL OPÇÕES ================= */}
+        {openProsseguirModal && (
+          <DynamicModal
+            open
+            type="modaltemplates"
+            title="Escolha uma opção:"
+            description={
+              <>
+                Você selecionou <b>{clientesMarcados.length}</b> clientes.
+              </>
+            }
+            onClose={() => setOpenProsseguirModal(false)}
+            buttons={[
+              {
+                label: "Fazer disparo ativo",
+                variant: "BtnOpcoes",
+                onClick: () => {
+                  setOpenProsseguirModal(false);
+                  setOpenTemplateModal(true);
+                },
+              },
+              {
+                label: "Selecionar uma campanha",
+                variant: "BtnOpcoes",
+                onClick: () => setOpenProsseguirModal(false),
+              },
+              {
+                label: "Criar campanha",
+                variant: "BtnOpcoes",
+                onClick: () => setOpenProsseguirModal(false),
+              },
+            ]}
+          />
+        )}
 
-        {/* =========================
-           PAGINAÇÃO
-        ========================= */}
+
+        {/* ================= MODAL TEMPLATES ================= */}
+        {openTemplateModal && (
+          <DynamicModal
+            open
+            type="modaltemplates"
+            title="SELECIONE O TEMPLATE"
+            description={
+              <div className={Style.modalTemplatesContent}>
+                <div className={Style.listaTemplates}>
+                  {paginatedTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className={Style.templateWrapper}
+                      onClick={() => {
+                        setTemplateSelecionado(template);
+                        setOpenConfirmTemplateModal(true);
+                      }}
+                    >
+                      <TemplateBalloonCard
+                        title={template.name}
+                        message={template.message}
+                        category={template.category}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {templates.length > ITEMS_PER_PAGE && (
+                  <Pagination
+                    className={Style.Pagination}
+                    page={modalPage}
+                    onPrev={() => setModalPage((p) => Math.max(p - 1, 1))}
+                    onNext={() =>
+                      setModalPage((p) => Math.min(p + 1, totalModalPages))
+                    }
+                    disablePrev={modalPage === 1}
+                    disableNext={modalPage === totalModalPages}
+                  />
+                )}
+              </div>
+            }
+            onClose={() => setOpenTemplateModal(false)}
+            buttons={[]}
+          />
+        )}
+
+
+        {/* MODAL DE CONFIRMAÇÃO */}
+        {openConfirmTemplateModal && (
+          <DynamicModal
+            open
+            type="warning"
+            title="Confirmar template"
+            description={
+              <>
+                Deseja utilizar este template para o disparo?
+                <br />
+                <strong>{templateSelecionado?.name}</strong>
+              </>
+            }
+            onClose={() => setOpenConfirmTemplateModal(false)}
+            buttons={[
+              {
+                label: "Sim",
+                variant: "success",
+                onClick: () => {
+                  setSelectedTemplate(templateSelecionado);
+                  setOpenConfirmTemplateModal(false);
+                  setOpenTemplateModal(false);
+                },
+              },
+              {
+                label: "Não",
+                variant: "danger",
+                onClick: () => setOpenConfirmTemplateModal(false),
+              },
+            ]}
+          />
+        )}
+        {/* ================= PAGINAÇÃO PRINCIPAL ================= */}
         <Pagination
           className={Style.Pagination}
           page={page}
