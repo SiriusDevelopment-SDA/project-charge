@@ -57,7 +57,7 @@ export class TemplateParameterDto {
     @IsOptional()
     @IsString()
     text?: string;
-  
+    
     [key: string]: any;
 }
   
