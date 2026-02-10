@@ -42,7 +42,23 @@
 }
 
 .modal-info {
-  background: linear-gradient(180deg, #1e40af, #1e3a8a);
+  background: #ffd50054;
+  height: 80%;
+  width: 90%;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.modal-modaltemplates {
+  background: #ffd5005b;
+  height: 90%;
+  width: 80%;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 /* ÍCONE */
@@ -56,6 +72,8 @@
   justify-content: center;
   font-weight: bold;
 }
+
+
 
 
 .icon-success {
@@ -113,3 +131,19 @@
 .btn-primary {
   background: #2563eb;
 }
+
+
+.btn-BtnOpcoes {
+  background: transparent;
+  border: 1px solid #ffd400;
+  color: #ffd400;
+  box-shadow: none;
+  border-radius: 5px;
+  width: 250px;
+  height: 150px;
+}
+
+.btn-BtnOpcoes:hover {
+  background: rgb(170, 142, 2);
+}
+
