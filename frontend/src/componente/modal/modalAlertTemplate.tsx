@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./styleModal.module.css";
 
-export type ModalType = "success" | "warning" | "error" | "info";
+export type ModalType = "success" | "warning" | "error" | "info" | "modaltemplates";
 
 export type ModalButton = {
   label: string;
-  variant?: "success" | "danger" | "primary";
+  variant?: "success" | "danger" | "primary" | "BtnOpcoes";
   onClick: () => void;
 };
 
@@ -45,6 +45,7 @@ export default function DynamicModal({
           {type === "warning" && "!"}
           {type === "error" && "✕"}
           {type === "info" && "i"}
+          {type === "modaltemplates" && ""}
         </div>
 
         <h2 className={styles.modalTitle}>{title}</h2>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Cliente } from "../../types";
 import { Checkbox } from "../Checkbox/Checkbox";
 import Styles from "./ClientesCard.module.css";
@@ -7,15 +8,6 @@ import {
   MessageSquareText,
   CircleDollarSign,
 } from "lucide-react";
-
-export type ClienteCard = {
-  id: string;
-  name: string;
-  telefone: string;
-  plano: string;
-  valor_divida: number;
-  dias_vencidos: number;
-};
 
 type Props = {
   cliente: Cliente;
@@ -28,45 +20,86 @@ export function ClientesCard({
   checked,
   onToggle,
 }: Props) {
-  console.log("teste",cliente)
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Fecha o balão ao clicar fora
+  useEffect(() => {
+    function handleClickOutside() {
+      setIsOpen(false);
+    }
+
+    if (isOpen) {
+      document.addEventListener("click", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [isOpen]);
+
   return (
     <div className={Styles.Cards}>
-      {/* CARD BASE */}
       <div className={Styles.card}>
-        <div className={Styles.header}>
-          <span className={Styles.title}>{cliente.name}</span>
+        {/* 🔥 Wrapper que libera overflow */}
+        <div className={Styles.cardContent}>
+          {/* HEADER */}
+          <div className={Styles.header}>
+            <span className={Styles.title}>{cliente.name}</span>
 
-          <span className={Styles.badge}>
-            {cliente.dias_vencidos} Dias Vencidos
-          </span>
+            <span className={Styles.badge}>
+              {cliente.dias_vencidos} Dias Vencidos
+            </span>
 
-          <div className={Styles.actions}>
-            <Checkbox
-              checked={checked}
-              onChange={onToggle}
-              name={`cliente-${cliente.id}`}
-              className="Checkbox"
-              
-            />
-            <CircleQuestionMark size={16} />
+            <div className={Styles.actions}>
+              <Checkbox
+                checked={checked}
+                onChange={onToggle}
+                name={`cliente-${cliente.id}`}
+                className="Checkbox"
+                onClick={(e) => e.stopPropagation()}
+              />
+
+              <div className={Styles.infoIcon}>
+                <CircleQuestionMark
+                  size={16}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsOpen((prev) => !prev);
+                  }}
+                />
+
+                {isOpen && (
+                  <div
+                    className={Styles.infoBalloon}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <strong>Campanhas ativas do cliente</strong>
+                    <div>
+                      <span>campanhas:</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className={Styles.MensageCopy}>
-          <p className={Styles.message}>
-            <Phone className={Styles.IconPhone} />
-            {cliente.whatsapp}
-          </p>
+          {/* CONTEÚDO */}
+          <div className={Styles.MensageCopy}>
+            <p className={Styles.message}>
+              <Phone className={Styles.IconPhone} />
+              {cliente.whatsapp}
+            </p>
 
-          <p className={Styles.message}>
-            <MessageSquareText className={Styles.IconMessage} />
-            {cliente.plano}
-          </p>
+            <p className={Styles.message}>
+              <MessageSquareText className={Styles.IconMessage} />
+              {cliente.plano}
+            </p>
 
-          <p className={Styles.message}>
-            <CircleDollarSign className={Styles.IconCircleDollar} />
-            R$ {cliente.valor_divida}
-          </p>
+            <p className={Styles.message}>
+              <CircleDollarSign className={Styles.IconCircleDollar} />
+              R$ {cliente.valor_divida}
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -7,6 +7,15 @@ export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 };
 
 
+export type TemplateBalloonCardProps = {
+  title: string;
+  message: string;
+  category: string;
+  onUse?: () => void;
+  onDelete?: () => void;
+};
+
+
 
 export type PaginationProps = {
   className?: string;

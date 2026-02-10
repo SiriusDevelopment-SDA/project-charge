@@ -6,8 +6,6 @@ import {HistoricoDisparoPage} from "../pages/Historico/historico-disparo";
 import { ClientesVencidos } from "../pages/ClientesVencidos/ClientesVencidos";
 import CreateTemplate from "../pages/TemplatesMeta/Subpages/CreateTemplate";
 
-
-
 export default function AppRoutes() {
   return (
     <Routes>
@@ -15,7 +13,7 @@ export default function AppRoutes() {
       <Route path="/templates" element={<Templates />} />
       <Route path="/historico" element={<HistoricoDisparoPage />} />
       <Route path="/clientesVencidos" element={<ClientesVencidos/>} />
-      <Route path="/CreateTemplate" element={<CreateTemplate />} />
+      <Route path="/createTemplate" element={<CreateTemplate />} />
     </Routes>
   );
 }

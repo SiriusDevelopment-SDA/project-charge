@@ -303,6 +303,17 @@ export default function TemplatesMeta() {
           ]}
         />
       )}
+      {/* =========================
+         PAGINAÇÃO
+      ========================= */}
+      <Pagination
+        className={Style.Pagination}
+        page={page}
+        onPrev={() => setPage((p) => Math.max(p - 1, 1))}
+        onNext={() => setPage((p) => p + 1)}
+        disablePrev={page === 1}
+        disableNext={filteredTemplates.length < 4}
+      />
     </PageContainer>
   );
 }
