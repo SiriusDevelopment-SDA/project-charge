@@ -39,6 +39,21 @@ import Style from "./Styles/ClientesVencidos.module.css";
 
 /* =========================
    CONSTANTES
+========================= */
+const ITEMS_PER_PAGE = 8;
+
+const VAR_OPTIONS = [
+  { id: "1", name: "Plano 40MB" },
+  { id: "2", name: "Plano 80MB" },
+  { id: "3", name: "Plano 90MB" },
+  { id: "4", name: "Plano 100MB" },
+  { id: "5", name: "Plano 110MB" },
+  { id: "6", name: "Plano 120MB" },
+];
+
+export function ClientesVencidos() {
+  /* =========================
+     ESTADOS
   ========================= */
   const [varOpen, setVarOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<"clientes" | null>(null);
