@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 /* =========================
    TIPOS E UTILITÁRIOS
@@ -66,6 +67,7 @@ export function ClientesVencidos() {
   const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
   const [modalPage, setModalPage] = useState(1);
 
+  const navigate = useNavigate();
 
   const [selectedVar] = useState<{
     id: string;
@@ -276,7 +278,10 @@ export function ClientesVencidos() {
               {
                 label: "Criar campanha",
                 variant: "BtnOpcoes",
-                onClick: () => setOpenProsseguirModal(false),
+                onClick: () => {
+                  setOpenProsseguirModal(false);
+                  navigate("/criarcampanha");
+                },
               },
             ]}
           />
