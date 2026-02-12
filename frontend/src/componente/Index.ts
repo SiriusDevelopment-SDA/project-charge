@@ -11,4 +11,10 @@ import { TitlePage } from "./global/TitlePage/TitlePage"
 import { Navbar } from "./global/navbar/Navbar"
 import { TemplateBody } from "../componente/TemplateBody/TemplateBody";
 import AmostraVariaveis from "../componente/AmostraVariaveis/AmostraVariaveis";
-export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton,TemplateBody, AmostraVariaveis }
+
+// Graficos
+import GraficoCobranca from './GraficoCobrança/GraficoCobranca';
+import GraficoDisparo from './GraficoDisparo/GraficoDisparo';
+import GraficoRelatorio from './GraficoRelatorioDisparo/GraficoRelatorio';
+import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
+export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton,TemplateBody, AmostraVariaveis, GraficoCobranca, GraficoDisparo, GraficoRelatorio, GraficoCampanhas }

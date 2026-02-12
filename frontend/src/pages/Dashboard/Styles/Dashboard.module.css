@@ -1,0 +1,107 @@
+/* =========================
+   CONTAINER PRINCIPAL
+========================= */
+.DashboardContainer {
+    min-height: calc(100vh - 14vh) !important; /* Altura mínima da página descontando a navbar */
+    overflow-y: auto; /* Scroll vertical quando necessário */
+    padding: 20px; /* Espaçamento interno */
+}
+
+/* =========================
+   CONTAINER DOS CARDS DE MÉTRICAS
+========================= */
+.cardsContainer {
+    display: flex; /* Layout flexível */
+    flex-wrap: wrap; /* Permite quebra de linha */
+    gap: 20px; /* Espaçamento entre os cards */
+    justify-content: center; /* Centraliza os cards */
+    margin-top: 30px; /* Margem superior */
+}
+
+/* =========================
+   CARD DE MÉTRICAS
+========================= */
+.cardMetricas{
+  width: 400px; /* Largura fixa */
+  height: 120px; /* Altura fixa */
+  padding-top: 15px !important; /* Espaçamento superior interno */
+  background: #eab308 !important; /* Cor de fundo amarela */
+  border: 1px solid rgba(255, 215, 0, 0.35) !important; /* Borda amarela transparente */
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px !important; /* Sombra suave */
+
+  /* Título grande (valor numérico) */
+  h1{
+    font-size: 50px;
+    font-weight: 600;
+    color: #ffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10); /* Sombra no texto */
+  }
+  
+  /* Subtítulo (descrição da métrica) */
+  h3{
+    color: #ffff;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+}
+
+/* Conteúdo interno do card de métricas */
+.contentMetricas{
+  padding-left: 50px; /* Espaçamento à esquerda */
+}
+
+/* =========================
+   CONTAINER DOS GRÁFICOS
+========================= */
+.graficosContainer{
+    display: grid; /* Layout em grid */
+    grid-template-columns: repeat(2, 1fr); /* 2 colunas de tamanho igual */
+    gap: 30px; /* Espaçamento entre os gráficos */
+    margin-top: 30px; /* Margem superior */
+    max-width: 1800px; /* Largura máxima do grid */
+    margin-left: auto; /* Centralização horizontal */
+    margin-right: auto; /* Centralização horizontal */
+}
+
+/* =========================
+   GRÁFICOS INDIVIDUAIS
+========================= */
+.grafico1, .grafico2, .grafico3, .grafico4 {
+    display: flex; /* Layout flexível */
+    justify-content: center; /* Centraliza horizontalmente */
+    align-items: center; /* Centraliza verticalmente */
+    height: 550px; /* Altura fixa e igual para todos os gráficos */
+    overflow: visible; /* Evita corte de conteúdo */
+}
+
+/* =========================
+   RESPONSIVIDADE
+========================= */
+
+/* Telas menores que 1400px - Gráficos empilhados em coluna única */
+@media (max-width: 1400px) {
+    .graficosContainer {
+        grid-template-columns: 1fr; /* Uma coluna */
+        max-width: 900px; /* Largura máxima reduzida */
+    }
+}
+
+/* Telas menores que 768px - Mobile */
+@media (max-width: 768px) {
+    /* Cards empilhados verticalmente */
+    .cardsContainer {
+        flex-direction: column; /* Coluna */
+        align-items: center; /* Centraliza */
+    }
+    
+    /* Ajuste de largura dos cards em mobile */
+    .cardMetricas {
+        width: 100%; /* Largura total disponível */
+        max-width: 400px; /* Largura máxima mantida */
+    }
+    
+    /* Redução da altura dos gráficos em mobile */
+    .grafico1, .grafico2, .grafico3, .grafico4 {
+        height: 500px; /* Altura reduzida para mobile */
+    }
+}
