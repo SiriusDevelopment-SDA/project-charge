@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import S from "./StyleDropdown.module.css";
 
 export type DropdownProps<T> = {
@@ -19,6 +19,7 @@ export type DropdownProps<T> = {
   setSelectedCategory?: (cat: string | null) => void;
   isOptionDisabled?: (option: T) => boolean;
   children?: React.ReactNode;
+  searchable?: boolean;
 };
 
 export function Dropdown<T extends { id: string; name: string; category?: string }>({
@@ -33,20 +34,46 @@ export function Dropdown<T extends { id: string; name: string; category?: string
   onChange,
   className,
   children,
-  typeCategory
+  typeCategory,
+  searchable = false
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const hasValue = multiple
     ? selected && selected.length > 0
     : Boolean(value);
 
+  const filteredOptions = searchable 
+    ? options.filter(opt => 
+        opt.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : options;
+
   const selectedLabel = value?.name ?? "";
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        if (open) {
+          onClose();
+          if (!hasValue) setFocused(false);
+          setSearchTerm("");
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open, onClose, hasValue]);
 
   if (!open && !hasValue && focused)setTimeout(() => setFocused(false), 0);
   return (
-    <div className={`${S.wrapper} ${className ?? ""}`}>
+    <div className={`${S.wrapper} ${className ?? ""}`} ref={wrapperRef}>
       <div
         className={`${S.control} ${open ? S.activeBorder : ""}`}
         onClick={() => {
@@ -101,35 +128,53 @@ export function Dropdown<T extends { id: string; name: string; category?: string
           className={S.menu}
           onClick={(e) => e.stopPropagation()}
         >
-          {options.map(opt => (
-            <div
-              key={opt.id}
-          className={S.option}
-          onClick={(e) => {
-            e.stopPropagation();
-
-            if (multiple) {
-              const exists = selected?.some(s => s.id === opt.id);
-              const newList = exists
-                ? (selected ?? []).filter(s => s.id !== opt.id)
-                : [...(selected ?? []), opt];
-
-              onChange(newList);
-            } else {
-              onChange(opt);
-              onClose();
-              setFocused(false);
-            }
-          }}
-          title={"Cliente sem faturas em aberto"}
-            >
-              {typeCategory ? (
-                <span>{opt.category}</span>
-              ) : (
-                <span>{opt.name}</span>
-              )}
+          {searchable && (
+            <div className={S.searchContainer}>
+              <input
+                type="text"
+                className={S.searchInput}
+                placeholder="Pesquisar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+              />
             </div>
-          ))}
+          )}
+          {filteredOptions.length === 0 ? (
+            <div className={S.noResults}>Nenhum resultado encontrado</div>
+          ) : (
+            filteredOptions.map(opt => (
+              <div
+                key={opt.id}
+            className={S.option}
+            onClick={(e) => {
+              e.stopPropagation();
+
+              if (multiple) {
+                const exists = selected?.some(s => s.id === opt.id);
+                const newList = exists
+                  ? (selected ?? []).filter(s => s.id !== opt.id)
+                  : [...(selected ?? []), opt];
+
+                onChange(newList);
+              } else {
+                onChange(opt);
+                onClose();
+                setFocused(false);
+                setSearchTerm("");
+              }
+            }}
+            title={"Cliente sem faturas em aberto"}
+              >
+                {typeCategory ? (
+                  <span>{opt.category}</span>
+                ) : (
+                  <span>{opt.name}</span>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
