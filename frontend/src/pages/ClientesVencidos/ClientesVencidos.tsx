@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState, type SetStateAction } from "react";
 import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
 
@@ -7,6 +7,7 @@ import { Funnel } from "lucide-react";
 ========================= */
 import type { Cliente } from "../../types";
 import { validarSelecaoCliente } from "../../utils/validation";
+import { calcularDiasVencidos, maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
 
 /* =========================
    COMPONENTES
@@ -27,10 +28,11 @@ import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard";
 
 /* =========================
-   HOOKS
+   HOOKS/CONTEXT
 ========================= */
 import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
+import { ClientContext } from "../../context/contextClients";
 
 /* =========================
    STYLES
@@ -52,6 +54,7 @@ const VAR_OPTIONS = [
 ];
 
 export function ClientesVencidos() {
+
   /* =========================
      ESTADOS
   ========================= */
@@ -65,6 +68,7 @@ export function ClientesVencidos() {
 
   const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
   const [modalPage, setModalPage] = useState(1);
+  const [diasRegua, setDiasRegua] = useState(0);
 
 
   const [selectedVar] = useState<{
@@ -95,6 +99,10 @@ export function ClientesVencidos() {
   }, [selectedClientes, setGroupInvoices]);
 
   useEffect(() => {
+    setGroupInvoices(true);
+  }, [setGroupInvoices]);
+
+  useEffect(() => {
     if (openTemplateModal) setModalPage(1);
   }, [openTemplateModal]);
 
@@ -122,6 +130,41 @@ export function ClientesVencidos() {
   function handleProsseguir() {
     setOpenProsseguirModal(true);
   }
+
+  const clientesFiltrados = useMemo(() => {
+    if (diasRegua === 0) return [];
+
+    return clients.filter((client) => {
+      if (!client.invoices || client.invoices.length === 0) return false;
+
+      const maiorAtraso = maiorAtrasoCliente(client.invoices);
+
+      if (maiorAtraso <= 0) return false;
+
+      return maiorAtraso >= diasRegua;
+    });
+  }, [clients, diasRegua]);
+
+
+ useEffect(() => {
+  if (diasRegua > 0) {
+    setSelectedClientes(clientesFiltrados);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [diasRegua, clientesFiltrados]);
+
+useEffect(() => {
+  // Atualiza selectedClientes quando clients recebe as invoices
+  if (selectedClientes.length > 0) {
+    const clientesAtualizados = selectedClientes.map(selectedClient => {
+      const clientAtualizado = clients.find(c => c.id === selectedClient.id);
+      return clientAtualizado || selectedClient;
+    });
+    setSelectedClientes(clientesAtualizados);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [clients]);
+
   /* =========================
      PAGINAÇÃO MODAL
   ========================= */
@@ -154,7 +197,10 @@ export function ClientesVencidos() {
               </h2>
 
               <div className={Style.filtersGrid}>
-                <RangeSlider />
+                <RangeSlider
+                  value={diasRegua}
+                  onChange={(value: SetStateAction<number>) => setDiasRegua(value)}
+                />
 
                 <InputFields
                   className={Style.InputDividas}

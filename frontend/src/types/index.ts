@@ -73,6 +73,8 @@ type company = {
   account: string
 }
 export type Cliente = {
+  plano: ReactNode;
+  valor_divida: ReactNode;
   id: string;
   cnpj_cpf: string;
   name: string;
