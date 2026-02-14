@@ -145,3 +145,36 @@
   cursor: not-allowed;
   pointer-events: none;
 }
+
+.searchContainer {
+  padding: 8px 12px 8px 12px;
+  border-bottom: 1px solid rgba(255, 204, 0, 0.2);
+  margin-bottom: 4px;
+}
+
+.searchInput {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 204, 0, 0.4);
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: white;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.searchInput:focus {
+  border-color: #f1c40f;
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.noResults {
+  padding: 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+}

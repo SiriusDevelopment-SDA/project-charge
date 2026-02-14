@@ -11,7 +11,6 @@ import { Templates } from './templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from './templates/entities/relatory.entity';
 import { Invoice } from './invoices/entities/invoices';
 import { InvoicesController } from './invoices/controllers/invoicesController';
-import { InvoicesService } from './invoices/services/invoices.service';
 import { Company } from './companies/entities/companies';
 import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from './invoices/services/hubsoftInvoicesService';
@@ -29,7 +28,7 @@ import { SGPInvoicesService } from './invoices/services/sgpInvoicesService';
     DatabaseModule,
   ],
   controllers: [ControllerClients, ControllerTemplates, InvoicesController],
-  providers: [AppServiceClient, AppServiceTemplate, InvoicesService, IXCInvoicesService,
+  providers: [AppServiceClient, AppServiceTemplate, IXCInvoicesService,
     HubsoftInvoicesService,
     SGPInvoicesService],
 })

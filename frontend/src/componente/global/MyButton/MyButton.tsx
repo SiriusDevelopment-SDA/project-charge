@@ -3,7 +3,7 @@ import { type ButtonHTMLAttributes } from "react";
 
 type MyButtonProps = {
   text: string;
-  variant?: "primary" | "secondary" |  "btn-norm" | "btn-card" | "btn-vermais";
+  variant?: "primary" | "secondary" |  "btn-norm" | "btn-card" | "btn-vermais" | "btn-cancelar" | "btn-enviar";
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function MyButton({
