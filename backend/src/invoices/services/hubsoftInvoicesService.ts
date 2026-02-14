@@ -5,7 +5,8 @@ import {
 
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
-import { InvoiceMapResult } from '../types';
+import { InvoiceMapResultDto, InvoicesResponseDto } from '../dto/search.request.dto.invoices';
+import { HubsoftFatura } from '../types/hubsoftTypes';
 
 @Injectable()
 export class HubsoftInvoicesService {
@@ -43,7 +44,7 @@ async gerarTokenOAuth(empresa: Company): Promise<string> {
     return data.access_token;
   }
 
-async getInvoices(cliente: Client) {
+async getInvoices(cliente: Client): Promise<InvoicesResponseDto> {
     const token = await this.gerarTokenOAuth(cliente.company);
 
     const url = `https://${cliente.company.url}/api/v1/integracao/cliente/financeiro`;
@@ -62,15 +63,22 @@ async getInvoices(cliente: Client) {
     }
 
     const data = await response.json();
-    const map = data.faturas.map((t: any): InvoiceMapResult => ({
+
+    let map: InvoiceMapResultDto[] = []
+
+    map = data.faturas.map((t: HubsoftFatura
+    ): InvoiceMapResultDto => ({
       invoice_id: String(t.id_fatura) ?? null,
       contract_id: String(t.cliente.servico.id_cliente_servico) ?? null,
       invoice_due_date: String(t.data_vencimento) ?? null,
       invoice_amount: String(t.valor),
       invoice_status: 'A Receber',
       ticket_digitable_line: t.codigo_barras ?? null,
-      code_pix: t.pix_copia_cola ?? null,
       ticket_pdf_link: t.link ?? null,
+      code_pix: {
+        status: t.pix_copia_cola !== "" ? "success" : "error",
+        pix: String(t.pix_copia_cola) ?? null
+      }
     })).sort((a: any, b: any) => {
       const parseDate = (str?: string) => {
         if (!str) return 0;
@@ -84,7 +92,7 @@ async getInvoices(cliente: Client) {
     return {
       status: data.status,
       message: data.msg,
-      invoices: map,
+      list: map,
     };
   }
   }

@@ -1,13 +1,14 @@
-import { Controller, Post, Body, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, NotFoundException, BadRequestException, HttpCode } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client } from '../../clients/entities.ts/clients';
 import { IXCInvoicesService } from '../services/ixcInvoicesService';
 import { HubsoftInvoicesService } from '../services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../services/sgpInvoicesService';
 import { Raw, Repository } from 'typeorm';
-import { InvoiceBatchResponse, InvoicesResponse, ResultInvoices } from '../types';
-import { SearchRequestDtoInvoices } from '../dto/search.request.dto.invoices';
+import {  InvoiceBatchPartialDto, InvoiceBatchResponseDto, InvoicesResponseDto, ResultInvoicesDto, SearchRequestInvoicesDto } from '../dto/search.request.dto.invoices';
+import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Faturas')
 @Controller('invoices')
 export class InvoicesController {
   constructor(
@@ -19,10 +20,12 @@ export class InvoicesController {
   ) { }
  
   @Post('search')
-  async getInvoices(@Body() data: SearchRequestDtoInvoices) {
+  @HttpCode(200)
+  @ApiOkResponse({ type: InvoiceBatchPartialDto })
+  async getInvoices(@Body() data: SearchRequestInvoicesDto) {
     if (!data.documents.length) throw new NotFoundException('Nenhum cliente encontrado');
     const documents = data.documents.map(i => i.cnpj_cpf)
-    const resultados: ResultInvoices[] = [];
+    const resultados: ResultInvoicesDto[] = [];
     const errors: { document: string; reason: string }[] = [];
 
     for (const doc of documents) {
@@ -47,7 +50,7 @@ export class InvoicesController {
         continue;
       }
 
-      let invoices: InvoicesResponse;
+      let invoices: InvoicesResponseDto;
 
       switch (cliente.company.erp) {
         case 'IXC':
@@ -84,7 +87,7 @@ export class InvoicesController {
       });
      }
     }
-    let status: InvoiceBatchResponse['status'];
+    let status: InvoiceBatchResponseDto['status'];
     let message: string;
 
     const hasData = resultados.length > 0;

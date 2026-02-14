@@ -3,12 +3,12 @@ import {
   BadRequestException
 } from '@nestjs/common';
 import { Client } from '../../clients/entities.ts/clients';
-import { InvoiceMapResult, InvoicesResponse } from '../types';
 import { formatarDataBR } from '../../utils';
+import { InvoiceMapResultDto, InvoicesResponseDto } from '../dto/search.request.dto.invoices';
 
 @Injectable()
 export class SGPInvoicesService {
-  async getInvoices(cliente: Client): Promise<InvoicesResponse> {
+  async getInvoices(cliente: Client): Promise<InvoicesResponseDto> {
     const empresa = cliente.company;
     const config = empresa.config ?? {};
     const username = config.username;
@@ -48,15 +48,18 @@ export class SGPInvoicesService {
     }
 
     const data = await response.json();
-    const map = data.titulos.map((t: any): InvoiceMapResult => ({
+    const map = data.titulos.map((t: any): InvoiceMapResultDto => ({
       invoice_id: String(t.id),
       contract_id: String(t.clienteContrato),
       invoice_due_date: formatarDataBR(t.dataVencimento),
       invoice_amount: String(t.valorCorrigido),
       invoice_status: 'A Receber',
       ticket_digitable_line: t.codigoBarras || "",
-      code_pix: t.codigoPix,
       ticket_pdf_link: t.link || "",
+      code_pix: {
+        status: t.codigoPix !== "" ? "success": "error",
+        pix: t.codigoPix ?? null
+      }
     })).sort((a: any, b: any) => {
       const parseDate = (str?: string) => {
         if (!str) return 0;
@@ -66,10 +69,10 @@ export class SGPInvoicesService {
       };
       return parseDate(b.invoice_due_date) - parseDate(a.invoice_due_date);
     });
-    return {
+    return Object.assign(new InvoicesResponseDto(),{
       status: `${!map ? "error": "success"}`,
       message: `${!map ? "Falha ao consultar dados!" : "Dados consultados com sucesso"}`,
-      invoices: map,
-    };
+      list: map,
+    });
   }
 }
