@@ -13,6 +13,8 @@ export const TemplateProvider = ({
   children: React.ReactNode
 }) => {
   const [templates, setTemplates] = useState<Template[]>([])
+  const [searchTemplateName, setSearchTemplateName] = useState("")
+  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null)
   const [page, setPage] = useState<number>(1)
   const [limit, setLimit] = useState<number>(10)
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC")
@@ -34,13 +36,14 @@ export const TemplateProvider = ({
           sortorder: order
         })
 
-        // setClient(prev => [...prev, ...response.data.data])
         setTemplates((prev) => {
           const map = new Map<string, Template>();
 
           [...prev, ...response.data.data].forEach((c) => {
             map.set(c.id, c); // garante unicidade
           });
+        setTemplates(response.data.data.filter(i => i.isEnabled === true));
+
 
           return Array.from(map.values());
         });
@@ -52,10 +55,26 @@ export const TemplateProvider = ({
     fetchTemplates()
   }, [query, page, limit, order])
 
-  console.log(templates)
+  const deleteTemplate = async (id: string) => {
+    try {
+      await Api({
+        method: 'POST',
+        url: '/delete/template',
+        data: { templateId: id }
+      })
+      
+      setTemplates((prev) => prev.filter((template) => template.id !== id))
+      
+      return { success: true }
+    } catch (error) {
+      console.error('Erro ao deletar template:', error)
+      return { success: false, error }
+    }
+  }
+
   return (
     <TemplateContext.Provider
-      value={{ templates, setQuery, setPage, setLimit, setOrder }}
+      value={{ templates, categoryTemplateFilter, setCategoryTemplateFilter, searchTemplateName, setSearchTemplateName, setQuery, setPage, setLimit, setOrder, page, deleteTemplate }}
     >
       {children}
     </TemplateContext.Provider>

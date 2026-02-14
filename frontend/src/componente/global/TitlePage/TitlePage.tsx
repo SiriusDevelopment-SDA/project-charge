@@ -22,7 +22,8 @@ export const TitlePage = ({
       </Typography>
       <div className={S.buttons_container_title}>
         {setModoPage && text && <MyButton text={text} onClick={() => setModoPage(prev => prev === "clientes" ? "leads" : "clientes")} />}
-        {setModoPage && <MyButton text="Histórico" onClick={() => navigate("/historico")}/>}
+        {setModoPage && <MyButton text="Histórico" onClick={() => navigate("/historico")}/>}  
+          
       </div>
     </div>
   );

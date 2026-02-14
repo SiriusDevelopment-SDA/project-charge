@@ -1,0 +1,199 @@
+/* =========================
+   CONTAINER
+========================= */
+.VencidosContainer {
+  min-height: calc(100vh - 14vh);
+  overflow-y: auto;
+}
+
+.contentPanel {
+  padding: 24px;
+  border: 1px solid #f5d033;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* =========================
+   FILTROS
+========================= */
+.filterPanel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  margin-bottom: 24px;
+}
+
+.filterLeft {
+  width: 100%;
+}
+
+.filterRight {
+  margin-top: 20px;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* =========================
+   FORMULÁRIO
+========================= */
+.ContainerForm {
+  padding: 24px;
+  border: 1px solid #eab308;
+  border-radius: 16px;
+  background: rgba(234, 179, 8, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ContainerText {
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.ContainerText h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.ContainerText::after {
+  content: "";
+  position: absolute;
+  left: -24px;
+  right: -24px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    #f5d26a,
+    rgba(245, 210, 106, 0.15)
+  );
+}
+
+.IconFunil {
+  color: #eab308;
+}
+
+/* =========================
+   GRID DE FILTROS
+========================= */
+.filtersGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.InputDividas,
+.DropdownPlanos,
+.FiltroClientes {
+  width: 100%;
+}
+
+.cardMetricas{
+  width: 400px;
+  height: 120px;
+  padding-top: 15px !important;
+  background: #eab308 !important;
+  border: 1px solid rgba(255, 215, 0, 0.35) !important;
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px !important;
+
+  h1{
+    font-size: 50px;
+    font-weight: 600;
+    color: #ffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+  h3{
+    color: #ffff;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+}
+.contentMetricas{
+  padding-left: 50px;
+}
+
+/* =========================
+   AÇÕES
+========================= */
+.submenuActions {
+  margin: 24px 0;
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+}
+
+/* =========================
+   GRID DE CARDS
+========================= */
+.Cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  padding: 12px 0;
+}
+
+/* =========================
+   RESPONSIVIDADE
+========================= */
+@media (max-width: 1200px) {
+  .filterPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .overdueClientsCard {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .filtersGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .submenuActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .Cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================
+   GRID DE TEMPLATES (4 x 2)
+========================= */
+.listaTemplates {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  align-items: start;
+
+  /* ESSENCIAL */
+  overflow: visible;
+}
+
+/* Responsivo */
+@media (max-width: 1400px) {
+  .listaTemplates {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .listaTemplates {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .listaTemplates {
+    grid-template-columns: 1fr;
+  }
+}

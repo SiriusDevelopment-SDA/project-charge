@@ -5,7 +5,29 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
 };
+
+
+export type TemplateBalloonCardProps = {
+  title: string;
+  message: string;
+  category: string;
+  onUse?: () => void;
+  onDelete?: () => void;
+};
+
+
+
+export type PaginationProps = {
+  className?: string;
+  page: number;
+  onPrev: () => void;
+  onNext: () => void;
+  disablePrev?: boolean;
+  disableNext?: boolean;
+};
+
 export type Template = {
+  [x: string]: unknown;
   id: string;
   name: string;
   message: string;
@@ -16,6 +38,15 @@ export type Template = {
   createdAt: Date;
   updatedAt: Date;
   variables: Record<string, string>;
+  isEnabled: boolean;
+};
+
+export type PropsCardTemplates = {
+  template: Template;
+  isOpen: boolean;
+  onToggle: (id: string) => void;
+  setOpenModal: React.Dispatch<React.SetStateAction<boolean>>;
+  onDelete: (template: Template) => void
 };
 
 export type propTemplate = {
@@ -81,6 +112,7 @@ export type responseClients = {
   total: number;
 }
 export type responseTemplate = {
+  filter(arg0: (template: { isEnabled: any; }) => any): unknown;
   data: Template[];
   limit: number;
   page: number;
@@ -98,13 +130,19 @@ export interface IClientsContext {
 }
 export interface ITemplatesContext {
   templates: Template[] | [];
+  categoryTemplateFilter: string | null;
+  setCategoryTemplateFilter: React.Dispatch<SetStateAction<string | null>>;
+  searchTemplateName: string;
+  setSearchTemplateName: React.Dispatch<SetStateAction<string>>;
   setQuery: React.Dispatch<SetStateAction<string>>;
   setPage: React.Dispatch<SetStateAction<number>>;
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
+  page: number;
+  deleteTemplate: (id: string) => Promise<{ success: boolean; error?: any }>;
 }
 export interface IDispatchTemplateContext {
-  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
+  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[] >>;
   setSelectedLeads: React.Dispatch<SetStateAction<Lead[]>>;
   setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
   selectedClientes: Cliente[];
@@ -150,6 +188,10 @@ export interface IHistoricoContext {
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
 }
+export type propAmostras={
+    variablesMap: Record<string, string>
+    setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>
+}
 export type TemplateParameter = {
   type: "text" | "currency" | "date_time" | "image" | "document"
   text: string;
@@ -183,8 +225,10 @@ export type mappedVars = {
   link_boleto_pdf?: string;
   mensagem?: string;
   cnpj_cpf?: string;
+
 };
 export type UploadButtonProps = {
   onUpload: (file: File, rows?: Record<string, string>[]) => void;
   disabled?: boolean;
+  className?: string;
 };

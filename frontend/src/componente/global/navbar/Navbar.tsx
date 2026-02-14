@@ -25,8 +25,8 @@ export function Navbar() {
 
         <NavLink
           to="/clientesVencidos"
-          className={({ isActive }) => (isActive ? styles.active : styles.disabled)}
-          onClick={(e) => e.preventDefault()}
+          className={({ isActive }) => (isActive ? styles.active : '')}
+          // onClick={(e) => e.preventDefault()}
         >
           Clientes Vencidos
         </NavLink>
@@ -40,9 +40,13 @@ export function Navbar() {
         </NavLink>
 
         <NavLink
-          to="/templates"
-          className={({ isActive }) => (isActive ? styles.active : styles.disabled)}
-          onClick={(e) => e.preventDefault()}
+            to="/Templates"
+          className={() =>
+            location.pathname === "/Templates" ||
+            location.pathname.startsWith("/CreateTemplate")
+              ? styles.active
+              : ''
+          }
         >
           Templates
         </NavLink>
@@ -53,7 +57,7 @@ export function Navbar() {
             location.pathname === "/" ||
             location.pathname.startsWith("/historico")
               ? styles.active
-              : styles.disabled
+              : ''
           }
         >
           Disparo Ativo

@@ -3,16 +3,20 @@ import { type ButtonHTMLAttributes } from "react";
 
 type MyButtonProps = {
   text: string;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" |  "btn-norm" | "btn-card" | "btn-vermais";
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function MyButton({
   text,
   variant = "primary",
+  className = "",
   ...rest
 }: MyButtonProps) {
   return (
-    <button {...rest} className={`button button--${variant}`}>
+    <button
+      {...rest}
+      className={`${styles.button} ${styles[variant]} ${className}`}
+    >
       {text}
     </button>
   );

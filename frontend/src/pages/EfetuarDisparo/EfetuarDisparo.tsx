@@ -3,6 +3,7 @@ import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 import type { Cliente, Template } from "../../types";
 import { useClient, useTemplate } from "../../hooks";
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 import { processarDocumentos,
    validarSelecaoCliente 
   } from "../../utils/validation";
@@ -19,12 +20,18 @@ import {
   MyButton
 } from "../../componente/Index";
 import { handleUploadPlanilha } from "../../utils/hendleUploadSpreadSheat";
+import { Button } from "@mui/material";
 
 export default function EfetuarDisparo() {
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
-  
-  const { templates } = useTemplate()
+  const [openCategoryDropdown, setOpenCategoryDropdown] = useState<boolean>(false);
   const { clients, setQuery, setGroupInvoices } = useClient()
+  const { templates, 
+    setSearchTemplateName, 
+    searchTemplateName, 
+    categoryTemplateFilter, 
+    setCategoryTemplateFilter 
+  } = useTemplate()
   const { selectedClientes, 
     setSelectedClientes, 
     setSelectedTemplate, 
@@ -40,6 +47,17 @@ export default function EfetuarDisparo() {
     setGroupInvoices(selectedTemplate?.category === "Cobrança");
   }, [selectedTemplate]);
 
+    const filteredTemplates = templates.filter(template => {
+    const matchName =
+      template.name
+        .toLowerCase()
+        .includes(searchTemplateName.toLowerCase())
+    const matchCategory = categoryTemplateFilter
+      ? template.category === categoryTemplateFilter
+      : true;
+    return matchName && matchCategory;
+  })
+  const categories = [...new Set(templates.map(t => t.category))];
   return (
     <>
       <PageContainer 
@@ -63,13 +81,65 @@ export default function EfetuarDisparo() {
             <div className={Style.containerInput} onClick={(e) => e.stopPropagation()}>
               <Dropdown<Template>
                 label="Buscar template"
-                options={templates}
+                options={filteredTemplates}
                 value={selectedTemplate}
                 onChange={(v) => setSelectedTemplate(v as Template)}
                 open={openDropdown === "template"}
                 onOpen={() => setOpenDropdown("template")}
                 onClose={() => setOpenDropdown(null)}
-              />
+                className={Style.dropdownTemplate}
+              >{openDropdown === "template" &&
+                <span className={Style.FilterDropdownTemplate}>
+                  <InputFields
+                    placeholder="Buscar template pelo nome"
+                    value={searchTemplateName}
+                    onChange={(e) => setSearchTemplateName(e.target.value)}
+                  />
+
+                  <div className={Style.filterWrapper}>
+                    <FilterAltOutlinedIcon
+                      className={`${Style.iconFilterDropdownTemplate} ${
+                        categoryTemplateFilter ? Style.activeFilter : ""
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpenCategoryDropdown(prev => !prev)
+                      }}
+                    />
+
+                    {openCategoryDropdown && (
+                      <div className={Style.categoryMenu}>
+                        <div
+                          className={Style.categoryItem}
+                          onClick={() => {
+                            setCategoryTemplateFilter(null)
+                            setOpenCategoryDropdown(false)
+                          }}
+                        >
+                          Todas
+                        </div>
+
+                        {categories.map(category => (
+                          <div
+                            key={category}
+                             className={`${Style.categoryItem} ${
+                              categoryTemplateFilter === category ? Style.categoryItemActive : ""
+                            }`}
+                            onClick={() => {
+                              setCategoryTemplateFilter(category)
+                              setOpenCategoryDropdown(false)
+                            }}
+                          >
+                            {category}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </span>
+
+                }
+              </Dropdown>
             {modoPage === "clientes" ?
               <Dropdown<Cliente>
                 label="Buscar clientes no ERP"

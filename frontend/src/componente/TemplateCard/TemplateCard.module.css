@@ -1,0 +1,260 @@
+/* =========================
+   WRAPPER
+========================= */
+.CardWrap {
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+/* =========================
+   CARD FIXO
+========================= */
+.TemplateCard {
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(180deg, #0f1117 0%, #0a0c10 100%) !important;
+  border-radius: 14px;
+  padding: 14px;
+  color: #fff !important;
+
+  border: 1px solid rgba(255, 255, 255, 0.06);
+
+  position: relative;
+  
+}
+/* BORDA ANIMADA */
+.TemplateCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 3px; 
+  border-radius: inherit;
+
+  background: linear-gradient(
+    90deg,
+    #000000,
+    #fffb00,
+    #f6fa00
+  );
+  background-size: 300% 300%;
+
+  opacity: 0;
+  pointer-events: none;
+
+  /* MOSTRA SOMENTE A BORDA */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* ATIVA NO HOVER */
+.TemplateCard:hover::before {
+  opacity: 1;
+  animation: borderRun 7.2s linear infinite;
+}
+
+/* SEU HOVER */
+.TemplateCard:hover {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px rgba(242, 192, 16, 0.18),
+    0 10px 26px rgba(0, 0, 0, 0.65);
+}
+
+@keyframes borderRun {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+/* =========================
+   BALÃO (ABRE NO CLICK)
+========================= */
+.Balloon {
+  position: absolute;
+  top: -110px; 
+  left: 0;
+  width: 100%;
+  height: 100px;
+  background: #f59e0b;
+  color: #1a1a1a;
+  padding: 14px 14px 16px;
+  border-radius: 12px;
+  max-height: 170px;
+  overflow-y: auto;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65);
+  z-index: 999;
+}
+/* Ponteiro */
+.Balloon::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 26px;
+  width: 14px;
+  height: 14px;
+  background: #f59e0b;
+  transform: rotate(45deg);
+  pointer-events: none;
+  z-index: -1;
+}
+.BalloonTitle {
+  top: 0; 
+  z-index: 10;
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  background: #bd7b08;
+  border-radius: 5px;
+  padding: 5px 10px;
+}
+.BalloonMessage {
+  padding: 0px 10px;
+  margin: 0;
+  position: absolute;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+/* Scroll elegante */
+.Balloon::-webkit-scrollbar {
+  width: 4px;
+}
+.Balloon::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+/* =========================
+   CONTEÚDO DO CARD
+========================= */
+.CardInner {
+  display: flex;
+  flex-direction: column;
+}
+.CardHeader {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+.CardHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.CardTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.ContainerCatogoria {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width:100%;
+}
+.CardBadge {
+  background: #1b1b1b;
+  color: #f2c010;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+/* Ícones */
+/* =========================
+   BOTÕES BASE
+========================= */
+.CardIcons {
+  display: flex;
+  gap: 8px;
+}
+
+.BtnUse,
+.BtnDelete {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: none;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.BtnUse {
+  background: rgba(242, 192, 16, 0.1);
+  color: #f2c010;
+  border-color: rgba(242, 192, 16, 0.2);
+}
+.BtnUse:hover {
+  background: rgba(242, 192, 16, 0.2);
+  border-color: rgba(242, 192, 16, 0.4);
+  box-shadow: 0 0 8px rgba(242, 192, 16, 0.2);
+}
+.BtnUse:active {
+  background: rgba(242, 192, 16, 0.3);
+  transform: scale(0.98);
+}
+.BtnUse:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.BtnUse:disabled:hover {
+  background: rgba(242, 192, 16, 0.1);
+  border-color: rgba(242, 192, 16, 0.2);
+  box-shadow: none;
+}
+/* =========================
+   BOTÃO DELETAR (Trash)
+========================= */
+.BtnDelete {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.BtnDelete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+}
+.BtnDelete:active {
+  background: rgba(239, 68, 68, 0.3);
+  transform: scale(0.98);
+}
+.BtnDelete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.BtnDelete:disabled:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  box-shadow: none;
+}
+/* Texto curto */
+.CardMessage {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  margin: 8px 0 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Ver mais */
+.VerMais {
+  font-size: 0.75rem;
+  color: #f2c010;
+  cursor: pointer;
+}
