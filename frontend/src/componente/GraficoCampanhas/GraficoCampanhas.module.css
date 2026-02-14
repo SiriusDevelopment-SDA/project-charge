@@ -1,0 +1,139 @@
+/* =========================
+   CONTAINER PRINCIPAL
+========================= */
+.container {
+  background: radial-gradient(circle at 10% 10%, #2a2400 0%, #080808 100%);
+  padding: 35px 45px;
+  border-radius: 28px;
+  width: 100%;
+  max-width: 950px;
+  height: 500px;
+  max-height: 500px;
+  display: flex;
+  flex-direction: column;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #fff;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.95);
+  border: 1px solid #1a1a1a;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* =========================
+   TÍTULO DA SEÇÃO
+========================= */
+.title {
+  margin: 0 0 35px 0;
+  font-size: 22px;
+  font-weight: 400;
+  color: #d4af37;
+  letter-spacing: 0.5px;
+  opacity: 0.95;
+  flex-shrink: 0;
+}
+
+/* =========================
+   CABEÇALHO DA TABELA
+========================= */
+.tableHeader {
+  display: grid;
+  grid-template-columns: 60px 1.2fr 1.5fr 120px;
+  gap: 20px;
+  padding-bottom: 20px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.tableHeader > div:last-child {
+  text-align: center;
+}
+
+/* =========================
+   LISTA DE CAMPANHAS
+========================= */
+.campaignList {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* =========================
+   ITEM DA CAMPANHA
+========================= */
+.campaignItem {
+  display: grid;
+  grid-template-columns: 60px 1.2fr 1.5fr 120px;
+  gap: 20px;
+  align-items: center;
+  padding: 18px 0;
+  border-top: 1px solid #151515;
+}
+
+/* Número de ordem */
+.campaignId {
+  color: #d4af37;
+  font-size: 16px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Nome da campanha */
+.campaignName {
+  font-size: 16px;
+  font-weight: 400;
+  color: #e0e0e0;
+  letter-spacing: 0.3px;
+}
+
+/* Container da barra de progresso */
+.progressContainer {
+  padding-right: 60px;
+}
+
+/* Container do badge de resposta */
+.responseContainer {
+  display: flex;
+  justify-content: center;
+}
+
+/* Badge de resposta */
+.responseBadge {
+  width: 75px;
+  height: 50px;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: #d4af37;
+  background-color: rgba(212, 175, 55, 0.03);
+  font-weight: 500;
+  box-shadow: inset 0 0 10px rgba(212, 175, 55, 0.05);
+}
+
+/* =========================
+   BARRA DE PROGRESSO
+========================= */
+.progressBar {
+  width: 100%;
+  height: 5px;
+  background-color: #1a1a1a;
+  border-radius: 10px;
+  overflow: visible;
+  position: relative;
+  border: 1px solid #222;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: #d4af37;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.6);
+  border-radius: 10px;
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}

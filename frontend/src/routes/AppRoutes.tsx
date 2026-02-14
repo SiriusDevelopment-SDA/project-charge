@@ -5,6 +5,7 @@ import Templates from "../pages/TemplatesMeta/TemplatesMeta";
 import {HistoricoDisparoPage} from "../pages/Historico/historico-disparo";
 import { ClientesVencidos } from "../pages/ClientesVencidos/ClientesVencidos";
 import CreateTemplate from "../pages/TemplatesMeta/Subpages/CreateTemplate";
+import Dashboard from "../pages/Dashboard/Dashboard";
 import { CriarCampanha } from "../pages/CriarCampanha/CriarCampanha";
 
 
@@ -12,6 +13,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<EfetuarDisparo />} />
+      <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/templates" element={<Templates />} />
       <Route path="/historico" element={<HistoricoDisparoPage />} />
       <Route path="/clientesVencidos" element={<ClientesVencidos/>} />

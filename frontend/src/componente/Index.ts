@@ -11,6 +11,32 @@ import { TitlePage } from "./global/TitlePage/TitlePage"
 import { Navbar } from "./global/navbar/Navbar"
 import { TemplateBody } from "../componente/TemplateBody/TemplateBody";
 import AmostraVariaveis from "../componente/AmostraVariaveis/AmostraVariaveis";
+import GraficoCobranca from './GraficoCobrança/GraficoCobranca';
+import GraficoDisparo from './GraficoDisparo/GraficoDisparo';
+import GraficoRelatorio from './GraficoRelatorioDisparo/GraficoRelatorio';
+import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
 import { MyCalendar } from "./Calendar/calendar";
 import SwitchLabels from "./Switch/Switch";
-export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton,TemplateBody, AmostraVariaveis, MyCalendar, SwitchLabels }
+
+export 
+{ 
+  BaseCard, 
+  InputFields, 
+  Navbar, 
+  Metricas, 
+  MyButton, 
+  PageContainer, 
+  TitlePage, 
+  Dropdown, 
+  PreviewBox, 
+  UploadButton, 
+  DownloadModeloButton,
+  TemplateBody, 
+  AmostraVariaveis, 
+  GraficoCobranca, 
+  GraficoDisparo, 
+  GraficoRelatorio, 
+  GraficoCampanhas,
+  MyCalendar, 
+  SwitchLabels
+}

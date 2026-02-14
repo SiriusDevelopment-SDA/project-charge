@@ -17,8 +17,12 @@ export function Navbar() {
       <div className={styles.navbarMenu}>
         <NavLink
           to="/dashboard"
-          className={({ isActive }) => (isActive ? styles.active : styles.disabled)}
-          onClick={(e) => e.preventDefault()}
+          className={() =>
+            location.pathname === "/dashboard" ||
+            location.pathname.startsWith("/Dashboard")
+              ? styles.active
+              : ''
+          }
         >
           Dashboard
         </NavLink>
