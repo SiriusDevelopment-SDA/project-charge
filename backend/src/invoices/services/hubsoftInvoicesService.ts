@@ -1,35 +1,23 @@
 import {
   Injectable,
   BadRequestException,
-  NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
+import { InvoiceMapResultDto, InvoicesResponseDto } from '../dto/search.request.dto.invoices';
+import { HubsoftFatura } from '../types/hubsoftTypes';
 
 @Injectable()
 export class HubsoftInvoicesService {
   constructor() {}
 
-  /* ===============================
-     1️⃣ GERAR TOKEN OAUTH HUBSOFT
-  =============================== */
-  private async gerarTokenOAuth(empresa: Company): Promise<string> {
+async gerarTokenOAuth(empresa: Company): Promise<string> {
     const cfg = empresa.config;
 
-    if (!cfg?.client_id || !cfg?.username || !cfg?.password) {
-      throw new BadRequestException(
-        'Config Hubsoft não encontrada na empresa',
-      );
-    }
+    if (!cfg?.client_id || !cfg?.username || !cfg?.password)throw new BadRequestException('Config Hubsoft não encontrada na empresa');
 
-    const baseUrl = empresa.url.startsWith('http')
-      ? empresa.url
-      : `https://${empresa.url}`;
-
-    const tokenUrl = `${baseUrl}/oauth/token`;
+    const tokenUrl = `https://${empresa.url}/oauth/token`;
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -56,31 +44,12 @@ export class HubsoftInvoicesService {
     return data.access_token;
   }
 
-  /* ===============================
-     2️⃣ BUSCAR FATURAS CPF / CNPJ
-  =============================== */
-  async buscarFaturas(cliente: Client) {
+async getInvoices(cliente: Client): Promise<InvoicesResponseDto> {
+    const token = await this.gerarTokenOAuth(cliente.company);
 
-    console.log(cliente)
-
-    const empresa = cliente.company;
-    if (!empresa) {
-      throw new BadRequestException('Empresa não encontrada');
-    }
-
-    const token = await this.gerarTokenOAuth(empresa);
-
-    console.log(token)
-
-    const baseUrl = empresa.url.startsWith('http')
-      ? empresa.url
-      : `https://${empresa.url}`;
-
-    const url = `${baseUrl}/api/v1/integracao/cliente/financeiro?busca=cpf_cnpj&termo_busca=${cliente.cnpj_cpf.replace(/\D/g, '')}`;
-    
-    console.log(url)
-
-    const response = await fetch(url, {
+    const url = `https://${cliente.company.url}/api/v1/integracao/cliente/financeiro`;
+    const params = `busca=cpf_cnpj&termo_busca=${cliente.cnpj_cpf.replace(/\D/g, '')}&apenas_pendente=sim&order_by=data_vencimento&order_type=desc`
+    const response = await fetch(`${url}?${params}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -90,53 +59,40 @@ export class HubsoftInvoicesService {
 
     if (!response.ok) {
       const err = await response.text();
-      throw new BadRequestException(
-        `Erro no ERP (HUBSOFT): ${response.status} -> ${err}`,
-      );
+      throw new BadRequestException(`Erro no ERP (HUBSOFT): ${response.status} -> ${err}`);
     }
 
     const data = await response.json();
 
-    return this.mapearFaturasHubsoft(data);
+    let map: InvoiceMapResultDto[] = []
+
+    map = data.faturas.map((t: HubsoftFatura
+    ): InvoiceMapResultDto => ({
+      invoice_id: String(t.id_fatura) ?? null,
+      contract_id: String(t.cliente.servico.id_cliente_servico) ?? null,
+      invoice_due_date: String(t.data_vencimento) ?? null,
+      invoice_amount: String(t.valor),
+      invoice_status: 'A Receber',
+      ticket_digitable_line: t.codigo_barras ?? null,
+      ticket_pdf_link: t.link ?? null,
+      code_pix: {
+        status: t.pix_copia_cola !== "" ? "success" : "error",
+        pix: String(t.pix_copia_cola) ?? null
+      }
+    })).sort((a: any, b: any) => {
+      const parseDate = (str?: string) => {
+        if (!str) return 0;
+        const [day, month, year] = str.split('/');
+        const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
+        return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
+      };
+      return parseDate(b.invoice_due_date) - parseDate(a.invoice_due_date);
+    });
+    
+    return {
+      status: data.status,
+      message: data.msg,
+      list: map,
+    };
   }
-
-  //Formata o retorno da requisição
-  private mapearFaturasHubsoft(data: any) {
-  const faturas = data?.faturas ?? [];
-
-  return {
-    status: 'success',
-    msg: faturas.length
-      ? 'Faturas encontradas'
-      : 'Nenhuma fatura encontrada',
-    faturas: faturas.map((fatura: any) => ({
-      id_fatura: fatura.id_fatura,
-      contratoId: fatura.cliente?.servico?.id_cliente_servico ?? null,
-      status: fatura.status,
-      quitado: fatura.quitado,
-      valor_fatura: fatura.valor,
-      data_vencimento_fatura: this.formatarData(fatura.data_vencimento),
-      linha_digitavel_boleto: fatura.linha_digitavel ?? null,
-      codigo_barras: fatura.codigo_barras ?? null,
-      pix_copia_cola: fatura.pix_copia_cola ?? null,
-      link_boleto_pdf: fatura.link ?? null,
-      cliente: {
-        nome: fatura.cliente?.nome_razaosocial ?? null,
-        documento: fatura.cliente?.cpf_cnpj ?? null,
-      },
-    })),
-  };
-}
-
-
-  /* ===============================
-     4️⃣ FORMATAR DATA
-  =============================== */
-  private formatarData(data: string | null) {
-    if (!data) return null;
-
-    // Hubsoft vem como DD/MM/YYYY
-    const [dia, mes, ano] = data.split('/');
-    return `${ano}-${mes}-${dia}`;
   }
-}
