@@ -166,7 +166,7 @@ export default function TemplatesMeta() {
             text="Criar campanha"
             variant="secondary"
             className={Style.BtnCriarTemplate}
-            onClick={() => navigate("/CreateTemplate")}
+            onClick={() => navigate("/CreateCampanha")}
           />
           
           <MyButton

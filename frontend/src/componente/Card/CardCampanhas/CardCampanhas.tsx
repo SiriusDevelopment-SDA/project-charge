@@ -21,12 +21,16 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
 
   // Estados dos dados da campanha
   const [isActive, setIsActive] = useState(campanha.isEnabled ?? true);
-  const [tipo, setTipo] = useState("Disparo Único");
-  const [dataDisparo, setDataDisparo] = useState("15-02-2026");
-  const [dataFinalizacao, setDataFinalizacao] = useState("20-02-2026");
+  const [tipo, setTipo] = useState(campanha.category || "UTILITY");
+  const [dataDisparo, setDataDisparo] = useState(
+    campanha.createdAt ? new Date(campanha.createdAt).toLocaleDateString('pt-BR') : "-"
+  );
+  const [dataFinalizacao, setDataFinalizacao] = useState(
+    campanha.updatedAt ? new Date(campanha.updatedAt).toLocaleDateString('pt-BR') : "-"
+  );
   const [horario, setHorario] = useState("09:00");
   const [observacao, setObservacao] = useState(
-    "Campanha criada para disparo em massa."
+    `Template: ${campanha.name || "Sem descrição"}`
   );
 
   // Lógica de exibição

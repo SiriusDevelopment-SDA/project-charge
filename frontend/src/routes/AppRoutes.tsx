@@ -7,6 +7,7 @@ import { ClientesVencidos } from "../pages/ClientesVencidos/ClientesVencidos";
 import CreateTemplate from "../pages/TemplatesMeta/Subpages/CreateTemplate";
 import Campanhas from "../pages/Campanhas/Subpages/Campanhas";
 import { AccountLayout } from "./AccountLayout";
+import {CriarCampanha} from "../pages/CriarCampanha/CriarCampanha";
 
 export default function AppRoutes() {
   return (
@@ -23,6 +24,7 @@ export default function AppRoutes() {
         <Route path="clientesVencidos" element={<ClientesVencidos/>} />
         <Route path="CreateTemplate" element={<CreateTemplate />} />
         <Route path="Campanhas" element={<Campanhas />} />
+        <Route path="CreateCampanha" element={<CriarCampanha />} />
 
       </Route>
 
