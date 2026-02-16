@@ -35,12 +35,12 @@ export class ControllerTemplates {
     return this.appService.getRelatoriesDispatchTemplate(searchDto);
   }
 
-  @Post('delete/template')
+  @Post('delete')
   disableTemplate(@Body() deleteTemplateDto: DeleteTemplateDto) {
     return this.appService.disableTemplate(deleteTemplateDto.templateId);
   }
 
-  @Post('create/template')
+  @Post('create')
   createTemplate(@Body() dto: CreateTemplateDTO) {
     return this.appService.createTemplate(dto.companyId, dto);
   }

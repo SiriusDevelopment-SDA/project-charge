@@ -28,7 +28,7 @@ export const TemplateProvider = ({
 
         const account = urlParams.get('account')
 
-        const response = await Api.post<responseTemplate>('/search/templates', {
+        const response = await Api.post<responseTemplate>('/template/search', {
           account,
           query,
           page,
@@ -59,7 +59,7 @@ export const TemplateProvider = ({
     try {
       await Api({
         method: 'POST',
-        url: '/delete/template',
+        url: '/template/delete',
         data: { templateId: id }
       })
       

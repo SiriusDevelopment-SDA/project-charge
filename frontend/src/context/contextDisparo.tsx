@@ -118,7 +118,7 @@ const handleSubmit = async (
     const account = urlParams.get("account");
 
     const response = await Api.post(
-      "/send/template",
+      "/template/send",
       { templateId, account, to }
     );
 
