@@ -1,0 +1,71 @@
+.container {
+  background: radial-gradient(circle at 30% 30%, #2a2400 0%, #080808 100%);
+  padding: 35px;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 850px;
+  height: 500px;
+  max-height: 500px;
+  font-family: "Inter", sans-serif;
+  color: #d4af37;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.9);
+  border: 1px solid #222;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 35px;
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 400;
+  color: #d4af37;
+  opacity: 0.9;
+  letter-spacing: 0.5px;
+}
+
+.legend {
+  display: flex;
+  gap: 25px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legendDotGold {
+  background-color: #ffd700;
+  box-shadow: 0 0 8px #ffd700;
+}
+
+.legendDotGreen {
+  background-color: #00ff88;
+  box-shadow: 0 0 8px #00ff88;
+}
+
+.legendText {
+  color: #aaa;
+  font-size: 13px;
+}
+
+.chartArea {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}

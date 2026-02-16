@@ -1,0 +1,25 @@
+.calendar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: sans-serif;
+}
+
+.calendar-card {
+  padding: 20px;
+  border-radius: 10px;
+  border: dashed 3px #facc15;
+  background-color: black;
+}
+
+.rdp {
+  --rdp-accent-color: #facc15;
+  --rdp-accent-color-dark: #facc15;
+  --rdp-accent-background-color: var(--rdp-accent-color);
+}
+
+.rdp-day {
+  width: var(--rdp-day-width);
+  height: 0;
+  text-align: center;
+}

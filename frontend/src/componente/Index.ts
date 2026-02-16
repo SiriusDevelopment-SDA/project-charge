@@ -14,8 +14,35 @@ import AmostraVariaveis from "../componente/AmostraVariaveis/AmostraVariaveis";
 import {Pagination} from "../componente/global/Pagination/Pagination";
 import {CardCampanhas} from "../componente/Card/CardCampanhas/CardCampanhas";
 import { BaseCardCampanhas } from "./Card/CardCampanhas/BaseCardCampanhas";
+import GraficoCobranca from './GraficoCobrança/GraficoCobranca';
+import GraficoDisparo from './GraficoDisparo/GraficoDisparo';
+import GraficoRelatorio from './GraficoRelatorioDisparo/GraficoRelatorio';
+import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
+import { MyCalendar } from "./Calendar/calendar";
+import SwitchLabels from "./Switch/Switch";
 
-
-export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage
-       , Dropdown, PreviewBox, UploadButton, DownloadModeloButton,TemplateBody, AmostraVariaveis
-       , Pagination, CardCampanhas, BaseCardCampanhas }
+export 
+{ 
+  BaseCard, 
+  InputFields, 
+  Navbar, 
+  Metricas, 
+  MyButton, 
+  PageContainer, 
+  TitlePage, 
+  Dropdown, 
+  PreviewBox, 
+  UploadButton, 
+  DownloadModeloButton,
+  TemplateBody, 
+  AmostraVariaveis, 
+  GraficoCobranca, 
+  GraficoDisparo, 
+  GraficoRelatorio, 
+  GraficoCampanhas,
+  MyCalendar, 
+  SwitchLabels,
+  Pagination, 
+  CardCampanhas, 
+  BaseCardCampanhas
+}

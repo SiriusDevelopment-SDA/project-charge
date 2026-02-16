@@ -1,13 +1,8 @@
-import styles from "./TemplateCard.module.css";
+import { useState } from "react";
 import { Play, Trash2 } from "lucide-react";
-
-export type TemplateBalloonCardProps = {
-  title: string;
-  message: string;
-  category: string;
-  onUse?: () => void;
-  onDelete?: () => void;
-};
+import type { TemplateBalloonCardProps } from "../../types";
+import { BaseCard } from "../Index";
+import styles from "./TemplateCard.module.css";
 
 export function TemplateBalloonCard({
   title,
@@ -16,30 +11,61 @@ export function TemplateBalloonCard({
   onUse,
   onDelete,
 }: TemplateBalloonCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <div className={styles.wrapper}>
-      {/* BALÃO (hover) */}
-      <div className={styles.balloon}>
-        <span className={styles.balloonTitle}>{title}</span>
-        <p className={styles.balloonMessage}>{message}</p>
-      </div>
-
-      {/* CARD BASE */}
-      <div className={styles.card}>
-        <div className={styles.header}>
-          <span className={styles.title}>{title}</span>
-          <span className={styles.badge}>{category}</span>
-
-          <div className={styles.actions}>
-            <Play size={16} onClick={onUse} />
-            <Trash2 size={16} onClick={onDelete} />
+    <div className={styles.CardWrap}>
+      <BaseCard classname={styles.TemplateCard}>
+        {/* BALÃO */}
+        {isOpen && (
+          <div className={styles.Balloon}>
+            <span className={styles.BalloonTitle}>{title}</span>
+            <p className={styles.BalloonMessage}>{message}</p>
           </div>
+        )}
+
+        <div className={styles.CardInner}>
+          <div className={styles.CardHeader}>
+            <span className={styles.CardTitle}>{title}</span>
+
+            <div className={styles.ContainerCatogoria}>
+              <span className={styles.CardBadge}>{category}</span>
+
+              {(onUse || onDelete) && (
+                <div className={styles.CardIcons}>
+                  {onUse && (
+                    <button className={styles.BtnUse} onClick={onUse}>
+                      <Play size={16} />
+                    </button>
+                  )}
+
+                  {onDelete && (
+                    <button
+                      className={styles.BtnDelete}
+                      onClick={onDelete}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <p className={styles.CardMessage}>{message}</p>
+
+          <span
+            className={styles.VerMais}
+            onClick={(e) => {
+              e.stopPropagation(); // 🔥 ISSO É O SEGREDO
+              setIsOpen((prev) => !prev);
+            }}
+          >
+            {isOpen ? "Fechar" : "Ver mais"}
+          </span>
+
         </div>
-
-        <p className={styles.message}>{message}</p>
-
-        <span className={styles.more}>Ver mais</span>
-      </div>
+      </BaseCard>
     </div>
   );
 }
