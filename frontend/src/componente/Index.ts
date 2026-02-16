@@ -11,4 +11,11 @@ import { TitlePage } from "./global/TitlePage/TitlePage"
 import { Navbar } from "./global/navbar/Navbar"
 import { TemplateBody } from "../componente/TemplateBody/TemplateBody";
 import AmostraVariaveis from "../componente/AmostraVariaveis/AmostraVariaveis";
-export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage, Dropdown, PreviewBox, UploadButton, DownloadModeloButton,TemplateBody, AmostraVariaveis }
+import {Pagination} from "../componente/global/Pagination/Pagination";
+import {CardCampanhas} from "../componente/Card/CardCampanhas/CardCampanhas";
+import { BaseCardCampanhas } from "./Card/CardCampanhas/BaseCardCampanhas";
+
+
+export { BaseCard, InputFields, Navbar, Metricas, MyButton, PageContainer, TitlePage
+       , Dropdown, PreviewBox, UploadButton, DownloadModeloButton,TemplateBody, AmostraVariaveis
+       , Pagination, CardCampanhas, BaseCardCampanhas }

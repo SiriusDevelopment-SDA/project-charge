@@ -8,19 +8,22 @@ import { TemplateProvider } from "./context/contextTemplates";
 import "./styles/index.css";
 import { HistoricoProvider } from "./context/contextHistorico";
 import { DispatchTemplateProvider } from "./context/contextDisparo";
+import { AccountProvider } from "./context/AccountContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ClientProvider>
-        <DispatchTemplateProvider>
-          <TemplateProvider>
-            <HistoricoProvider>
-            <App />
-           </HistoricoProvider>
-          </TemplateProvider>
-        </DispatchTemplateProvider>
-      </ClientProvider>
+      <AccountProvider>
+        <ClientProvider>
+          <DispatchTemplateProvider>
+            <TemplateProvider>
+              <HistoricoProvider>
+               <App />
+              </HistoricoProvider>
+            </TemplateProvider>
+          </DispatchTemplateProvider>
+        </ClientProvider>
+      </AccountProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

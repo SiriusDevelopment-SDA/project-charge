@@ -1,12 +1,10 @@
 // IMPORT TYPE INPUTS
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction, } from "react";
 
 export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
 };
-
-
 
 export type PaginationProps = {
   className?: string;
@@ -110,6 +108,87 @@ export type responseTemplate = {
   total: number;
 }
 
+
+
+export type FilterButtonProps = {
+  templates: Template[];
+  selectedCategory?: string
+  setSelectedCategory: React.Dispatch<SetStateAction<string>>
+  onCategoryChange?: (categoria: string) => void;
+};
+
+export type Historico = {
+  id: string;
+  cliente_name?: string;
+  cliente_document?: string;
+  cliente_whatsapp?: string;
+  message: string;
+  templateId?: string;
+  category?: string;
+  status: string;
+  errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type responseHistorico = {
+  data: Historico[];
+  limit: number;
+  page: number;
+  total: number;
+};
+
+export type propAmostras={
+    variablesMap: Record<string, string>
+    setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>
+}
+export type TemplateParameter = {
+  type: "text" | "currency" | "date_time" | "image" | "document"
+  text: string;
+};
+
+export type TemplateComponent = {
+  type: "BODY" | "HEADER" | "FOOTER";
+  parameters: TemplateParameter[];
+};
+
+export type TemplateRecipient = {
+  name: string;
+  number: string;
+  components: TemplateComponent[];
+};
+
+export type SendTemplate = {
+  templateId: string;
+  account: number;
+  to: TemplateRecipient[];
+};
+export type mappedVars = {
+  nome_cliente?: string;
+  nome_atendente?: string; 
+  data_vencimento_fatura?: string;
+  whatsapp?: string;
+  nome_empresa?: string;
+  numero_contrato?: string;
+  valor_fatura?: string;
+  linha_digitavel_boleto?: string;
+  link_boleto_pdf?: string;
+  mensagem?: string;
+  cnpj_cpf?: string;
+
+};
+export type UploadButtonProps = {
+  onUpload: (file: File, rows?: Record<string, string>[]) => void;
+  disabled?: boolean;
+  className?: string;
+};
+
+export type PropsCardCampanhas = {
+  campanha: Template;
+  onDelete: (campanha: Template) => void;
+};
+
+// --------------------------CONTEXT--------------------------
 export interface IClientsContext {
   clients: Cliente[] | [];
   setQuery: React.Dispatch<SetStateAction<string>>
@@ -144,34 +223,6 @@ export interface IDispatchTemplateContext {
   modoPage: "clientes" | "leads";
   sendTemplate: () => void
 }
-export type FilterButtonProps = {
-  templates: Template[];
-  selectedCategory?: string
-  setSelectedCategory: React.Dispatch<SetStateAction<string>>
-  onCategoryChange?: (categoria: string) => void;
-};
-
-export type Historico = {
-  id: string;
-  cliente_name?: string;
-  cliente_document?: string;
-  cliente_whatsapp?: string;
-  message: string;
-  templateId?: string;
-  category?: string;
-  status: string;
-  errorMessage?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type responseHistorico = {
-  data: Historico[];
-  limit: number;
-  page: number;
-  total: number;
-};
-
 export interface IHistoricoContext {
   historico: Historico[] | [];
   setQuery: React.Dispatch<SetStateAction<string>>;
@@ -179,47 +230,4 @@ export interface IHistoricoContext {
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
 }
-export type propAmostras={
-    variablesMap: Record<string, string>
-    setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>
-}
-export type TemplateParameter = {
-  type: "text" | "currency" | "date_time" | "image" | "document"
-  text: string;
-};
 
-export type TemplateComponent = {
-  type: "BODY" | "HEADER" | "FOOTER";
-  parameters: TemplateParameter[];
-};
-
-export type TemplateRecipient = {
-  name: string;
-  number: string;
-  components: TemplateComponent[];
-};
-
-export type SendTemplate = {
-  templateId: string;
-  account: number;
-  to: TemplateRecipient[];
-};
-export type mappedVars = {
-  nome_cliente?: string;
-  nome_atendente?: string; // ✅ ADICIONAR
-  data_vencimento_fatura?: string;
-  whatsapp?: string;
-  nome_empresa?: string;
-  numero_contrato?: string;
-  valor_fatura?: string;
-  linha_digitavel_boleto?: string;
-  link_boleto_pdf?: string;
-  mensagem?: string;
-  cnpj_cpf?: string;
-
-};
-export type UploadButtonProps = {
-  onUpload: (file: File, rows?: Record<string, string>[]) => void;
-  disabled?: boolean;
-  className?: string;
-};

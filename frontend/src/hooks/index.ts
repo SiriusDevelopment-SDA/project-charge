@@ -1,4 +1,6 @@
+import { useClient } from "./useCliente";
+import { useTemplate } from "./useTemplates";
 
-import { useClient } from "./useCliente"
-import { useTemplate } from "./useTemplates"
-export {useClient, useTemplate}
+
+export { useClient, useTemplate };
+export { useAccounts } from "./useAccounts"; 
