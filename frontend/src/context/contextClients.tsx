@@ -28,7 +28,7 @@ export const ClientProvider = ({
         const account = urlParams.get('account');
   
         const response = await Api.post<responseClients>(
-          '/search/clients',
+          '/clients/search',
           { account, query, page, limit, sortorder: order }
         );
   

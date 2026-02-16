@@ -34,7 +34,7 @@ export const HistoricoProvider = ({
         const account = urlParams.get('account')
 
         const response = await Api.post<responseHistorico>(
-          '/search/relatories',
+          '/template/relatories/search',
           {
             account,
             query,
