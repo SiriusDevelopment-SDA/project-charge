@@ -8,6 +8,7 @@ import CreateTemplate from "../pages/TemplatesMeta/Subpages/CreateTemplate";
 import Campanhas from "../pages/Campanhas/Subpages/Campanhas";
 import { AccountLayout } from "./AccountLayout";
 import {CriarCampanha} from "../pages/CriarCampanha/CriarCampanha";
+import Dashboard from "../pages/Dashboard/Dashboard";
 
 export default function AppRoutes() {
   return (
@@ -25,6 +26,7 @@ export default function AppRoutes() {
         <Route path="CreateTemplate" element={<CreateTemplate />} />
         <Route path="Campanhas" element={<Campanhas />} />
         <Route path="CreateCampanha" element={<CriarCampanha />} />
+        <Route path="Dashboard" element={<Dashboard />} />
 
       </Route>
 

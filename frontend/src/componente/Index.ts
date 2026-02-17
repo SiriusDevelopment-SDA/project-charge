@@ -19,6 +19,7 @@ import GraficoDisparo from './GraficoDisparo/GraficoDisparo';
 import GraficoRelatorio from './GraficoRelatorioDisparo/GraficoRelatorio';
 import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
 import { MyCalendar } from "./Calendar/calendar";
+import { MyTimePicker } from "./TimePicker/timePicker";
 import SwitchLabels from "./Switch/Switch";
 
 export 
@@ -41,6 +42,7 @@ export
   GraficoRelatorio, 
   GraficoCampanhas,
   MyCalendar, 
+  MyTimePicker,
   SwitchLabels,
   Pagination, 
   CardCampanhas, 

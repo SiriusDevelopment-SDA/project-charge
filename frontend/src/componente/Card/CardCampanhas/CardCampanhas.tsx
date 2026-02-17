@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { Trash2, Pencil, MoreVertical, HelpCircle } from "lucide-react";
 import { toast } from "react-toastify";
-import { BaseCardCampanhas, MyButton } from "../../Index";
+import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
+import { BaseCardCampanhas, MyCalendar, MyTimePicker } from "../../Index";
 import DynamicModal from "../../modal/modalAlertTemplate";
+import { ModalEditarCampanha } from "./ModalEditarCampanha";
 import type { PropsCardCampanhas } from "../../../types";
 import Style from "./CardCampanhas.module.css";
 import FoguinhoVerde from "../../../assets/imagens/FoguinhoVerde.png";
@@ -14,6 +17,9 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
   // Estados para os modais
   const [openEdit, setOpenEdit] = useState(false);
   const [openStatusModal, setOpenStatusModal] = useState(false);
+  const [showCalendarDisparo, setShowCalendarDisparo] = useState(false);
+  const [showCalendarFinalizacao, setShowCalendarFinalizacao] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Estados para os menus e tooltips
   const [showActionsMenu, setShowActionsMenu] = useState(false);
@@ -23,15 +29,27 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
   const [isActive, setIsActive] = useState(campanha.isEnabled ?? true);
   const [tipo, setTipo] = useState(campanha.category || "UTILITY");
   const [dataDisparo, setDataDisparo] = useState(
-    campanha.createdAt ? new Date(campanha.createdAt).toLocaleDateString('pt-BR') : "-"
+    campanha.createdAt
+      ? new Date(campanha.createdAt).toLocaleDateString("pt-BR")
+      : "-",
   );
   const [dataFinalizacao, setDataFinalizacao] = useState(
-    campanha.updatedAt ? new Date(campanha.updatedAt).toLocaleDateString('pt-BR') : "-"
+    campanha.updatedAt
+      ? new Date(campanha.updatedAt).toLocaleDateString("pt-BR")
+      : "-",
   );
   const [horario, setHorario] = useState("09:00");
   const [observacao, setObservacao] = useState(
-    `Template: ${campanha.name || "Sem descrição"}`
+    `Template: ${campanha.name || "Sem descrição"}`,
   );
+
+  // Estados temporários para edição
+  const [tempTipo, setTempTipo] = useState(tipo);
+  const [tempDataDisparo, setTempDataDisparo] = useState(dataDisparo);
+  const [tempDataFinalizacao, setTempDataFinalizacao] =
+    useState(dataFinalizacao);
+  const [tempHorario, setTempHorario] = useState(horario);
+  const [tempObservacao, setTempObservacao] = useState(observacao);
 
   // Lógica de exibição
   const statusIcon = isActive ? FoguinhoVerde : FoguinhoVermelho;
@@ -42,27 +60,63 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
       ? observacao.slice(0, MAX_OBS) + "..."
       : observacao;
 
-  // Funções de manipulação de eventos
+  
   function handleToggleStatus() {
     setIsActive((prev) => !prev);
     setOpenStatusModal(false);
     toast.success("Status atualizado!");
   }
 
+  function handleOpenEdit() {
+    setTempTipo(tipo);
+    setTempDataDisparo(dataDisparo);
+    setTempDataFinalizacao(dataFinalizacao);
+    setTempHorario(horario);
+    setTempObservacao(observacao);
+    setShowCalendarDisparo(false);
+    setShowCalendarFinalizacao(false);
+    setShowTimePicker(false);
+    setOpenEdit(true);
+  }
+
+  function handleDateDisparoSelect(range: DateRange | undefined) {
+    if (range?.from) {
+      setTempDataDisparo(format(range.from, "dd/MM/yyyy"));
+      setShowCalendarDisparo(false);
+    }
+  }
+
+  function handleDateFinalizacaoSelect(range: DateRange | undefined) {
+    if (range?.from) {
+      setTempDataFinalizacao(format(range.from, "dd/MM/yyyy"));
+      setShowCalendarFinalizacao(false);
+    }
+  }
+
+  function handleTimeSelect(time: string) {
+    setTempHorario(time);
+  }
+
   function handleSave() {
+    setTipo(tempTipo);
+    setDataDisparo(tempDataDisparo);
+    setDataFinalizacao(tempDataFinalizacao);
+    setHorario(tempHorario);
+    setObservacao(tempObservacao);
     toast.success("Dados da campanha atualizados!");
     setOpenEdit(false);
   }
 
   return (
     <>
-      <BaseCardCampanhas className={Style.CampaignCard}>
+      {/* CARDS */}
+      <BaseCardCampanhas className={Style.campaignCard}>
         {/* HEADER */}
-        <div className={Style.Header}>
-          <h3 className={Style.Title}>{campanha.name}</h3>
+        <div className={Style.header}>
+          <h3 className={Style.title}>{campanha.name}</h3>
           <div
             className={`${Style.StatusWrapper} ${
-              isActive ? Style.FlameActive : ""
+              isActive ? Style.flameActive : ""
             }`}
             onClick={() => setOpenStatusModal(true)}
             title={statusText}
@@ -70,22 +124,27 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
             <img
               src={statusIcon}
               alt={statusText}
-              className={Style.StatusIcon}
+              className={Style.statusIcon}
             />
           </div>
         </div>
 
         {/* TEMPLATE - COM BOTÃO DE AJUDA */}
-        <div className={Style.TemplateBox}>
-          <div className={Style.TemplateHeader}>
-            <span className={Style.TemplateLabel}>TEMPLATE</span>
+        <div className={Style.templateBox}>
+          <div className={Style.templateHeader}>
+            <span className={Style.templateLabel}>TEMPLATE</span>
             <button
-              className={Style.HelpButton}
+              className={Style.helpButton}
               onMouseEnter={(e) => {
                 e.stopPropagation();
                 setShowTooltip(true);
               }}
-              onMouseLeave={() => setShowTooltip(false)}
+              onMouseLeave={(e) => {
+                const relatedTarget = e.relatedTarget as HTMLElement;
+                if (!relatedTarget?.closest(`.${Style.tooltip}`)) {
+                  setShowTooltip(false);
+                }
+              }}
               title="Ver mensagem completa"
             >
               <HelpCircle size={24} />
@@ -93,34 +152,40 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
           </div>
           <p>{campanha.message}</p>
           {showTooltip && (
-            <div className={Style.Tooltip}>{campanha.message}</div>
+            <div
+              className={Style.tooltip}
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+            >
+              {campanha.message}
+            </div>
           )}
         </div>
 
         {/* DETALHES - COM MENU DE AÇÕES */}
-        <div className={Style.DetailsBox}>
-          <div className={Style.DetailsHeader}>
+        <div className={Style.detailsBox}>
+          <div className={Style.detailsHeader}>
             <h4>DETALHES DE CAMPANHA</h4>
-            <div className={Style.ActionsMenuWrapper}>
+            <div className={Style.actionsMenuWrapper}>
               <button
-                className={Style.ActionsMenuButton}
+                className={Style.actionsMenuButton}
                 onClick={() => setShowActionsMenu(!showActionsMenu)}
                 onBlur={() => setTimeout(() => setShowActionsMenu(false), 200)}
               >
                 <MoreVertical size={18} />
               </button>
               {showActionsMenu && (
-                <div className={Style.ActionsDropdown}>
+                <div className={Style.actionsDropdown}>
                   <button
                     onClick={() => {
-                      setOpenEdit(true);
+                      handleOpenEdit();
                       setShowActionsMenu(false);
                     }}
                   >
                     <Pencil size={14} /> Editar
                   </button>
                   <button
-                    className={Style.DeleteAction}
+                    className={Style.deleteAction}
                     onClick={() => {
                       onDelete(campanha);
                       setShowActionsMenu(false);
@@ -132,12 +197,14 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
               )}
             </div>
           </div>
-          <div className={Style.DetailsGrid}>
-            <p><strong>TIPO:</strong> {tipo}</p>
-            <p><strong>DATA DE DISPARO:</strong> {dataDisparo}</p>
-            <p><strong>DATA DE FINALIZAÇÃO:</strong> {dataFinalizacao}</p>
-            <p><strong>HORÁRIO:</strong> {horario}</p>
-            <p><strong>OBSERVAÇÃO:</strong> {displayedObservacao}</p>
+          <div className={Style.detailsGrid}>
+              <p><strong>Tipo:</strong>{tipo}</p>
+              <p><strong>Início disparo:</strong> {dataDisparo}</p>
+              <p><strong>Fim disparo:</strong> {dataFinalizacao}</p>
+            <div>
+              <p><strong>Horário disparo:</strong> {horario}</p>
+              <p><strong>Obs:</strong> {displayedObservacao}</p>
+            </div>
           </div>
         </div>
       </BaseCardCampanhas>
@@ -164,51 +231,84 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
       />
 
       {/* MODAL EDITAR */}
-      {openEdit && (
-        <div className={Style.ModalOverlay}>
-          <div className={Style.Modal}>
-            <h3>Editar dados da campanha</h3>
-            <label>Tipo</label>
-            <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-              <option value="Disparo Único">Disparo Único</option>
-              <option value="Disparo Contínuo">Disparo Contínuo</option>
-            </select>
-            <label>Data de Disparo</label>
-            <input
-              type="date"
-              value={dataDisparo}
-              onChange={(e) => setDataDisparo(e.target.value)}
+      <ModalEditarCampanha
+        open={openEdit}
+        onClose={() => setOpenEdit(false)}
+        onSave={handleSave}
+        tipo={tempTipo}
+        setTipo={setTempTipo}
+        dataDisparo={tempDataDisparo}
+        onOpenCalendarDisparo={() => setShowCalendarDisparo(true)}
+        dataFinalizacao={tempDataFinalizacao}
+        onOpenCalendarFinalizacao={() => setShowCalendarFinalizacao(true)}
+        horario={tempHorario}
+        onOpenTimePicker={() => setShowTimePicker(true)}
+        observacao={tempObservacao}
+        setObservacao={setTempObservacao}
+      />
+
+      {/* MODAL CALENDÁRIO DISPARO */}
+      <DynamicModal
+        open={showCalendarDisparo}
+        type="custom"
+        title="Selecione a Data de Disparo"
+        onClose={() => setShowCalendarDisparo(false)}
+        customContent={
+          <>
+            <MyCalendar
+              selected={undefined}
+              onSelect={handleDateDisparoSelect}
             />
-            <label>Data de Finalização</label>
-            <input
-              type="date"
-              value={dataFinalizacao}
-              onChange={(e) => setDataFinalizacao(e.target.value)}
+            <button
+              className={Style.closeCalendarButton}
+              onClick={() => setShowCalendarDisparo(false)}
+            >
+              Fechar
+            </button>
+          </>
+        }
+      />
+
+      {/* MODAL CALENDÁRIO FINALIZAÇÃO */}
+      <DynamicModal
+        open={showCalendarFinalizacao}
+        type="custom"
+        title="Selecione a Data de Finalização"
+        onClose={() => setShowCalendarFinalizacao(false)}
+        customContent={
+          <>
+            <MyCalendar
+              selected={undefined}
+              onSelect={handleDateFinalizacaoSelect}
             />
-            <label>Horário</label>
-            <input
-              className={Style.TimeInput}
-              type="time"
-              value={horario}
-              onChange={(e) => setHorario(e.target.value)}
-            />
-            <label>Observação</label>
-            <textarea
-              className={Style.TextArea}
-              maxLength={50}
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-            />
-            <small className={Style.CharCount}>
-              {observacao.length}/50 caracteres
-            </small>
-            <div className={Style.ModalActions}>
-              <button onClick={() => setOpenEdit(false)}>Cancelar</button>
-              <button onClick={handleSave}>Salvar</button>
-            </div>
-          </div>
-        </div>
-      )}
+            <button
+              className={Style.closeCalendarButton}
+              onClick={() => setShowCalendarFinalizacao(false)}
+            >
+              Fechar
+            </button>
+          </>
+        }
+      />
+
+      {/* MODAL TIME PICKER */}
+      <DynamicModal
+        open={showTimePicker}
+        type="custom"
+        title="Selecione o Horário"
+        onClose={() => setShowTimePicker(false)}
+        customContent={
+          <>
+            <MyTimePicker selected={tempHorario} onSelect={handleTimeSelect} />
+            <button
+              className={Style.closeCalendarButton}
+              onClick={() => setShowTimePicker(false)}
+            >
+              Fechar
+            </button>
+          </>
+        }
+      />
     </>
   );
 }

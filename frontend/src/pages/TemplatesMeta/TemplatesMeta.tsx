@@ -113,7 +113,6 @@ export default function TemplatesMeta() {
   /* =========================
      PAGINAÇÃO
   ========================= */
-  const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / LIMIT));
   const startIndex = (page - 1) * LIMIT;
   const paginatedTemplates = filteredTemplates.slice(
     startIndex,
@@ -181,7 +180,7 @@ export default function TemplatesMeta() {
             text="Criar Template"
             variant="secondary"
             className={Style.BtnCriarTemplate}
-            onClick={() => navigate("/Template")}
+            onClick={() => navigate("/CreateTemplate")}
           />
 
           <div className={Style.ContainerFiltros}>
@@ -254,17 +253,7 @@ export default function TemplatesMeta() {
             }}
           />
         ))}
-      </div>
-
-      {/* PAGINAÇÃO */}
-      <Pagination
-        className={Style.Pagination}
-        page={page}
-        onPrev={() => setPage((p) => Math.max(p - 1, 1))}
-        onNext={() => setPage((p) => Math.min(p + 1, totalPages))}
-        disablePrev={page === 1}
-        disableNext={page === totalPages}
-      />
+      </div>  
 
       {/* MODAL EXCLUSÃO */}
       {openDeleteModal && templateToDelete && (
