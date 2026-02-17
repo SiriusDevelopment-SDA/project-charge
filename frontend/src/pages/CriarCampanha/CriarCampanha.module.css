@@ -78,6 +78,11 @@
     gap: 20px;
 }
 
+.createCampaign__scheduleTime {
+    display: flex;
+    gap: 20px;
+}
+
 .createCampaign__selectedClients {
     width: 100%;
     display: flex;
