@@ -7,10 +7,12 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  ManyToMany,
 } from 'typeorm';
 import { Service } from '../../services/entities/services';
 import { Company } from '../../companies/entities/companies';
 import { Invoice } from '../../invoices/entities/invoices';
+import { Campaign } from '../../campanhas/entities/campanhas.entity';
 
 @Entity()
 export class Client {
@@ -62,5 +64,8 @@ export class Client {
     referencedColumnName: 'id',
   })
   company!: Company;
+
+  @ManyToMany(() => Campaign, (campaign) => campaign.client)
+  campaigns!: Campaign[];
 }
 
