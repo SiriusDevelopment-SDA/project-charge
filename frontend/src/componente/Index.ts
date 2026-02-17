@@ -17,6 +17,7 @@ import GraficoRelatorio from './GraficoRelatorioDisparo/GraficoRelatorio';
 import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
 import { MyCalendar } from "./Calendar/calendar";
 import SwitchLabels from "./Switch/Switch";
+import DynamicModal from "./modal/modalAlertTemplate";
 
 export 
 { 
@@ -38,5 +39,6 @@ export
   GraficoRelatorio, 
   GraficoCampanhas,
   MyCalendar, 
-  SwitchLabels
+  SwitchLabels,
+  DynamicModal
 }

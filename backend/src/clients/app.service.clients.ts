@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Client } from '../clients/entities.ts/clients';
 import { SearchRequestDtoClients } from './dto/search.request.dto.clients';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, FindOptionsWhere, Raw } from 'typeorm';
+import { Repository, ILike, FindOptionsWhere, Raw, In } from 'typeorm';
 
 @Injectable()
 export class AppServiceClient {

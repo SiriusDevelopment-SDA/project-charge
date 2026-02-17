@@ -15,7 +15,12 @@ import { Company } from './companies/entities/companies';
 import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from './invoices/services/hubsoftInvoicesService';
 import { SGPInvoicesService } from './invoices/services/sgpInvoicesService';
-
+import { Campaign } from './campanhas/entities/campanhas.entity';
+import { CampaignsController } from './campanhas/campanhas.controller';
+import { CampaignsService } from './campanhas/campanhas.service';
+import { Category } from './category/entities/category.entity';
+import { CategoryController } from './category/category.controller';
+import { CategoryService } from './category/category.service';
 
 @Module({
   imports: [
@@ -25,11 +30,19 @@ import { SGPInvoicesService } from './invoices/services/sgpInvoicesService';
     TypeOrmModule.forFeature([RelatoryDispatchTemplate]),
     TypeOrmModule.forFeature([Invoice]),
     TypeOrmModule.forFeature([Company]),
+    TypeOrmModule.forFeature([Campaign]),
+    TypeOrmModule.forFeature([Category]),
     DatabaseModule,
   ],
-  controllers: [ControllerClients, ControllerTemplates, InvoicesController],
-  providers: [AppServiceClient, AppServiceTemplate, IXCInvoicesService,
+  controllers: [ControllerClients, ControllerTemplates, InvoicesController, CampaignsController, CategoryController],
+  providers: [
+    AppServiceClient, 
+    AppServiceTemplate, 
+    IXCInvoicesService, 
+    CampaignsService,
+    CategoryService,
     HubsoftInvoicesService,
-    SGPInvoicesService],
+    SGPInvoicesService
+  ],
 })
 export class AppModule { }
