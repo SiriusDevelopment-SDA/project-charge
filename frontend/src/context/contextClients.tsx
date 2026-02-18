@@ -1,7 +1,7 @@
 import { createContext, useEffect, useState } from 'react'
 import { Api } from '../services/api'
-import type { Cliente, IClientsContext, responseClients } from '../types'
 import { toast } from 'react-toastify'
+import type { Cliente, IClientsContext, Invoice, InvoiceBatchResponse, InvoiceError, InvoicesResponse, responseClients, ResultInvoices } from '../types'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ClientContext = createContext<IClientsContext>(
@@ -41,8 +41,6 @@ export const ClientProvider = ({
           return Array.from(map.values());
         });
   
-        if(groupInvoices) await fetchInvoices(clients);
-  
       } catch (err) {
         console.error('Erro ao buscar clientes:', err);
       }
@@ -51,39 +49,67 @@ export const ClientProvider = ({
     fetchAll();
   }, [query, page, limit, order, groupInvoices]);
   
+  useEffect(() => {
+    const fetchInvoices = async (clients: Cliente[]) => {
+      try {
+        console.log("aqui", clients)
+        const res = await Api.post<InvoiceBatchResponse>(
+          '/invoices/search',
+          {
+            documents: clients.map(c => ({
+              cnpj_cpf: c.cnpj_cpf
+            }))
+          }
+        );
+    
+        const { data: providers, errors, status,message } = res.data;
 
-  const fetchInvoices = async (clients: Cliente[]) => {
-    try {
-      const res = await fetch(
-        'https://webhooks.coraxy.com.br/webhook/faturas',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            docoumento: clients.map(c => c.cnpj_cpf),
-          }),
+        const normalizeDoc = (doc?: string) =>
+          doc?.replace(/\D/g, '') ?? '';
+        const invoicesByDoc = providers.reduce<
+          Record<string, InvoicesResponse>
+        >((acc, provider) => {
+          acc[normalizeDoc(provider.document)] = provider.invoices;
+          return acc;
+        }, {});
+        
+        if(status === "success")toast.success(`${message}`);
+        if(status === "partial")toast.warning(`${message}`);
+        if(status === "error")toast.error(`${message}`);
+        if (errors?.length){
+          errors.map((e: InvoiceError) => {
+            toast.warning(`Cliente do documento: ${e.document} ${e.reason}`);
+          })
         }
+    
+        setClient(prev =>
+          prev.map(c => ({
+            ...c,
+            invoices:
+              invoicesByDoc[normalizeDoc(c.cnpj_cpf)] ?? {
+                status: "error",
+                message: "Consulta não realizada",
+                list: [],
+              },
+          }))
+        );
+        
+
+    
+      } catch (err) {
+        console.error('Erro ao buscar invoices:', err);
+        toast.error('Erro ao buscar faturas');
+      }
+    };
+    if (groupInvoices && clients.length > 0) {
+      fetchInvoices(
+        clients.filter(c => !c.invoices || c.invoices.status === "error")
       );
-  
-      const invoices = await res.json();
-      // 🔑 agrupa faturas por cnpj_cpf
-      const invoicesByDoc = invoices.reduce((acc: any, inv: any) => {
-        acc[inv.cnpj_cpf] = acc[inv.cnpj_cpf] || [];
-        acc[inv.cnpj_cpf].push(inv);
-        return acc;
-      }, {});
-  
-      setClient((prev) =>
-        prev.map((c) => ({
-          ...c,
-          invoices: invoicesByDoc[c.cnpj_cpf] || [],
-        }))
-      );
-      return [...clients, invoices]
-    } catch (err) {
-      console.error(err);
     }
-  };
+    
+  }, [groupInvoices])
+
+  console.log("clients", clients)
   return (
     <ClientContext.Provider
       value={{ 
@@ -92,7 +118,6 @@ export const ClientProvider = ({
         setPage, 
         setOrder, 
         setLimit, 
-        fetchInvoices, 
         setGroupInvoices 
       }}
     >

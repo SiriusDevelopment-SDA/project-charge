@@ -1,0 +1,18 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+build/
+backend/dist/
+
+# Ambiente
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store

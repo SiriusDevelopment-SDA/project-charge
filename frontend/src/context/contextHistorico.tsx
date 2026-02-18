@@ -3,8 +3,7 @@
 import { createContext, useEffect, useState } from 'react'
 import { Api } from '../services/api'
 import type {
-  
-  Historico,
+  history,
   IHistoricoContext,
   responseHistorico,
 } from '../types'
@@ -19,7 +18,7 @@ export const HistoricoProvider = ({
 }: {
   children: React.ReactNode
 }) => {
-  const [historico, setHistorico] = useState<Historico[]>([])
+  const [histories, setHistory] = useState<history[]>([])
   const [page, setPage] = useState<number>(1)
   const [limit, setLimit] = useState<number>(10)
   const [order, setOrder] = useState<'DESC' | 'ASC'>('DESC')
@@ -44,8 +43,8 @@ export const HistoricoProvider = ({
           },
         )
 
-        setHistorico((prev) => {
-          const map = new Map<string, Historico>()
+        setHistory((prev) => {
+          const map = new Map<string, history>()
 
           ;[...prev, ...response.data.data].forEach((h) => {
             map.set(h.id, h) // garante unicidade
@@ -65,7 +64,7 @@ export const HistoricoProvider = ({
   return (
     <HistoricoContext.Provider
       value={{
-        historico,
+        histories,
         setQuery,
         setPage,
         setLimit,

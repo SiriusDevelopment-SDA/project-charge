@@ -1,234 +1,90 @@
-// IMPORT TYPE INPUTS
+import type { 
+  Cliente, 
+  IClientsContext, 
+  responseClients 
+} from "./clientApiTypes";
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { 
+  FilterButtonProps,
+  Lead, 
+  MyInputProps, 
+  PaginationProps, 
+  PropsCardTemplates, 
+  PropsSelect, 
+  TemplateBalloonCardProps, 
+  UploadButtonProps, 
+  propAmostras, 
+  propTemplate
+} from "./componentsTypes";
 
-export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
-  label?: string;
-};
+import type {
+  IDispatchTemplateContext, 
+  mappedVars 
+} from "./dispatchApiTypes";
 
+import type {
+  IHistoricoContext,
+  responseHistorico,
+  history
+} from "./historyApiTypes";
 
-export type TemplateBalloonCardProps = {
-  title: string;
-  message: string;
-  category: string;
-  onUse?: () => void;
-  onDelete?: () => void;
-};
+import type {
+  BatchStatus, 
+  CodePix, 
+  CodePixStatus, 
+  Invoice, 
+  InvoiceBatchResponse, 
+  InvoiceError,
+  InvoiceStatus,
+  InvoicesResponse, 
+  InvoicesStatus,
+  ResultInvoices 
+} from "./invoiceApiTypes";
 
+import type {
+  Template, 
+  ITemplatesContext, 
+  SendTemplate, 
+  TemplateComponent,
+  TemplateParameter,
+  TemplateRecipient, 
+  responseTemplate 
+} from "./templateApiTypes";
 
-
-export type PaginationProps = {
-  className?: string;
-  page: number;
-  onPrev: () => void;
-  onNext: () => void;
-  disablePrev?: boolean;
-  disableNext?: boolean;
-};
-
-export type Template = {
-  [x: string]: unknown;
-  id: string;
-  name: string;
-  message: string;
-  category: string;
-  active: boolean;
-  company: company;
-  meta_status: string;
-  createdAt: Date;
-  updatedAt: Date;
-  variables: Record<string, string>;
-  isEnabled: boolean;
-};
-
-export type PropsCardTemplates = {
-  template: Template;
-  isOpen: boolean;
-  onToggle: (id: string) => void;
-  setOpenModal: React.Dispatch<React.SetStateAction<boolean>>;
-  onDelete: (template: Template) => void
-};
-
-export type propTemplate = {
-  setOpenState: React.Dispatch<React.SetStateAction<boolean>>;
-  open: boolean;
-  FilterButtonProp: true | false;
-  templates: Template[]
-  setTemplateSelecionado: React.Dispatch<React.SetStateAction<Template>>;
-  templateSelecionado: Template | undefined
-};
-type invoices = {
- id_fatura: string,
- contratoId: string,
- data_vencimento_fatura: string,
- valor_fatura: string,
- status: string,
- Referencia?: string,
- linha_digitavel_boleto?: string
- link_boleto_pdf?: string
-}
-type company = {
-  id: string;
-  name: string;
-  account: string
-}
-export type Cliente = {
-  id: string;
-  cnpj_cpf: string;
-  name: string;
-  street?: string;
-  city?: string;
-  numberHouse?: string;
-  zipCode?: string;
-  clientId?: string;
-  whatsapp?: string;
-  email?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-  invoices?: invoices[];
-  services?: [];
-  company?: company;
-}
-export type Lead = {
-  [key: string]: any;
-  nome_cliente?: string;
-}
-export type PropsSelect = {
-  children: ReactNode | string;
-  className?: string;
-  disabled?: boolean;
-  value?: string[];
-  setSelected: Dispatch<React.SetStateAction<Cliente[]>>;
-  selected: Cliente[];
-  setOpen?: Dispatch<React.SetStateAction<boolean>>;
-  open?: boolean;
-  clientes: Cliente[];
-};
-
-export type responseClients = {
-  data: Cliente[];
-  limit: number;
-  page: number;
-  total: number;
-}
-export type responseTemplate = {
-  filter(arg0: (template: { isEnabled: any; }) => any): unknown;
-  data: Template[];
-  limit: number;
-  page: number;
-  total: number;
-}
-
-export interface IClientsContext {
-  clients: Cliente[] | [];
-  setQuery: React.Dispatch<SetStateAction<string>>
-  setPage: React.Dispatch<SetStateAction<number>>;
-  setLimit: React.Dispatch<SetStateAction<number>>;
-  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
-  setGroupInvoices: React.Dispatch<SetStateAction<boolean>>;
-  fetchInvoices: (client: Cliente[]) => void;
-}
-export interface ITemplatesContext {
-  templates: Template[] | [];
-  categoryTemplateFilter: string | null;
-  setCategoryTemplateFilter: React.Dispatch<SetStateAction<string | null>>;
-  searchTemplateName: string;
-  setSearchTemplateName: React.Dispatch<SetStateAction<string>>;
-  setQuery: React.Dispatch<SetStateAction<string>>;
-  setPage: React.Dispatch<SetStateAction<number>>;
-  setLimit: React.Dispatch<SetStateAction<number>>;
-  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
-  page: number;
-  deleteTemplate: (id: string) => Promise<{ success: boolean; error?: any }>;
-}
-export interface IDispatchTemplateContext {
-  setSelectedClientes: React.Dispatch<SetStateAction<Cliente[] >>;
-  setSelectedLeads: React.Dispatch<SetStateAction<Lead[]>>;
-  setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
-  selectedClientes: Cliente[];
-  selectedLeads: Lead[];
-  selectedTemplate: Template | null;
-  templateMapVars: mappedVars[] | null;
-  setModoPage: React.Dispatch<SetStateAction<"clientes" | "leads">>;
-  modoPage: "clientes" | "leads";
-  sendTemplate: () => void
-}
-export type FilterButtonProps = {
-  templates: Template[];
-  selectedCategory?: string
-  setSelectedCategory: React.Dispatch<SetStateAction<string>>
-  onCategoryChange?: (categoria: string) => void;
-};
-
-export type Historico = {
-  id: string;
-  cliente_name?: string;
-  cliente_document?: string;
-  cliente_whatsapp?: string;
-  message: string;
-  templateId?: string;
-  category?: string;
-  status: string;
-  errorMessage?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type responseHistorico = {
-  data: Historico[];
-  limit: number;
-  page: number;
-  total: number;
-};
-
-export interface IHistoricoContext {
-  historico: Historico[] | [];
-  setQuery: React.Dispatch<SetStateAction<string>>;
-  setPage: React.Dispatch<SetStateAction<number>>;
-  setLimit: React.Dispatch<SetStateAction<number>>;
-  setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
-}
-export type propAmostras={
-    variablesMap: Record<string, string>
-    setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>
-}
-export type TemplateParameter = {
-  type: "text" | "currency" | "date_time" | "image" | "document"
-  text: string;
-};
-
-export type TemplateComponent = {
-  type: "BODY" | "HEADER" | "FOOTER";
-  parameters: TemplateParameter[];
-};
-
-export type TemplateRecipient = {
-  name: string;
-  number: string;
-  components: TemplateComponent[];
-};
-
-export type SendTemplate = {
-  templateId: string;
-  account: number;
-  to: TemplateRecipient[];
-};
-export type mappedVars = {
-  nome_cliente?: string;
-  nome_atendente?: string; // ✅ ADICIONAR
-  data_vencimento_fatura?: string;
-  whatsapp?: string;
-  nome_empresa?: string;
-  numero_contrato?: string;
-  valor_fatura?: string;
-  linha_digitavel_boleto?: string;
-  link_boleto_pdf?: string;
-  mensagem?: string;
-  cnpj_cpf?: string;
-
-};
-export type UploadButtonProps = {
-  onUpload: (file: File, rows?: Record<string, string>[]) => void;
-  disabled?: boolean;
-  className?: string;
+export type 
+{ Cliente, 
+  responseClients,
+  responseHistorico,
+  FilterButtonProps, 
+  history, 
+  Lead, 
+  MyInputProps, 
+  PaginationProps, 
+  PropsCardTemplates, 
+  PropsSelect, 
+  TemplateBalloonCardProps, 
+  UploadButtonProps, 
+  propAmostras, 
+  propTemplate,
+  mappedVars,
+  Template, 
+  SendTemplate, 
+  TemplateComponent,
+  TemplateParameter,
+  TemplateRecipient, 
+  responseTemplate,
+  BatchStatus, 
+  CodePix, 
+  CodePixStatus, 
+  Invoice, 
+  InvoiceBatchResponse, 
+  InvoiceError,
+  InvoiceStatus,
+  InvoicesResponse, 
+  InvoicesStatus,
+  ResultInvoices,
+  IHistoricoContext,
+  IClientsContext,
+  IDispatchTemplateContext,
+  ITemplatesContext,
 };

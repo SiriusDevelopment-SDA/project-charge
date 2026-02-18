@@ -22,21 +22,6 @@ export function ClientesCard({
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fecha o balão ao clicar fora
-  useEffect(() => {
-    function handleClickOutside() {
-      setIsOpen(false);
-    }
-
-    if (isOpen) {
-      document.addEventListener("click", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [isOpen]);
-
   return (
     <div className={Styles.Cards}>
       <div className={Styles.card}>
@@ -47,7 +32,7 @@ export function ClientesCard({
             <span className={Styles.title}>{cliente.name}</span>
 
             <span className={Styles.badge}>
-              {cliente.dias_vencidos} Dias Vencidos
+              {0} Dias Vencidos
             </span>
 
             <div className={Styles.actions}>
@@ -56,29 +41,21 @@ export function ClientesCard({
                 onChange={onToggle}
                 name={`cliente-${cliente.id}`}
                 className="Checkbox"
-                onClick={(e) => e.stopPropagation()}
               />
 
               <div className={Styles.infoIcon}>
-                <CircleQuestionMark
-                  size={16}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsOpen((prev) => !prev);
-                  }}
-                />
+              <CircleQuestionMark size={16} className={Styles.iconInfo} />
 
-                {isOpen && (
+                {/* {isOpen && ( */}
                   <div
                     className={Styles.infoBalloon}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <strong>Campanhas ativas do cliente</strong>
                     <div>
                       <span>campanhas:</span>
                     </div>
                   </div>
-                )}
+                {/* )} */}
               </div>
             </div>
           </div>
@@ -92,12 +69,12 @@ export function ClientesCard({
 
             <p className={Styles.message}>
               <MessageSquareText className={Styles.IconMessage} />
-              {cliente.plano}
+              {"implementar"}
             </p>
 
             <p className={Styles.message}>
               <CircleDollarSign className={Styles.IconCircleDollar} />
-              R$ {cliente.valor_divida}
+              R$ {"implementar"}
             </p>
           </div>
         </div>

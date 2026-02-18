@@ -138,13 +138,13 @@
   color: green;
 }
 
-/* 🔥 BALÃO */
 .infoIcon {
-  position: relative;
-  display: flex;
+  position: relative; /* referência pro absolute do balão */
+  display: inline-flex;
   align-items: center;
 }
 
+/* BALÃO (layout fixo aqui) */
 .infoBalloon {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -159,6 +159,19 @@
 
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
   font-size: 12px;
+
+  /* escondido por padrão */
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* MOSTRAR NO HOVER */
+.infoIcon:hover .infoBalloon {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .infoBalloon::before {

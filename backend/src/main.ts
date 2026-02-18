@@ -8,7 +8,14 @@ import { ConfigService } from '@nestjs/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
-  app.enableCors();
+  app.enableCors({
+    origin: configService.get<string>('NODE_ENV') === 'production'
+      ? ['https://cobranca.coraxy.com.br']
+      : [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+      ],
+  });
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   
   app.setGlobalPrefix('api');
