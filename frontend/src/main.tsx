@@ -9,21 +9,25 @@ import "./styles/index.css";
 import { HistoricoProvider } from "./context/contextHistorico";
 import { DispatchTemplateProvider } from "./context/contextDisparo";
 import { AccountProvider } from "./context/AccountContext";
+import { CampaignProvider } from "./context/contextCampaigns";
+import { CategoriesProvider } from "./context/contextCategories";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AccountProvider>
-        <ClientProvider>
-          <DispatchTemplateProvider>
-            <TemplateProvider>
+      <ClientProvider>
+        <DispatchTemplateProvider>
+          <TemplateProvider>
+            <CategoriesProvider>
               <HistoricoProvider>
-               <App />
+                <CampaignProvider>
+                  <App />
+                </CampaignProvider>
               </HistoricoProvider>
-            </TemplateProvider>
-          </DispatchTemplateProvider>
-        </ClientProvider>
-      </AccountProvider>
+            </CategoriesProvider>
+          </TemplateProvider>
+        </DispatchTemplateProvider>
+      </ClientProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

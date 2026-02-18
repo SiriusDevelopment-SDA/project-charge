@@ -21,6 +21,7 @@ import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
 import { MyCalendar } from "./Calendar/calendar";
 import { MyTimePicker } from "./TimePicker/timePicker";
 import SwitchLabels from "./Switch/Switch";
+import DynamicModal from "./modal/modalAlertTemplate";
 
 export 
 { 
@@ -47,4 +48,6 @@ export
   Pagination, 
   CardCampanhas, 
   BaseCardCampanhas
+  SwitchLabels,
+  DynamicModal
 }
