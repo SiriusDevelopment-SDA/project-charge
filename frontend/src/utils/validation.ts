@@ -1,3 +1,4 @@
+import { Category } from "@mui/icons-material";
 import type { Cliente, Template } from "../types";
 import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
@@ -89,32 +90,44 @@ export function compilarTemplate(
       return varMapped ?? "";
     });
 }
-export function obterFaturaMaisAntigaAberta(cliente: any) {
-  const abertas = filtrarFaturasAbertas(cliente.invoices || []);
-  if (abertas.length === 0) return null;
+// export function obterFaturaMaisAntigaAberta(cliente: any) {
+//   console.log(cliente.invoices?.list);
+//   const abertas = filtrarFaturasAbertas(cliente.invoices?.list || []);
+//   if (abertas.length === 0) return null;
 
-  const ordenadas = ordenarPorVencimento(abertas);
-  return ordenadas[0]; // a mais antiga
-}
+//   const ordenadas = ordenarPorVencimento(abertas);
+//   return ordenadas[0]; // a mais antiga
+// }
 
-export function filtrarFaturasAbertas(invoices: any[]) {
-  return invoices.filter(inv =>
-    inv.situacao?.toLowerCase().includes("A Receber")
-  );
-}
-export function ordenarPorVencimento(invoices: any[]) {
-  return invoices.sort((a, b) =>
-    new Date(a.Data_de_vencimento).getTime() - new Date(b.Data_de_vencimento).getTime()
-  );
-}
+// export function filtrarFaturasAbertas(invoices: any[]) {
+//   return invoices.filter(inv =>
+//     inv.situacao?.toLowerCase().includes("A Receber")
+//   );
+// }
+// export function ordenarPorVencimento(invoices: any[]) {
+//   return invoices.sort((a, b) =>
+//     new Date(a.Data_de_vencimento).getTime() - new Date(b.Data_de_vencimento).getTime()
+//   );
+// }
 export function validarSelecaoCliente(
   cliente: Cliente,
   template?: Template
 ) {
-  if (template?.category !== "Cobrança") return true;
+  if (template?.category !== "Cobrança") {
+    return true;
+  }
 
-  const possuiFaturaAberta = cliente.invoices?.some(
-    inv => inv.status === "A Receber"
+  const invoices = cliente.invoices?.list;
+
+  if (!Array.isArray(invoices) || invoices.length === 0) {
+    toast.warning(
+      `O cliente ${cliente.name} não possui faturas e não pode ser selecionado para cobrança.`
+    );
+    return false;
+  }
+
+  const possuiFaturaAberta = invoices.some(
+    inv => inv.invoice_status === "A Receber"
   );
 
   if (!possuiFaturaAberta) {
@@ -126,5 +139,3 @@ export function validarSelecaoCliente(
 
   return true;
 }
-
-
