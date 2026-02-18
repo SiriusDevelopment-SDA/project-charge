@@ -1,18 +1,18 @@
-import { createContext, useEffect, useState } from 'react'
-import { Api } from '../services/api'
-import type { Cliente, IClientsContext, responseClients } from '../types'
-import { toast } from 'react-toastify'
+import { createContext, useEffect, useState } from "react";
+import { Api } from "../services/api";
+import type { Cliente, IClientsContext, responseClients } from "../types";
+import { toast } from "react-toastify";
 
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ClientContext = createContext<IClientsContext>(
-  {} as IClientsContext,
-)
+  {} as IClientsContext
+);
 
 export const ClientProvider = ({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) => {
   const [clients, setClient] = useState<Cliente[]>([])
   const [page, setPage] = useState<number>(1)
@@ -57,10 +57,10 @@ export const ClientProvider = ({
   const fetchInvoices = async (clients: Cliente[]) => {
     try {
       const res = await fetch(
-        'https://webhooks.coraxy.com.br/webhook/faturas',
+        "https://webhooks.coraxy.com.br/webhook/faturas",
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             documento: clients.map(c => c.cnpj_cpf),
           }),
@@ -88,11 +88,56 @@ export const ClientProvider = ({
           : [],
         }))
       );
-      return [...clients, invoices]
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao buscar faturas:", err);
     }
   };
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const account = urlParams.get("account");
+
+        const response = await Api.post<responseClients>(
+          "/search/clients",
+          {
+            account,
+            query,
+            page,
+            limit,
+            sortorder: order,
+          }
+        );
+
+        const clientsResponse = response.data.data;
+
+        if (query.trim() !== "" && clientsResponse.length === 0) {
+          toast.warning(
+            `Cliente com documento: ${query} não encontrado!!`
+          );
+        }
+
+        setClient((prev) => {
+          const map = new Map<string, Cliente>();
+          [...prev, ...clientsResponse].forEach((c) =>
+            map.set(c.id, c)
+          );
+          return Array.from(map.values());
+        });
+
+        if (groupInvoices) {
+          await fetchInvoices(clientsResponse);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar clientes:", err);
+      }
+    };
+
+    fetchAll();
+  }, [query, page, limit, order, groupInvoices]);
+
   return (
     <ClientContext.Provider
       value={{ 
@@ -107,5 +152,5 @@ export const ClientProvider = ({
     >
       {children}
     </ClientContext.Provider>
-  )
-}
+  );
+};

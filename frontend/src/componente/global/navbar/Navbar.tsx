@@ -29,7 +29,7 @@ export function Navbar() {
 
         <NavLink
           to="/clientesVencidos"
-          className={({ isActive }) => (isActive ? styles.active : '')}
+          className={({ isActive }) => (isActive ? styles.active : "")}
           // onClick={(e) => e.preventDefault()}
         >
           Clientes Vencidos
@@ -37,8 +37,8 @@ export function Navbar() {
 
         <NavLink
           to="/campanhas"
-          className={({ isActive }) => (isActive ? styles.active : styles.disabled)}
-          onClick={(e) => e.preventDefault()}
+          className={({ isActive }) => (isActive ? styles.active : "")}
+          //onClick={(e) => e.preventDefault()}
         >
           Campanhas
         </NavLink>

@@ -8,6 +8,7 @@ import { TemplateProvider } from "./context/contextTemplates";
 import "./styles/index.css";
 import { HistoricoProvider } from "./context/contextHistorico";
 import { DispatchTemplateProvider } from "./context/contextDisparo";
+import { AccountProvider } from "./context/AccountContext";
 import { CampaignProvider } from "./context/contextCampaigns";
 import { CategoriesProvider } from "./context/contextCategories";
 

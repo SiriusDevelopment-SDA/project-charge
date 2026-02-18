@@ -11,11 +11,15 @@ import { TitlePage } from "./global/TitlePage/TitlePage"
 import { Navbar } from "./global/navbar/Navbar"
 import { TemplateBody } from "../componente/TemplateBody/TemplateBody";
 import AmostraVariaveis from "../componente/AmostraVariaveis/AmostraVariaveis";
+import {Pagination} from "../componente/global/Pagination/Pagination";
+import {CardCampanhas} from "../componente/Card/CardCampanhas/CardCampanhas";
+import { BaseCardCampanhas } from "./Card/CardCampanhas/BaseCardCampanhas";
 import GraficoCobranca from './GraficoCobrança/GraficoCobranca';
 import GraficoDisparo from './GraficoDisparo/GraficoDisparo';
 import GraficoRelatorio from './GraficoRelatorioDisparo/GraficoRelatorio';
 import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
 import { MyCalendar } from "./Calendar/calendar";
+import { MyTimePicker } from "./TimePicker/timePicker";
 import SwitchLabels from "./Switch/Switch";
 import DynamicModal from "./modal/modalAlertTemplate";
 
@@ -39,6 +43,11 @@ export
   GraficoRelatorio, 
   GraficoCampanhas,
   MyCalendar, 
+  MyTimePicker,
+  SwitchLabels,
+  Pagination, 
+  CardCampanhas, 
+  BaseCardCampanhas
   SwitchLabels,
   DynamicModal
 }

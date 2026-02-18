@@ -61,6 +61,21 @@
   justify-content: center;
 }
 
+.modal-custom {
+  background: #2a2410;
+  border: 1px solid #c09802;
+  width: 90%;
+  max-width: 500px;
+  padding: 24px;
+}
+
+.modalCustomContent {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 /* ÍCONE */
 .modalIcon {
   width: 42px;
