@@ -13,6 +13,7 @@ import { Invoice } from '../../invoices/entities/invoices';
 import { Service } from '../../services/entities/services';
 import { Templates } from '../../templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from '../../templates/entities/relatory.entity';
+import { Campaign } from '../../campanhas/entities/campanhas.entity';
   
   @Entity()
   export class Company {
@@ -102,4 +103,7 @@ import { RelatoryDispatchTemplate } from '../../templates/entities/relatory.enti
 
     @OneToMany(() => RelatoryDispatchTemplate, (relatory) => relatory.company, { nullable: false })
     relatories!: RelatoryDispatchTemplate[];
+
+    @OneToMany(() => Campaign, (campaign) => campaign.company, { nullable: true })
+    campaigns!: Campaign[] | null;
   }

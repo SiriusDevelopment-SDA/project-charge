@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/companies';
 import { RelatoryDispatchTemplate } from './relatory.entity';
+import { Campaign } from '../../campanhas/entities/campanhas.entity';
 
 @Entity()
 export class Templates {
@@ -61,4 +62,7 @@ export class Templates {
 
   @Column({ default: true })
   isEnabled!: boolean;
+
+  @OneToMany(() => Campaign, (campaign) => campaign.template)
+  campaigns!: Campaign[];
 }

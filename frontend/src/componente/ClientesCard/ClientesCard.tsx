@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Cliente } from "../../types";
 import { Checkbox } from "../Checkbox/Checkbox";
 import Styles from "./ClientesCard.module.css";
@@ -8,6 +8,7 @@ import {
   MessageSquareText,
   CircleDollarSign,
 } from "lucide-react";
+import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
 
 type Props = {
   cliente: Cliente;
@@ -24,7 +25,10 @@ export function ClientesCard({
 
   return (
     <div className={Styles.Cards}>
-      <div className={Styles.card}>
+      <div className={Styles.card}
+        onClick={(e) => e.stopPropagation()}
+      >
+
         {/* 🔥 Wrapper que libera overflow */}
         <div className={Styles.cardContent}>
           {/* HEADER */}

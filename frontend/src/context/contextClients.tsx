@@ -5,13 +5,13 @@ import type { Cliente, IClientsContext, Invoice, InvoiceBatchResponse, InvoiceEr
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ClientContext = createContext<IClientsContext>(
-  {} as IClientsContext,
-)
+  {} as IClientsContext
+);
 
 export const ClientProvider = ({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) => {
   const [clients, setClient] = useState<Cliente[]>([])
   const [page, setPage] = useState<number>(1)
@@ -21,19 +21,20 @@ export const ClientProvider = ({
   const [groupInvoices, setGroupInvoices] = useState<boolean>(false)
 
   useEffect(() => {
+    setClient([]);
     const fetchAll = async () => {
       try {
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
         const account = urlParams.get('account');
-  
+
         const response = await Api.post<responseClients>(
           '/clients/search',
           { account, query, page, limit, sortorder: order }
         );
-  
+
         const clients = response.data.data;
-        if(query.trim() !== '' && clients.length === 0)toast.warning(`Cliente com documento: ${query} não encontrado!!`)
+        if (query.trim() !== '' && clients.length === 0) toast.warning(`Cliente com documento: ${query} não encontrado!!`)
 
         setClient((prev) => {
           const map = new Map<string, Cliente>();
@@ -45,7 +46,7 @@ export const ClientProvider = ({
         console.error('Erro ao buscar clientes:', err);
       }
     };
-  
+
     fetchAll();
   }, [query, page, limit, order, groupInvoices]);
   
@@ -123,5 +124,5 @@ export const ClientProvider = ({
     >
       {children}
     </ClientContext.Provider>
-  )
-}
+  );
+};

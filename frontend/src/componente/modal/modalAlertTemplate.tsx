@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./styleModal.module.css";
 
-export type ModalType = "success" | "warning" | "error" | "info" | "modaltemplates";
+export type ModalType = "success" | "warning" | "error" | "info" | "modaltemplates" | "custom";
 
 export type ModalButton = {
   label: string;
@@ -15,8 +15,9 @@ export type DynamicModalProps = {
   type: ModalType;
   title: string;
   description?: string | ReactNode;
-  buttons: ModalButton[];
+  buttons?: ModalButton[];
   onClose: () => void;
+  customContent?: ReactNode;
 };
 
 export default function DynamicModal({
@@ -26,6 +27,7 @@ export default function DynamicModal({
   description,
   buttons,
   onClose,
+  customContent,
 }: DynamicModalProps) {
   if (!open) return null;
 
@@ -40,35 +42,48 @@ export default function DynamicModal({
         className={`${styles.modalContainer} ${styles[`modal-${type}`]}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={`${styles.modalIcon} ${styles[`icon-${type}`]}`}>
-          {type === "success" && "✓"}
-          {type === "warning" && "!"}
-          {type === "error" && "✕"}
-          {type === "info" && "i"}
-          {type === "modaltemplates" && ""}
-        </div>
+        {customContent ? (
+          <>
+            <h2 className={styles.modalTitle}>{title}</h2>
+            <div className={styles.modalCustomContent}>
+              {customContent}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={`${styles.modalIcon} ${styles[`icon-${type}`]}`}>
+              {type === "success" && "✓"}
+              {type === "warning" && "!"}
+              {type === "error" && "✕"}
+              {type === "info" && "i"}
+              {type === "modaltemplates" && ""}
+            </div>
 
-        <h2 className={styles.modalTitle}>{title}</h2>
+            <h2 className={styles.modalTitle}>{title}</h2>
 
-        {description && (
-          <div className={styles.modalDescription}>
-            {description}
-          </div>
+            {description && (
+              <div className={styles.modalDescription}>
+                {description}
+              </div>
+            )}
+
+            {buttons && buttons.length > 0 && (
+              <div className={styles.modalActions}>
+                {buttons.map((btn, index) => (
+                  <button
+                    key={index}
+                    className={`${styles.btn} ${
+                      styles[`btn-${btn.variant || "primary"}`]
+                    }`}
+                    onClick={btn.onClick}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
-
-        <div className={styles.modalActions}>
-          {buttons.map((btn, index) => (
-            <button
-              key={index}
-              className={`${styles.btn} ${
-                styles[`btn-${btn.variant || "primary"}`]
-              }`}
-              onClick={btn.onClick}
-            >
-              {btn.label}
-            </button>
-          ))}
-        </div>
       </div>
     </div>,
     document.body 
