@@ -21,7 +21,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <CategoriesProvider>
               <HistoricoProvider>
                 <CampaignProvider>
-                  <App />
+                  <AccountProvider>
+                    <App />
+                  </AccountProvider>
                 </CampaignProvider>
               </HistoricoProvider>
             </CategoriesProvider>

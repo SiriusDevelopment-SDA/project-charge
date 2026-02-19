@@ -10,9 +10,9 @@ export function AccountLayout() {
     const accountParam = searchParams.get("account");
 
     if (accountParam && !isNaN(Number(accountParam))) {
-      setAccount(Number(accountParam));
+      setAccount(accountParam);
     } else {
-      setAccount(4); // fallback
+      setAccount("0");
     }
   }, [searchParams, setAccount]);
 
