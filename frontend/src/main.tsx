@@ -11,6 +11,7 @@ import { DispatchTemplateProvider } from "./context/contextDisparo";
 import { AccountProvider } from "./context/AccountContext";
 import { CampaignProvider } from "./context/contextCampaigns";
 import { CategoriesProvider } from "./context/contextCategories";
+import { ListCampaignsProvider } from "./context/contextListCampaigns";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -20,11 +21,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <TemplateProvider>
             <CategoriesProvider>
               <HistoricoProvider>
-                <CampaignProvider>
-                  <AccountProvider>
-                    <App />
-                  </AccountProvider>
-                </CampaignProvider>
+                <ListCampaignsProvider>
+                  <CampaignProvider>
+                    <AccountProvider>
+                      <App />
+                    </AccountProvider>
+                  </CampaignProvider>
+                </ListCampaignsProvider>
               </HistoricoProvider>
             </CategoriesProvider>
           </TemplateProvider>

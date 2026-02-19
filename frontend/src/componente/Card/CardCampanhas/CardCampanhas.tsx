@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { Trash2, Pencil, MoreVertical, HelpCircle } from "lucide-react";
 import { toast } from "react-toastify";
-import type { DateRange } from "react-day-picker";
-import { format } from "date-fns";
 import { BaseCardCampanhas, MyCalendar, MyTimePicker } from "../../Index";
 import DynamicModal from "../../modal/modalAlertTemplate";
 import { ModalEditarCampanha } from "./ModalEditarCampanha";
@@ -12,71 +10,70 @@ import type { PropsCardCampanhas } from "../../../types";
 import Style from "./CardCampanhas.module.css";
 import FoguinhoVerde from "../../../assets/imagens/FoguinhoVerde.png";
 import FoguinhoVermelho from "../../../assets/imagens/FoguinhoVermelho.png";
+import { Api } from "../../../services/api";
+import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 
 export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
-  // Estados para os modais
   const [openEdit, setOpenEdit] = useState(false);
   const [openStatusModal, setOpenStatusModal] = useState(false);
   const [showCalendarDisparo, setShowCalendarDisparo] = useState(false);
   const [showCalendarFinalizacao, setShowCalendarFinalizacao] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-
-  // Estados para os menus e tooltips
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Estados dos dados da campanha
   const [isActive, setIsActive] = useState(campanha.isEnabled ?? true);
-  const [tipo, setTipo] = useState(campanha.category || "UTILITY");
-  const [dataDisparo, setDataDisparo] = useState(
-    campanha.createdAt
-      ? new Date(campanha.createdAt).toLocaleDateString("pt-BR")
-      : "-",
-  );
-  const [dataFinalizacao, setDataFinalizacao] = useState(
-    campanha.updatedAt
-      ? new Date(campanha.updatedAt).toLocaleDateString("pt-BR")
-      : "-",
-  );
-  const [horario, setHorario] = useState("09:00");
-  const [observacao, setObservacao] = useState(
-    `Template: ${campanha.name || "Sem descrição"}`,
-  );
 
-  // Estados temporários para edição
-  const [tempTipo, setTempTipo] = useState(tipo);
+  // Valores diretos da campanha
+  const categoria = campanha.category?.name ?? "—";
+  const dataDisparo = campanha.startDate
+    ? new Date(campanha.startDate).toLocaleDateString("pt-BR")
+    : "—";
+  const dataFinalizacao = campanha.endDate
+    ? new Date(campanha.endDate).toLocaleDateString("pt-BR")
+    : "—";
+  const horarioInicio = campanha.dispatchStartTime ?? "—";
+
+  // Estados temporários para edição (modal)
   const [tempDataDisparo, setTempDataDisparo] = useState(dataDisparo);
-  const [tempDataFinalizacao, setTempDataFinalizacao] =
-    useState(dataFinalizacao);
-  const [tempHorario, setTempHorario] = useState(horario);
-  const [tempObservacao, setTempObservacao] = useState(observacao);
+  const [tempDataFinalizacao, setTempDataFinalizacao] = useState(dataFinalizacao);
+  const [tempHorario, setTempHorario] = useState(horarioInicio);
+  const [tempObservacao, setTempObservacao] = useState("");
+  const [tempTipo, setTempTipo] = useState(
+    campanha.recurring ? "true" : "false"
+  );
 
-  // Lógica de exibição
+
+  // Valores exibidos no card (atualizados após salvar)
+  const [displayDataDisparo, setDisplayDataDisparo] = useState(dataDisparo);
+  const [displayDataFinalizacao, setDisplayDataFinalizacao] = useState(dataFinalizacao);
+  const [displayHorario, setDisplayHorario] = useState(horarioInicio);
+
   const statusIcon = isActive ? FoguinhoVerde : FoguinhoVermelho;
   const statusText = isActive ? "Desativar" : "Ativar";
-  const MAX_OBS = 50;
-  const displayedObservacao =
-    observacao.length > MAX_OBS
-      ? observacao.slice(0, MAX_OBS) + "..."
-      : observacao;
 
-  
-  function handleToggleStatus() {
-    setIsActive((prev) => !prev);
+  async function handleToggleStatus() {
+    try {
+      await Api.patch(`/campaigns/${campanha.id}/toggle-status`);
+      setIsActive((prev) => !prev);
+      toast.success("Status atualizado!");
+    } catch {
+      toast.error("Erro ao atualizar status da campanha.");
+    }
     setOpenStatusModal(false);
-    toast.success("Status atualizado!");
   }
 
   function handleOpenEdit() {
-    setTempTipo(tipo);
     setTempDataDisparo(dataDisparo);
     setTempDataFinalizacao(dataFinalizacao);
-    setTempHorario(horario);
-    setTempObservacao(observacao);
+    setTempHorario(horarioInicio);
+    setTempObservacao("");
     setShowCalendarDisparo(false);
     setShowCalendarFinalizacao(false);
     setShowTimePicker(false);
     setOpenEdit(true);
+    setTempTipo(campanha.recurring ? "true" : "false");
   }
 
   function handleDateDisparoSelect(range: DateRange | undefined) {
@@ -97,42 +94,64 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
     setTempHorario(time);
   }
 
-  function handleSave() {
-    setTipo(tempTipo);
-    setDataDisparo(tempDataDisparo);
-    setDataFinalizacao(tempDataFinalizacao);
-    setHorario(tempHorario);
-    setObservacao(tempObservacao);
-    toast.success("Dados da campanha atualizados!");
-    setOpenEdit(false);
+  async function handleSave() {
+    try {
+      const toISO = (dateBR: string) => {
+        const [day, month, year] = dateBR.split("/");
+        return new Date(`${year}-${month}-${day}`).toISOString();
+      };
+
+      const horarioFormatado = tempHorario.length > 5
+        ? tempHorario.slice(0, 5)
+        : tempHorario;
+
+      const payload = {
+        recurring: tempTipo === "true",
+        startDate: toISO(tempDataDisparo),
+        endDate: toISO(tempDataFinalizacao),
+        dispatchStartTime: horarioFormatado,
+      };
+
+      
+
+      console.log("Payload enviado:", payload);
+
+      await Api.patch(`/campaigns/${campanha.id}`, payload);
+
+      setDisplayDataDisparo(tempDataDisparo);
+      setDisplayDataFinalizacao(tempDataFinalizacao);
+      setDisplayHorario(horarioFormatado);
+
+      toast.success("Campanha atualizada com sucesso!");
+      setOpenEdit(false);
+    } catch (err: any) {
+      console.error("Erro ao atualizar campanha:", err?.response?.data ?? err);
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Erro ao atualizar campanha.");
+    }
   }
 
   return (
     <>
-      {/* CARDS */}
       <BaseCardCampanhas className={Style.campaignCard}>
         {/* HEADER */}
         <div className={Style.header}>
           <h3 className={Style.title}>{campanha.name}</h3>
           <div
-            className={`${Style.StatusWrapper} ${
-              isActive ? Style.flameActive : ""
-            }`}
+            className={`${Style.StatusWrapper} ${isActive ? Style.flameActive : ""}`}
             onClick={() => setOpenStatusModal(true)}
             title={statusText}
           >
-            <img
-              src={statusIcon}
-              alt={statusText}
-              className={Style.statusIcon}
-            />
+            <img src={statusIcon} alt={statusText} className={Style.statusIcon} />
           </div>
         </div>
 
-        {/* TEMPLATE - COM BOTÃO DE AJUDA */}
+        {/* TEMPLATE */}
         <div className={Style.templateBox}>
           <div className={Style.templateHeader}>
-            <span className={Style.templateLabel}>TEMPLATE</span>
+            <span className={Style.templateLabel}>
+              TEMPLATE: {campanha.template?.name ?? "—"}
+            </span>
             <button
               className={Style.helpButton}
               onMouseEnter={(e) => {
@@ -150,19 +169,19 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
               <HelpCircle size={24} />
             </button>
           </div>
-          <p>{campanha.message}</p>
+          <p>{campanha.template?.message ?? "Sem mensagem"}</p>
           {showTooltip && (
             <div
               className={Style.tooltip}
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
             >
-              {campanha.message}
+              {campanha.template?.message ?? "Sem mensagem"}
             </div>
           )}
         </div>
 
-        {/* DETALHES - COM MENU DE AÇÕES */}
+        {/* DETALHES */}
         <div className={Style.detailsBox}>
           <div className={Style.detailsHeader}>
             <h4>DETALHES DE CAMPANHA</h4>
@@ -198,13 +217,10 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
             </div>
           </div>
           <div className={Style.detailsGrid}>
-              <p><strong>Tipo:</strong>{tipo}</p>
-              <p><strong>Início disparo:</strong> {dataDisparo}</p>
-              <p><strong>Fim disparo:</strong> {dataFinalizacao}</p>
-            <div>
-              <p><strong>Horário disparo:</strong> {horario}</p>
-              <p><strong>Obs:</strong> {displayedObservacao}</p>
-            </div>
+            <p><strong>Categoria:</strong> {categoria}</p>
+            <p><strong>Início:</strong> {displayDataDisparo}</p>
+            <p><strong>Fim:</strong> {displayDataFinalizacao}</p>
+            <p><strong>Horário:</strong> {displayHorario}</p>
           </div>
         </div>
       </BaseCardCampanhas>
@@ -217,16 +233,8 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         description="Deseja alterar o status da campanha?"
         onClose={() => setOpenStatusModal(false)}
         buttons={[
-          {
-            label: "Cancelar",
-            variant: "danger",
-            onClick: () => setOpenStatusModal(false),
-          },
-          {
-            label: "Confirmar",
-            variant: "success",
-            onClick: handleToggleStatus,
-          },
+          { label: "Cancelar", variant: "danger", onClick: () => setOpenStatusModal(false) },
+          { label: "Confirmar", variant: "success", onClick: handleToggleStatus },
         ]}
       />
 
@@ -245,6 +253,7 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         onOpenTimePicker={() => setShowTimePicker(true)}
         observacao={tempObservacao}
         setObservacao={setTempObservacao}
+
       />
 
       {/* MODAL CALENDÁRIO DISPARO */}
@@ -255,14 +264,8 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         onClose={() => setShowCalendarDisparo(false)}
         customContent={
           <>
-            <MyCalendar
-              selected={undefined}
-              onSelect={handleDateDisparoSelect}
-            />
-            <button
-              className={Style.closeCalendarButton}
-              onClick={() => setShowCalendarDisparo(false)}
-            >
+            <MyCalendar selected={undefined} onSelect={handleDateDisparoSelect} />
+            <button className={Style.closeCalendarButton} onClick={() => setShowCalendarDisparo(false)}>
               Fechar
             </button>
           </>
@@ -277,14 +280,8 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         onClose={() => setShowCalendarFinalizacao(false)}
         customContent={
           <>
-            <MyCalendar
-              selected={undefined}
-              onSelect={handleDateFinalizacaoSelect}
-            />
-            <button
-              className={Style.closeCalendarButton}
-              onClick={() => setShowCalendarFinalizacao(false)}
-            >
+            <MyCalendar selected={undefined} onSelect={handleDateFinalizacaoSelect} />
+            <button className={Style.closeCalendarButton} onClick={() => setShowCalendarFinalizacao(false)}>
               Fechar
             </button>
           </>
@@ -300,10 +297,7 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         customContent={
           <>
             <MyTimePicker selected={tempHorario} onSelect={handleTimeSelect} />
-            <button
-              className={Style.closeCalendarButton}
-              onClick={() => setShowTimePicker(false)}
-            >
+            <button className={Style.closeCalendarButton} onClick={() => setShowTimePicker(false)}>
               Fechar
             </button>
           </>

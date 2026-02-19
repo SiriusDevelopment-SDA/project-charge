@@ -33,7 +33,7 @@ import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard"
 ========================= */
 import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { ClientContext } from "../../context/contextClients";
+//import { ClientContext } from "../../context/contextClients";
 
 /* =========================
    STYLES
@@ -64,7 +64,10 @@ export function ClientesVencidos() {
   const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
+  // template modal
   const [openTemplateModal, setOpenTemplateModal] = useState(false);
+  // campanha modal
+  //const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
   const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
 
   const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
@@ -319,14 +322,17 @@ useEffect(() => {
               {
                 label: "Selecionar uma campanha",
                 variant: "BtnOpcoes",
-                onClick: () => setOpenProsseguirModal(false),
+                onClick: () => {
+                  setOpenProsseguirModal(false);
+                  setOpenTemplateModal(true);
+                }
               },
               {
                 label: "Criar campanha",
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  navigate("/criarcampanha");
+                    navigate("/CreateCampanha");
                 },
               },
             ]}
