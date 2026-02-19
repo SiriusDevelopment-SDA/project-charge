@@ -71,7 +71,6 @@ export const TemplateProvider = ({
       return { success: false, error }
     }
   }
-
   return (
     <TemplateContext.Provider
       value={{ templates, categoryTemplateFilter, setCategoryTemplateFilter, searchTemplateName, setSearchTemplateName, setQuery, setPage, setLimit, setOrder, page, deleteTemplate }}

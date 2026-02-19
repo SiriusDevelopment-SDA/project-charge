@@ -21,6 +21,9 @@ import { CampaignsService } from './campanhas/campanhas.service';
 import { Category } from './category/entities/category.entity';
 import { CategoryController } from './category/category.controller';
 import { CategoryService } from './category/category.service';
+import { ControllerServices } from './services/app.controller.services';
+import { AppServiceServices } from './services/app.service.services';
+import { Service } from './services/entities/services';
 
 @Module({
   imports: [
@@ -32,9 +35,10 @@ import { CategoryService } from './category/category.service';
     TypeOrmModule.forFeature([Company]),
     TypeOrmModule.forFeature([Campaign]),
     TypeOrmModule.forFeature([Category]),
+    TypeOrmModule.forFeature([Service]),
     DatabaseModule,
   ],
-  controllers: [ControllerClients, ControllerTemplates, InvoicesController, CampaignsController, CategoryController],
+  controllers: [ControllerClients, ControllerTemplates, InvoicesController, CampaignsController, CategoryController,ControllerServices],
   providers: [
     AppServiceClient, 
     AppServiceTemplate, 
@@ -42,7 +46,8 @@ import { CategoryService } from './category/category.service';
     CampaignsService,
     CategoryService,
     HubsoftInvoicesService,
-    SGPInvoicesService
+    SGPInvoicesService,
+    AppServiceServices
   ],
 })
 export class AppModule { }

@@ -23,43 +23,6 @@ export function ClientesCard({
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const invoices = cliente.invoices ?? [];
-
-  const [diasVencidos, setDiasVencidos] = useState<number | null>(null);
-
-  useEffect(() => {
-    const invoices = cliente.invoices;
-
-    if (invoices === undefined) {
-      setDiasVencidos(null);
-      return;
-    }
-
-    if (!invoices.length) {
-      setDiasVencidos(0);
-      return;
-    }
-
-    const atraso = maiorAtrasoCliente(invoices);
-    setDiasVencidos(atraso);
-
-  }, [cliente.invoices]);
-
-  // Fecha o balão ao clicar fora
-  useEffect(() => {
-    function handleClickOutside() {
-      setIsOpen(false);
-    }
-
-    if (isOpen) {
-      document.addEventListener("click", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [isOpen]);
-
   return (
     <div className={Styles.Cards}>
       <div className={Styles.card}
@@ -73,9 +36,7 @@ export function ClientesCard({
             <span className={Styles.title}>{cliente.name}</span>
 
             <span className={Styles.badge}>
-              {diasVencidos === null
-                ? "Carregando..."
-                : `Vencidos: ${diasVencidos} dias`}
+              {0} Dias Vencidos
             </span>
 
             <div className={Styles.actions}>
@@ -87,25 +48,18 @@ export function ClientesCard({
               />
 
               <div className={Styles.infoIcon}>
-                <CircleQuestionMark
-                  size={16}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsOpen((prev) => !prev);
-                  }}
-                />
+              <CircleQuestionMark size={16} className={Styles.iconInfo} />
 
-                {isOpen && (
+                {/* {isOpen && ( */}
                   <div
                     className={Styles.infoBalloon}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <strong>Campanhas ativas do cliente</strong>
                     <div>
                       <span>campanhas:</span>
                     </div>
                   </div>
-                )}
+                {/* )} */}
               </div>
             </div>
           </div>
@@ -119,12 +73,12 @@ export function ClientesCard({
 
             <p className={Styles.message}>
               <MessageSquareText className={Styles.IconMessage} />
-              {cliente.plano}
+              {"implementar"}
             </p>
 
             <p className={Styles.message}>
               <CircleDollarSign className={Styles.IconCircleDollar} />
-              R$ {cliente.valor_divida}
+              R$ {"implementar"}
             </p>
           </div>
         </div>

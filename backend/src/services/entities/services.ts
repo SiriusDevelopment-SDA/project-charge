@@ -44,10 +44,7 @@ export class Service {
     referencedColumnName: 'cnpj_cpf',
   })
   client!: Client;
-
-  // @OneToMany(() => Invoice, (invoice) => invoice.service, { nullable: false })
-  // invoices!: Invoice[];
-
+  
   @ManyToOne(() => Company, (company) => company.services, { nullable: false })
   @JoinColumn({
     name: 'companyId',

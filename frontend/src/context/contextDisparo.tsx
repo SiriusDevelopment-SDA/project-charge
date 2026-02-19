@@ -50,36 +50,36 @@ export const DispatchTemplateProvider = ({
         return;
       }
   
-      const ATENDENTE_PADRAO = "Atendimento Sirius";
+      const ATENDENTE_PADRAO = "do Atendimento";
   
       const mapped = source.map(c => {
         const vars: mappedVars = {
-          nome_cliente: c.name ?? (c as any).nome_cliente ?? "",
+          nome_cliente: c.name.toLowerCase() ?? (c as any).nome_cliente.toLowerCase() ?? "",
           whatsapp: c.whatsapp ?? "",
           cnpj_cpf: c.cnpj_cpf ?? (c as any).cnpj_cpf ?? "",
-          nome_atendente: ATENDENTE_PADRAO,
+          nome_atendente: ATENDENTE_PADRAO.toLowerCase(),
           data_vencimento_fatura:
-            c.invoices?.[0]?.data_vencimento_fatura ??
+            c.invoices?.list?.invoice_due_date ??
             (c as any).data_vencimento_fatura ??
             "",
           nome_empresa:
-            c.company?.name ??
-            selectedTemplate.company?.name ??
+            c.company?.name.toLowerCase() ??
+            selectedTemplate.company?.name.toLowerCase() ??
             "",
           numero_contrato:
-            c.invoices?.[0]?.contratoId ??
+            c.invoices?.list?.contract_id ??
             (c as any).numero_contrato ??
             "",
           valor_fatura:
-            c.invoices?.[0]?.valor_fatura ??
+            c.invoices?.list?.invoice_amount ??
             (c as any).valor_fatura ??
             "",
           linha_digitavel_boleto:
-            c.invoices?.[0]?.linha_digitavel_boleto ??
+            c.invoices?.list?.ticket_digitable_line ??
             (c as any).linha_digitavel_boleto ??
             "",
           link_boleto_pdf:
-            c.invoices?.[0]?.link_boleto_pdf ??
+            c.invoices?.list?.ticket_pdf_link ??
             (c as any).link_boleto_pdf ??
             "",
         };
