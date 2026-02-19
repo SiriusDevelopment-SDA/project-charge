@@ -7,6 +7,7 @@ import { Repository, In } from 'typeorm';
 
 import { Campaign } from './entities/campanhas.entity';
 import { CreateCampaignDto } from './dto/create-campanhas.dto';
+import { UpdateCampaignDto } from './dto/update-campanhas.dto';
 import { Client } from '../clients/entities.ts/clients';
 
 @Injectable()
@@ -80,5 +81,42 @@ export class CampaignsService {
       relations: ['template', 'category'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async remove(id: string): Promise<void> {
+    const campaign = await this.findOne(id);
+    await this.campaignRepository.remove(campaign);
+  }
+
+  async update(id: string, updateDto: UpdateCampaignDto): Promise<Campaign> {
+    const campaign = await this.findOne(id);
+
+    if (updateDto.name) campaign.name = updateDto.name;
+    if (updateDto.startDate) campaign.startDate = new Date(updateDto.startDate);
+    if (updateDto.endDate) campaign.endDate = new Date(updateDto.endDate);
+    if (updateDto.dispatchStartTime) campaign.dispatchStartTime = updateDto.dispatchStartTime;
+    if (updateDto.dispatchEndTime) campaign.dispatchEndTime = updateDto.dispatchEndTime;
+    if (updateDto.timezone) campaign.timezone = updateDto.timezone;
+    if (updateDto.recurring !== undefined) campaign.recurring = updateDto.recurring;
+    if (updateDto.templateId) campaign.template = { id: updateDto.templateId } as any;
+    if (updateDto.categoryId) campaign.category = { id: updateDto.categoryId } as any;
+
+    if (updateDto.client && updateDto.client.length > 0) {
+      const clients = await this.clientRepository.find({
+        where: { id: In(updateDto.client) },
+      });
+      if (clients.length !== updateDto.client.length) {
+        throw new BadRequestException('Um ou mais clientes não foram encontrados.');
+      }
+      campaign.client = clients;
+    }
+
+    return await this.campaignRepository.save(campaign);
+  }
+
+  async toggleStatus(id: string): Promise<Campaign> {
+    const campaign = await this.findOne(id);
+    campaign.isEnabled = !campaign.isEnabled;
+    return await this.campaignRepository.save(campaign);
   }
 }
