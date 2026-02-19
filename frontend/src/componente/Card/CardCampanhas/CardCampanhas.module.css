@@ -203,7 +203,7 @@
 
 .detailsGrid {
   display: grid;
-  grid-template-columns: 0.40fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 4px 20px;                   
   font-size: 0.75rem;
   color: #ccc;

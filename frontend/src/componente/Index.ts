@@ -1,14 +1,14 @@
-import { BaseCard } from "./Card/Card"
-import { Metricas } from "./Card/Metricas"
-import { PreviewBox } from "./CardPreview/CardPreview"
-import { DownloadModeloButton } from "./DawnloadModeloButton/DawnloadModeloButton"
-import { Dropdown } from "./Dropdown/Dropdown"
-import { InputFields } from "./InputFild/InputFild"
-import { UploadButton } from "./UploadButton/UploadButton"
-import { MyButton } from "./global/MyButton/MyButton"
-import { PageContainer } from "./global/PageComponente/PageComponente"
-import { TitlePage } from "./global/TitlePage/TitlePage"
-import { Navbar } from "./global/navbar/Navbar"
+import { BaseCard } from "./Card/Card";
+import { Metricas } from "./Card/Metricas";
+import { PreviewBox } from "./CardPreview/CardPreview";
+import { DownloadModeloButton } from "./DawnloadModeloButton/DawnloadModeloButton";
+import { Dropdown } from "./Dropdown/Dropdown";
+import { InputFields } from "./InputFild/InputFild";
+import { UploadButton } from "./UploadButton/UploadButton";
+import { MyButton } from "./global/MyButton/MyButton";
+import { PageContainer } from "./global/PageComponente/PageComponente";
+import { TitlePage } from "./global/TitlePage/TitlePage";
+import { Navbar } from "./global/navbar/Navbar";
 import { TemplateBody } from "../componente/TemplateBody/TemplateBody";
 import AmostraVariaveis from "../componente/AmostraVariaveis/AmostraVariaveis";
 import {Pagination} from "../componente/global/Pagination/Pagination";
@@ -23,7 +23,7 @@ import { MyTimePicker } from "./TimePicker/timePicker";
 import SwitchLabels from "./Switch/Switch";
 import DynamicModal from "./modal/modalAlertTemplate";
 
-export 
+export
 { 
   BaseCard, 
   InputFields, 
@@ -44,10 +44,9 @@ export
   GraficoCampanhas,
   MyCalendar, 
   MyTimePicker,
-  SwitchLabels,
   Pagination, 
   CardCampanhas, 
-  BaseCardCampanhas
+  BaseCardCampanhas,
   SwitchLabels,
-  DynamicModal
+  DynamicModal,
 }
