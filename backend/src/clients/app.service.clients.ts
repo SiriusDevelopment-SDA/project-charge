@@ -82,7 +82,9 @@ export class AppServiceClient {
           name: true
         },
         services: {
-          
+          name: true,
+          id_servico: true,
+          status: true,
         }
       },
     });

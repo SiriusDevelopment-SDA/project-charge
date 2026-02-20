@@ -6,6 +6,17 @@ type company = {
     name: string;
     account: string
   }
+
+export type Service = {
+  id: string;
+  id_servico: string;
+  status: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+  // client and company omitted for simplicity
+}
+
 export type Cliente = {
     id: string;
     cnpj_cpf: string;
@@ -20,7 +31,7 @@ export type Cliente = {
     createdAt?: Date;
     updatedAt?: Date;
     invoices?: InvoicesResponse;
-    services?: [];
+    services?: Service[];
     company?: company;
   }
   export type responseClients = {
@@ -36,5 +47,7 @@ export type Cliente = {
     setLimit: React.Dispatch<SetStateAction<number>>;
     setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
     setGroupInvoices: React.Dispatch<SetStateAction<boolean>>;
+    fetchServices: (companyId?: string) => Promise<void>;
+    servicos: Service[];
     // fetchInvoices: (client: Cliente[]) => void;
   }

@@ -255,7 +255,7 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         onClose={() => setShowCalendarDisparo(false)}
         customContent={
           <>
-            <MyCalendar
+                <MyCalendar
               selected={undefined}
               onSelect={handleDateDisparoSelect}
             />
@@ -277,7 +277,7 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         onClose={() => setShowCalendarFinalizacao(false)}
         customContent={
           <>
-            <MyCalendar
+                <MyCalendar
               selected={undefined}
               onSelect={handleDateFinalizacaoSelect}
             />

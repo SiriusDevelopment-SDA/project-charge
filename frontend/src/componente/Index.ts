@@ -44,10 +44,9 @@ export
   GraficoCampanhas,
   MyCalendar, 
   MyTimePicker,
-  SwitchLabels,
   Pagination, 
   CardCampanhas, 
-  BaseCardCampanhas
+  BaseCardCampanhas,
   SwitchLabels,
   DynamicModal
 }

@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 ========================= */
 import type { Cliente } from "../../types";
 import { validarSelecaoCliente } from "../../utils/validation";
-import { calcularDiasVencidos, maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
+import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
 
 /* =========================
    COMPONENTES
@@ -45,15 +45,6 @@ import Style from "./Styles/ClientesVencidos.module.css";
 ========================= */
 const ITEMS_PER_PAGE = 8;
 
-const VAR_OPTIONS = [
-  { id: "1", name: "Plano 40MB" },
-  { id: "2", name: "Plano 80MB" },
-  { id: "3", name: "Plano 90MB" },
-  { id: "4", name: "Plano 100MB" },
-  { id: "5", name: "Plano 110MB" },
-  { id: "6", name: "Plano 120MB" },
-];
-
 export function ClientesVencidos() {
 
   /* =========================
@@ -73,11 +64,7 @@ export function ClientesVencidos() {
 
   const navigate = useNavigate();
 
-  const [selectedVar] = useState<{
-    id: string;
-    name: string;
-    category?: string;
-  } | null>(null);
+  const [selectedPlans, setSelectedPlans] = useState<{ id: string; name: string; id_servico?: string }[]>([]);
 
   /* =========================
      CONTEXTOS
@@ -92,22 +79,14 @@ export function ClientesVencidos() {
 
   const { clients, setGroupInvoices } = useClient();
   const { page, setPage, templates } = useTemplate();
+  const { fetchServices, servicos } = useContext(ClientContext);
 
-  /* =========================
-     EFFECTS
-  ========================= */
-  useEffect(() => {
-    setGroupInvoices(selectedClientes.length > 0);
-  }, [selectedClientes, setGroupInvoices]);
+  console.log('Servicos:', servicos);
 
   useEffect(() => {
     setGroupInvoices(true);
-  }, [setGroupInvoices]);
-
-  useEffect(() => {
-    if (openTemplateModal) setModalPage(1);
-  }, [openTemplateModal]);
-
+    fetchServices(templates.map(t => t.company?.id)[0] || clients[0]?.company?.id);
+  }, [clients]);
   /* =========================
      HANDLERS
   ========================= */
@@ -136,7 +115,7 @@ export function ClientesVencidos() {
   const clientesFiltrados = useMemo(() => {
     if (diasRegua === 0) return [];
 
-    return clients.filter((client) => {
+    let filtered = clients.filter((client) => {
       if (!client.invoices || client.invoices.length === 0) return false;
 
       const maiorAtraso = maiorAtrasoCliente(client.invoices);
@@ -145,7 +124,18 @@ export function ClientesVencidos() {
 
       return maiorAtraso >= diasRegua;
     });
-  }, [clients, diasRegua]);
+
+    // Filtrar por planos selecionados
+    if (selectedPlans.length > 0) {
+      filtered = filtered.filter(client =>
+        client.services && client.services.some(service =>
+          selectedPlans.some(plan => plan.id === service.id)
+        )
+      );
+    }
+
+    return filtered;
+  }, [clients, diasRegua, selectedPlans]);
 
 
  useEffect(() => {
@@ -167,6 +157,18 @@ useEffect(() => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [clients]);
 
+useEffect(() => {
+
+  const filteredByPlans = clients.filter((client) =>
+    client.services && client.services.some((s) =>
+      selectedPlans.some((p) => p.id === s.id || p.name === s.name || p.name === s.id_servico)
+    )
+  );
+
+  setSelectedClientes(filteredByPlans);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [selectedPlans]);
+
   /* =========================
      PAGINAÇÃO MODAL
   ========================= */
@@ -185,6 +187,8 @@ useEffect(() => {
   /* =========================
      RENDER
   ========================= */
+  console.log(clients)
+  console.log('selectedPlans', selectedPlans)
   return (
     <PageContainer className={Style.VencidosContainer}>
       <TitlePage title="Clientes Vencidos" />
@@ -213,12 +217,16 @@ useEffect(() => {
                 <Dropdown
                   className={Style.DropdownPlanos}
                   label="Planos por Clientes"
-                  options={VAR_OPTIONS}
-                  value={selectedVar}
+                  options={servicos.map(service => ({ id: service.id, name: service.name }))}
+                  multiple
+                  selected={selectedPlans}
                   open={varOpen}
                   onOpen={() => setVarOpen(true)}
                   onClose={() => setVarOpen(false)}
-                  onChange={() => []}
+                  onChange={(selected) => {
+                    setSelectedPlans(selected as { id: string; name: string }[]);
+                    console.log('Selected plans:', selected);
+                  }}
                 />
 
                 {modoPage === "clientes" ? (
