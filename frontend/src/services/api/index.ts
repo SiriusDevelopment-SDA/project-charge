@@ -1,5 +1,5 @@
 import axios from 'axios'
-const API_URL = "https://apicobranca.coraxy.com.br/api"
+const API_URL = "http://localhost:3000/api"
 // console.log(import.meta.env)
 export const Api = axios.create({
   baseURL: API_URL,

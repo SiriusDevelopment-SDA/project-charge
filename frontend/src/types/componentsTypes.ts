@@ -12,6 +12,8 @@ export type TemplateBalloonCardProps = {
   category: string;
   onUse?: () => void;
   onDelete?: () => void;
+  showExpand?: boolean;   
+  children?: React.ReactNode;  
 };
 
 export type PaginationProps = {
