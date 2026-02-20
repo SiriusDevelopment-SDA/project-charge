@@ -39,6 +39,7 @@ import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
    STYLES
 ========================= */
 import Style from "./Styles/ClientesVencidos.module.css";
+import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 
 /* =========================
    CONSTANTES
@@ -73,6 +74,8 @@ export function ClientesVencidos() {
   const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
   const [modalPage, setModalPage] = useState(1);
   const [diasRegua, setDiasRegua] = useState(0);
+
+  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
 
   const navigate = useNavigate();
 
@@ -151,24 +154,24 @@ export function ClientesVencidos() {
   }, [clients, diasRegua]);
 
 
- useEffect(() => {
-  if (diasRegua > 0) {
-    setSelectedClientes(clientesFiltrados);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [diasRegua, clientesFiltrados]);
+  useEffect(() => {
+    if (diasRegua > 0) {
+      setSelectedClientes(clientesFiltrados);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diasRegua, clientesFiltrados]);
 
-useEffect(() => {
-  // Atualiza selectedClientes quando clients recebe as invoices
-  if (selectedClientes.length > 0) {
-    const clientesAtualizados = selectedClientes.map(selectedClient => {
-      const clientAtualizado = clients.find(c => c.id === selectedClient.id);
-      return clientAtualizado || selectedClient;
-    });
-    setSelectedClientes(clientesAtualizados);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [clients]);
+  useEffect(() => {
+    // Atualiza selectedClientes quando clients recebe as invoices
+    if (selectedClientes.length > 0) {
+      const clientesAtualizados = selectedClientes.map(selectedClient => {
+        const clientAtualizado = clients.find(c => c.id === selectedClient.id);
+        return clientAtualizado || selectedClient;
+      });
+      setSelectedClientes(clientesAtualizados);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
 
   /* =========================
      PAGINAÇÃO MODAL
@@ -324,7 +327,7 @@ useEffect(() => {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  setOpenTemplateModal(true);
+                  setOpenCampanhaModal(true); // <-- correto para abrir o modal de campanhas
                 }
               },
               {
@@ -332,12 +335,17 @@ useEffect(() => {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                    navigate("/CreateCampanha");
+                  navigate("/CreateCampanha");
                 },
               },
             ]}
           />
         )}
+
+        <ModalCardCampanhas
+          open={openCampanhaModal}
+          onClose={() => setOpenCampanhaModal(false)}
+        />
 
 
         {/* ================= MODAL TEMPLATES ================= */}

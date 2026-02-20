@@ -10,9 +10,10 @@ export function TemplateBalloonCard({
   category,
   onUse,
   onDelete,
+  showExpand = true,
+  children,   
 }: TemplateBalloonCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-
   return (
     <div className={styles.CardWrap}>
       <BaseCard classname={styles.TemplateCard}>
@@ -54,15 +55,20 @@ export function TemplateBalloonCard({
 
           <p className={styles.CardMessage}>{message}</p>
 
-          <span
-            className={styles.VerMais}
-            onClick={(e) => {
-              e.stopPropagation(); // 🔥 ISSO É O SEGREDO
-              setIsOpen((prev) => !prev);
-            }}
-          >
-            {isOpen ? "Fechar" : "Ver mais"}
-          </span>
+          {children}
+
+         {/* 🔥 CONTROLE AQUI */}
+          {showExpand && (
+            <span
+              className={styles.VerMais}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen((prev) => !prev);
+              }}
+            >
+              {isOpen ? "Fechar" : "Ver mais"}
+            </span>
+          )}
 
         </div>
       </BaseCard>
