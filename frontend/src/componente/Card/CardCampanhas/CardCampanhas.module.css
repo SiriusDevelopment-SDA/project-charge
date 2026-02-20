@@ -30,7 +30,7 @@
   flex-direction: column;
   gap: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  height: 305px;
+  height: 270px;
   position: relative;
   overflow: hidden;
 }
@@ -204,7 +204,7 @@
 .detailsGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 20px;                   
+  gap: 6px 15px;                   
   font-size: 0.75rem;
   color: #ccc;
   margin-top: 0;

@@ -22,6 +22,8 @@ import {
 import { handleUploadPlanilha } from "../../utils/hendleUploadSpreadSheat";
 
 export default function EfetuarDisparo() {
+  // State para o campo de WhatsApp
+  const [whatsappValue, setWhatsappValue] = useState("");
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
   const [openCategoryDropdown, setOpenCategoryDropdown] = useState<boolean>(false);
   const { clients, setQuery, setGroupInvoices } = useClient()
@@ -44,7 +46,7 @@ export default function EfetuarDisparo() {
 
   useEffect(() => {
     setGroupInvoices(selectedTemplate?.category === "Cobrança");
-  }, [selectedTemplate]);
+  }, [selectedTemplate, setGroupInvoices]);
 
     const filteredTemplates = templates.filter(template => {
     const matchName =
@@ -95,7 +97,7 @@ export default function EfetuarDisparo() {
                   <InputFields
                     placeholder="Buscar template pelo nome"
                     value={searchTemplateName}
-                    onChange={(e) => setSearchTemplateName(e.target.value)}
+                    onChange={(e) => setSearchTemplateName(e.target.value)}                    
                   />
 
                   <div className={Style.filterWrapper}>
@@ -163,8 +165,15 @@ export default function EfetuarDisparo() {
                 open={openDropdown === "clientes"}
                 onOpen={() => setOpenDropdown("clientes")}
                 onClose={() => setOpenDropdown(null)}
-              /> : <InputFields label="Whatsapp Number" />
-              }
+              /> : (
+                <InputFields
+                  label="Número de Whatsapp"
+                  onlyNumbers={true}
+                  value={whatsappValue}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
+                />
+              )
+            }
             </div>
             <BaseCard classname={Style.cardMetricas}>
               <Metricas
