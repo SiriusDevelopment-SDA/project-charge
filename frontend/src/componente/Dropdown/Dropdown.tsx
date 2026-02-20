@@ -27,7 +27,7 @@ export function Dropdown<T extends { id: string; name: string; category?: string
   options,
   value,
   selected,
-  multiple = false,
+  multiple,
   open,
   onOpen,
   onClose,
@@ -35,7 +35,7 @@ export function Dropdown<T extends { id: string; name: string; category?: string
   className,
   children,
   typeCategory,
-  searchable = false
+  searchable
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
@@ -50,7 +50,7 @@ export function Dropdown<T extends { id: string; name: string; category?: string
     ? options.filter(opt => 
         opt.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : options;
+    : options;  
 
   const selectedLabel = value?.name ?? "";
 
