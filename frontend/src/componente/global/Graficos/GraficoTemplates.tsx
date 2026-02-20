@@ -27,8 +27,8 @@ export function TemplatesUsageCard({
       <div className={styles.table}>
         <div className={`${styles.row} ${styles.header}`}>
           <span>#</span>
-          <span>Campanha</span>
-          <span>Qtd de uso</span>
+          <span>Template</span>
+          <span>Qunatidade de uso</span>
         </div>
 
         {data.map((item, index) => {

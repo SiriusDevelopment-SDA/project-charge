@@ -39,9 +39,6 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
       : "-",
   );
   const [horario, setHorario] = useState("09:00");
-  const [observacao, setObservacao] = useState(
-    `Template: ${campanha.name || "Sem descrição"}`,
-  );
 
   // Estados temporários para edição
   const [tempTipo, setTempTipo] = useState(tipo);
@@ -49,16 +46,10 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
   const [tempDataFinalizacao, setTempDataFinalizacao] =
     useState(dataFinalizacao);
   const [tempHorario, setTempHorario] = useState(horario);
-  const [tempObservacao, setTempObservacao] = useState(observacao);
 
   // Lógica de exibição
   const statusIcon = isActive ? FoguinhoVerde : FoguinhoVermelho;
   const statusText = isActive ? "Desativar" : "Ativar";
-  const MAX_OBS = 50;
-  const displayedObservacao =
-    observacao.length > MAX_OBS
-      ? observacao.slice(0, MAX_OBS) + "..."
-      : observacao;
 
   
   function handleToggleStatus() {
@@ -72,7 +63,6 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
     setTempDataDisparo(dataDisparo);
     setTempDataFinalizacao(dataFinalizacao);
     setTempHorario(horario);
-    setTempObservacao(observacao);
     setShowCalendarDisparo(false);
     setShowCalendarFinalizacao(false);
     setShowTimePicker(false);
@@ -102,7 +92,6 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
     setDataDisparo(tempDataDisparo);
     setDataFinalizacao(tempDataFinalizacao);
     setHorario(tempHorario);
-    setObservacao(tempObservacao);
     toast.success("Dados da campanha atualizados!");
     setOpenEdit(false);
   }
@@ -198,13 +187,10 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
             </div>
           </div>
           <div className={Style.detailsGrid}>
-              <p><strong>Tipo:</strong>{tipo}</p>
-              <p><strong>Início disparo:</strong> {dataDisparo}</p>
-              <p><strong>Fim disparo:</strong> {dataFinalizacao}</p>
-            <div>
-              <p><strong>Horário disparo:</strong> {horario}</p>
-              <p><strong>Obs:</strong> {displayedObservacao}</p>
-            </div>
+            <p><strong>Tipo:</strong> {tipo}</p>
+            <p><strong>Início disparo:</strong> {dataDisparo}</p>
+            <p><strong>Fim disparo:</strong> {dataFinalizacao}</p>
+            <p><strong>Horário disparo:</strong> {horario}</p>
           </div>
         </div>
       </BaseCardCampanhas>
@@ -243,8 +229,6 @@ export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
         onOpenCalendarFinalizacao={() => setShowCalendarFinalizacao(true)}
         horario={tempHorario}
         onOpenTimePicker={() => setShowTimePicker(true)}
-        observacao={tempObservacao}
-        setObservacao={setTempObservacao}
       />
 
       {/* MODAL CALENDÁRIO DISPARO */}

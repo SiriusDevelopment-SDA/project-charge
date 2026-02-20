@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 ========================= */
 import type { Cliente } from "../../types";
 import { validarSelecaoCliente } from "../../utils/validation";
-import { calcularDiasVencidos, maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
+import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
 
 /* =========================
    COMPONENTES
@@ -33,7 +33,7 @@ import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard"
 ========================= */
 import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { ClientContext } from "../../context/contextClients";
+
 
 /* =========================
    STYLES
@@ -55,6 +55,8 @@ const VAR_OPTIONS = [
 ];
 
 export function ClientesVencidos() {
+  // State para o campo de WhatsApp
+  const [whatsappValue, setWhatsappValue] = useState("");
 
   /* =========================
      ESTADOS
@@ -240,7 +242,12 @@ useEffect(() => {
                     onClose={() => setOpenDropdown(null)}
                   />
                 ) : (
-                  <InputFields label="Whatsapp Number" />
+                  <InputFields
+                    label="Número de Whatsapp"
+                    onlyNumbers={true}
+                    value={whatsappValue}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
+                  />
                 )}
               </div>
             </div>
@@ -326,13 +333,12 @@ useEffect(() => {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  navigate("/criarcampanha");
+                  navigate("/CreateCampanha");
                 },
               },
             ]}
           />
         )}
-
 
         {/* ================= MODAL TEMPLATES ================= */}
         {openTemplateModal && (

@@ -13,8 +13,6 @@ type ModalEditarCampanhaProps = {
   onOpenCalendarFinalizacao: () => void;
   horario: string;
   onOpenTimePicker: () => void;
-  observacao: string;
-  setObservacao: (value: string) => void;
 };
 
 export function ModalEditarCampanha({
@@ -29,8 +27,6 @@ export function ModalEditarCampanha({
   onOpenCalendarFinalizacao,
   horario,
   onOpenTimePicker,
-  observacao,
-  setObservacao,
 }: ModalEditarCampanhaProps) {
   if (!open) return null;
 
@@ -46,7 +42,7 @@ export function ModalEditarCampanha({
           onChange={(e) => setTipo(e.target.value)}
         >
           <option value="Disparo Único">Disparo Único</option>
-          <option value="Disparo Contínuo">Disparo Contínuo</option>
+          <option value="Disparo Recorrente">Disparo Recorrente</option>
         </select>
 
         <label>Data de Disparo</label>
@@ -78,17 +74,6 @@ export function ModalEditarCampanha({
           <span>{horario || "Selecione o horário"}</span>
           <Clock size={18} />
         </button>
-
-        <label>Observação</label>
-        <textarea
-          maxLength={50}
-          value={observacao}
-          onChange={(e) => setObservacao(e.target.value)}
-          className={Style.dateInputButton}
-        />
-        <small className={Style.charCount}>
-          {observacao.length}/50 caracteres
-        </small>
 
         <div className={Style.modalActions}>
           <button onClick={onClose}>Cancelar</button>

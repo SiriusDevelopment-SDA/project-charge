@@ -1,4 +1,5 @@
 import {  useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import type { Cliente, Template } from "../../types";
@@ -15,6 +16,7 @@ import {
   SwitchLabels,
   DownloadModeloButton,
   DynamicModal,
+  UploadButton,
 } from "../../componente/Index";
 
 import Style from "./CriarCampanha.module.css";
@@ -22,6 +24,7 @@ import { Api } from "../../services/api";
 import { useCampaign, useClient, useDispatchTemplate, useTemplate, useCategories } from "../../hooks";
 
 export function CriarCampanha() {
+  const navigate = useNavigate();
   // const { templates } = useContext(TemplateContext);
   const { clients } = useClient();
   const { templates } = useTemplate()
@@ -150,7 +153,7 @@ export function CriarCampanha() {
       await Api.post("/campaigns", payload);
 
       toast.success("Campanha criada com sucesso!");
-      
+
       // Limpar formulário
       setNomeCampanha("");
       setHorarioDisparoInicio("");
@@ -160,6 +163,9 @@ export function CriarCampanha() {
       setSelectedTemplate(null);
       setCategoriaSelecionada(null);
       setSelectedClientes([]);
+
+      // Redirecionar para campanhas
+      navigate("/campanhas");
     } catch (error: any) {
       console.error('Erro:', error);
       
@@ -293,6 +299,10 @@ export function CriarCampanha() {
             templateSelecionado={selectedTemplate}
             modo={modoPage}
           />
+
+          <UploadButton onUpload={(file, rows) => {
+            console.log('Arquivo enviado:', file, rows);
+          }} />
         </div>
       </div>
 

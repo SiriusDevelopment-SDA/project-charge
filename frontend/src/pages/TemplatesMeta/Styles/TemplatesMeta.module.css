@@ -28,7 +28,7 @@
   
 }
 .TitlePage h5 {
-  font-size: 2.5rem;
+  max-width: 200px;
   color: #fff;
   border-bottom: 2px solid rgba(245, 208, 51, 0.5);
 }

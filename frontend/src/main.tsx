@@ -15,19 +15,21 @@ import { CategoriesProvider } from "./context/contextCategories";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ClientProvider>
-        <DispatchTemplateProvider>
-          <TemplateProvider>
-            <CategoriesProvider>
-              <HistoricoProvider>
-                <CampaignProvider>
-                  <App />
-                </CampaignProvider>
-              </HistoricoProvider>
-            </CategoriesProvider>
-          </TemplateProvider>
-        </DispatchTemplateProvider>
-      </ClientProvider>
+      <AccountProvider>
+        <ClientProvider>
+          <DispatchTemplateProvider>
+            <TemplateProvider>
+              <CategoriesProvider>
+                <HistoricoProvider>
+                  <CampaignProvider>
+                    <App />
+                  </CampaignProvider>
+                </HistoricoProvider>
+              </CategoriesProvider>
+            </TemplateProvider>
+          </DispatchTemplateProvider>
+        </ClientProvider>
+      </AccountProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

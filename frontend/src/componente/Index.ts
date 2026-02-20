@@ -47,7 +47,6 @@ export
   SwitchLabels,
   Pagination, 
   CardCampanhas, 
-  BaseCardCampanhas
-  SwitchLabels,
+  BaseCardCampanhas,
   DynamicModal
 }

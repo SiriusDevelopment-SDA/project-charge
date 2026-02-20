@@ -35,7 +35,7 @@ export function UploadButton({ onUpload, disabled, className }: UploadButtonProp
             }}
             disabled={disabled || loading}
         >
-            {loading ? "Baixando arquivo...": "Baixar planilha"}
+            {loading ? "Enviando arquivo...": "Upload planilha"}
             <input
                 type="file"
                 hidden
