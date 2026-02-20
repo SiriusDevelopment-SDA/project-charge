@@ -1,7 +1,7 @@
-import { createContext, useEffect, useState } from 'react'
-import { Api } from '../services/api'
-import { toast } from 'react-toastify'
-import type { Cliente, IClientsContext, Invoice, InvoiceBatchResponse, InvoiceError, InvoicesResponse, responseClients, ResultInvoices } from '../types'
+import { createContext, useEffect, useState } from "react";
+import { Api } from "../services/api";
+import type { Cliente, IClientsContext, responseClients, Service } from "../types";
+import { toast } from "react-toastify";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const ClientContext = createContext<IClientsContext>(
@@ -17,8 +17,9 @@ export const ClientProvider = ({
   const [page, setPage] = useState<number>(1)
   const [limit, setLimit] = useState<number>(10)
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC")
-  const [query, setQuery] = useState<string>('')
+  const [query, setQuery] = useState<string>('137.062.837-43')
   const [groupInvoices, setGroupInvoices] = useState<boolean>(false)
+  const [ servicos, setServicos] = useState<Service[]>([])
 
   useEffect(() => {
     setClient([]);
@@ -30,8 +31,9 @@ export const ClientProvider = ({
 
         const response = await Api.post<responseClients>(
           '/clients/search',
-          { account, query, page, limit, sortorder: order }
+          { account, query, page, limit, sortorder: order, relationService: true }
         );
+
 
         const clients = response.data.data;
         if (query.trim() !== '' && clients.length === 0) toast.warning(`Cliente com documento: ${query} não encontrado!!`)
@@ -41,7 +43,9 @@ export const ClientProvider = ({
           [...prev, ...clients].forEach((c) => map.set(c.id, c));
           return Array.from(map.values());
         });
-  
+
+        if (groupInvoices) await fetchInvoices(clients);
+
       } catch (err) {
         console.error('Erro ao buscar clientes:', err);
       }
@@ -49,68 +53,117 @@ export const ClientProvider = ({
 
     fetchAll();
   }, [query, page, limit, order, groupInvoices]);
-  
+
+
+  const fetchInvoices = async (clients: Cliente[]) => {
+    try {
+      const res = await fetch(
+        "https://webhooks.coraxy.com.br/webhook/faturas",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            documento: clients.map(c => c.cnpj_cpf),
+          }),
+        }
+      );
+
+      const response = await res.json();
+
+      const invoices = Array.isArray(response)
+        ? response
+        : response?.data ?? [];
+        
+      // 🔑 agrupa faturas por cnpj_cpf
+      const invoicesByDoc = invoices.reduce((acc: any, inv: any) => {
+        acc[inv.cnpj_cpf] = acc[inv.cnpj_cpf] || [];
+        acc[inv.cnpj_cpf].push(inv);
+        return acc;
+      }, {});
+
+      setClient((prev) =>
+        prev.map((c) => ({
+          ...c,
+          invoices: invoicesByDoc[c.cnpj_cpf] 
+          ? [...invoicesByDoc[c.cnpj_cpf]]
+          : [],
+        }))
+      );
+    } catch (err) {
+      console.error("Erro ao buscar faturas:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchInvoices = async (clients: Cliente[]) => {
+    const fetchAll = async () => {
       try {
-        console.log("aqui", clients)
-        const res = await Api.post<InvoiceBatchResponse>(
-          '/invoices/search',
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const account = urlParams.get("account");
+
+        const response = await Api.post<responseClients>(
+          "/search/clients",
           {
-            documents: clients.map(c => ({
-              cnpj_cpf: c.cnpj_cpf
-            }))
+            account,
+            query,
+            page,
+            limit,
+            sortorder: order,
           }
         );
-    
-        const { data: providers, errors, status,message } = res.data;
 
-        const normalizeDoc = (doc?: string) =>
-          doc?.replace(/\D/g, '') ?? '';
-        const invoicesByDoc = providers.reduce<
-          Record<string, InvoicesResponse>
-        >((acc, provider) => {
-          acc[normalizeDoc(provider.document)] = provider.invoices;
-          return acc;
-        }, {});
-        
-        if(status === "success")toast.success(`${message}`);
-        if(status === "partial")toast.warning(`${message}`);
-        if(status === "error")toast.error(`${message}`);
-        if (errors?.length){
-          errors.map((e: InvoiceError) => {
-            toast.warning(`Cliente do documento: ${e.document} ${e.reason}`);
-          })
+        const clientsResponse = response.data.data;
+
+        if (query.trim() !== "" && clientsResponse.length === 0) {
+          toast.warning(
+            `Cliente com documento: ${query} não encontrado!!`
+          );
         }
-    
-        setClient(prev =>
-          prev.map(c => ({
-            ...c,
-            invoices:
-              invoicesByDoc[normalizeDoc(c.cnpj_cpf)] ?? {
-                status: "error",
-                message: "Consulta não realizada",
-                list: [],
-              },
-          }))
-        );
-        
 
-    
+        setClient((prev) => {
+          const map = new Map<string, Cliente>();
+          [...prev, ...clientsResponse].forEach((c) =>
+            map.set(c.id, c)
+          );
+          return Array.from(map.values());
+        });
+
+        if (groupInvoices) {
+          await fetchInvoices(clientsResponse);
+        }
       } catch (err) {
-        console.error('Erro ao buscar invoices:', err);
-        toast.error('Erro ao buscar faturas');
+        console.error("Erro ao buscar clientes:", err);
       }
     };
-    if (groupInvoices && clients.length > 0) {
-      fetchInvoices(
-        clients.filter(c => !c.invoices || c.invoices.status === "error")
-      );
-    }
-    
-  }, [groupInvoices])
 
-  console.log("clients", clients)
+    fetchAll();
+  }, [query, page, limit, order, groupInvoices]);
+
+  const fetchServices = async (companyId?: string) => {
+    try {
+      let id = companyId;
+      if (!id) {
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        id = urlParams.get('account') || undefined;
+      }
+
+      console.log('CompanyId:', id);
+
+      if (!id) {
+        console.error('CompanyId not found');
+        return;
+      }
+
+      console.log('Calling /services with companyId:', id);
+      const response = await Api.post<Service[]>('/services', { companyId: id });
+      console.log('Services response:', response.data);
+      setServicos(response.data);
+    } catch (err) {
+      console.error('Erro ao buscar serviços:', err);
+    }
+  };
+
   return (
     <ClientContext.Provider
       value={{ 
@@ -119,7 +172,10 @@ export const ClientProvider = ({
         setPage, 
         setOrder, 
         setLimit, 
-        setGroupInvoices 
+        fetchInvoices, 
+        setGroupInvoices,
+        fetchServices,
+        servicos,
       }}
     >
       {children}
