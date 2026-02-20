@@ -48,6 +48,6 @@ export type Cliente = {
     setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
     setGroupInvoices: React.Dispatch<SetStateAction<boolean>>;
     fetchServices: (companyId?: string) => Promise<void>;
-    servicos: Service[];
-    // fetchInvoices: (client: Cliente[]) => void;
+    services: Service[];
+    fetchInvoices: (client: Cliente[]) => void;
   }

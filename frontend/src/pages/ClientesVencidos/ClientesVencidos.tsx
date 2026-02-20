@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import type { Cliente } from "../../types";
 import { validarSelecaoCliente } from "../../utils/validation";
 import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
+import type {Service} from "../../types/index"
 
 /* =========================
    COMPONENTES
@@ -83,19 +84,9 @@ export function ClientesVencidos() {
     modoPage,
   } = useDispatchTemplate();
 
-  const { clients, setGroupInvoices } = useClient();
+  const { clients, services } = useClient();
   const { page, setPage, templates } = useTemplate();
-  const { fetchServices, servicos } = useContext(ClientContext);
 
-  console.log('Servicos:', servicos);
-
-  useEffect(() => {
-    setGroupInvoices(true);
-    fetchServices(templates.map(t => t.company?.id)[0] || clients[0]?.company?.id);
-  }, [clients]);
-  /* =========================
-     HANDLERS
-  ========================= */
   function toggleCliente(clienteId: string) {
     setClientesMarcados((prev) =>
       prev.includes(clienteId)
@@ -122,9 +113,9 @@ export function ClientesVencidos() {
     if (diasRegua === 0) return [];
 
     let filtered = clients.filter((client) => {
-      if (!client.invoices || client.invoices.length === 0) return false;
+      if (!client.invoices || client.invoices.list.length === 0) return false;
 
-      const maiorAtraso = maiorAtrasoCliente(client.invoices);
+      const maiorAtraso = maiorAtrasoCliente(client.invoices.list);
 
       if (maiorAtraso <= 0) return false;
 
@@ -190,11 +181,6 @@ useEffect(() => {
     );
   }, [templates, modalPage]);
 
-  /* =========================
-     RENDER
-  ========================= */
-  console.log(clients)
-  console.log('selectedPlans', selectedPlans)
   return (
     <PageContainer className={Style.VencidosContainer}>
       <TitlePage title="Clientes Vencidos" />
@@ -223,7 +209,7 @@ useEffect(() => {
                 <Dropdown
                   className={Style.DropdownPlanos}
                   label="Planos por Clientes"
-                  options={servicos.map(service => ({ id: service.id, name: service.name }))}
+                  options={services.map((service: Service) => ({ id: service.id, name: service.name }))}
                   multiple
                   selected={selectedPlans}
                   open={varOpen}

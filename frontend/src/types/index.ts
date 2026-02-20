@@ -1,8 +1,10 @@
-import { CampaignData, PropsCardCampanhas } from './index';
+import type { CampaignData, PropsCardCampanhas } from './champaignApiTypes';
+
 import type { 
   Cliente, 
   IClientsContext, 
-  responseClients 
+  responseClients,
+  Service
 } from "./clientApiTypes";
 
 import type { 
@@ -22,7 +24,6 @@ import type {
   IDispatchTemplateContext, 
   mappedVars 
 } from "./dispatchApiTypes";
-
 import type {
   IHistoricoContext,
   responseHistorico,
@@ -60,6 +61,7 @@ export type
   history, 
   Lead, 
   CampaignData,
+  Service,
   MyInputProps, 
   PaginationProps, 
   PropsCardTemplates, 
