@@ -2,6 +2,7 @@ import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 
+
 type SwitchLabelsProps = {
   checked?: boolean;
   onChange?: (checked: boolean) => void;

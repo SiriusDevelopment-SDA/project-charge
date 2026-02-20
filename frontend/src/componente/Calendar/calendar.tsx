@@ -7,21 +7,36 @@ import "./calendar.css"
 type MyCalendarProps = {
     selected?: DateRange;
     onSelect?: (range: DateRange | undefined) => void;
+    mode?: "range" | "single";
+    selectedSingle?: Date;
+    onSelectSingle?: (date: Date | undefined) => void;
 };
 
-export function MyCalendar({ selected, onSelect }: MyCalendarProps) {
+export function MyCalendar({ selected, onSelect, mode = "range", selectedSingle, onSelectSingle }: MyCalendarProps) {
     return (
         <div className="calendar-container">
             <div className="calendar-card">
-                <DayPicker
-                    className="rdp"
-                    locale={ptBR}
-                    mode="range"
-                    selected={selected}
-                    onSelect={onSelect}
-                    captionLayout="dropdown"
-                    showOutsideDays
-                />
+                {mode === "single" ? (
+                    <DayPicker
+                        className="rdp"
+                        locale={ptBR}
+                        mode="single"
+                        selected={selectedSingle}
+                        onSelect={onSelectSingle}
+                        captionLayout="dropdown"
+                        showOutsideDays
+                    />
+                ) : (
+                    <DayPicker
+                        className="rdp"
+                        locale={ptBR}
+                        mode="range"
+                        selected={selected}
+                        onSelect={onSelect}
+                        captionLayout="dropdown"
+                        showOutsideDays
+                    />
+                )}
             </div>
         </div>
     )

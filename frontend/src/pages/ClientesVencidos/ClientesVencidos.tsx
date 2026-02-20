@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import type { Cliente } from "../../types";
 import { validarSelecaoCliente } from "../../utils/validation";
 import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
+import type {Service} from "../../types/index"
 
 /* =========================
    COMPONENTES
@@ -39,20 +40,12 @@ import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
    STYLES
 ========================= */
 import Style from "./Styles/ClientesVencidos.module.css";
+import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 
 /* =========================
    CONSTANTES
 ========================= */
 const ITEMS_PER_PAGE = 8;
-
-const VAR_OPTIONS = [
-  { id: "1", name: "Plano 40MB" },
-  { id: "2", name: "Plano 80MB" },
-  { id: "3", name: "Plano 90MB" },
-  { id: "4", name: "Plano 100MB" },
-  { id: "5", name: "Plano 110MB" },
-  { id: "6", name: "Plano 120MB" },
-];
 
 export function ClientesVencidos() {
   // State para o campo de WhatsApp
@@ -66,20 +59,21 @@ export function ClientesVencidos() {
   const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
+  // template modal
   const [openTemplateModal, setOpenTemplateModal] = useState(false);
+  // campanha modal
+  //const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
   const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
 
   const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
   const [modalPage, setModalPage] = useState(1);
   const [diasRegua, setDiasRegua] = useState(0);
 
+  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
+
   const navigate = useNavigate();
 
-  const [selectedVar] = useState<{
-    id: string;
-    name: string;
-    category?: string;
-  } | null>(null);
+  const [selectedPlans, setSelectedPlans] = useState<{ id: string; name: string; id_servico?: string }[]>([]);
 
   /* =========================
      CONTEXTOS
@@ -92,27 +86,9 @@ export function ClientesVencidos() {
     modoPage,
   } = useDispatchTemplate();
 
-  const { clients, setGroupInvoices } = useClient();
+  const { clients, services } = useClient();
   const { page, setPage, templates } = useTemplate();
 
-  /* =========================
-     EFFECTS
-  ========================= */
-  useEffect(() => {
-    setGroupInvoices(selectedClientes.length > 0);
-  }, [selectedClientes, setGroupInvoices]);
-
-  useEffect(() => {
-    setGroupInvoices(true);
-  }, [setGroupInvoices]);
-
-  useEffect(() => {
-    if (openTemplateModal) setModalPage(1);
-  }, [openTemplateModal]);
-
-  /* =========================
-     HANDLERS
-  ========================= */
   function toggleCliente(clienteId: string) {
     setClientesMarcados((prev) =>
       prev.includes(clienteId)
@@ -138,36 +114,59 @@ export function ClientesVencidos() {
   const clientesFiltrados = useMemo(() => {
     if (diasRegua === 0) return [];
 
-    return clients.filter((client) => {
-      if (!client.invoices || client.invoices.length === 0) return false;
+    let filtered = clients.filter((client) => {
+      if (!client.invoices || client.invoices.list.length === 0) return false;
 
-      const maiorAtraso = maiorAtrasoCliente(client.invoices);
+      const maiorAtraso = maiorAtrasoCliente(client.invoices.list);
 
       if (maiorAtraso <= 0) return false;
 
       return maiorAtraso >= diasRegua;
     });
-  }, [clients, diasRegua]);
+
+    // Filtrar por planos selecionados
+    if (selectedPlans.length > 0) {
+      filtered = filtered.filter(client =>
+        client.services && client.services.some(service =>
+          selectedPlans.some(plan => plan.id === service.id)
+        )
+      );
+    }
+
+    return filtered;
+  }, [clients, diasRegua, selectedPlans]);
 
 
- useEffect(() => {
-  if (diasRegua > 0) {
-    setSelectedClientes(clientesFiltrados);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [diasRegua, clientesFiltrados]);
+  useEffect(() => {
+    if (diasRegua > 0) {
+      setSelectedClientes(clientesFiltrados);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diasRegua, clientesFiltrados]);
+
+  useEffect(() => {
+    // Atualiza selectedClientes quando clients recebe as invoices
+    if (selectedClientes.length > 0) {
+      const clientesAtualizados = selectedClientes.map(selectedClient => {
+        const clientAtualizado = clients.find(c => c.id === selectedClient.id);
+        return clientAtualizado || selectedClient;
+      });
+      setSelectedClientes(clientesAtualizados);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
 
 useEffect(() => {
-  // Atualiza selectedClientes quando clients recebe as invoices
-  if (selectedClientes.length > 0) {
-    const clientesAtualizados = selectedClientes.map(selectedClient => {
-      const clientAtualizado = clients.find(c => c.id === selectedClient.id);
-      return clientAtualizado || selectedClient;
-    });
-    setSelectedClientes(clientesAtualizados);
-  }
+
+  const filteredByPlans = clients.filter((client) =>
+    client.services && client.services.some((s) =>
+      selectedPlans.some((p) => p.id === s.id || p.name === s.name || p.name === s.id_servico)
+    )
+  );
+
+  setSelectedClientes(filteredByPlans);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [clients]);
+}, [selectedPlans]);
 
   /* =========================
      PAGINAÇÃO MODAL
@@ -184,9 +183,6 @@ useEffect(() => {
     );
   }, [templates, modalPage]);
 
-  /* =========================
-     RENDER
-  ========================= */
   return (
     <PageContainer className={Style.VencidosContainer}>
       <TitlePage title="Clientes Vencidos" />
@@ -215,12 +211,16 @@ useEffect(() => {
                 <Dropdown
                   className={Style.DropdownPlanos}
                   label="Planos por Clientes"
-                  options={VAR_OPTIONS}
-                  value={selectedVar}
+                  options={services.map((service: Service) => ({ id: service.id, name: service.name }))}
+                  multiple
+                  selected={selectedPlans}
                   open={varOpen}
                   onOpen={() => setVarOpen(true)}
                   onClose={() => setVarOpen(false)}
-                  onChange={() => []}
+                  onChange={(selected) => {
+                    setSelectedPlans(selected as { id: string; name: string }[]);
+                    console.log('Selected plans:', selected);
+                  }}
                 />
 
                 {modoPage === "clientes" ? (
@@ -326,7 +326,10 @@ useEffect(() => {
               {
                 label: "Selecionar uma campanha",
                 variant: "BtnOpcoes",
-                onClick: () => setOpenProsseguirModal(false),
+                onClick: () => {
+                  setOpenProsseguirModal(false);
+                  setOpenCampanhaModal(true); // <-- correto para abrir o modal de campanhas
+                }
               },
               {
                 label: "Criar campanha",
@@ -339,6 +342,12 @@ useEffect(() => {
             ]}
           />
         )}
+
+        <ModalCardCampanhas
+          open={openCampanhaModal}
+          onClose={() => setOpenCampanhaModal(false)}
+        />
+
 
         {/* ================= MODAL TEMPLATES ================= */}
         {openTemplateModal && (

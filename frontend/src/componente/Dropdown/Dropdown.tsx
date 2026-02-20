@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import S from "./StyleDropdown.module.css";
 
 export type DropdownProps<T> = {
@@ -27,7 +27,7 @@ export function Dropdown<T extends { id: string; name: string; category?: string
   options,
   value,
   selected,
-  multiple = false,
+  multiple,
   open,
   onOpen,
   onClose,
@@ -35,7 +35,7 @@ export function Dropdown<T extends { id: string; name: string; category?: string
   className,
   children,
   typeCategory,
-  searchable = false
+  searchable
 }: DropdownProps<T>) {
 
   const [focused, setFocused] = useState(false);
@@ -50,26 +50,9 @@ export function Dropdown<T extends { id: string; name: string; category?: string
     ? options.filter(opt => 
         opt.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : options;
+    : options;  
 
   const selectedLabel = value?.name ?? "";
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        if (open) {
-          onClose();
-          if (!hasValue) setFocused(false);
-          setSearchTerm("");
-        }
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [open, onClose, hasValue]);
 
   if (!open && !hasValue && focused)setTimeout(() => setFocused(false), 0);
   return (

@@ -59,6 +59,9 @@ export default function EfetuarDisparo() {
     return matchName && matchCategory;
   })
   const categories = [...new Set(templates.map(t => t.category))];
+
+  console.log("teste1", templateMapVars?.map(i => i))
+  console.log("teste2", templateMapVars?.map(i => i))
   return (
     <>
       <PageContainer 
@@ -149,11 +152,13 @@ export default function EfetuarDisparo() {
                 selected={selectedClientes}
                 onChange={(v) => {
                   const novosClientes = v as Cliente[];
-                
-                  const clientesValidos = novosClientes.filter(cliente =>
-                    validarSelecaoCliente(cliente, selectedTemplate!)
-                  );
-                
+                  
+                  const clientesValidos = novosClientes.filter(cliente => {
+                    
+                    if (!selectedTemplate) return false;
+
+                    return validarSelecaoCliente(cliente, selectedTemplate);
+                  });
                   setSelectedClientes(clientesValidos);
                 }}
                 

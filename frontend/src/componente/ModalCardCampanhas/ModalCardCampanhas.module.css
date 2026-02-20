@@ -1,0 +1,76 @@
+/* =========================
+   GRID DE TEMPLATES
+========================= */
+.listaTemplates {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  align-items: start;
+  overflow: visible;
+}
+
+/* Responsivo */
+
+@media (max-width: 1400px) {
+  .listaTemplates {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .listaTemplates {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .listaTemplates {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================
+   CARD DA CAMPANHA
+========================= */
+.templateWrapper {
+  background: #0d0d0d;
+  border: 2px solid #f2c010;
+  border-radius: 18px;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: 0.2s ease;
+}
+
+.templateWrapper:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 12px rgba(242, 192, 16, 0.25);
+}
+
+/* =========================
+   DETALHES DA CAMPANHA
+========================= */
+.campanhaDetailsModal {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+  color: #cfcfcf;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 14px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(242, 192, 16, 0.15);
+}
+
+/* Destaque dos labels */
+.campanhaDetalhes strong {
+  color: #f2c010;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}

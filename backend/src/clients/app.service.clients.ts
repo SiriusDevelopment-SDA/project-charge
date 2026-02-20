@@ -81,6 +81,11 @@ export class AppServiceClient {
           account_chatwoot: true,
           name: true
         },
+        services: {
+          name: true,
+          id_servico: true,
+          status: true,
+        }
       },
     });
   
