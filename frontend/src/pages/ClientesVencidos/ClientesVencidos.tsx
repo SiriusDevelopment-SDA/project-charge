@@ -33,12 +33,13 @@ import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard"
 ========================= */
 import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { ClientContext } from "../../context/contextClients";
+//import { ClientContext } from "../../context/contextClients";
 
 /* =========================
    STYLES
 ========================= */
 import Style from "./Styles/ClientesVencidos.module.css";
+import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 
 /* =========================
    CONSTANTES
@@ -55,12 +56,17 @@ export function ClientesVencidos() {
   const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
+  // template modal
   const [openTemplateModal, setOpenTemplateModal] = useState(false);
+  // campanha modal
+  //const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
   const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
 
   const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
   const [modalPage, setModalPage] = useState(1);
   const [diasRegua, setDiasRegua] = useState(0);
+
+  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
 
   const navigate = useNavigate();
 
@@ -138,24 +144,24 @@ export function ClientesVencidos() {
   }, [clients, diasRegua, selectedPlans]);
 
 
- useEffect(() => {
-  if (diasRegua > 0) {
-    setSelectedClientes(clientesFiltrados);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [diasRegua, clientesFiltrados]);
+  useEffect(() => {
+    if (diasRegua > 0) {
+      setSelectedClientes(clientesFiltrados);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diasRegua, clientesFiltrados]);
 
-useEffect(() => {
-  // Atualiza selectedClientes quando clients recebe as invoices
-  if (selectedClientes.length > 0) {
-    const clientesAtualizados = selectedClientes.map(selectedClient => {
-      const clientAtualizado = clients.find(c => c.id === selectedClient.id);
-      return clientAtualizado || selectedClient;
-    });
-    setSelectedClientes(clientesAtualizados);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [clients]);
+  useEffect(() => {
+    // Atualiza selectedClientes quando clients recebe as invoices
+    if (selectedClientes.length > 0) {
+      const clientesAtualizados = selectedClientes.map(selectedClient => {
+        const clientAtualizado = clients.find(c => c.id === selectedClient.id);
+        return clientAtualizado || selectedClient;
+      });
+      setSelectedClientes(clientesAtualizados);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
 
 useEffect(() => {
 
@@ -327,19 +333,27 @@ useEffect(() => {
               {
                 label: "Selecionar uma campanha",
                 variant: "BtnOpcoes",
-                onClick: () => setOpenProsseguirModal(false),
+                onClick: () => {
+                  setOpenProsseguirModal(false);
+                  setOpenCampanhaModal(true); // <-- correto para abrir o modal de campanhas
+                }
               },
               {
                 label: "Criar campanha",
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  navigate("/criarcampanha");
+                  navigate("/CreateCampanha");
                 },
               },
             ]}
           />
         )}
+
+        <ModalCardCampanhas
+          open={openCampanhaModal}
+          onClose={() => setOpenCampanhaModal(false)}
+        />
 
 
         {/* ================= MODAL TEMPLATES ================= */}

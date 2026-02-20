@@ -72,6 +72,9 @@ export class Campaign {
   @Column({ default: 'pending' })
   status!: 'pending' | 'running' | 'finished';
 
+  @Column({ default: true })
+  isEnabled!: boolean;
+
   @CreateDateColumn({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt!: Date;
 }

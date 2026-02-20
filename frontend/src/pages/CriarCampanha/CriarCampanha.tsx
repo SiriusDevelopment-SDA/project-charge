@@ -59,10 +59,13 @@ export function CriarCampanha() {
   // Validação pura (sem toast)
   // ===============================
   const formIsValid = useMemo(() => {
+    const temData = cobrancaRecorrente
+      ? !!dateRange?.from && !!dateRange?.to
+      : !!dateRange?.from;
+
     return (
       nomeCampanha.trim() !== "" &&
-      !!dateRange?.from &&
-      !!dateRange?.to &&
+      temData &&
       !!selectedTemplate &&
       !!categoriaSelecionada &&
       !!horarioDisparoInicio &&
@@ -73,6 +76,7 @@ export function CriarCampanha() {
   }, [
     nomeCampanha,
     dateRange,
+    cobrancaRecorrente,
     selectedTemplate,
     categoriaSelecionada,
     horarioDisparoInicio,
@@ -90,7 +94,7 @@ export function CriarCampanha() {
         toast.error("Por favor, insira o nome da campanha");
         return;
       }
-      if (!dateRange?.from || !dateRange?.to) {
+      if (!dateRange?.from || (cobrancaRecorrente && !dateRange?.to)) {
         toast.error("Por favor, selecione o período da campanha no calendário");
         return;
       }
@@ -133,13 +137,17 @@ export function CriarCampanha() {
       
       if (!dateRange?.from || !dateRange?.to) return;
       
+      const endDate = cobrancaRecorrente
+        ? dateRange.to.toISOString()
+        : dateRange.from.toISOString();
+
       const payload = {
         name: nomeCampanha,
         company: selectedClientes[0].company?.id || "",
         templateId: selectedTemplate!.id,
         categoryId: categoriaSelecionada!.id,
         startDate: dateRange.from.toISOString(),
-        endDate: dateRange.to.toISOString(),
+        endDate,
         dispatchStartTime: horarioDisparoInicio,
         dispatchEndTime: horarioDisparoFim,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -217,7 +225,21 @@ export function CriarCampanha() {
 
         <div className={Style.createCampaign__grid}>
           <div className={Style.createCampaign__calendar}>
-            <MyCalendar selected={dateRange} onSelect={setDateRange} />
+            {cobrancaRecorrente ? (
+              <MyCalendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+              />
+            ) : (
+              <MyCalendar
+                mode="single"
+                selectedSingle={dateRange?.from}
+                onSelectSingle={(date) =>
+                  setDateRange(date ? { from: date, to: date } : undefined)
+                }
+              />
+            )}
           </div>
 
           <div className={Style.createCampaign__schedule}>
@@ -245,7 +267,10 @@ export function CriarCampanha() {
 
             <SwitchLabels
               checked={cobrancaRecorrente}
-              onChange={setCobrancaRecorrente}
+              onChange={(val) => {
+                setCobrancaRecorrente(val);
+                setDateRange(undefined);
+              }}
             />
 
             <Dropdown
