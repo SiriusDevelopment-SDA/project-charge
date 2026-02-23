@@ -18,6 +18,13 @@ interface MonthlyData {
   value: number;
 }
 
+const periods = [
+  { label: "Jan - Jun '22", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
+  { label: "Jul - Dez '22", months: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
+  { label: "Ano todo", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
+];
+
+
 /**
  * Dados iniciais
  */
@@ -38,6 +45,8 @@ const initialData: MonthlyData[] = [
 
 const GraficoDisparo: React.FC = () => {
   const [data, setData] = useState<MonthlyData[]>(initialData);
+  const [selectedPeriod, setSelectedPeriod] = useState(periods[0]);
+  const filteredData = data.filter(item => selectedPeriod.months.includes(item.month));
 
   /**
    * Aqui você pode trocar por chamada real da API
@@ -74,29 +83,25 @@ const GraficoDisparo: React.FC = () => {
       <div className={styles.header}>
         <h2 className={styles.title}>Disparo mensal</h2>
 
-        <div className={styles.dateSelector}>
-          Jan - Jun '22
-          <svg
-            width="10"
-            height="6"
-            viewBox="0 0 10 6"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M1 1L5 5L9 1"
-              stroke="#d4af37"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
+        <select
+          className={styles.dateSelector}
+          value={selectedPeriod.label}
+          onChange={e => {
+            const period = periods.find(p => p.label === e.target.value);
+            if (period) setSelectedPeriod(period);
+          }}
+        >
+          {periods.map(period => (
+            <option key={period.label} value={period.label}>
+              {period.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className={styles.chartArea}>
         <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -15, bottom: 20 }}>
+          <BarChart data={filteredData} margin={{ top: 10, right: 10, left: -15, bottom: 20 }}>
             <defs>
               <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#ffd700" stopOpacity={1} />
