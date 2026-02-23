@@ -306,6 +306,7 @@ export function CriarCampanha() {
             onClose={() => setOpenClientes(false)}
             multiple
             searchable
+            summaryOnMultiple
           />
 
           <DownloadModeloButton
