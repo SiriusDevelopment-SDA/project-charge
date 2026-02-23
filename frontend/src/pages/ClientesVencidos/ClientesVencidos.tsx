@@ -32,7 +32,7 @@ import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard"
 /* =========================
    HOOKS/CONTEXT
 ========================= */
-import { useClient, useTemplate } from "../../hooks";
+import { useClient, useTemplate, useCampaign } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 
 
@@ -85,6 +85,8 @@ export function ClientesVencidos() {
     setSelectedTemplate,
     modoPage,
   } = useDispatchTemplate();
+
+  const { setSelectedClientes: setCampaignSelectedClientes } = useCampaign();
 
   const { clients, services } = useClient();
   const { page, setPage, templates } = useTemplate();
@@ -328,7 +330,7 @@ useEffect(() => {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  setOpenCampanhaModal(true); // <-- correto para abrir o modal de campanhas
+                  setOpenCampanhaModal(true); 
                 }
               },
               {
@@ -336,6 +338,17 @@ useEffect(() => {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
+                  const clientesParaCampanha = clients.filter((c) =>
+                    clientesMarcados.includes(c.id)
+                  );
+                  if (clientesParaCampanha.length === 0) {
+                    setSelectedClientes(selectedClientes);
+                    setCampaignSelectedClientes(selectedClientes);
+                  } else {
+                    setSelectedClientes(clientesParaCampanha);
+                    setCampaignSelectedClientes(clientesParaCampanha);
+                  }
+
                   navigate("/CreateCampanha");
                 },
               },
