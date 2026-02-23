@@ -1,3 +1,10 @@
+// Função utilitária para formatar valor monetário
+function formatarValor(valor: string) {
+  valor = valor.replace(/\D/g, "");
+  if (!valor) return "";
+  valor = (parseInt(valor, 10) / 100).toFixed(2);
+  return "R$ " + valor.replace('.', ',').replace(/(\d)(?=(\d{3})+(,))/g, '$1.');
+}
 import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
@@ -204,8 +211,10 @@ useEffect(() => {
 
                 <InputFields
                   className={Style.InputDividas}
-                  type="number"
+                  type="text"
                   label="R$ Valor mínimo da Dívida"
+                  value={whatsappValue}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(formatarValor(e.target.value))}
                 />
 
                 <Dropdown
@@ -223,32 +232,26 @@ useEffect(() => {
                   }}
                 />
 
-                {modoPage === "clientes" ? (
+                
                   <Dropdown<Cliente>
                     className={Style.FiltroClientes}
                     label="Buscar clientes no ERP"
                     options={clients}
                     multiple
                     selected={selectedClientes}
+                    summaryOnMultiple
                     onChange={(v) => {
                       const clientesValidos = (v as Cliente[]).filter(
                         (cliente) =>
                           validarSelecaoCliente(cliente, selectedTemplate!)
                       );
                       setSelectedClientes(clientesValidos);
+                      setClientesMarcados(clientesValidos.map(c => c.id));
                     }}
                     open={openDropdown === "clientes"}
                     onOpen={() => setOpenDropdown("clientes")}
                     onClose={() => setOpenDropdown(null)}
                   />
-                ) : (
-                  <InputFields
-                    label="Número de Whatsapp"
-                    onlyNumbers={true}
-                    value={whatsappValue}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
-                  />
-                )}
               </div>
             </div>
           </div>
