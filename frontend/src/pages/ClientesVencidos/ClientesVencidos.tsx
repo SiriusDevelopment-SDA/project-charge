@@ -8,8 +8,8 @@ import { useNavigate } from "react-router-dom";
 ========================= */
 import type { Cliente } from "../../types";
 import { validarSelecaoCliente } from "../../utils/validation";
-import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
-import type {Service} from "../../types/index"
+import { maiorAtrasoCliente, calcularDividaCliente } from "../../utils/filtrosClientesVencidos";
+import type { Service } from "../../types/index"
 
 /* =========================
    COMPONENTES
@@ -57,6 +57,8 @@ export function ClientesVencidos() {
   const [varOpen, setVarOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<"clientes" | null>(null);
   const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
+  // se o usuário usar o dropdown para buscar clientes, armazenamos aqui
+  const [overrideClientes, setOverrideClientes] = useState<Cliente[]>([]);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
   // template modal
@@ -68,6 +70,7 @@ export function ClientesVencidos() {
   const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
   const [modalPage, setModalPage] = useState(1);
   const [diasRegua, setDiasRegua] = useState(0);
+  const [valorMinimoDivida, setValorMinimaDivivda] = useState("");
 
   const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
 
@@ -86,24 +89,31 @@ export function ClientesVencidos() {
     modoPage,
   } = useDispatchTemplate();
 
-  const { clients, services } = useClient();
+  const { clients, services, setGroupInvoices } = useClient();
   const { page, setPage, templates } = useTemplate();
 
-  function toggleCliente(clienteId: string) {
+  function toggleCliente(cliente: Cliente) {
     setClientesMarcados((prev) =>
-      prev.includes(clienteId)
-        ? prev.filter((id) => id !== clienteId)
-        : [...prev, clienteId]
+      prev.includes(cliente.id)
+        ? prev.filter((id) => id !== cliente.id)
+        : [...prev, cliente.id]
+    );
+
+    setSelectedClientes((prev) =>
+      prev.some((c) => c.id === cliente.id)
+        ? prev.filter((c) => c.id !== cliente.id)
+        : [...prev, cliente]
     );
   }
 
   function marcarTodos() {
-    if (!selectedClientes.length) {
+    if (!availableClientes.length) {
       toast.warning("Nenhum cliente para selecionar");
       return;
     }
 
-    setClientesMarcados(selectedClientes.map((c) => c.id));
+    setClientesMarcados(availableClientes.map((c) => c.id));
+    setSelectedClientes(availableClientes);
     toast.success("Todos os clientes foram selecionados!");
   }
 
@@ -111,38 +121,103 @@ export function ClientesVencidos() {
     setOpenProsseguirModal(true);
   }
 
+  const valorMinimoNumero = useMemo(() => {
+
+    if (!valorMinimoDivida) return 0;
+
+    const normalized = valorMinimoDivida.replace(',', '.');
+
+    const n = Number(normalized);
+
+    console.log("INPUT:", valorMinimoDivida);
+    console.log("NORMALIZED:", normalized);
+    console.log("NUMERO FINAL:", n);
+
+    return Number.isFinite(n) ? n : 0;
+
+  }, [valorMinimoDivida]);
+
   const clientesFiltrados = useMemo(() => {
-    if (diasRegua === 0) return [];
+
+    console.log("VALOR MINIMO NO FILTRO:", valorMinimoNumero);
 
     let filtered = clients.filter((client) => {
-      if (!client.invoices || client.invoices.list.length === 0) return false;
+
+      if (!client.invoices || client.invoices.list.length === 0)
+        return false;
 
       const maiorAtraso = maiorAtrasoCliente(client.invoices.list);
 
-      if (maiorAtraso <= 0) return false;
+      if (maiorAtraso <= 0)
+        return false;
 
-      return maiorAtraso >= diasRegua;
+      /* ✅ RÉGUA DE COBRANÇA (CORRETA) */
+      if (diasRegua > 0 && maiorAtraso < diasRegua)
+        return false;
+
+      /* ✅ VALOR MÍNIMO DA DÍVIDA */
+      if (valorMinimoNumero > 0) {
+
+        const divida = calcularDividaCliente(client.invoices.list);
+
+        console.log("DIVIDA CLIENTE:", client.name, divida);
+
+        if (Math.round(divida * 100) < Math.round(valorMinimoNumero * 100))
+          return false;
+      }
+
+      return true;
     });
 
-    // Filtrar por planos selecionados
+    /* ✅ FILTRO DE PLANOS (INALTERADO) */
     if (selectedPlans.length > 0) {
+
       filtered = filtered.filter(client =>
-        client.services && client.services.some(service =>
+        client.services &&
+        client.services.some(service =>
           selectedPlans.some(plan => plan.id === service.id)
         )
       );
     }
 
     return filtered;
-  }, [clients, diasRegua, selectedPlans]);
+
+  }, [clients, diasRegua, selectedPlans, valorMinimoNumero]);
+
+  // lista efetivamente exibida no painel: primeiro vem override (busca manual), caso contrário os resultados do filtro
+  // se houver override manual, usamos ele; senão, mostramos os filtrados
+  // porém, quando nenhum filtro está ativo queremos lista vazia para evitar
+  // preencher automaticamente ao carregar a página ou limpar os filtros.
+  const filtrosAtivos =
+    diasRegua > 0 ||
+    valorMinimoNumero > 0 ||
+    selectedPlans.length > 0;
+
+  const availableClientes = overrideClientes.length > 0
+    ? overrideClientes
+    : filtrosAtivos
+    ? clientesFiltrados
+    : [];
 
 
+  // limpa seleção de clientes quando todos os filtros forem removidos
   useEffect(() => {
-    if (diasRegua > 0) {
-      setSelectedClientes(clientesFiltrados);
+    const filtrosAtivos =
+      diasRegua > 0 ||
+      valorMinimoNumero > 0 ||
+      selectedPlans.length > 0;
+
+    if (!filtrosAtivos) {
+      setSelectedClientes([]);
+      setClientesMarcados([]);
+      setOverrideClientes([]);
+    }
+    // quando qualquer filtro ativo muda, abandonamos resultados do dropdown manual
+    if (filtrosAtivos && overrideClientes.length) {
+      setOverrideClientes([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diasRegua, clientesFiltrados]);
+  }, [diasRegua, valorMinimoNumero, selectedPlans]);
 
   useEffect(() => {
     // Atualiza selectedClientes quando clients recebe as invoices
@@ -156,17 +231,9 @@ export function ClientesVencidos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients]);
 
-useEffect(() => {
-
-  const filteredByPlans = clients.filter((client) =>
-    client.services && client.services.some((s) =>
-      selectedPlans.some((p) => p.id === s.id || p.name === s.name || p.name === s.id_servico)
-    )
-  );
-
-  setSelectedClientes(filteredByPlans);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedPlans]);
+  useEffect(() => {
+    setGroupInvoices(true);
+  }, []);
 
   /* =========================
      PAGINAÇÃO MODAL
@@ -199,13 +266,19 @@ useEffect(() => {
               <div className={Style.filtersGrid}>
                 <RangeSlider
                   value={diasRegua}
-                  onChange={(value: SetStateAction<number>) => setDiasRegua(value)}
+                  onChange={(value: SetStateAction<number>) => {
+                    setDiasRegua(value);
+                  }}
                 />
 
                 <InputFields
                   className={Style.InputDividas}
-                  type="number"
-                  label="R$ Valor mínimo da Dívida"
+                  type="text"
+                  placeholder="R$ Valor mínimo da Dívida"
+                  value={valorMinimoDivida}
+                  onChange={(e) => {
+                    setValorMinimaDivivda(e.target.value);
+                  }}
                 />
 
                 <Dropdown
@@ -235,7 +308,10 @@ useEffect(() => {
                         (cliente) =>
                           validarSelecaoCliente(cliente, selectedTemplate!)
                       );
+                      // dropdown manual substitui os resultados do filtro
+                      setOverrideClientes(clientesValidos);
                       setSelectedClientes(clientesValidos);
+                      setClientesMarcados(clientesValidos.map((c) => c.id));
                     }}
                     open={openDropdown === "clientes"}
                     onOpen={() => setOpenDropdown("clientes")}
@@ -255,15 +331,15 @@ useEffect(() => {
 
           {/* ================= MÉTRICAS ================= */}
           <div className={Style.filterRight}>
-            <BaseCard classname={Style.cardMetricas}>
+            <BaseCard className={Style.cardMetricas}>
               <Metricas
                 chave={
                   modoPage === "clientes"
                     ? "Clientes Vencidos"
                     : "Leads selecionados"
                 }
-                valor={String(selectedClientes.length)}
-                classname={Style.contentMetricas}
+                valor={String(availableClientes.length)}
+                className={Style.contentMetricas}
               />
             </BaseCard>
           </div>
@@ -288,15 +364,15 @@ useEffect(() => {
 
         {/* ================= CARDS ================= */}
         <div className={Style.Cards}>
-          {!selectedClientes.length ? (
+          {!availableClientes.length ? (
             <span className={Style.empty}>Nenhum cliente selecionado</span>
           ) : (
-            selectedClientes.map((cliente) => (
+            availableClientes.map((cliente) => (
               <ClientesCard
                 key={cliente.id}
                 cliente={cliente}
                 checked={clientesMarcados.includes(cliente.id)}
-                onToggle={() => toggleCliente(cliente.id)}
+                onToggle={() => toggleCliente(cliente)}
               />
             ))
           )}

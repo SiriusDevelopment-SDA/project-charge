@@ -36,7 +36,7 @@ export function ClientesCard({
             <span className={Styles.title}>{cliente.name}</span>
 
             <span className={Styles.badge}>
-              {0} Dias Vencidos
+              {maiorAtrasoCliente(cliente.invoices?.list ?? [])} Dias Vencidos
             </span>
 
             <div className={Styles.actions}>

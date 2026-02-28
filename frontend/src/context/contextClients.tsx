@@ -116,9 +116,11 @@ export const ClientProvider = ({
     }
   };
 
-  useEffect(() => {
-    fetchServices();
-  }, [clients]);
+  // useEffect(() => {
+  //   fetchServices();
+  // }, [clients]);
+
+  console.log("clientes:", clients)
 
   return (
     <ClientContext.Provider
