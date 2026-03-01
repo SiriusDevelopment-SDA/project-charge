@@ -4,16 +4,21 @@ import type { ReactNode } from "react";
 interface MetricasProps {
   chave: string;
   valor: string;
-  classname: string;
+  // allow both className and classname for backwards compatibility
+  className?: string;
+  classname?: string;
   icon?: ReactNode; 
 }
 
 export const Metricas = ({
   chave,
   valor,
+  className,
   classname,
   icon,
 }: MetricasProps) => {
+  const classProp = className ?? classname ?? "";
+
   return (
     <div style={{ display: "flex", position: "relative" }}>
       <div
@@ -30,7 +35,7 @@ export const Metricas = ({
         {icon ?? <Users size={22} />} 
       </div>
 
-      <div className={classname}>
+      <div className={classProp}>
         <h3>{chave}</h3>
         <h1>{valor}</h1>
       </div>
