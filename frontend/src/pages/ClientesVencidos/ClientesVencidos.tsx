@@ -1,3 +1,10 @@
+// Função utilitária para formatar valor monetário
+function formatarValor(valor: string) {
+  valor = valor.replace(/\D/g, "");
+  if (!valor) return "";
+  valor = (parseInt(valor, 10) / 100).toFixed(2);
+  return "R$ " + valor.replace('.', ',').replace(/(\d)(?=(\d{3})+(,))/g, '$1.');
+}
 import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
@@ -32,7 +39,7 @@ import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard"
 /* =========================
    HOOKS/CONTEXT
 ========================= */
-import { useClient, useTemplate } from "../../hooks";
+import { useClient, useTemplate, useCampaign } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 
 
@@ -88,6 +95,8 @@ export function ClientesVencidos() {
     setSelectedTemplate,
     modoPage,
   } = useDispatchTemplate();
+
+  const { setSelectedClientes: setCampaignSelectedClientes } = useCampaign();
 
   const { clients, services, setGroupInvoices } = useClient();
   const { page, setPage, templates } = useTemplate();
@@ -296,13 +305,14 @@ export function ClientesVencidos() {
                   }}
                 />
 
-                {modoPage === "clientes" ? (
+                
                   <Dropdown<Cliente>
                     className={Style.FiltroClientes}
                     label="Buscar clientes no ERP"
                     options={clients}
                     multiple
                     selected={selectedClientes}
+                    summaryOnMultiple
                     onChange={(v) => {
                       const clientesValidos = (v as Cliente[]).filter(
                         (cliente) =>
@@ -317,14 +327,6 @@ export function ClientesVencidos() {
                     onOpen={() => setOpenDropdown("clientes")}
                     onClose={() => setOpenDropdown(null)}
                   />
-                ) : (
-                  <InputFields
-                    label="Número de Whatsapp"
-                    onlyNumbers={true}
-                    value={whatsappValue}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
-                  />
-                )}
               </div>
             </div>
           </div>
@@ -404,7 +406,7 @@ export function ClientesVencidos() {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  setOpenCampanhaModal(true); // <-- correto para abrir o modal de campanhas
+                  setOpenCampanhaModal(true); 
                 }
               },
               {
@@ -412,6 +414,17 @@ export function ClientesVencidos() {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
+                  const clientesParaCampanha = clients.filter((c) =>
+                    clientesMarcados.includes(c.id)
+                  );
+                  if (clientesParaCampanha.length === 0) {
+                    setSelectedClientes(selectedClientes);
+                    setCampaignSelectedClientes(selectedClientes);
+                  } else {
+                    setSelectedClientes(clientesParaCampanha);
+                    setCampaignSelectedClientes(clientesParaCampanha);
+                  }
+
                   navigate("/CreateCampanha");
                 },
               },

@@ -1,3 +1,12 @@
+// Função para formatar número de WhatsApp
+function formatarWhatsapp(valor: string) {
+  valor = valor.replace(/\D/g, "");
+  if (valor.length === 0) return "";
+  if (valor.length < 3) return `(${valor}`;
+  if (valor.length < 8) return `(${valor.slice(0, 2)}) ${valor.slice(2)}`;
+  if (valor.length <= 11) return `(${valor.slice(0, 2)}) ${valor.slice(2, 7)}${valor.length > 7 ? '-' : ''}${valor.slice(7)}`;
+  return `(${valor.slice(0, 2)}) ${valor.slice(2, 7)}-${valor.slice(7, 11)}`;
+}
 import { useEffect, useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css"
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
@@ -154,23 +163,25 @@ export default function EfetuarDisparo() {
                   const novosClientes = v as Cliente[];
                   
                   const clientesValidos = novosClientes.filter(cliente => {
-                    
+
                     if (!selectedTemplate) return false;
 
                     return validarSelecaoCliente(cliente, selectedTemplate);
                   });
                   setSelectedClientes(clientesValidos);
                 }}
-                
+
                 open={openDropdown === "clientes"}
                 onOpen={() => setOpenDropdown("clientes")}
                 onClose={() => setOpenDropdown(null)}
+                summaryOnMultiple
+                searchable
               /> : (
                 <InputFields
                   label="Número de Whatsapp"
                   onlyNumbers={true}
                   value={whatsappValue}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(formatarWhatsapp(e.target.value))}
                 />
               )
             }

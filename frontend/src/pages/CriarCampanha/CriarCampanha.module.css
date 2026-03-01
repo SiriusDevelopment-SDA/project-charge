@@ -83,6 +83,24 @@
     gap: 20px;
 }
 
+/* Input de Horario */
+.timeInputBox{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:220px;
+    padding:10px 12px;
+    border:1px solid #eab308;
+    background: rgba(0,0,0,0.35);
+    color:#fff;
+    border-radius:6px;
+    cursor:pointer;
+}
+.timeInputValue{font-family: 'Orbitron', monospace; color:#facc15; font-weight:700}
+.timeInputIcon{width:22px;height:22px; border-radius:50%; display:flex;align-items:center;justify-content:center;color:#facc15}
+
+.timepickerCloseBtn{background:#eab308;color:#081010;border:none;padding:8px 22px;border-radius:6px;cursor:pointer;font-weight:700}
+
 .createCampaign__selectedClients {
     width: 100%;
     display: flex;

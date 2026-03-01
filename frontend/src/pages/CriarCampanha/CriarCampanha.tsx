@@ -1,4 +1,4 @@
-import {  useMemo } from "react";
+import {  useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -13,6 +13,7 @@ import {
   PageContainer,
   TitlePage,
   MyCalendar,
+  MyTimePicker,
   SwitchLabels,
   DownloadModeloButton,
   DynamicModal,
@@ -25,7 +26,6 @@ import { useCampaign, useClient, useDispatchTemplate, useTemplate, useCategories
 
 export function CriarCampanha() {
   const navigate = useNavigate();
-  // const { templates } = useContext(TemplateContext);
   const { clients } = useClient();
   const { templates } = useTemplate()
   const {selectedTemplate, setSelectedTemplate} = useDispatchTemplate()
@@ -37,8 +37,6 @@ export function CriarCampanha() {
     setNomeCampanha,
     horarioDisparoInicio,
     setHorarioDisparoInicio,
-    horarioDisparoFim,
-    setHorarioDisparoFim,
     dateRange,
     setDateRange,
     cobrancaRecorrente,
@@ -57,6 +55,7 @@ export function CriarCampanha() {
     isSubmitting,
     setIsSubmitting,
   } = useCampaign()
+  const [openTimePicker, setOpenTimePicker] = useState(false);
 
   // ===============================
   // Validação pura (sem toast)
@@ -72,9 +71,8 @@ export function CriarCampanha() {
       !!selectedTemplate &&
       !!categoriaSelecionada &&
       !!horarioDisparoInicio &&
-      !!horarioDisparoFim &&
       selectedClientes.length > 0 &&
-      horarioDisparoInicio < horarioDisparoFim
+      true
     );
   }, [
     nomeCampanha,
@@ -83,7 +81,6 @@ export function CriarCampanha() {
     selectedTemplate,
     categoriaSelecionada,
     horarioDisparoInicio,
-    horarioDisparoFim,
     selectedClientes,
   ]);
 
@@ -109,12 +106,8 @@ export function CriarCampanha() {
         toast.error("Por favor, selecione uma categoria");
         return;
       }
-      if (!horarioDisparoInicio || !horarioDisparoFim) {
-        toast.error("Por favor, defina os horários de disparo");
-        return;
-      }
-      if (horarioDisparoInicio >= horarioDisparoFim) {
-        toast.error("O horário de início deve ser menor que o horário de fim");
+      if (!horarioDisparoInicio) {
+        toast.error("Por favor, defina o horário de disparho");
         return;
       }
       if (selectedClientes.length === 0) {
@@ -144,6 +137,15 @@ export function CriarCampanha() {
         ? dateRange.to.toISOString()
         : dateRange.from.toISOString();
 
+      const computeEndTime = (time: string) => {
+        const [hh, mm] = time.split(":").map((v) => parseInt(v, 10));
+        const date = new Date();
+        date.setHours(hh);
+        date.setMinutes(mm + 1);
+        const pad = (n: number) => n.toString().padStart(2, "0");
+        return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      };
+
       const payload = {
         name: nomeCampanha,
         company: selectedClientes[0].company?.id || "",
@@ -152,7 +154,7 @@ export function CriarCampanha() {
         startDate: dateRange.from.toISOString(),
         endDate,
         dispatchStartTime: horarioDisparoInicio,
-        dispatchEndTime: horarioDisparoFim,
+        dispatchEndTime: computeEndTime(horarioDisparoInicio),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         recurring: cobrancaRecorrente,
         client: selectedClientes.map((c) => c.id),
@@ -165,7 +167,6 @@ export function CriarCampanha() {
       // Limpar formulário
       setNomeCampanha("");
       setHorarioDisparoInicio("");
-      setHorarioDisparoFim("");
       setDateRange(undefined);
       setCobrancaRecorrente(false);
       setSelectedTemplate(null);
@@ -194,7 +195,6 @@ export function CriarCampanha() {
   const handleCancel = () => {
     setNomeCampanha("");
     setHorarioDisparoInicio("");
-    setHorarioDisparoFim("");
     setDateRange(undefined);
     setCobrancaRecorrente(false);
     setSelectedTemplate(null);
@@ -249,27 +249,15 @@ export function CriarCampanha() {
           </div>
 
           <div className={Style.createCampaign__schedule}>
-            <div className={Style.createCampaign__scheduleTime}>
-              <div>
-                <span>Horário de disparo</span>
-                <InputFields
-                  type="time"
-                  value={horarioDisparoInicio}
-                  onChange={(e) => setHorarioDisparoInicio(e.target.value)}
-                  required
-                />
+              <div className={Style.createCampaign__scheduleTime}>
+                <div>
+                  <span>Horário de disparo</span>
+                  <div className={Style.timeInputBox} onClick={() => setOpenTimePicker(true)} role="button">
+                    <div className={Style.timeInputValue}>{horarioDisparoInicio || "--:--"}</div>
+                    <div className={Style.timeInputIcon}>⏱</div>
+                  </div>
+                </div>
               </div>
-
-              <div>
-                <span>Horário de disparo </span>
-                <InputFields
-                  type="time"
-                  value={horarioDisparoFim}
-                  onChange={(e) => setHorarioDisparoFim(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
 
             <SwitchLabels
               checked={cobrancaRecorrente}
@@ -318,6 +306,7 @@ export function CriarCampanha() {
             onClose={() => setOpenClientes(false)}
             multiple
             searchable
+            summaryOnMultiple
           />
 
           <DownloadModeloButton
@@ -355,6 +344,23 @@ export function CriarCampanha() {
               },
             },
           ]}
+        />
+      )}
+
+      {openTimePicker && (
+        <DynamicModal
+          open
+          type="custom"
+          title="Selecione o Horário"
+          onClose={() => setOpenTimePicker(false)}
+          customContent={
+            <>
+              <MyTimePicker selected={horarioDisparoInicio} onSelect={(t) => setHorarioDisparoInicio(t)} />
+              <div style={{display:'flex',justifyContent:'center',marginTop:12}}>
+                <button className={Style.timepickerCloseBtn} onClick={() => setOpenTimePicker(false)}>Fechar</button>
+              </div>
+            </>
+          }
         />
       )}
 
