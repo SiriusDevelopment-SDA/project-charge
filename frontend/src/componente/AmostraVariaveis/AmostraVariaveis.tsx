@@ -9,7 +9,7 @@ const AmostraVariaveis = ({ variablesMap, setVariablesMap }: propAmostras) => {
 
   return (
     <div className={Style.variablesCard}>
-      <h4 className={Style.variablesTitle}>Amostras de vari·veis</h4>
+      <h4 className={Style.variablesTitle}>Amostras de vari√°veis</h4>
 
       {hasVariables &&
         Object.keys(variablesMap).map((key) => (
@@ -29,7 +29,7 @@ const AmostraVariaveis = ({ variablesMap, setVariablesMap }: propAmostras) => {
         ))}
 
       {!hasVariables && (
-        <div className={Style.previewText}>Selecione uma Vari·vel em 'Vari·veis'</div>
+        <div className={Style.previewText}>Selecione uma Vari√°vel em 'Vari√°veis'</div>
       )}
     </div>
   );

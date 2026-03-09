@@ -50,12 +50,12 @@ const GraficoCobranca: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Cobrança</h2>
+        <h2 className={styles.title}>CobranÃ§a</h2>
 
         <div className={styles.legend}>
           <div className={styles.legendItem}>
             <span className={`${styles.legendText} ${styles.legendTextRed}`}>
-              Inadimplência
+              InadimplÃªncia
             </span>
             <div className={`${styles.legendBox} ${styles.legendBoxRed}`}></div>
           </div>

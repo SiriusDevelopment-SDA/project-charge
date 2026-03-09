@@ -1,23 +1,32 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
 } from "recharts";
-import styles from "./GraficoDisparo.module.css";
 import { usePollingChartData } from "../../hooks/components/usePollingChartData";
+import styles from "./GraficoDisparo.module.css";
 
 interface MonthlyData {
   month: string;
   value: number;
 }
+
+const periods = [
+  { label: "Jan - Jun", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
+  { label: "Jul - Dez", months: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
+  {
+    label: "Ano todo",
+    months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+  },
+];
 
 const initialData: MonthlyData[] = [
   { month: "Jan", value: 40 },
@@ -35,6 +44,8 @@ const initialData: MonthlyData[] = [
 ];
 
 const GraficoDisparo: React.FC = () => {
+  const [selectedPeriod, setSelectedPeriod] = useState(periods[0]);
+
   const generateData = useCallback(
     (base: MonthlyData[]) =>
       base.map((item) => ({
@@ -46,34 +57,38 @@ const GraficoDisparo: React.FC = () => {
 
   const { data } = usePollingChartData(initialData, generateData, 15000);
 
+  const filteredData = useMemo(
+    () => data.filter((item) => selectedPeriod.months.includes(item.month)),
+    [data, selectedPeriod]
+  );
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <h2 className={styles.title}>Disparo mensal</h2>
 
-        <div className={styles.dateSelector}>
-          Jan - Jun '22
-          <svg
-            width="10"
-            height="6"
-            viewBox="0 0 10 6"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M1 1L5 5L9 1"
-              stroke="#d4af37"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
+        <select
+          className={styles.dateSelector}
+          value={selectedPeriod.label}
+          onChange={(event) => {
+            const period = periods.find((p) => p.label === event.target.value);
+            if (period) setSelectedPeriod(period);
+          }}
+        >
+          {periods.map((period) => (
+            <option key={period.label} value={period.label}>
+              {period.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className={styles.chartArea}>
         <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -15, bottom: 20 }}>
+          <BarChart
+            data={filteredData}
+            margin={{ top: 10, right: 10, left: -15, bottom: 20 }}
+          >
             <defs>
               <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#ffd700" stopOpacity={1} />
@@ -127,13 +142,8 @@ const GraficoDisparo: React.FC = () => {
               itemStyle={{ color: "#ffd700" }}
             />
 
-            <Bar
-              dataKey="value"
-              radius={[6, 6, 0, 0]}
-              barSize={28}
-              filter="url(#barGlow)"
-            >
-              {data.map((_, index) => (
+            <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={28} filter="url(#barGlow)">
+              {filteredData.map((_, index) => (
                 <Cell key={`cell-${index}`} fill="url(#barGradient)" />
               ))}
             </Bar>

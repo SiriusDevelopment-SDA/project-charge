@@ -17,7 +17,9 @@ export function ClientesCard({ cliente, checked, onToggle }: Props) {
           <div className={Styles.header}>
             <span className={Styles.title}>{cliente.name}</span>
 
-            <span className={Styles.badge}>{0} Dias Vencidos</span>
+            <span className={Styles.badge}>
+              {maiorAtrasoCliente(cliente.invoices?.list ?? [])} Dias Vencidos
+            </span>
 
             <div className={Styles.actions}>
               <Checkbox

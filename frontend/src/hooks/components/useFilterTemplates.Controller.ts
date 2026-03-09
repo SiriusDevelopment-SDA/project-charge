@@ -21,6 +21,7 @@ export function useFilterTemplates() {
   return {
     totalModalPages,
     paginatedTemplates,
+    modalPage,
     setModalPage,
     itemsPerPage: ITEMS_PER_PAGE,
   };

@@ -103,7 +103,7 @@ export default function ModalCardCampanhas({
               onClick: () => confirmSelection(onConfirmCampaign),
             },
             {
-              label: "Não",
+              label: "NÃ£o",
               variant: "danger",
               onClick: closeConfirmation,
             },

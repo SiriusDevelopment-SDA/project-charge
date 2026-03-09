@@ -109,7 +109,7 @@ export function buildTemplateParams(
 }
 
 export function validarSelecaoCliente(cliente: Cliente, template?: Template) {
-  if (template?.category !== "Cobrança") {
+  if (template?.category !== "CobranÃ§a") {
     return true;
   }
 

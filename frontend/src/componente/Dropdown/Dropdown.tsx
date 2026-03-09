@@ -1,8 +1,9 @@
 "use client";
 
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import S from "./StyleDropdown.module.css";
 import { useDropdownController } from "../../hooks/components/useDropdownController";
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+
 export type DropdownProps<T> = {
   label: string;
   typeCategory?: boolean;
@@ -22,11 +23,10 @@ export type DropdownProps<T> = {
   searchable?: boolean;
   onSearchTermChange?: (term: string) => void;
   placeholder?: string;
+  summaryOnMultiple?: boolean;
 };
 
-export function Dropdown<
-  T extends { id: string; name: string; category?: string }
->({
+export function Dropdown<T extends { id: string; name: string; category?: string }>({
   label,
   placeholder,
   options,
@@ -42,6 +42,8 @@ export function Dropdown<
   typeCategory,
   searchable,
   onSearchTermChange,
+  isOptionDisabled,
+  summaryOnMultiple = false,
 }: DropdownProps<T>) {
   const {
     wrapperRef,
@@ -66,6 +68,12 @@ export function Dropdown<
   });
 
   const selectedLabel = value?.name ?? "";
+  const shouldShowSummary = Boolean(multiple && summaryOnMultiple && selected && selected.length > 1);
+  const summaryText = shouldShowSummary
+    ? `${selected![0].name} + ${selected!.length - 1} ${
+        selected!.length - 1 === 1 ? "cliente" : "clientes"
+      }`
+    : "";
 
   return (
     <div
@@ -86,50 +94,76 @@ export function Dropdown<
             onClose();
             return;
           }
+
           onOpen();
           wrapperRef.current?.focus();
         }}
       >
-        <span className={`${S.label} ${open || hasValue ? S.active : ""}`}>
-          {label}
-        </span>
+        <span className={`${S.label} ${open || hasValue ? S.active : ""}`}>{label}</span>
 
         <div className={S.valueContainer}>
           {multiple ? (
-            <div className={S.chipsContainer}>
-              {selected?.map((item) => (
-                <div
-                  key={item.id}
-                  className={S.chip}
-                  onClick={(event) => event.stopPropagation()}
+            shouldShowSummary ? (
+              <div className={S.summaryContainer}>
+                <span className={S.summary}>{summaryText}</span>
+                <span
+                  className={S.remove}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onChange([]);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onChange([]);
+                  }}
                 >
-                  {item.name}
-                  <span
-                    className={S.remove}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      const nextSelected = selected.filter((current) => current.id !== item.id);
-                      onChange(nextSelected);
-                    }}
+                  x
+                </span>
+              </div>
+            ) : (
+              <div className={S.chipsContainer}>
+                {selected?.map((item) => (
+                  <div
+                    key={item.id}
+                    className={S.chip}
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    x
-                  </span>
-                </div>
-              ))}
-              {!selected?.length && <span className={S.placeholderText}>{placeholder}</span>}
-              
-            </div>
+                    {item.name}
+                    <span
+                      className={S.remove}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const nextSelected = (selected ?? []).filter(
+                          (current) => current.id !== item.id
+                        );
+                        onChange(nextSelected);
+                      }}
+                    >
+                      x
+                    </span>
+                  </div>
+                ))}
+                {!selected?.length && <span className={S.value}>{placeholder ?? ""}</span>}
+              </div>
+            )
           ) : (
-            <span className={`${S.value} ${!value ? S.placeholderText : ""}`}>
-              {value ? selectedLabel : placeholder}
-            </span>
+            <span className={S.value}>{value ? selectedLabel : placeholder ?? ""}</span>
           )}
         </div>
 
-        {!typeCategory && <span className={`${S.arrow} ${open ? S.rotate : ""}`}><ExpandMoreIcon /></span>}
+        {!typeCategory && (
+          <span className={`${S.arrow} ${open ? S.rotate : ""}`}>
+            <ExpandMoreIcon />
+          </span>
+        )}
       </div>
 
       {children}
+
       {open && (
         <div
           className={`${S.menu} ${openUpwards ? S.menuUp : ""}`}
@@ -155,6 +189,7 @@ export function Dropdown<
               />
             </div>
           )}
+
           {visibleOptions.length === 0 ? (
             <div className={S.noResults}>Nenhum resultado encontrado</div>
           ) : (
@@ -163,32 +198,37 @@ export function Dropdown<
                 className={S.virtualInner}
                 style={{ transform: `translateY(${startIndex * ITEM_HEIGHT}px)` }}
               >
-                {visibleOptions.map((option) => (
-                  <div
-                    key={option.id}
-                    className={S.option}
-                    onClick={(event) => {
-                      event.stopPropagation();
+                {visibleOptions.map((option) => {
+                  const disabled = isOptionDisabled?.(option) ?? false;
 
-                      if (multiple) {
-                        const exists = selected?.some((current) => current.id === option.id);
-                        const nextSelected = exists
-                          ? (selected ?? []).filter((current) => current.id !== option.id)
-                          : [...(selected ?? []), option];
+                  return (
+                    <div
+                      key={option.id}
+                      className={`${S.option} ${disabled ? S.disabled : ""}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (disabled) return;
 
-                        onChange(nextSelected);
-                        return;
-                      }
+                        if (multiple) {
+                          const exists = selected?.some((current) => current.id === option.id);
+                          const nextSelected = exists
+                            ? (selected ?? []).filter((current) => current.id !== option.id)
+                            : [...(selected ?? []), option];
 
-                      onChange(option);
-                      onClose();
-                      setSearchTerm("");
-                    }}
-                    title={"Cliente sem faturas em aberto"}
-                  >
-                    {typeCategory ? <span>{option.category}</span> : <span>{option.name}</span>}
-                  </div>
-                ))}
+                          onChange(nextSelected);
+                          return;
+                        }
+
+                        onChange(option);
+                        onClose();
+                        setSearchTerm("");
+                      }}
+                      title={disabled ? "Opcao indisponivel" : undefined}
+                    >
+                      {typeCategory ? <span>{option.category ?? option.name}</span> : <span>{option.name}</span>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -60,10 +60,13 @@ function reducer(state: State, action: Action): State {
     case "SET_ORDER":
       return { ...state, order: action.payload };
     case "SET_QUERY":
+      if (state.query === action.payload && state.page === 1) return state;
       return { ...state, query: action.payload, page: 1 };
     case "SET_GROUP_INVOICES":
+      if (state.groupInvoices === action.payload) return state;
       return { ...state, groupInvoices: action.payload };
     case "SET_GROUP_SERVICES":
+      if (state.groupServices === action.payload) return state;
       return { ...state, groupServices: action.payload };
     case "SET_LOADING_INVOICES":
       return { ...state, loadingInvoices: action.payload };
@@ -77,6 +80,30 @@ const normalizeDoc = (doc?: string) => doc?.replace(/\D/g, "") ?? "";
 export function useClientsDataController() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const setQuery = useCallback(
+    (value: string) => dispatch({ type: "SET_QUERY", payload: value }),
+    []
+  );
+  const setPage = useCallback(
+    (value: number) => dispatch({ type: "SET_PAGE", payload: value }),
+    []
+  );
+  const setOrder = useCallback(
+    (value: "DESC" | "ASC") => dispatch({ type: "SET_ORDER", payload: value }),
+    []
+  );
+  const setLimit = useCallback(
+    (value: number) => dispatch({ type: "SET_LIMIT", payload: value }),
+    []
+  );
+  const setGroupInvoices = useCallback(
+    (value: boolean) => dispatch({ type: "SET_GROUP_INVOICES", payload: value }),
+    []
+  );
+  const setGroupServices = useCallback(
+    (value: boolean) => dispatch({ type: "SET_GROUP_SERVICES", payload: value }),
+    []
+  );
 
   const fetchInvoices = useCallback(
     async (targetClients: Cliente[]): Promise<Cliente[]> => {
@@ -181,14 +208,12 @@ export function useClientsDataController() {
   return {
     clients: state.clients,
     services: state.services,
-    setQuery: (value: string) => dispatch({ type: "SET_QUERY", payload: value }),
-    setPage: (value: number) => dispatch({ type: "SET_PAGE", payload: value }),
-    setOrder: (value: "DESC" | "ASC") => dispatch({ type: "SET_ORDER", payload: value }),
-    setLimit: (value: number) => dispatch({ type: "SET_LIMIT", payload: value }),
-    setGroupInvoices: (value: boolean) =>
-      dispatch({ type: "SET_GROUP_INVOICES", payload: value }),
-    setGroupServices: (value: boolean) =>
-      dispatch({ type: "SET_GROUP_SERVICES", payload: value }),
+    setQuery,
+    setPage,
+    setOrder,
+    setLimit,
+    setGroupInvoices,
+    setGroupServices,
     fetchInvoices,
     fetchServices,
   };

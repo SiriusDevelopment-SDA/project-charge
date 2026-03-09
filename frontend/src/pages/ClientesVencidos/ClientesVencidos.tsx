@@ -1,86 +1,58 @@
-﻿import { useMemo, useState, type SetStateAction } from "react";
-import { toast } from "react-toastify";
+import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { Funnel } from "lucide-react";
+import { toast } from "react-toastify";
 import { useLocation, useNavigate } from "react-router-dom";
 
-/* =========================
-   TIPOS E UTILITÃRIOS
-========================= */
-import type { Cliente, Template } from "../../types";
-import { validarSelecaoCliente } from "../../utils/validation";
-import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
-import type {Service} from "../../types/index"
-
-/* =========================
-   COMPONENTES
-========================= */
 import { ClientesCard } from "../../componente/ClientesCard/ClientesCard";
 import {
   BaseCard,
   Dropdown,
+  InputFields,
   Metricas,
+  MyButton,
   PageContainer,
   TitlePage,
-  InputFields,
-  MyButton,
 } from "../../componente/Index";
 import { Pagination } from "../../componente/global/Pagination/Pagination";
 import RangeSlider from "../../componente/Slider/RangeSlider";
+import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard";
 
-/* =========================
-   HOOKS/CONTEXT
-========================= */
 import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
-import { useClientesVencidosSync } from "../../hooks/controller/clients/useClientesVencidosSync";
-
-
-/* =========================
-   STYLES
-========================= */
-import Style from "./Styles/ClientesVencidos.module.css";
-import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 import { useFilterTemplates } from "../../hooks/components/useFilterTemplates.Controller";
 
-/* =========================
-   CONSTANTES
-========================= */
+import { calcularDividaCliente, maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
+import { validarSelecaoCliente } from "../../utils/validation";
+import type { Cliente, Service, Template } from "../../types";
 
+import Style from "./Styles/ClientesVencidos.module.css";
+
+const MIN_INPUT_PLACEHOLDER = "R$ Valor minimo da divida";
 
 export function ClientesVencidos() {
-  // State para o campo de WhatsApp
-  const [whatsappValue, setWhatsappValue] = useState("");
-
-  /* =========================
-     ESTADOS
-  ========================= */
-  const [varOpen, setVarOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<"clientes" | null>(null);
-  const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
-
-  const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
-  // template modal
-  const [openTemplateModal, setOpenTemplateModal] = useState(false);
-  // campanha modal
-  //const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
-  const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
-
-  const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
-  
-  const [diasRegua, setDiasRegua] = useState(0);
-
-  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
-
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [selectedPlans, setSelectedPlans] = useState<{ id: string; name: string; id_servico?: string }[]>([]);
+  const [varOpen, setVarOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<"clientes" | null>(null);
+  const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
+  const [overrideClientes, setOverrideClientes] = useState<Cliente[]>([]);
 
-  /* =========================
-     CONTEXTOS
-  ========================= */
+  const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
+  const [openTemplateModal, setOpenTemplateModal] = useState(false);
+  const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
+  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
+
+  const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
+  const [diasRegua, setDiasRegua] = useState(0);
+  const [valorMinimoDivida, setValorMinimaDivivda] = useState("");
+
+  const [selectedPlans, setSelectedPlans] = useState<
+    { id: string; name: string; id_servico?: string }[]
+  >([]);
+
   const {
     selectedClientes,
     setSelectedClientes,
@@ -88,25 +60,100 @@ export function ClientesVencidos() {
     setSelectedTemplate,
     modoPage,
   } = useDispatchTemplate();
-  const { paginatedTemplates, setModalPage, totalModalPages, itemsPerPage } = useFilterTemplates();
-  const { clients, services = [], setQuery } = useClient();
+
+  const { paginatedTemplates, setModalPage, totalModalPages, itemsPerPage, modalPage } =
+    useFilterTemplates();
+
+  const { clients, services = [], setGroupInvoices, setQuery } = useClient();
   const { page, setPage, templates } = useTemplate();
 
-  function toggleCliente(clienteId: string) {
+  useEffect(() => {
+    setGroupInvoices(true);
+  }, [setGroupInvoices]);
+
+  const valorMinimoNumero = useMemo(() => {
+    if (!valorMinimoDivida) return 0;
+    const normalized = valorMinimoDivida.replace(",", ".");
+    const numero = Number(normalized);
+    return Number.isFinite(numero) ? numero : 0;
+  }, [valorMinimoDivida]);
+
+  const clientesFiltrados = useMemo(() => {
+    let filtered = clients.filter((client) => {
+      if (!client.invoices || client.invoices.list.length === 0) return false;
+
+      const atraso = maiorAtrasoCliente(client.invoices.list);
+      if (atraso <= 0) return false;
+
+      if (diasRegua > 0 && atraso < diasRegua) return false;
+
+      if (valorMinimoNumero > 0) {
+        const divida = calcularDividaCliente(client.invoices.list);
+        if (Math.round(divida * 100) < Math.round(valorMinimoNumero * 100)) return false;
+      }
+
+      return true;
+    });
+
+    if (selectedPlans.length > 0) {
+      filtered = filtered.filter(
+        (client) =>
+          client.services &&
+          client.services.some((service) => selectedPlans.some((plan) => plan.id === service.id))
+      );
+    }
+
+    return filtered;
+  }, [clients, diasRegua, selectedPlans, valorMinimoNumero]);
+
+  const filtrosAtivos = diasRegua > 0 || valorMinimoNumero > 0 || selectedPlans.length > 0;
+
+  const availableClientes =
+    overrideClientes.length > 0 ? overrideClientes : filtrosAtivos ? clientesFiltrados : [];
+
+  useEffect(() => {
+    if (!filtrosAtivos) {
+      setSelectedClientes([]);
+      setClientesMarcados([]);
+      setOverrideClientes([]);
+    }
+
+    if (filtrosAtivos && overrideClientes.length) {
+      setOverrideClientes([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diasRegua, valorMinimoNumero, selectedPlans]);
+
+  useEffect(() => {
+    if (selectedClientes.length === 0) return;
+    const atualizados = selectedClientes.map((selectedClient) => {
+      const clientAtualizado = clients.find((c) => c.id === selectedClient.id);
+      return clientAtualizado || selectedClient;
+    });
+    setSelectedClientes(atualizados);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
+
+  function toggleCliente(cliente: Cliente) {
     setClientesMarcados((prev) =>
-      prev.includes(clienteId)
-        ? prev.filter((id) => id !== clienteId)
-        : [...prev, clienteId]
+      prev.includes(cliente.id) ? prev.filter((id) => id !== cliente.id) : [...prev, cliente.id]
+    );
+
+    setSelectedClientes((prev) =>
+      prev.some((c) => c.id === cliente.id)
+        ? prev.filter((c) => c.id !== cliente.id)
+        : [...prev, cliente]
     );
   }
 
   function marcarTodos() {
-    if (!selectedClientes.length) {
+    if (!availableClientes.length) {
       toast.warning("Nenhum cliente para selecionar");
       return;
     }
 
-    setClientesMarcados(selectedClientes.map((c) => c.id));
+    setClientesMarcados(availableClientes.map((c) => c.id));
+    setSelectedClientes(availableClientes);
     toast.success("Todos os clientes foram selecionados!");
   }
 
@@ -114,56 +161,14 @@ export function ClientesVencidos() {
     setOpenProsseguirModal(true);
   }
 
-  const clientesFiltrados = useMemo(() => {
-    if (diasRegua === 0) return [];
-
-    let filtered = clients.filter((client) => {
-      if (!client.invoices || client.invoices.list.length === 0) return false;
-
-      const maiorAtraso = maiorAtrasoCliente(client.invoices.list);
-
-      if (maiorAtraso <= 0) return false;
-
-      return maiorAtraso >= diasRegua;
-    });
-
-    // Filtrar por planos selecionados
-    if (selectedPlans.length > 0) {
-      filtered = filtered.filter(client =>
-        client.services && client.services.some(service =>
-          selectedPlans.some(plan => plan.id === service.id)
-        )
-      );
-    }
-
-    return filtered;
-  }, [clients, diasRegua, selectedPlans]);
-
-
-  useClientesVencidosSync({
-    diasRegua,
-    clientesFiltrados,
-    selectedClientes,
-    clients,
-    selectedPlans,
-    setSelectedClientes,
-  });
-
-  /* =========================
-     PAGINAÃ‡ÃƒO MODAL
-  ========================= */
-
-
   return (
     <PageContainer className={Style.VencidosContainer}>
-      <TitlePage 
-      title="Clientes Vencidos" 
-      subtitle="Filtre inadimplencia e avance para disparos ou campanhas" 
-      
+      <TitlePage
+        title="Clientes Vencidos"
+        subtitle="Filtre inadimplencia e avance para disparos ou campanhas"
       />
 
       <div className={Style.contentPanel}>
-        {/* ================= FILTROS ================= */}
         <div className={Style.filterPanel}>
           <div className={Style.filterLeft}>
             <div className={Style.ContainerForm}>
@@ -174,19 +179,26 @@ export function ClientesVencidos() {
               <div className={Style.filtersGrid}>
                 <RangeSlider
                   value={diasRegua}
-                  onChange={(value: SetStateAction<number>) => setDiasRegua(value)}
+                  onChange={(value: SetStateAction<number>) => {
+                    setDiasRegua(value);
+                  }}
                 />
 
                 <InputFields
                   className={Style.InputDividas}
-                  type="number"
-                  label="R$ Valor mínimo da dívida"
+                  type="text"
+                  placeholder={MIN_INPUT_PLACEHOLDER}
+                  value={valorMinimoDivida}
+                  onChange={(event) => setValorMinimaDivivda(event.target.value)}
                 />
 
                 <Dropdown
                   className={Style.DropdownPlanos}
                   label="Planos por Clientes"
-                  options={services.map((service: Service) => ({ id: service.id, name: service.name }))}
+                  options={services.map((service: Service) => ({
+                    id: service.id,
+                    name: service.name,
+                  }))}
                   multiple
                   selected={selectedPlans}
                   open={varOpen}
@@ -197,96 +209,71 @@ export function ClientesVencidos() {
                   }}
                 />
 
-                {modoPage === "clientes" ? (
-                  <Dropdown<Cliente>
-                    className={Style.FiltroClientes}
-                    label="Buscar clientes no ERP"
-                    options={clients}
-                    searchable
-                    multiple
-                    selected={selectedClientes}
-                    onChange={(v) => {
-                      const clientesValidos = (v as Cliente[]).filter(
-                        (cliente) =>
-                          validarSelecaoCliente(cliente, selectedTemplate!)
-                      );
-                      setSelectedClientes(clientesValidos);
-                    }}
-                    open={openDropdown === "clientes"}
-                    onOpen={() => setOpenDropdown("clientes")}
-                    onClose={() => setOpenDropdown(null)}
-                    onSearchTermChange={(term) => setQuery(term)}
-                  />
-                ) : (
-                  <InputFields
-                    label="NÃºmero de Whatsapp"
-                    onlyNumbers={true}
-                    value={whatsappValue}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
-                  />
-                )}
+                <Dropdown<Cliente>
+                  className={Style.FiltroClientes}
+                  label="Buscar clientes no ERP"
+                  options={clients}
+                  multiple
+                  selected={selectedClientes}
+                  summaryOnMultiple
+                  onChange={(value) => {
+                    const clientesValidos = (value as Cliente[]).filter((cliente) =>
+                      validarSelecaoCliente(cliente, selectedTemplate ?? undefined)
+                    );
+                    setOverrideClientes(clientesValidos);
+                    setSelectedClientes(clientesValidos);
+                    setClientesMarcados(clientesValidos.map((c) => c.id));
+                  }}
+                  open={openDropdown === "clientes"}
+                  onOpen={() => setOpenDropdown("clientes")}
+                  onClose={() => setOpenDropdown(null)}
+                  searchable
+                  onSearchTermChange={(term) => setQuery(term)}
+                />
               </div>
             </div>
           </div>
 
-          {/* ================= MÃ‰TRICAS ================= */}
           <div className={Style.filterRight}>
-            <BaseCard classname={Style.cardMetricas}>
+            <BaseCard className={Style.cardMetricas}>
               <Metricas
-                chave={
-                  modoPage === "clientes"
-                    ? "Clientes Vencidos"
-                    : "Leads selecionados"
-                }
-                valor={String(selectedClientes.length)}
-                classname={Style.contentMetricas}
+                chave={modoPage === "clientes" ? "Clientes Vencidos" : "Leads selecionados"}
+                valor={String(availableClientes.length)}
+                className={Style.contentMetricas}
               />
             </BaseCard>
           </div>
         </div>
 
-        {/* ================= AÃ‡Ã•ES ================= */}
         <div className={Style.submenuActions}>
-          <MyButton
-            type="button"
-            variant="btn-norm"
-            text="Selecionar todos"
-            onClick={marcarTodos}
-          />
+          <MyButton type="button" variant="btn-norm" text="Selecionar todos" onClick={marcarTodos} />
 
-          <MyButton
-            type="button"
-            variant="btn-norm"
-            text="Prosseguir"
-            onClick={handleProsseguir}
-          />
+          <MyButton type="button" variant="btn-norm" text="Prosseguir" onClick={handleProsseguir} />
         </div>
 
-        {/* ================= CARDS ================= */}
         <div className={Style.Cards}>
-          {!selectedClientes.length ? (
+          {!availableClientes.length ? (
             <span className={Style.empty}>Nenhum cliente selecionado</span>
           ) : (
-            selectedClientes.map((cliente) => (
+            availableClientes.map((cliente) => (
               <ClientesCard
                 key={cliente.id}
                 cliente={cliente}
                 checked={clientesMarcados.includes(cliente.id)}
-                onToggle={() => toggleCliente(cliente.id)}
+                onToggle={() => toggleCliente(cliente)}
               />
             ))
           )}
         </div>
 
-        {/* ================= MODAL OPÃ‡Ã•ES ================= */}
         {openProsseguirModal && (
           <DynamicModal
             open
             type="modaltemplates"
-            title="Escolha uma opÃ§Ã£o:"
+            title="Escolha uma opcao:"
             description={
               <>
-                VocÃª selecionou <b>{clientesMarcados.length}</b> clientes.
+                Voce selecionou <b>{clientesMarcados.length}</b> clientes.
               </>
             }
             onClose={() => setOpenProsseguirModal(false)}
@@ -304,15 +291,15 @@ export function ClientesVencidos() {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  setOpenCampanhaModal(true); // <-- correto para abrir o modal de campanhas
-                }
+                  setOpenCampanhaModal(true);
+                },
               },
               {
                 label: "Criar campanha",
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  navigate(`/CreateCampanha${location.search}`);
+                  navigate(`/createCampanha${location.search}`);
                 },
               },
             ]}
@@ -322,13 +309,9 @@ export function ClientesVencidos() {
         <ModalCardCampanhas
           open={openCampanhaModal}
           onClose={() => setOpenCampanhaModal(false)}
-          onConfirmCampaign={() =>
-            toast.success("Campanha disparada com sucesso (Implementar)!")
-          }
+          onConfirmCampaign={() => toast.success("Campanha disparada com sucesso (Implementar)!")}
         />
 
-
-        {/* ================= MODAL TEMPLATES ================= */}
         {openTemplateModal && (
           <DynamicModal
             open
@@ -360,9 +343,7 @@ export function ClientesVencidos() {
                     className={Style.Pagination}
                     page={modalPage}
                     onPrev={() => setModalPage((p) => Math.max(p - 1, 1))}
-                    onNext={() =>
-                      setModalPage((p) => Math.min(p + 1, totalModalPages))
-                    }
+                    onNext={() => setModalPage((p) => Math.min(p + 1, totalModalPages))}
                     disablePrev={modalPage === 1}
                     disableNext={modalPage === totalModalPages}
                   />
@@ -374,8 +355,6 @@ export function ClientesVencidos() {
           />
         )}
 
-
-        {/* MODAL DE CONFIRMAÇÃO */}
         {openConfirmTemplateModal && (
           <DynamicModal
             open
@@ -400,14 +379,14 @@ export function ClientesVencidos() {
                 },
               },
               {
-                label: "Não",
+                label: "Nao",
                 variant: "danger",
                 onClick: () => setOpenConfirmTemplateModal(false),
               },
             ]}
           />
         )}
-        {/* ================= PAGINAÃ‡ÃƒO PRINCIPAL ================= */}
+
         <Pagination
           className={Style.Pagination}
           page={page}
@@ -419,8 +398,3 @@ export function ClientesVencidos() {
     </PageContainer>
   );
 }
-
-
-
-
-

@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import { toast } from "react-toastify";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css";
@@ -113,6 +113,7 @@ export default function EfetuarDisparo() {
         className={Style.containerCenter}
         onClick={() => {
           setOpenDropdown(null);
+          setOpenCategoryDropdown(false);
         }}
       >
         <div className={Style.containerCenterTop}>
@@ -123,7 +124,10 @@ export default function EfetuarDisparo() {
               value={selectedTemplate}
               onChange={(value) => setSelectedTemplate(value as Template)}
               open={openDropdown === "template"}
-              onOpen={() => setOpenDropdown("template")}
+              onOpen={() => {
+                setOpenDropdown("template");
+                setOpenCategoryDropdown(false);
+              }}
               onClose={() => {
                 setOpenDropdown(null);
                 setOpenCategoryDropdown(false);
@@ -135,18 +139,27 @@ export default function EfetuarDisparo() {
                   <InputFields
                     placeholder="Buscar template pelo nome"
                     value={searchTemplateName}
-                    onChange={(e) => setSearchTemplateName(e.target.value)}
+                    onChange={(event) => setSearchTemplateName(event.target.value)}
                   />
 
-                  <div className={Style.filterWrapper} tabIndex={0} onBlur={(event) => { const next = event.relatedTarget as Node | null; if (!next || !categoryMenuRef.current?.contains(next)) { setOpenCategoryDropdown(false); } }}>
+                  <div
+                    className={Style.filterWrapper}
+                    tabIndex={0}
+                    onBlur={(event) => {
+                      const nextTarget = event.relatedTarget as Node | null;
+                      if (!nextTarget || !categoryMenuRef.current?.contains(nextTarget)) {
+                        setOpenCategoryDropdown(false);
+                      }
+                    }}
+                  >
                     <FilterAltOutlinedIcon
                       ref={categoryFilterRef}
                       className={`${Style.iconFilterDropdownTemplate} ${
                         categoryTemplateFilter ? Style.activeFilter : ""
                       }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenCategoryDropdown((prev) => !prev);
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setOpenCategoryDropdown((previous) => !previous);
                       }}
                     />
 
@@ -183,6 +196,7 @@ export default function EfetuarDisparo() {
               )}
             </Dropdown>
 
+
             {modoPage === "clientes" ? (
               <Dropdown<Cliente>
                 label="Buscar clientes no ERP"
@@ -203,11 +217,14 @@ export default function EfetuarDisparo() {
                   }
                 }}
                 open={openDropdown === "clientes"}
-                onOpen={() => setOpenDropdown("clientes")}
+                onOpen={() => {
+                  setOpenDropdown("clientes");
+                  setOpenCategoryDropdown(false);
+                }}
                 onClose={() => {
-                setOpenDropdown(null);
-                setOpenCategoryDropdown(false);
-              }}
+                  setOpenDropdown(null);
+                  setOpenCategoryDropdown(false);
+                }}
                 onSearchTermChange={(term) => setQuery(term)}
               />
             ) : (
