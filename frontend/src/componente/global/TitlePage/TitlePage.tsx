@@ -1,29 +1,52 @@
 import Typography from "@mui/material/Typography";
+import { useLocation, useNavigate } from "react-router-dom";
 import { MyButton } from "../../Index";
-import S from "./StylesTitlePage.module.css"
-import { useNavigate } from "react-router-dom";
+import S from "./StylesTitlePage.module.css";
 
 export const TitlePage = ({
   title,
+  subtitle,
   className,
   setModoPage,
-  text
+  text,
+  children,
 }: {
   title: string;
+  subtitle?: string;
   className?: string;
   setModoPage?: React.Dispatch<React.SetStateAction<"clientes" | "leads">>;
   text?: string;
+  children?: React.ReactNode;
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <div className={`${className} ${S.container_title}`}>
-      <Typography variant="h5">
-        {title}
-      </Typography>
+      <div className={S.heading}>
+        <Typography variant="h5" className={S.title}>
+          {title}
+        </Typography>
+        {subtitle && <p className={S.subtitle}>{subtitle}</p>}
+      </div>
+
       <div className={S.buttons_container_title}>
-        {setModoPage && text && <MyButton text={text} onClick={() => setModoPage(prev => prev === "clientes" ? "leads" : "clientes")} />}
-        {setModoPage && <MyButton text="Histórico" onClick={() => navigate("/historico")}/>}  
-          
+        {setModoPage && text && (
+          <MyButton
+            text={text}
+            onClick={() =>
+              setModoPage((prev) => (prev === "clientes" ? "leads" : "clientes"))
+            }
+          />
+        )}
+
+        {setModoPage && (
+          <MyButton
+            text="Historico"
+            onClick={() => navigate(`/historico${location.search}`)}
+          />
+        )}
+        {children}
       </div>
     </div>
   );

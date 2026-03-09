@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { Client } from '../clients/entities.ts/clients';
 import { SearchRequestDtoClients } from './dto/search.request.dto.clients';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, FindOptionsWhere, Raw, In } from 'typeorm';
+import { TemplateMapVar } from '../campanhas/types';
 
 @Injectable()
 export class AppServiceClient {
@@ -95,5 +96,33 @@ export class AppServiceClient {
       limit: safeLimit,
       data,
     };
+  }
+  filterClientsByRequiredVars(
+    clients: TemplateMapVar[],
+    requiredKeys: string[]
+  ) {
+    const validClients: TemplateMapVar[] = [];
+    const removedClients: TemplateMapVar[] = [];
+  
+    for (const client of clients ?? []) {
+      const isValid = requiredKeys.every((key) => {
+        const value = client[key];
+        return typeof value === "string" && value.trim() !== "";
+      });
+  
+      (isValid ? validClients : removedClients).push(client);
+    }
+  
+    return { validClients, removedClients };
+  }
+  noValidClientsException(removedClients: TemplateMapVar[]): never {
+    throw new UnprocessableEntityException({
+      code: 'NO_VALID_CLIENTS',
+      message: 'Nenhum cliente válido para criar a campanha (variáveis obrigatórias ausentes).',
+      warnings: removedClients.map(c => ({
+        doc: c.cnpj_cpf,
+        reason: 'MISSING_REQUIRED_TEMPLATE_VARS',
+      })),
+    });
   }
 }

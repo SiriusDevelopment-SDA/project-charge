@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
 } from "recharts";
+import { usePollingChartData } from "../../hooks/components/usePollingChartData";
 import styles from "./GraficoDisparo.module.css";
 
 interface MonthlyData {
@@ -19,15 +20,14 @@ interface MonthlyData {
 }
 
 const periods = [
-  { label: "Jan - Jun '22", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
-  { label: "Jul - Dez '22", months: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
-  { label: "Ano todo", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
+  { label: "Jan - Jun", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
+  { label: "Jul - Dez", months: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
+  {
+    label: "Ano todo",
+    months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+  },
 ];
 
-
-/**
- * Dados iniciais
- */
 const initialData: MonthlyData[] = [
   { month: "Jan", value: 40 },
   { month: "Fev", value: 20 },
@@ -44,39 +44,23 @@ const initialData: MonthlyData[] = [
 ];
 
 const GraficoDisparo: React.FC = () => {
-  const [data, setData] = useState<MonthlyData[]>(initialData);
   const [selectedPeriod, setSelectedPeriod] = useState(periods[0]);
-  const filteredData = data.filter(item => selectedPeriod.months.includes(item.month));
 
-  /**
-   * Aqui você pode trocar por chamada real da API
-   */
-  const fetchData = async () => {
-    try {
-      // 🔥 Produção:
-      // const response = await fetch("/api/dashboard/disparos");
-      // const result = await response.json();
-      // setData(result);
-
-      // 🔥 Simulação para teste
-      const updated = initialData.map(item => ({
+  const generateData = useCallback(
+    (base: MonthlyData[]) =>
+      base.map((item) => ({
         ...item,
         value: Math.floor(Math.random() * 80) + 10,
-      }));
+      })),
+    []
+  );
 
-      setData(updated);
-    } catch (error) {
-      console.error("Erro ao atualizar gráfico de disparo:", error);
-    }
-  };
+  const { data } = usePollingChartData(initialData, generateData, 15000);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData();
-    }, 15000); // 15 segundos
-
-    return () => clearInterval(interval);
-  }, []);
+  const filteredData = useMemo(
+    () => data.filter((item) => selectedPeriod.months.includes(item.month)),
+    [data, selectedPeriod]
+  );
 
   return (
     <div className={styles.container}>
@@ -86,12 +70,12 @@ const GraficoDisparo: React.FC = () => {
         <select
           className={styles.dateSelector}
           value={selectedPeriod.label}
-          onChange={e => {
-            const period = periods.find(p => p.label === e.target.value);
+          onChange={(event) => {
+            const period = periods.find((p) => p.label === event.target.value);
             if (period) setSelectedPeriod(period);
           }}
         >
-          {periods.map(period => (
+          {periods.map((period) => (
             <option key={period.label} value={period.label}>
               {period.label}
             </option>
@@ -101,7 +85,10 @@ const GraficoDisparo: React.FC = () => {
 
       <div className={styles.chartArea}>
         <ResponsiveContainer>
-          <BarChart data={filteredData} margin={{ top: 10, right: 10, left: -15, bottom: 20 }}>
+          <BarChart
+            data={filteredData}
+            margin={{ top: 10, right: 10, left: -15, bottom: 20 }}
+          >
             <defs>
               <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#ffd700" stopOpacity={1} />
@@ -155,13 +142,8 @@ const GraficoDisparo: React.FC = () => {
               itemStyle={{ color: "#ffd700" }}
             />
 
-            <Bar
-              dataKey="value"
-              radius={[6, 6, 0, 0]}
-              barSize={28}
-              filter="url(#barGlow)"
-            >
-              {data.map((_, index) => (
+            <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={28} filter="url(#barGlow)">
+              {filteredData.map((_, index) => (
                 <Cell key={`cell-${index}`} fill="url(#barGradient)" />
               ))}
             </Bar>

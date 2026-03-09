@@ -24,6 +24,16 @@ import { CategoryService } from './category/category.service';
 import { ControllerServices } from './services/app.controller.services';
 import { AppServiceServices } from './services/app.service.services';
 import { Service } from './services/entities/services';
+import { TemplateVarsValidator } from './validations';
+import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
+import { AuthController } from './auth/auth.controller';
+import { AuthService } from './auth/auth.service';
+import { JwtModule } from '@nestjs/jwt';
+import { Agent } from './agents/entities/agent.entity';
+import { ChatwootController } from './chatwoot/chatwoot.controller';
+import { ChatwootService } from './chatwoot/chatwoot.service';
+import { RedisService } from './redis/redis.service';
+import { RedisController } from './redis/redis.controller';
 
 @Module({
   imports: [
@@ -36,9 +46,25 @@ import { Service } from './services/entities/services';
     TypeOrmModule.forFeature([Campaign]),
     TypeOrmModule.forFeature([Category]),
     TypeOrmModule.forFeature([Service]),
+    TypeOrmModule.forFeature([Agent]),
+    JwtModule.register({
+      global: true,
+      secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',
+      signOptions: { expiresIn: '12h' },
+    }),
     DatabaseModule,
   ],
-  controllers: [ControllerClients, ControllerTemplates, InvoicesController, CampaignsController, CategoryController,ControllerServices],
+  controllers: [
+    ControllerClients,
+    ControllerTemplates,
+    InvoicesController,
+    CampaignsController,
+    CategoryController,
+    ControllerServices,
+    AuthController,
+    ChatwootController,
+    RedisController,
+  ],
   providers: [
     AppServiceClient, 
     AppServiceTemplate, 
@@ -47,7 +73,13 @@ import { Service } from './services/entities/services';
     CategoryService,
     HubsoftInvoicesService,
     SGPInvoicesService,
-    AppServiceServices
+    AppServiceServices,
+    TemplateVarsValidator,
+    CampaignMetricsGateway,
+    AuthService,
+    ChatwootService,
+    RedisService,
   ],
+  exports: [AppServiceTemplate, AppServiceClient],
 })
 export class AppModule { }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import S from "./StyleDropdown.module.css";
+import { useDropdownController } from "../../hooks/components/useDropdownController";
 
 export type DropdownProps<T> = {
   label: string;
@@ -20,11 +21,14 @@ export type DropdownProps<T> = {
   isOptionDisabled?: (option: T) => boolean;
   children?: React.ReactNode;
   searchable?: boolean;
+  onSearchTermChange?: (term: string) => void;
+  placeholder?: string;
   summaryOnMultiple?: boolean;
 };
 
 export function Dropdown<T extends { id: string; name: string; category?: string }>({
   label,
+  placeholder,
   options,
   value,
   selected,
@@ -36,146 +40,137 @@ export function Dropdown<T extends { id: string; name: string; category?: string
   className,
   children,
   typeCategory,
-  searchable
-  ,summaryOnMultiple = false
+  searchable,
+  onSearchTermChange,
+  isOptionDisabled,
+  summaryOnMultiple = false,
 }: DropdownProps<T>) {
-
-  const [focused, setFocused] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showChips, setShowChips] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  const hasValue = multiple
-    ? selected && selected.length > 0
-    : Boolean(value);
-
-
-  // Remove opções já selecionadas em modo múltiplo
-  let filteredOptions = options;
-  if (multiple && selected && selected.length > 0) {
-    filteredOptions = options.filter(opt => !selected.some(sel => sel.id === opt.id));
-  }
-  if (searchable) {
-    filteredOptions = filteredOptions.filter(opt =>
-      opt.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }
+  const {
+    wrapperRef,
+    searchTerm,
+    hasValue,
+    setSearchTerm,
+    visibleOptions,
+    totalHeight,
+    openUpwards,
+    handleScroll,
+    ITEM_HEIGHT,
+    startIndex,
+    MAX_HEIGHT,
+  } = useDropdownController({
+    options,
+    searchable,
+    multiple,
+    value,
+    selected,
+    externalSearch: Boolean(onSearchTermChange),
+    open,
+  });
 
   const selectedLabel = value?.name ?? "";
+  const shouldShowSummary = Boolean(multiple && summaryOnMultiple && selected && selected.length > 1);
+  const summaryText = shouldShowSummary
+    ? `${selected![0].name} + ${selected!.length - 1} ${
+        selected!.length - 1 === 1 ? "cliente" : "clientes"
+      }`
+    : "";
 
-  if (!open && !hasValue && focused)setTimeout(() => setFocused(false), 0);
   return (
-    <div className={`${S.wrapper} ${className ?? ""}`} ref={wrapperRef}>
+    <div
+      className={`${S.wrapper} ${className ?? ""}`}
+      ref={wrapperRef}
+      tabIndex={-1}
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget as Node | null;
+        if (!nextTarget || !wrapperRef.current?.contains(nextTarget)) {
+          onClose();
+        }
+      }}
+    >
       <div
         className={`${S.control} ${open ? S.activeBorder : ""}`}
         onClick={() => {
           if (open) {
             onClose();
-            if (!hasValue) setFocused(false);
-          } else {
-            onOpen();
-            setFocused(true);
+            return;
           }
+
+          onOpen();
+          wrapperRef.current?.focus();
         }}
       >
-        <span className={`${S.label} ${focused || hasValue ? S.active : ""}`}>
-          {label}
-        </span>
-        
+        <span className={`${S.label} ${open || hasValue ? S.active : ""}`}>{label}</span>
+
         <div className={S.valueContainer}>
           {multiple ? (
-            summaryOnMultiple && selected && selected.length > 1 ? (
+            shouldShowSummary ? (
               <div className={S.summaryContainer}>
-                <span className={S.summary}>
-                  {(() => {
-                    const first = selected[0];
-                    const rest = selected.length - 1;
-                    if (rest > 0) {
-                      return `${first.name} + ${rest} ${rest === 1 ? "cliente" : "clientes"}`;
-                    }
-                    return first.name;
-                  })()}
-                </span>
+                <span className={S.summary}>{summaryText}</span>
                 <span
                   className={S.remove}
-                  tabIndex={0}
                   role="button"
-                  aria-label="Limpar seleção"
-                  style={{marginLeft: 8, fontSize: 18, color: '#f1c40f', cursor: 'pointer'}} 
-                  onClick={e => {
-                    e.stopPropagation();
+                  tabIndex={0}
+                  onClick={(event) => {
+                    event.stopPropagation();
                     onChange([]);
                   }}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onChange([]);
-                    }
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onChange([]);
                   }}
                 >
-                  ×
+                  x
                 </span>
               </div>
             ) : (
               <div className={S.chipsContainer}>
-                {selected?.map(item => (
+                {selected?.map((item) => (
                   <div
                     key={item.id}
                     className={S.chip}
-                    onClick={e => e.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
                   >
                     {item.name}
                     <span
                       className={S.remove}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Remover ${item.name}`}
-                      onClick={e => {
-                        e.stopPropagation();
-                        const newList = selected.filter(s => s.id !== item.id);
-                        onChange([...newList]);
-                        // Se só restar 3 ou menos, volta para chips
-                        if (summaryOnMultiple && newList.length <= 3) setShowChips(false);
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          const newList = selected.filter(s => s.id !== item.id);
-                          onChange([...newList]);
-                          if (summaryOnMultiple && newList.length <= 3) setShowChips(false);
-                        }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const nextSelected = (selected ?? []).filter(
+                          (current) => current.id !== item.id
+                        );
+                        onChange(nextSelected);
                       }}
                     >
-                      ×
+                      x
                     </span>
                   </div>
                 ))}
-                {!selected?.length && <span className={S.placeholder}></span>}
-                {summaryOnMultiple && selected && selected.length > 3 && (
-                  <span
-                    className={S.summary}
-                    style={{ cursor: 'pointer', marginLeft: 8, color: '#f1c40f' }}
-                    title="Voltar para resumo"
-                    onClick={e => { e.stopPropagation(); setShowChips(false); }}
-                  >
-                    (resumir)
-                  </span>
-                )}
+                {!selected?.length && <span className={S.value}>{placeholder ?? ""}</span>}
               </div>
             )
           ) : (
-            <span className={S.value}>{selectedLabel}</span>
+            <span className={S.value}>{value ? selectedLabel : placeholder ?? ""}</span>
           )}
         </div>
 
-        {!typeCategory && <span className={`${S.arrow} ${open ? S.rotate : ""}`}>▼</span>}
+        {!typeCategory && (
+          <span className={`${S.arrow} ${open ? S.rotate : ""}`}>
+            <ExpandMoreIcon />
+          </span>
+        )}
       </div>
 
       {children}
+
       {open && (
         <div
-          className={S.menu}
-          onClick={(e) => e.stopPropagation()}
+          className={`${S.menu} ${openUpwards ? S.menuUp : ""}`}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => event.stopPropagation()}
+          style={{ maxHeight: MAX_HEIGHT }}
+          onScroll={handleScroll}
         >
           {searchable && (
             <div className={S.searchContainer}>
@@ -184,55 +179,58 @@ export function Dropdown<T extends { id: string; name: string; category?: string
                 className={S.searchInput}
                 placeholder="Pesquisar..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
+                onChange={(event) => {
+                  const term = event.target.value;
+                  setSearchTerm(term);
+                  onSearchTermChange?.(term);
+                }}
+                onClick={(event) => event.stopPropagation()}
                 autoFocus
               />
             </div>
           )}
-          {filteredOptions.length === 0 ? (
+
+          {visibleOptions.length === 0 ? (
             <div className={S.noResults}>Nenhum resultado encontrado</div>
           ) : (
-            filteredOptions.map(opt => {
-              const isChecked = multiple && selected?.some(s => s.id === opt.id);
-              return (
-                <div
-                  key={opt.id}
-                  className={S.option}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (multiple) {
-                      const exists = selected?.some(s => s.id === opt.id);
-                      const newList = exists
-                        ? (selected ?? []).filter(s => s.id !== opt.id)
-                        : [...(selected ?? []), opt];
-                      onChange(newList);
-                    } else {
-                      onChange(opt);
-                      onClose();
-                      setFocused(false);
-                      setSearchTerm("");
-                    }
-                  }}
-                  title={"Cliente sem faturas em aberto"}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                >
-                  {multiple && (
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      readOnly
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  )}
-                  {typeCategory ? (
-                    <span>{opt.category}</span>
-                  ) : (
-                    <span>{opt.name}</span>
-                  )}
-                </div>
-              );
-            })
+            <div className={S.virtualContainer} style={{ height: totalHeight }}>
+              <div
+                className={S.virtualInner}
+                style={{ transform: `translateY(${startIndex * ITEM_HEIGHT}px)` }}
+              >
+                {visibleOptions.map((option) => {
+                  const disabled = isOptionDisabled?.(option) ?? false;
+
+                  return (
+                    <div
+                      key={option.id}
+                      className={`${S.option} ${disabled ? S.disabled : ""}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (disabled) return;
+
+                        if (multiple) {
+                          const exists = selected?.some((current) => current.id === option.id);
+                          const nextSelected = exists
+                            ? (selected ?? []).filter((current) => current.id !== option.id)
+                            : [...(selected ?? []), option];
+
+                          onChange(nextSelected);
+                          return;
+                        }
+
+                        onChange(option);
+                        onClose();
+                        setSearchTerm("");
+                      }}
+                      title={disabled ? "Opcao indisponivel" : undefined}
+                    >
+                      {typeCategory ? <span>{option.category ?? option.name}</span> : <span>{option.name}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}

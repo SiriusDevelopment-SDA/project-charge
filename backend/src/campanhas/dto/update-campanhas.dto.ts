@@ -32,12 +32,7 @@ export class UpdateCampaignDto {
   @IsOptional()
   @IsString()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-  dispatchStartTime?: string;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-  dispatchEndTime?: string;
+  dispatchTime?: string;
 
   @IsOptional()
   @IsString()

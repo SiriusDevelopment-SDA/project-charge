@@ -18,15 +18,7 @@ export class AppServiceServices {
 
     async getServices(companyId: string, dto: SearchServicesDTO) {
         try {
-
-            // Busca empresa
-            const company = await this.companyRepository.findOne({
-                where: { id: companyId }
-            });
-
-            if (!company) throw new NotFoundException('Empresa não encontrada!')
-
-            // Busca serviços por empresa 
+            
             const services = await this.serviceRepository.find({
                 where: {
                     company: {
@@ -34,19 +26,12 @@ export class AppServiceServices {
                     }
                 }
             });
-
+            console.log("teste", companyId)
             if (services.length === 0) throw new HttpException('Nenhum serviço encontrado.', HttpStatus.NOT_FOUND);
-
-            // Filtra Serviços repetidos
-            const uniqueService = services.filter(
-                (service, index, self) =>
-                    index === self.findIndex(s => s.name === service.name)
-            );
-
-            return uniqueService;
-
+            return  services;
         } catch (error) {
-            throw new InternalServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR)
+            // throw new InternalServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR)
+            throw new HttpException('Erro interno contate o suporte.', HttpStatus.INTERNAL_SERVER_ERROR)
         }
     }
 }

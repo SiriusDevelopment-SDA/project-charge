@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 //PrimeReact styles
 import "primereact/resources/themes/lara-dark-indigo/theme.css";
@@ -6,10 +6,13 @@ import { toast } from "react-toastify";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import Style from "../Styles/Create-template.module.css";
 import { TemplateBody } from "../../../componente/Index";
 import { AmostraVariaveis } from "../../../componente/Index";
+import { Api } from "../../../services/api";
+import { AuthService } from "../../../services/auth/auth.service";
+import { getErrorMessage } from "../../../utils/error";
 
 import {
   Dropdown,
@@ -20,63 +23,238 @@ import {
   PreviewBox,
   MyButton,
 } from "../../../componente/Index";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 //Dados mockados
 
-//Mock amostra de mídia
-const mediaOptions = [
+type SelectOption = {
+  id: string;
+  name: string;
+};
+
+//Mock amostra de mÃ­dia
+const mediaOptions: SelectOption[] = [
   { id: "Nenhum", name: "Nenhum" },
-  { id: "Localizacao", name: "Localização" },
-  { id: "Video", name: "Vídeo" },
+  { id: "Localizacao", name: "LocalizaÃ§Ã£o" },
+  { id: "Video", name: "VÃ­deo" },
   { id: "Imagem", name: "Imagem" },
   { id: "Documento", name: "Documento" },
 ];
 
 //Mock categoria
-const categoryOptions = [
+const categoryOptions: SelectOption[] = [
   { id: "Marketing", name: "Marketing" },
   { id: "Aviso", name: "Aviso" },
-  { id: "Cobranca", name: "Cobrança" },
+  { id: "Cobranca", name: "CobranÃ§a" },
   { id: "Outros", name: "Outros" },
 ];
 
-//Mock variáveis
-const varOptions = [
-  { id: "Nome_cliente", name: "Nome_cliente" },
-  { id: "Valor_fatura", name: "Valor_fatura" },
-  { id: "Data_vencimento", name: "Data_vencimento" },
+//Mock variÃ¡veis
+const varOptions: SelectOption[] = [
+  { id: "nome_cliente", name: "nome_cliente" },
+  { id: "valor_fatura", name: "valor_fatura" },
+  { id: "data_vencimento_fatura", name: "data_vencimento_fatura" },
+  { id: "nome_atendente", name: "nome_atendente" },
+  { id: "numero_contrato", name: "numero_contrato" },
+  { id: "code_pix", name: "code_pix" },
+  { id: "linha_digitavel_boleto", name: "linha_digitavel_boleto" },
+  { id: "link_boleto_pdf", name: "link_boleto_pdf" },
 ];
 
-//Mock chamada para ação
-const ctaOptions = [
+//Mock chamada para aÃ§Ã£o
+const ctaOptions: SelectOption[] = [
   { id: "Pix", name: "Pagar agora" },
-  { id: "Pdf", name: "Copiar código" },
-  { id: "Link", name: "Ver todas opções" },
+  { id: "Pdf", name: "Copiar cÃ³digo" },
+  { id: "Link", name: "Ver todas opÃ§Ãµes" },
 ];
 
 {
   /*Exports*/
 }
 export default function CreateTemplate() {
+  const [templateName, setTemplateName] = useState("");
   const [mediaOpen, setMediaOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [ctaOpen, setCtaOpen] = useState(false);
   const [varOpen, setVarOpen] = useState(false);
-  const [media, setMedia] = useState<any>(null);
-  const [category, setCategory] = useState<any>(null);
-  const [ctas, setCtas] = useState<any[]>([]);
-  const [varsSelected, setVarsSelected] = useState<any[]>([]);
+  const [media, setMedia] = useState<SelectOption | null>(null);
+  const [category, setCategory] = useState<SelectOption | null>(null);
+  const [ctas, setCtas] = useState<SelectOption[]>([]);
+  const [varsSelected, setVarsSelected] = useState<SelectOption[]>([]);
   const [header, setHeader] = useState("");
   const [corpo, setCorpo] = useState("");
   const [rodape, setRodape] = useState("");
   const [variablesMap, setVariablesMap] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isMediaNone = media?.id === "Nenhum" || media === null;
   const navigate = useNavigate();
+  const location = useLocation();
 
-  if (!isMediaNone && header) setHeader("");
+  const handleChangeMedia = (value: SelectOption | null) => {
+    setMedia(value);
+    const nextIsMediaNone = value?.id === "Nenhum" || value === null;
+    if (!nextIsMediaNone) {
+      setHeader("");
+    }
+  };
+
+  const mapCategory = (value?: string) => {
+    switch (value) {
+      case "Marketing":
+        return "MARKETING";
+      case "Aviso":
+      case "Cobranca":
+      case "Outros":
+      default:
+        return "UTILITY";
+    }
+  };
+
+  const mapMediaFormat = (value?: string) => {
+    switch (value) {
+      case "Imagem":
+        return "IMAGE";
+      case "Video":
+        return "VIDEO";
+      case "Documento":
+        return "DOCUMENT";
+      default:
+        return "TEXT";
+    }
+  };
+
+  const mapCtaType = (ctaId: string) => {
+    if (ctaId === "Pdf") return "COPY_CODE";
+    return "URL";
+  };
+
+  const extractOrderedVarsFromBody = (body: string, allowedVars: string[]) => {
+    const found: string[] = [];
+    const seen = new Set<string>();
+    const regex = /\{\{([^}]+)\}\}/g;
+    let match: RegExpExecArray | null = regex.exec(body);
+
+    while (match) {
+      const varName = String(match[1] ?? "").trim();
+      if (
+        varName &&
+        allowedVars.includes(varName) &&
+        !seen.has(varName)
+      ) {
+        seen.add(varName);
+        found.push(varName);
+      }
+      match = regex.exec(body);
+    }
+
+    return found;
+  };
+
+  const toMetaIndexedBody = (body: string, orderedVars: string[]) => {
+    return orderedVars.reduce((acc, varName, index) => {
+      const placeholder = `{{${varName}}}`;
+      const metaPlaceholder = `{{${index + 1}}}`;
+      return acc.replaceAll(placeholder, metaPlaceholder);
+    }, body);
+  };
+
+  const handleSaveTemplate = async () => {
+    const normalizedName = templateName.trim();
+    if (!normalizedName) {
+      toast.error("Informe o nome do template.");
+      return;
+    }
+
+    if (!category?.name) {
+      toast.error("Selecione uma categoria.");
+      return;
+    }
+
+    if (!corpo.trim()) {
+      toast.error("Preencha o corpo do template.");
+      return;
+    }
+
+    if (!varsSelected.length) {
+      toast.error("Selecione ao menos uma variável.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const me = await AuthService.me();
+      const selectedVarNames = varsSelected.map((item) => String(item.name));
+      const orderedVars = extractOrderedVarsFromBody(corpo, selectedVarNames);
+
+      if (!orderedVars.length) {
+        toast.error("Inclua as variáveis no corpo do template para definir a ordem Meta.");
+        return;
+      }
+
+      const bodyWithMetaOrder = toMetaIndexedBody(corpo.trim(), orderedVars);
+
+      const components: Array<Record<string, unknown>> = [];
+      if (isMediaNone) {
+        if (header.trim()) {
+          components.push({
+            type: "HEADER",
+            format: "TEXT",
+            text: header.trim(),
+          });
+        }
+      } else {
+        components.push({
+          type: "HEADER",
+          format: mapMediaFormat(media?.name),
+        });
+      }
+
+      components.push({
+        type: "BODY",
+        text: bodyWithMetaOrder,
+      });
+
+      if (rodape.trim()) {
+        components.push({
+          type: "FOOTER",
+          text: rodape.trim(),
+        });
+      }
+
+      if (ctas.length) {
+        components.push({
+          type: "BUTTONS",
+          buttons: ctas.map((cta) => ({
+            type: mapCtaType(String(cta.id)),
+            text: String(cta.name),
+          })),
+        });
+      }
+
+      const variables = orderedVars.reduce<Record<string, string>>((acc, item, index) => {
+        acc[String(index + 1)] = item;
+        return acc;
+      }, {});
+
+      await Api.post("/templates/create", {
+        companyId: me.company.id,
+        name: normalizedName,
+        language: "pt_BR",
+        category: mapCategory(category.name),
+        components,
+        variables,
+      });
+
+      toast.success("Template criado com sucesso!");
+      navigate(`/templates${location.search}`);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Erro ao criar template"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   {
-    /*Prévia já com substituição*/
+    /*PrÃ©via jÃ¡ com substituiÃ§Ã£o*/
   }
   function renderPreview(text: string) {
     let result = text;
@@ -85,13 +263,13 @@ export default function CreateTemplate() {
     });
     return result;
   }
-  /*Prévia de modelo*/
+  /*PrÃ©via de modelo*/
 
   const whatsappPreview = (
     <div className={Style.previewWhatsapp}>
       {!isMediaNone && (
         <div className={Style.previewMedia}>
-          <span className={Style.previewMediaIcon}>📄</span>
+          <span className={Style.previewMediaIcon}>ðŸ“„</span>
         </div>
       )}
 
@@ -99,7 +277,7 @@ export default function CreateTemplate() {
 
       <p className={Style.previewBody}>
         {renderPreview(
-          corpo || "Veja neste campo, a prévia do corpo de seu disparo",
+          corpo || "Veja neste campo, a prÃ©via do corpo de seu disparo",
         )}
       </p>
 
@@ -128,6 +306,7 @@ export default function CreateTemplate() {
     <PageContainer className={Style.pageContainer}>
       <TitlePage
         title="Criar templates"
+        subtitle="Monte e valide modelos de mensagem com variaveis dinamicas"
         className={Style.CreateTemplateTitle}
       />
       <div className={Style.contentGrid}>
@@ -137,25 +316,30 @@ export default function CreateTemplate() {
           {/*Nome*/}
           <div className={Style.formGroup}>
             <label>Nome*</label>
-            <InputFields maxLength={512} className={Style.containerI1} />
+            <InputFields
+              maxLength={512}
+              className={Style.containerI1}
+              value={templateName}
+              onChange={(event) => setTemplateName(event.target.value)}
+            />
           </div>
 
-          {/*Amostra de mídia e categoria*/}
+          {/*Amostra de mÃ­dia e categoria*/}
           <div className={Style.formRow}>
-            {/*Amostra de mídia*/}
+            {/*Amostra de mÃ­dia*/}
             <div className={Style.formGroup}>
               <label className={Style.Titulosinputs}>
-                Amostra de mídia (Opcional)
+                Amostra de mÃ­dia (Opcional)
               </label>
               <Dropdown
                 className={Style.dropdown1}
-                label="Amostra de mídia"
+                label="Amostra de mÃ­dia"
                 options={mediaOptions}
                 value={media}
                 open={mediaOpen}
                 onOpen={() => setMediaOpen(true)}
                 onClose={() => setMediaOpen(false)}
-                onChange={setMedia}
+                onChange={handleChangeMedia}
               />
             </div>
 
@@ -181,7 +365,7 @@ export default function CreateTemplate() {
               <label className={Style.UploadButton1}>Upload arquivos</label>
               <div className={Style.UploadButtonT1}>
                 <UploadButton
-                  onUpload={(file) => console.log(file)}
+                  onUpload={() => undefined}
                   className={Style.ButtnUpload}
                 />
               </div>
@@ -205,50 +389,54 @@ export default function CreateTemplate() {
             setVariablesMap={setVariablesMap}
           />
 
-          {/* Cabeçalho e Rodapé */}
+          {/* CabeÃ§alho e RodapÃ© */}
           <div className={Style.row2}>
-            {/* Cabeçalho */}
+            {/* CabeÃ§alho */}
             <div className={Style.formGroup}>
-              <label>Cabeçalho (Opcional)</label>
-              <InputFields
-                maxLength={60}
-                className={Style.containerI1}
-                value={header}
-                onChange={(e: any) => setHeader(e.target.value)}
-                disabled={!isMediaNone}
-                placeholder={
+              <label>CabeÃ§alho (Opcional)</label>
+                <InputFields
+                  maxLength={60}
+                  className={Style.containerI1}
+                  value={header}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setHeader(event.target.value)
+                  }
+                  disabled={!isMediaNone}
+                  placeholder={
                   isMediaNone
-                    ? "Digite o cabeçalho"
-                    : "Selecione (Nenhum) para usar cabeçalho"
+                    ? "Digite o cabeÃ§alho"
+                    : "Selecione (Nenhum) para usar cabeÃ§alho"
                 }
               />
             </div>
 
-            {/* Rodapé */}
+            {/* RodapÃ© */}
             <div className={Style.formGroup}>
-              <label>Rodapé (Opcional)</label>
-              <InputFields
-                maxLength={60}
-                className={Style.containerI1}
-                value={rodape}
-                onChange={(e: any) => setRodape(e.target.value)}
-              />
+              <label>RodapÃ© (Opcional)</label>
+                <InputFields
+                  maxLength={60}
+                  className={Style.containerI1}
+                  value={rodape}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setRodape(event.target.value)
+                  }
+                />
             </div>
           </div>
 
-          {/* Chamada para ação */}
+          {/* Chamada para aÃ§Ã£o */}
 
           <div className={Style.rowCta}>
             <div className={Style.formGroupChamada}>
               <Dropdown
-                label="Chamada para ação (Opcional)"
+                label="Chamada para aÃ§Ã£o (Opcional)"
                 options={ctaOptions}
                 selected={ctas}
                 multiple
                 open={ctaOpen}
                 onOpen={() => setCtaOpen(true)}
                 onClose={() => setCtaOpen(false)}
-                onChange={(vals) => setCtas(vals as any[])}
+                onChange={(values) => setCtas(values as SelectOption[])}
               />
             </div>
 
@@ -256,22 +444,19 @@ export default function CreateTemplate() {
               <MyButton
                 text="Voltar"
                 className={Style.btnCancel}
-                onClick={() => navigate("/templates")}
+                onClick={() => navigate(`/templates${location.search}`)}
               />
               <MyButton
-                text="Salvar"
+                text={isSubmitting ? "Salvando..." : "Salvar"}
                 className={Style.btnSave}
-                onClick={() =>
-                  toast.success(
-                    "Template criado com sucesso! Aguardando a validação do META, verifique o status na aba templates",
-                  )
-                }
+                disabled={isSubmitting}
+                onClick={handleSaveTemplate}
               />
             </div>
           </div>
         </div>
 
-        {/* <---------------------------LADO DIREITO DA PÁGINA ---------------------------> */}
+        {/* <---------------------------LADO DIREITO DA PÃGINA ---------------------------> */}
 
         <div className={Style.sideColumn}>
           <div className={Style.previewCard1}>
@@ -280,7 +465,7 @@ export default function CreateTemplate() {
             </PreviewBox>
           </div>
 
-          {/* Amostra de variáveis */}
+          {/* Amostra de variÃ¡veis */}
           <AmostraVariaveis
             variablesMap={variablesMap}
             setVariablesMap={setVariablesMap}
@@ -290,3 +475,5 @@ export default function CreateTemplate() {
     </PageContainer>
   );
 }
+
+

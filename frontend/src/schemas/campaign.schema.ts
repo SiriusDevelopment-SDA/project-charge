@@ -1,0 +1,112 @@
+﻿
+import { z } from "zod";
+
+export const campaignSchema = z
+  .object({
+    name: z.string().min(1, "Nome da campanha Ã© obrigatÃ³rio"),
+    templateId: z.string().min(1, "Template Ã© obrigatÃ³rio"),
+    categoryId: z.string().min(1, "Categoria Ã© obrigatÃ³ria"),
+    startDate: z.coerce.date({ message: "Escolha um dia na agenda." }),
+    endDate: z.coerce
+      .date({ message: "Escolha um dia para finalizar a campanha!" })
+      .optional(),
+    recurring: z.boolean(),
+    dispatchTime: z
+      .string()
+      .regex(/^([0-1]\d|2[0-3]):([0-5]\d)$/, "HorÃ¡rio invÃ¡lido"),
+    clientIds: z.array(z.string()).min(1, "Selecione pelo menos um cliente"),
+  })
+  .superRefine((data, ctx) => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+
+    // Data inicial nÃ£o pode ser no passado
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+
+    const startDay = new Date(data.startDate);
+    startDay.setHours(0, 0, 0, 0);
+
+    if (startDay < today) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["startDate"],
+        message: "Defina uma data maior que a data atual!",
+      });
+    }
+
+    // ValidaÃ§Ãµes para campanha recorrente
+    if (data.recurring) {
+      if (!data.endDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "Escolha uma data final para campanha recorrente.",
+        });
+      } else if (data.endDate <= data.startDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "A data final precisa ser maior que a data inicial.",
+        });
+      }
+    }
+
+    // Horario de disparo deve ser >= 59 minutos a frente
+    const [hour, minute] = data.dispatchTime.split(":").map(Number);
+    const dispatchDate = new Date(data.startDate);
+    dispatchDate.setHours(hour, minute, 0, 0);
+
+    if (dispatchDate.getTime() - now.getTime() < 59 * 60 * 1000) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dispatchTime"],
+        message:
+          "O horÃ¡rio de disparo deve ser no mÃ­nimo 59 minutos Ã  frente do horÃ¡rio atual.",
+      });
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Schema: ediÃ§Ã£o de campanha (formulÃ¡rio inline do card)
+// ---------------------------------------------------------------------------
+export const campaignFormSchema = z
+  .object({
+    isRecurring: z.boolean(),
+    dispatchDate: z.string().min(10, "Data Ã© obrigatÃ³ria para alteraÃ§Ã£o!"),
+    endDate: z
+      .string()
+      .min(10, "Data de finalizaÃ§Ã£o da campanha Ã© obrigatÃ³ria para alteraÃ§Ã£o!"),
+    dispatchTime: z
+      .string()
+      .min(4, "HorÃ¡rio de disparo Ã© obrigatÃ³rio para alteraÃ§Ã£o!"),
+    note: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (!data.dispatchDate || !data.endDate) return true;
+      const [d1, m1, y1] = data.dispatchDate.split("/");
+      const [d2, m2, y2] = data.endDate.split("/");
+      return new Date(+y2, +m2 - 1, +d2) >= new Date(+y1, +m1 - 1, +d1);
+    },
+    {
+      message:
+        "Data de finalizaÃ§Ã£o deve ser igual ou maior que a data de inÃ­cio!",
+      path: ["endDate"],
+    }
+  );
+
+export type CampaignFormValues = z.infer<typeof campaignFormSchema>;
+
+// ---------------------------------------------------------------------------
+// Schema: variÃ¡veis de template
+// ---------------------------------------------------------------------------
+export const mapVarsSchema = z.object({
+  nome_cliente: z.string().min(1, "Nome do cliente Ã© obrigatÃ³rio"),
+  whatsapp: z.string().min(1, "Whatsapp do cliente Ã© obrigatÃ³rio"),
+  cnpj_cpf: z.string().min(1, "CNPJ/CPF Ã© obrigatÃ³rio"),
+  numero_contrato: z.string().min(1, "NÃºmero do contrato Ã© obrigatÃ³rio"),
+  valor_fatura: z.string().min(1, "Valor da fatura Ã© obrigatÃ³rio"),
+  linha_digitavel_boleto: z.string().min(1, "Linha digitÃ¡vel Ã© obrigatÃ³ria"),
+  link_boleto_pdf: z.string().min(1, "Link do boleto Ã© obrigatÃ³rio"),
+});

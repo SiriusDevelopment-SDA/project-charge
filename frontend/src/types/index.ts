@@ -1,5 +1,3 @@
-import type { CampaignData, PropsCardCampanhas } from './champaignApiTypes';
-
 import type { 
   Cliente, 
   IClientsContext, 
@@ -50,17 +48,29 @@ import type {
   TemplateComponent,
   TemplateParameter,
   TemplateRecipient, 
-  responseTemplate 
+  TemplateSearchResponse
 } from "./templateApiTypes";
 
+import type {
+  CampaignData,
+  CampaignMetrics,
+  CollectionsMetrics,
+  Category,
+  PropsCardCampanhas
+} from "./champaignApiTypes"
+type DropdownType = "template" | "category" | "client" | null;
 export type 
-{ Cliente, 
+{ Cliente,
+  DropdownType, 
   responseClients,
   responseHistorico,
   FilterButtonProps, 
-  history, 
+  history,
+  Category, 
   Lead, 
   CampaignData,
+  CampaignMetrics,
+  CollectionsMetrics,
   Service,
   MyInputProps, 
   PaginationProps, 
@@ -76,7 +86,7 @@ export type
   TemplateComponent,
   TemplateParameter,
   TemplateRecipient, 
-  responseTemplate,
+  TemplateSearchResponse,
   BatchStatus, 
   CodePix,
   PropsCardCampanhas, 

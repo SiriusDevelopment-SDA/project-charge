@@ -1,306 +1,254 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
-import { Trash2, Pencil, MoreVertical, HelpCircle } from "lucide-react";
-import { toast } from "react-toastify";
-import { BaseCardCampanhas, MyCalendar, MyTimePicker } from "../../Index";
+import { ExternalLink, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { MyCalendar, MyTimePicker } from "../../Index";
 import DynamicModal from "../../modal/modalAlertTemplate";
 import { ModalEditarCampanha } from "./ModalEditarCampanha";
-import type { PropsCardCampanhas } from "../../../types";
+import type { CampaignData } from "../../../types/index";
 import Style from "./CardCampanhas.module.css";
-import FoguinhoVerde from "../../../assets/imagens/FoguinhoVerde.png";
-import FoguinhoVermelho from "../../../assets/imagens/FoguinhoVermelho.png";
-import { Api } from "../../../services/api";
-import type { DateRange } from "react-day-picker";
+import { formatDateBR } from "../../../utils/date";
+import { isCampaignActive, isCampaignFinished } from "../../../utils/campaign";
 import { format } from "date-fns";
+import { useCampaignEditController } from "../../../hooks/index";
 
-export function CardCampanhas({ campanha, onDelete }: PropsCardCampanhas) {
-  const [openEdit, setOpenEdit] = useState(false);
-  const [openStatusModal, setOpenStatusModal] = useState(false);
-  const [showCalendarDisparo, setShowCalendarDisparo] = useState(false);
-  const [showCalendarFinalizacao, setShowCalendarFinalizacao] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
+type Props = {
+  campaign: CampaignData;
+  onDelete: (campaign: CampaignData) => void;
+  onStatusChanged: (id: string, isEnabled: boolean) => void;
+};
 
-  const [isActive, setIsActive] = useState(campanha.isEnabled ?? true);
+export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
+  const {
+    ui,
+    form,
+    openEdit,
+    openStatusModal,
+    openCalendarDisparo,
+    openCalendarFinal,
+    openTimePicker,
+    openTemplatePreview,
+    closeModal,
+    editStatusCampaign,
+    toggleActionsMenu,
+  } = useCampaignEditController(campaign);
 
-  // Valores diretos da campanha
-  const categoria = campanha.category?.name ?? "—";
-  const dataDisparo = campanha.startDate
-    ? new Date(campanha.startDate).toLocaleDateString("pt-BR")
-    : "—";
-  const dataFinalizacao = campanha.endDate
-    ? new Date(campanha.endDate).toLocaleDateString("pt-BR")
-    : "—";
-  const horarioInicio = campanha.dispatchStartTime ?? "—";
+  const isFinished = isCampaignFinished(campaign);
+  const isActive = isCampaignActive(campaign);
+  const statusLabel = isFinished ? "FINALIZADA" : isActive ? "ATIVA" : "INATIVA";
+  const templateMessage = campaign.template?.message ?? campaign.message ?? "Sem mensagem de template";
+  const campaignType = campaign.category?.name ?? "-";
 
-  // Estados temporários para edição (modal)
-  const [tempDataDisparo, setTempDataDisparo] = useState(dataDisparo);
-  const [tempDataFinalizacao, setTempDataFinalizacao] = useState(dataFinalizacao);
-  const [tempHorario, setTempHorario] = useState(horarioInicio);
-  const [tempObservacao, setTempObservacao] = useState("");
-  const [tempTipo, setTempTipo] = useState(
-    campanha.recurring ? "true" : "false"
-  );
-
-
-  // Valores exibidos no card (atualizados após salvar)
-  const [displayDataDisparo, setDisplayDataDisparo] = useState(dataDisparo);
-  const [displayDataFinalizacao, setDisplayDataFinalizacao] = useState(dataFinalizacao);
-  const [displayHorario, setDisplayHorario] = useState(horarioInicio);
-
-  const statusIcon = isActive ? FoguinhoVerde : FoguinhoVermelho;
-  const statusText = isActive ? "Desativar" : "Ativar";
-
-  async function handleToggleStatus() {
-    try {
-      await Api.patch(`/campaigns/${campanha.id}/toggle-status`);
-      setIsActive((prev) => !prev);
-      toast.success("Status atualizado!");
-    } catch {
-      toast.error("Erro ao atualizar status da campanha.");
-    }
-    setOpenStatusModal(false);
-  }
-
-  function handleOpenEdit() {
-    setTempDataDisparo(dataDisparo);
-    setTempDataFinalizacao(dataFinalizacao);
-    setTempHorario(horarioInicio);
-    setTempObservacao("");
-    setShowCalendarDisparo(false);
-    setShowCalendarFinalizacao(false);
-    setShowTimePicker(false);
-    setOpenEdit(true);
-    setTempTipo(campanha.recurring ? "true" : "false");
-  }
-
-  function handleDateDisparoSelect(range: DateRange | undefined) {
-    if (range?.from) {
-      setTempDataDisparo(format(range.from, "dd/MM/yyyy"));
-      setShowCalendarDisparo(false);
-    }
-  }
-
-  function handleDateFinalizacaoSelect(range: DateRange | undefined) {
-    if (range?.from) {
-      setTempDataFinalizacao(format(range.from, "dd/MM/yyyy"));
-      setShowCalendarFinalizacao(false);
-    }
-  }
-
-  function handleTimeSelect(time: string) {
-    setTempHorario(time);
-  }
-
-  async function handleSave() {
-    try {
-      const toISO = (dateBR: string) => {
-        const [day, month, year] = dateBR.split("/");
-        return new Date(`${year}-${month}-${day}`).toISOString();
-      };
-
-      const horarioFormatado = tempHorario.length > 5
-        ? tempHorario.slice(0, 5)
-        : tempHorario;
-
-      const payload = {
-        recurring: tempTipo === "true",
-        startDate: toISO(tempDataDisparo),
-        endDate: toISO(tempDataFinalizacao),
-        dispatchStartTime: horarioFormatado,
-      };
-
-      
-
-      console.log("Payload enviado:", payload);
-
-      await Api.patch(`/campaigns/${campanha.id}`, payload);
-
-      setDisplayDataDisparo(tempDataDisparo);
-      setDisplayDataFinalizacao(tempDataFinalizacao);
-      setDisplayHorario(horarioFormatado);
-
-      toast.success("Campanha atualizada com sucesso!");
-      setOpenEdit(false);
-    } catch (err: any) {
-      console.error("Erro ao atualizar campanha:", err?.response?.data ?? err);
-      const msg = err?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : msg ?? "Erro ao atualizar campanha.");
-    }
-  }
+  const renderTemplateMessage = (message: string) => {
+    const parts = message.split(/(\{\{\d+\}\})/g);
+    return parts.map((part, index) => {
+      if (/^\{\{\d+\}\}$/.test(part)) {
+        return (
+          <span key={`${part}-${index}`} className={Style.templateVar}>
+            {part}
+          </span>
+        );
+      }
+      return <span key={`text-${index}`}>{part}</span>;
+    });
+  };
 
   return (
     <>
-      <BaseCardCampanhas className={Style.campaignCard}>
-        {/* HEADER */}
-        <div className={Style.header}>
-          <h3 className={Style.title}>{campanha.name}</h3>
-          <div
-            className={`${Style.StatusWrapper} ${isActive ? Style.flameActive : ""}`}
-            onClick={() => setOpenStatusModal(true)}
-            title={statusText}
-          >
-            <img src={statusIcon} alt={statusText} className={Style.statusIcon} />
-          </div>
-        </div>
+      <article className={`${Style.campaignCard} ${isActive ? Style.activeCard : ""}`}>
+        <header className={Style.header}>
+          <h3 className={Style.title} title={campaign.name}>
+            {campaign.name}
+          </h3>
 
-        {/* TEMPLATE */}
-        <div className={Style.templateBox}>
-          <div className={Style.templateHeader}>
-            <span className={Style.templateLabel}>
-              TEMPLATE: {campanha.template?.name ?? "—"}
-            </span>
+          <div className={Style.headerActions}>
             <button
-              className={Style.helpButton}
-              onMouseEnter={(e) => {
-                e.stopPropagation();
-                setShowTooltip(true);
-              }}
-              onMouseLeave={(e) => {
-                const relatedTarget = e.relatedTarget as HTMLElement;
-                if (!relatedTarget?.closest(`.${Style.tooltip}`)) {
-                  setShowTooltip(false);
-                }
-              }}
-              title="Ver mensagem completa"
+              type="button"
+              className={`${Style.statusBadge} ${isActive ? Style.statusOn : Style.statusOff}`}
+              onClick={!isFinished ? openStatusModal : undefined}
+              disabled={isFinished}
+              title={isFinished ? "Campanha finalizada" : isActive ? "Desativar campanha" : "Ativar campanha"}
             >
-              <HelpCircle size={24} />
+              <span className={Style.statusDot} />
+              {statusLabel}
             </button>
-          </div>
-          <p>{campanha.template?.message ?? "Sem mensagem"}</p>
-          {showTooltip && (
-            <div
-              className={Style.tooltip}
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-            >
-              {campanha.template?.message ?? "Sem mensagem"}
-            </div>
-          )}
-        </div>
 
-        {/* DETALHES */}
-        <div className={Style.detailsBox}>
-          <div className={Style.detailsHeader}>
-            <h4>DETALHES DE CAMPANHA</h4>
             <div className={Style.actionsMenuWrapper}>
               <button
+                type="button"
                 className={Style.actionsMenuButton}
-                onClick={() => setShowActionsMenu(!showActionsMenu)}
-                onBlur={() => setTimeout(() => setShowActionsMenu(false), 200)}
+                onClick={toggleActionsMenu}
+                aria-label="Abrir ações"
               >
-                <MoreVertical size={18} />
+                <MoreVertical size={16} />
               </button>
-              {showActionsMenu && (
+
+              {ui.actionsMenuOpen && (
                 <div className={Style.actionsDropdown}>
                   <button
+                    type="button"
                     onClick={() => {
-                      handleOpenEdit();
-                      setShowActionsMenu(false);
+                      openEdit();
+                      toggleActionsMenu();
                     }}
                   >
-                    <Pencil size={14} /> Editar
+                    <Pencil size={14} />
+                    Editar
                   </button>
                   <button
+                    type="button"
                     className={Style.deleteAction}
                     onClick={() => {
-                      onDelete(campanha);
-                      setShowActionsMenu(false);
+                      onDelete(campaign);
+                      toggleActionsMenu();
                     }}
                   >
-                    <Trash2 size={14} /> Deletar
+                    <Trash2 size={14} />
+                    Deletar
                   </button>
                 </div>
               )}
             </div>
           </div>
-          <div className={Style.detailsGrid}>
-            <p><strong>Categoria:</strong> {categoria}</p>
-            <p><strong>Início:</strong> {displayDataDisparo}</p>
-            <p><strong>Fim:</strong> {displayDataFinalizacao}</p>
-            <p><strong>Horário:</strong> {displayHorario}</p>
-          </div>
-        </div>
-      </BaseCardCampanhas>
+        </header>
 
-      {/* MODAL STATUS */}
+        <section className={Style.templateSection}>
+          <h4>TEMPLATE</h4>
+          <p className={Style.templateText}>{renderTemplateMessage(templateMessage)}</p>
+          <button
+            type="button"
+            className={Style.previewButton}
+            onClick={openTemplatePreview}
+          >
+            <ExternalLink size={13} /> Ver mensagem completa
+          </button>
+        </section>
+
+        <section className={Style.detailsSection}>
+          <h4>DETALHES DA CAMPANHA</h4>
+          <div className={Style.detailsGrid}>
+            <div>
+              <span>TIPO</span>
+              <strong>{campaignType}</strong>
+            </div>
+            <div>
+              <span>INÍCIO DISPARO</span>
+              <strong>{formatDateBR(campaign.startDate)}</strong>
+            </div>
+            <div>
+              <span>FIM DISPARO</span>
+              <strong>{formatDateBR(campaign.endDate)}</strong>
+            </div>
+            <div>
+              <span>HORÁRIO</span>
+              <strong>{campaign.dispatchTime ?? "-"}</strong>
+            </div>
+          </div>
+        </section>
+      </article>
+
+      <ModalEditarCampanha
+        open={ui.activeModal === "EDIT"}
+        onClose={closeModal}
+        form={form}
+        onOpenCalendarDisparo={openCalendarDisparo}
+        onOpenCalendarFinalizacao={openCalendarFinal}
+        onOpenTimePicker={openTimePicker}
+      />
+
       <DynamicModal
-        open={openStatusModal}
+        open={ui.activeModal === "STATUS"}
         type="warning"
         title={isActive ? "Pausar campanha?" : "Ativar campanha?"}
         description="Deseja alterar o status da campanha?"
-        onClose={() => setOpenStatusModal(false)}
+        onClose={closeModal}
         buttons={[
-          { label: "Cancelar", variant: "danger", onClick: () => setOpenStatusModal(false) },
-          { label: "Confirmar", variant: "success", onClick: handleToggleStatus },
+          { label: "Cancelar", variant: "danger", onClick: closeModal },
+          {
+            label: "Confirmar",
+            variant: "success",
+            onClick: async () => {
+              const nextStatus = !campaign.isEnabled;
+              const result = await editStatusCampaign(campaign.id, {
+                isEnabled: !campaign.isEnabled,
+              });
+              if (result.success) {
+                onStatusChanged(campaign.id, nextStatus);
+              }
+              closeModal();
+            },
+          },
         ]}
       />
 
-      {/* MODAL EDITAR */}
-      <ModalEditarCampanha
-        open={openEdit}
-        onClose={() => setOpenEdit(false)}
-        onSave={handleSave}
-        tipo={tempTipo}
-        setTipo={setTempTipo}
-        dataDisparo={tempDataDisparo}
-        onOpenCalendarDisparo={() => setShowCalendarDisparo(true)}
-        dataFinalizacao={tempDataFinalizacao}
-        onOpenCalendarFinalizacao={() => setShowCalendarFinalizacao(true)}
-        horario={tempHorario}
-        onOpenTimePicker={() => setShowTimePicker(true)}
-        observacao={tempObservacao}
-        setObservacao={setTempObservacao}
-
+      <DynamicModal
+        open={ui.activeModal === "TEMPLATE_PREVIEW"}
+        type="custom"
+        title={campaign.name}
+        onClose={closeModal}
+        customContent={
+          <div className={Style.templateModalContent}>
+            <h4>TEMPLATE COMPLETO</h4>
+            <p>{renderTemplateMessage(templateMessage)}</p>
+            <button type="button" className={Style.templateModalClose} onClick={closeModal}>
+              Fechar
+            </button>
+          </div>
+        }
       />
 
-      {/* MODAL CALENDÁRIO DISPARO */}
       <DynamicModal
-        open={showCalendarDisparo}
+        open={ui.activeModal === "CAL_DISPARO"}
         type="custom"
         title="Selecione a Data de Disparo"
-        onClose={() => setShowCalendarDisparo(false)}
+        onClose={closeModal}
         customContent={
-          <>
-            <MyCalendar selected={undefined} onSelect={handleDateDisparoSelect} />
-            <button className={Style.closeCalendarButton} onClick={() => setShowCalendarDisparo(false)}>
-              Fechar
-            </button>
-          </>
+          <MyCalendar
+            selected={undefined}
+            onSelect={(range) => {
+              if (range?.from) {
+                form.setValue("dispatchDate", format(range.from, "dd/MM/yyyy"), {
+                  shouldValidate: true,
+                });
+                closeModal();
+              }
+            }}
+          />
         }
       />
 
-      {/* MODAL CALENDÁRIO FINALIZAÇÃO */}
       <DynamicModal
-        open={showCalendarFinalizacao}
+        open={ui.activeModal === "CAL_FINAL"}
         type="custom"
         title="Selecione a Data de Finalização"
-        onClose={() => setShowCalendarFinalizacao(false)}
+        onClose={closeModal}
         customContent={
-          <>
-            <MyCalendar selected={undefined} onSelect={handleDateFinalizacaoSelect} />
-            <button className={Style.closeCalendarButton} onClick={() => setShowCalendarFinalizacao(false)}>
-              Fechar
-            </button>
-          </>
+          <MyCalendar
+            selected={undefined}
+            onSelect={(range) => {
+              if (range?.from) {
+                form.setValue("endDate", format(range.from, "dd/MM/yyyy"), {
+                  shouldValidate: true,
+                });
+                closeModal();
+              }
+            }}
+          />
         }
       />
 
-      {/* MODAL TIME PICKER */}
       <DynamicModal
-        open={showTimePicker}
+        open={ui.activeModal === "TIME"}
         type="custom"
         title="Selecione o Horário"
-        onClose={() => setShowTimePicker(false)}
+        onClose={closeModal}
         customContent={
-          <>
-            <MyTimePicker selected={tempHorario} onSelect={handleTimeSelect} />
-            <button className={Style.closeCalendarButton} onClick={() => setShowTimePicker(false)}>
-              Fechar
-            </button>
-          </>
+          <MyTimePicker
+            selected={form.watch("dispatchTime")}
+            onSelect={(time) => {
+              form.setValue("dispatchTime", time, { shouldValidate: true });
+              closeModal();
+            }}
+          />
         }
       />
     </>

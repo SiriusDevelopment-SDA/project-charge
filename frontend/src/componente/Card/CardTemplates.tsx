@@ -1,23 +1,16 @@
 "use client";
 
-// React
 import { Play, Trash2 } from "lucide-react";
-import { toast } from "react-toastify";
-
-// Components
 import { BaseCard } from "../Index";
-
-// Styles
 import Style from "./CardTemplates.module.css";
 import type { PropsCardTemplates } from "../../types";
-
 
 export function CardTemplates({
   template,
   isOpen,
   onToggle,
   onDelete,
-  setOpenModal
+  onUse,
 }: PropsCardTemplates) {
   return (
     <>
@@ -38,22 +31,11 @@ export function CardTemplates({
                 <span className={Style.CardBadge}>{template.category}</span>
 
                 <div className={Style.CardIcons}>
-                  <button
-                    className={Style.BtnUse}
-                    onClick={() =>
-                      toast.info("Ação de usar template (implementar)")
-                    }
-                  >
+                  <button className={Style.BtnUse} onClick={() => onUse?.(template)}>
                     <Play size={16} />
                   </button>
 
-                  <button
-                    className={Style.BtnDelete}
-                    onClick={() => {
-                        setOpenModal(true), 
-                        onDelete(template)
-                    }}
-                  >
+                  <button className={Style.BtnDelete} onClick={() => onDelete(template)}>
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -62,17 +44,12 @@ export function CardTemplates({
 
             <p className={Style.CardMessage}>{template.message}</p>
 
-            <span
-              className={Style.VerMais}
-              onClick={() => onToggle(template.id)}
-            >
+            <span className={Style.VerMais} onClick={() => onToggle(template.id)}>
               {isOpen ? "Fechar" : "Ver mais"}
             </span>
           </div>
         </BaseCard>
       </div>
-
-      
     </>
   );
 }

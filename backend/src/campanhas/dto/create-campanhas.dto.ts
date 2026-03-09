@@ -2,54 +2,78 @@ import {
   IsString,
   IsNotEmpty,
   IsBoolean,
+  IsOptional,
   IsDateString,
   IsArray,
   ArrayNotEmpty,
   Matches,
   IsUUID,
-  IsOptional,
+  ValidateNested,
 } from 'class-validator';
 import { Client } from '../../clients/entities.ts/clients';
+import { TemplateMapVar } from '../types';
+import { Type } from 'class-transformer';
+import { PartialType } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateCampaignDto {
+  @ApiProperty({ example: 'Campanha cobrança março' })
   @IsString()
   @IsNotEmpty()
   name!: string;
 
-  @IsString()
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsUUID()
   @IsNotEmpty()
   company!: string;
 
-
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsUUID()
   @IsNotEmpty()
   templateId!: string;
 
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsUUID()
   @IsNotEmpty()
   categoryId!: string;
+  
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  isEnabled!: boolean
 
+  @ApiProperty({ example: '2026-03-10T12:00:00.000Z' })
   @IsDateString()
   startDate!: string;
 
+  @ApiProperty({ example: '2026-03-11T12:00:00.000Z' })
   @IsDateString()
   endDate!: string;
 
+  @ApiProperty({ example: '09:00' })
   @IsString()
   @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-  dispatchStartTime!: string;
+  dispatchTime!: string;
 
-  @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
-  dispatchEndTime!: string;
-
+  @ApiProperty({ example: 'America/Sao_Paulo' })
   @IsString()
   timezone!: string;
 
+  @ApiProperty({ example: false })
   @IsBoolean()
   recurring!: boolean;
 
+  @ApiProperty({ type: [String], example: ['client-id-1', 'client-id-2'] })
   @IsArray()
   @ArrayNotEmpty()
-  client!: Client[];
+  clients!: string[];
+
+  @ApiProperty({ type: [TemplateMapVar] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => TemplateMapVar)
+  templateMapVars!: TemplateMapVar[];
 }
+
+export class UpdateCampaignDto extends PartialType(CreateCampaignDto) {}

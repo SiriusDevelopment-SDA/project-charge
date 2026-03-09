@@ -36,6 +36,6 @@ RUN npm ci --omit=dev
 # Copia o JS compilado do builder
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 4000
+EXPOSE 3000
 
 CMD ["node", "dist/main.js"]

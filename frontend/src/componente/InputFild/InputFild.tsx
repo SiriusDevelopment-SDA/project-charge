@@ -1,5 +1,5 @@
-import { useState } from "react";
 import S from "./StyleInput.module.css";
+import { useInputFieldController } from "../../hooks/components/useInputFieldController";
 
 type Props = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
@@ -14,18 +14,13 @@ export function InputFields({
   onChange,
   ...props
 }: Props) {
-  const [focused, setFocused] = useState(false);
-
-  const hasValue = value !== undefined && value !== "";
+  const { focused, hasValue, handleFocus, handleBlur, handleChange } =
+    useInputFieldController({ value, onlyNumbers, onChange });
 
   return (
     <div className={S.floatingWrapper}>
       {label && (
-        <label
-          className={`${S.floatingLabel} ${
-            focused || hasValue ? S.active : ""
-          }`}
-        >
+        <label className={`${S.floatingLabel} ${focused || hasValue ? S.active : ""}`}>
           {label}
         </label>
       )}
@@ -33,26 +28,10 @@ export function InputFields({
       <input
         {...props}
         value={value}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         className={`${S.floatingInput} ${className ?? ""}`}
-        onChange={e => {
-          if (onlyNumbers) {
-            const newValue = e.target.value.replace(/\D/g, "");
-            if (onChange) {
-              const event = {
-                ...e,
-                target: {
-                  ...e.target,
-                  value: newValue
-                }
-              };
-              onChange(event as React.ChangeEvent<HTMLInputElement>);
-            }
-          } else {
-            onChange && onChange(e);
-          }
-        }}
+        onChange={handleChange}
       />
     </div>
   );

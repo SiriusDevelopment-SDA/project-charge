@@ -4,26 +4,24 @@ import { AppModule } from './app.module';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { useContainer } from 'class-validator';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   app.enableCors({
-    origin: configService.get<string>('NODE_ENV') === 'production'
-      ? ['https://cobranca.coraxy.com.br']
-      : [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-      ],
-  });
+    // origin: configService.get<string>('NODE_ENV') === 'production'
+    //   ? ['https://cobranca.coraxy.com.br']
+    //   : ""});
+    });
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-  
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
-      transform: true, // ⚠️ ESSENCIAL
+      transform: true,
     }),
   );
   

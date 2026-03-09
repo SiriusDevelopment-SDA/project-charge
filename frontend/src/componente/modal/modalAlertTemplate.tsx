@@ -8,6 +8,7 @@ export type ModalButton = {
   label: string;
   variant?: "success" | "danger" | "primary" | "BtnOpcoes";
   onClick: () => void;
+  disabled?: boolean;
 };
 
 export type DynamicModalProps = {
@@ -76,6 +77,7 @@ export default function DynamicModal({
                       styles[`btn-${btn.variant || "primary"}`]
                     }`}
                     onClick={btn.onClick}
+                    disabled={btn.disabled}
                   >
                     {btn.label}
                   </button>

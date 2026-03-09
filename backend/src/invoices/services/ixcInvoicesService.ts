@@ -63,7 +63,6 @@ export class IXCInvoicesService {
         }
       
         const data = await response.json()
-      
         let map: InvoiceMapResultDto[] = []
         
         if (data.registros) {
