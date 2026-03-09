@@ -60,6 +60,12 @@ export class Templates {
   })
   variables!: Record<string, any>;
 
+  @Column({
+    type: 'jsonb',
+    default: () => "'[]'",
+  })
+  components!: Record<string, any>[];
+
   @Column({ default: true })
   isEnabled!: boolean;
 

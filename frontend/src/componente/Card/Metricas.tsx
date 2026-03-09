@@ -6,6 +6,7 @@ interface MetricasProps {
   valor: string;
   classname: string;
   icon?: ReactNode; 
+  showIconBadge?: boolean;
 }
 
 export const Metricas = ({
@@ -13,22 +14,27 @@ export const Metricas = ({
   valor,
   classname,
   icon,
+  showIconBadge = true,
 }: MetricasProps) => {
   return (
     <div style={{ display: "flex", position: "relative" }}>
-      <div
-        style={{
-          position: "absolute",
-          top: "-40px",
-          padding: "12px",
-          background: "#eab308",
-          borderRadius: "10px",
-          boxShadow: "rgba(0, 0, 0, 0.35) 0px 5px 15px",
-          display: "flex",
-        }}
-      >
-        {icon ?? <Users size={22} />} 
-      </div>
+      {showIconBadge && (
+        <div
+          style={{
+            position: "absolute",
+            top: "-40px",
+            padding: "12px",
+            color: "#eab308",
+            border: "1px solid rgba(212, 166, 0, 0.32)",
+            background: "linear-gradient(145deg, rgba(28, 23, 9, 0.9) 0%, rgba(14, 12, 5, 0.95) 100%)",
+            borderRadius: "10px",
+            boxShadow: "rgba(0, 0, 0, 0.35) 0px 5px 15px",
+            display: "flex",
+          }}
+        >
+          {icon ?? <Users size={22} />}
+        </div>
+      )}
 
       <div className={classname}>
         <h3>{chave}</h3>

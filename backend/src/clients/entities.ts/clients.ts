@@ -65,7 +65,7 @@ export class Client {
   })
   company!: Company;
 
-  @ManyToMany(() => Campaign, (campaign) => campaign.client)
+  @ManyToMany(() => Campaign, (campaign) => campaign.clients)
   campaigns!: Campaign[];
 }
 

@@ -1,18 +1,20 @@
 import { Routes, Route, } from "react-router-dom";
-
 import EfetuarDisparo from "../pages/EfetuarDisparo/EfetuarDisparo";
 import Templates from "../pages/TemplatesMeta/TemplatesMeta";
 import { HistoricoDisparoPage } from "../pages/Historico/historico-disparo";
 import { ClientesVencidos } from "../pages/ClientesVencidos/ClientesVencidos";
 import CreateTemplate from "../pages/TemplatesMeta/Subpages/CreateTemplate";
-import Campanhas from "../pages/Campanhas/Subpages/Campanhas";
 import { AccountLayout } from "./AccountLayout";
-import {CriarCampanha} from "../pages/CriarCampanha/CriarCampanha";
 import Dashboard from "../pages/Dashboard/Dashboard";
+import { Campanhas } from "../pages/Campanhas/Campanhas";
+import { CriarCampanha } from "../pages/Campanhas/Subpages/CriarCampanha";
+import { Login } from "../pages/Login/Login";
+import { ChatwootPage } from "../pages/Chatwoot/Chatwoot";
 
-export default function AppRoutes() {
+export function AppRoutes() {
   return (
     <Routes>
+      <Route path="/login" element={<Login />} />
 
       {/* ROTA RAIZ (recebe account e distribui) */}
       <Route path="/" element={<AccountLayout />}>
@@ -23,10 +25,11 @@ export default function AppRoutes() {
         <Route path="templates" element={<Templates />} />
         <Route path="historico" element={<HistoricoDisparoPage />} />
         <Route path="clientesVencidos" element={<ClientesVencidos/>} />
-        <Route path="CreateTemplate" element={<CreateTemplate />} />
-        <Route path="Campanhas" element={<Campanhas />} />
-        <Route path="CreateCampanha" element={<CriarCampanha />} />
-        <Route path="Dashboard" element={<Dashboard />} />
+        <Route path="createTemplate" element={<CreateTemplate />} />
+        <Route path="campanhas" element={<Campanhas />} />
+        <Route path="createCampanha" element={<CriarCampanha />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="chat" element={<ChatwootPage />} />
 
       </Route>
 

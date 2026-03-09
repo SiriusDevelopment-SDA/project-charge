@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -12,15 +12,13 @@ import {
   Cell,
 } from "recharts";
 import styles from "./GraficoDisparo.module.css";
+import { usePollingChartData } from "../../hooks/components/usePollingChartData";
 
 interface MonthlyData {
   month: string;
   value: number;
 }
 
-/**
- * Dados iniciais
- */
 const initialData: MonthlyData[] = [
   { month: "Jan", value: 40 },
   { month: "Fev", value: 20 },
@@ -37,37 +35,16 @@ const initialData: MonthlyData[] = [
 ];
 
 const GraficoDisparo: React.FC = () => {
-  const [data, setData] = useState<MonthlyData[]>(initialData);
-
-  /**
-   * Aqui você pode trocar por chamada real da API
-   */
-  const fetchData = async () => {
-    try {
-      // 🔥 Produção:
-      // const response = await fetch("/api/dashboard/disparos");
-      // const result = await response.json();
-      // setData(result);
-
-      // 🔥 Simulação para teste
-      const updated = initialData.map(item => ({
+  const generateData = useCallback(
+    (base: MonthlyData[]) =>
+      base.map((item) => ({
         ...item,
         value: Math.floor(Math.random() * 80) + 10,
-      }));
+      })),
+    []
+  );
 
-      setData(updated);
-    } catch (error) {
-      console.error("Erro ao atualizar gráfico de disparo:", error);
-    }
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData();
-    }, 15000); // 15 segundos
-
-    return () => clearInterval(interval);
-  }, []);
+  const { data } = usePollingChartData(initialData, generateData, 15000);
 
   return (
     <div className={styles.container}>

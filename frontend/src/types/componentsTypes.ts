@@ -29,8 +29,8 @@ export type PropsCardTemplates = {
   template: Template;
   isOpen: boolean;
   onToggle: (id: string) => void;
-  setOpenModal: React.Dispatch<React.SetStateAction<boolean>>;
-  onDelete: (template: Template) => void
+  onDelete: (template: Template) => void;
+  onUse?: (template: Template) => void;
 };
 
 export type propTemplate = {
@@ -43,8 +43,10 @@ export type propTemplate = {
 };
 
 export type Lead = {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
   nome_cliente?: string;
+  whatsapp?: string;
+  cnpj_cpf?: string;
 }
 export type PropsSelect = {
   children: ReactNode | string;

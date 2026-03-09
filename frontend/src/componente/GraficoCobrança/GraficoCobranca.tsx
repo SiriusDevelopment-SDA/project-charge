@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   LineChart,
   Line,
@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import styles from "./GraficoCobranca.module.css";
+import { usePollingChartData } from "../../hooks/components/usePollingChartData";
 
 interface DataPoint {
   month: string;
@@ -18,9 +19,6 @@ interface DataPoint {
   pagamentos: number;
 }
 
-/**
- * Dados iniciais
- */
 const initialData: DataPoint[] = [
   { month: "Jan", inadimplencia: 60000, pagamentos: 32000 },
   { month: "Fev", inadimplencia: 42000, pagamentos: 12000 },
@@ -37,48 +35,27 @@ const initialData: DataPoint[] = [
 ];
 
 const GraficoCobranca: React.FC = () => {
-  const [data, setData] = useState<DataPoint[]>(initialData);
-
-  /**
-   * Aqui você pode substituir por chamada real da API
-   */
-  const fetchData = async () => {
-    try {
-      // 🔥 EXEMPLO REAL:
-      // const response = await fetch("/api/dashboard/cobranca");
-      // const result = await response.json();
-      // setData(result);
-
-      // 🔥 Simulação para teste
-      const updated = initialData.map(item => ({
+  const generateData = useCallback(
+    (base: DataPoint[]) =>
+      base.map((item) => ({
         ...item,
         inadimplencia: Math.floor(Math.random() * 100000),
         pagamentos: Math.floor(Math.random() * 80000),
-      }));
+      })),
+    []
+  );
 
-      setData(updated);
-    } catch (error) {
-      console.error("Erro ao atualizar gráfico:", error);
-    }
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData();
-    }, 15000); // 15 segundos
-
-    return () => clearInterval(interval);
-  }, []);
+  const { data } = usePollingChartData(initialData, generateData, 15000);
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Cobrança</h2>
+        <h2 className={styles.title}>Cobran�a</h2>
 
         <div className={styles.legend}>
           <div className={styles.legendItem}>
             <span className={`${styles.legendText} ${styles.legendTextRed}`}>
-              Inadimplência
+              Inadimpl�ncia
             </span>
             <div className={`${styles.legendBox} ${styles.legendBoxRed}`}></div>
           </div>

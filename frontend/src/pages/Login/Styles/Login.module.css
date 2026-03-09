@@ -1,0 +1,68 @@
+.loginPage {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.loginCard {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, rgba(12, 12, 12, 0.95) 0%, rgba(19, 15, 6, 0.95) 100%);
+  border: 1px solid rgba(212, 166, 0, 0.45);
+  border-radius: 18px;
+  padding: 28px;
+  color: #f7f7f7;
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.35);
+}
+
+.loginCard h1 {
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+.loginCard p {
+  color: rgba(255, 255, 255, 0.66);
+  margin-bottom: 20px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form label {
+  font-size: 0.9rem;
+  color: rgba(255, 240, 200, 0.86);
+}
+
+.form input {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 166, 0, 0.35);
+  background: rgba(9, 9, 9, 0.86);
+  color: #fff;
+  padding: 0 12px;
+}
+
+.form input:focus {
+  outline: none;
+  border-color: rgba(245, 208, 51, 0.75);
+}
+
+.form button {
+  margin-top: 8px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #d4a600;
+  background: #d4a600;
+  color: #101010;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

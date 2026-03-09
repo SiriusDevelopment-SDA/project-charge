@@ -1,119 +1,115 @@
-import { Category } from "@mui/icons-material";
 import type { Cliente, Template } from "../types";
 import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
 import { toast } from "react-toastify";
 
-export function extrairDocumentosClientes (data: any[]){
-  if (!data.every(row => "cnpj_cpf" in row)) {
-    throw new Error("Planilha inválida: coluna cnpj_cpf ausente")
+type SpreadsheetRow = Record<string, string | number | null | undefined>;
+
+export function extrairDocumentosClientes(data: SpreadsheetRow[]) {
+  if (!data.every((row) => "cnpj_cpf" in row)) {
+    throw new Error("Planilha invalida: coluna cnpj_cpf ausente");
   }
 
   return data
-    .map(row => String(row.cnpj_cpf).replace(/\D/g, ""))
-    .filter(doc => doc.length === 11 || doc.length === 14)
+    .map((row) => String(row.cnpj_cpf ?? "").replace(/\D/g, ""))
+    .filter((doc) => doc.length === 11 || doc.length === 14);
 }
-export function extrairLeads(data: any[]){
-  if (!data.every(row => "whatsapp" in row)) {
-    toast.warning("Planilha de lead inválida: coluna telefone ausente")
+
+export function extrairLeads(data: SpreadsheetRow[]) {
+  if (!data.every((row) => "whatsapp" in row)) {
+    toast.warning("Planilha de lead invalida: coluna telefone ausente");
   }
 
-  return data
+  return data;
 }
+
 export const processarDocumentos = (documents: string[]) => {
   if (documents.length === 0) {
-    toast.error("Nenhum CNPJ/CPF válido encontrado")
-    return
+    toast.error("Nenhum CNPJ/CPF valido encontrado");
+    return;
   }
-  toast.success(`${documents.length} documentos processados com sucesso`)
-}
+  toast.success(`${documents.length} documentos processados com sucesso`);
+};
 
 export function validarData(valor: string): boolean {
   const d = new Date(valor);
-  return !isNaN(d.getTime());
+  return !Number.isNaN(d.getTime());
 }
 
 export function validarArquivo(file: File) {
   const permitido = [
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-excel'
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
   ];
 
   if (!permitido.includes(file.type)) {
-    throw new Error('Arquivo inválido. Envie um XLSX.');
+    throw new Error("Arquivo invalido. Envie um XLSX.");
   }
 
   if (file.size > 2 * 1024 * 1024) {
-    throw new Error('Arquivo muito grande.');
+    throw new Error("Arquivo muito grande.");
   }
 }
-export function todasColunasPreenchidas(lead: Record<string, any>) {
+
+export function todasColunasPreenchidas(lead: Record<string, unknown>) {
   const camposIgnorados = ["status"];
 
   return Object.entries(lead)
     .filter(([key]) => !camposIgnorados.includes(key))
-    .every(([, value]) =>
-      value !== "" &&
-      value !== null &&
-      value !== undefined
-    );
+    .every(([, value]) => value !== "" && value !== null && value !== undefined);
 }
 
-export function gerarModeloPlanilha(template: Template | null, modo: "clientes" | "leads") {
+export function gerarModeloPlanilha(
+  template: Template | null,
+  modo: "clientes" | "leads"
+) {
   if (modo === "clientes") {
     return gerarModeloClientes();
   }
   return gerarModeloLeads(template);
 }
-export function getTipoPlanilha(fileName: string){
-  const name = fileName.toLowerCase()
 
-  if (name.includes("lead")) return "lead"
-  if (name.includes("cliente")) return "cliente"
+export function getTipoPlanilha(fileName: string) {
+  const name = fileName.toLowerCase();
 
-  return "desconhecida"
+  if (name.includes("lead")) return "lead";
+  if (name.includes("cliente")) return "cliente";
+
+  return "desconhecida";
 }
 
 export function compilarTemplate(
   message: string,
-  variables: Record<string, string>,
+  variables: Record<string, string> | string,
   templateMapVars: Record<string, string>
 ) {
-  
-    return message.replace(/{{(\d+)}}/g, (_, index) => {
-      const variableKey = variables[index];
-      if (!variableKey) return "";
+  const vars = typeof variables === "string" ? JSON.parse(variables) : variables;
 
-      const varMapped = templateMapVars[variableKey];
-      if (!varMapped) return "";
+  return message.replace(/{{(\d+)}}/g, (_, index: string) => {
+    const variableKey = vars[index];
+    if (!variableKey) return "";
 
-      return varMapped ?? "";
-    });
+    const value = templateMapVars[variableKey];
+    if (!value) return "";
+
+    return value;
+  });
 }
-// export function obterFaturaMaisAntigaAberta(cliente: any) {
-//   console.log(cliente.invoices?.list);
-//   const abertas = filtrarFaturasAbertas(cliente.invoices?.list || []);
-//   if (abertas.length === 0) return null;
 
-//   const ordenadas = ordenarPorVencimento(abertas);
-//   return ordenadas[0]; // a mais antiga
-// }
-
-// export function filtrarFaturasAbertas(invoices: any[]) {
-//   return invoices.filter(inv =>
-//     inv.situacao?.toLowerCase().includes("A Receber")
-//   );
-// }
-// export function ordenarPorVencimento(invoices: any[]) {
-//   return invoices.sort((a, b) =>
-//     new Date(a.Data_de_vencimento).getTime() - new Date(b.Data_de_vencimento).getTime()
-//   );
-// }
-export function validarSelecaoCliente(
-  cliente: Cliente,
-  template?: Template
+export function buildTemplateParams(
+  templateVars: Record<string, string>,
+  client: Record<string, string>
 ) {
-  if (template?.category !== "Cobrança") {
+  return Object.keys(templateVars)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((key) => ({
+      type: "text",
+      text: client[templateVars[key]] ?? "",
+    }));
+}
+
+export function validarSelecaoCliente(cliente: Cliente, template?: Template) {
+  if (template?.category !== "Cobran�a") {
     return true;
   }
 
@@ -121,18 +117,18 @@ export function validarSelecaoCliente(
 
   if (!Array.isArray(invoices) || invoices.length === 0) {
     toast.warning(
-      `O cliente ${cliente.name} não possui faturas e não pode ser selecionado para cobrança.`
+      `O cliente ${cliente.name} nao possui faturas e nao pode ser selecionado para cobranca.`
     );
     return false;
   }
 
   const possuiFaturaAberta = invoices.some(
-    inv => inv.invoice_status === "A Receber"
+    (inv) => inv.invoice_status === "A Receber"
   );
 
   if (!possuiFaturaAberta) {
     toast.warning(
-      `O cliente ${cliente.name} não possui faturas em aberto e não pode ser selecionado para cobrança.`
+      `O cliente ${cliente.name} nao possui faturas em aberto e nao pode ser selecionado para cobranca.`
     );
     return false;
   }

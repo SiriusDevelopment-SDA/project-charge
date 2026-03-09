@@ -1,18 +1,18 @@
 import { useClient } from "./useCliente";
 import { useTemplate } from "./useTemplates";
-import { useAccounts } from "./useAccounts";
 import { useDispatchTemplate } from "./useDispatchTemplate"
-import { useCampaign } from "./useCampaign"
+import { useCampaign, useCampaignForm } from "./useCampaign"
 import { useHistorico } from "./useHistorico"
-import { useCategories } from "./useCategories"
+import {useCampaignsController} from './controller/campaigns/useCampaignsController'
+import {useCampaignEditController} from './controller/campaigns/useCampaignEditController'
 
-export { 
+export {
+  useCampaignsController,
+  useCampaignEditController,
   useClient, 
   useTemplate, 
   useDispatchTemplate, 
   useCampaign, 
   useHistorico, 
-  useCategories,
-  useAccounts,
-  
+  useCampaignForm
 }

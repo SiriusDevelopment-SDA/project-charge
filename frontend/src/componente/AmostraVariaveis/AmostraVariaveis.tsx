@@ -5,19 +5,11 @@ import Style from "../../pages/TemplatesMeta/Styles/Create-template.module.css";
 import type { propAmostras } from "../../types";
 
 const AmostraVariaveis = ({ variablesMap, setVariablesMap }: propAmostras) => {
-  const renderPreview = (text: string) => {
-    let result = text;
-    Object.entries(variablesMap).forEach(([key, value]) => {
-      result = result.replaceAll(`{{${key}}}`, value || `{{${key}}}`);
-    });
-    return result;
-  };
-
   const hasVariables = Object.keys(variablesMap).length > 0;
 
   return (
     <div className={Style.variablesCard}>
-      <h4 className={Style.variablesTitle}>Amostras de variáveis</h4>
+      <h4 className={Style.variablesTitle}>Amostras de vari�veis</h4>
 
       {hasVariables &&
         Object.keys(variablesMap).map((key) => (
@@ -26,21 +18,18 @@ const AmostraVariaveis = ({ variablesMap, setVariablesMap }: propAmostras) => {
 
             <InputFields
               value={variablesMap[key]}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
                 setVariablesMap((prev) => ({
                   ...prev,
-                  [key]: e.target.value,
+                  [key]: event.target.value,
                 }))
               }
             />
           </div>
         ))}
 
-      {/* Texto aparece somente quando NÃO existir nenhuma variável */}
       {!hasVariables && (
-        <div className={Style.previewText}>
-          Selecione uma Variável em 'Variáveis'
-        </div>
+        <div className={Style.previewText}>Selecione uma Vari�vel em 'Vari�veis'</div>
       )}
     </div>
   );

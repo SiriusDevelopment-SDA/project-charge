@@ -1,14 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
 import type { Cliente } from "../../types";
 import { Checkbox } from "../Checkbox/Checkbox";
 import Styles from "./ClientesCard.module.css";
-import {
-  CircleQuestionMark,
-  Phone,
-  MessageSquareText,
-  CircleDollarSign,
-} from "lucide-react";
-import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
+import { CircleQuestionMark, Phone, MessageSquareText, CircleDollarSign } from "lucide-react";
 
 type Props = {
   cliente: Cliente;
@@ -16,28 +9,15 @@ type Props = {
   onToggle: () => void;
 };
 
-export function ClientesCard({
-  cliente,
-  checked,
-  onToggle,
-}: Props) {
-  const [isOpen, setIsOpen] = useState(false);
-
+export function ClientesCard({ cliente, checked, onToggle }: Props) {
   return (
     <div className={Styles.Cards}>
-      <div className={Styles.card}
-        onClick={(e) => e.stopPropagation()}
-      >
-
-        {/* 🔥 Wrapper que libera overflow */}
+      <div className={Styles.card} onClick={(event) => event.stopPropagation()}>
         <div className={Styles.cardContent}>
-          {/* HEADER */}
           <div className={Styles.header}>
             <span className={Styles.title}>{cliente.name}</span>
 
-            <span className={Styles.badge}>
-              {0} Dias Vencidos
-            </span>
+            <span className={Styles.badge}>{0} Dias Vencidos</span>
 
             <div className={Styles.actions}>
               <Checkbox
@@ -48,23 +28,18 @@ export function ClientesCard({
               />
 
               <div className={Styles.infoIcon}>
-              <CircleQuestionMark size={16} className={Styles.iconInfo} />
+                <CircleQuestionMark size={16} className={Styles.iconInfo} />
 
-                {/* {isOpen && ( */}
-                  <div
-                    className={Styles.infoBalloon}
-                  >
-                    <strong>Campanhas ativas do cliente</strong>
-                    <div>
-                      <span>campanhas:</span>
-                    </div>
+                <div className={Styles.infoBalloon}>
+                  <strong>Campanhas ativas do cliente</strong>
+                  <div>
+                    <span>campanhas:</span>
                   </div>
-                {/* )} */}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* CONTEÚDO */}
           <div className={Styles.MensageCopy}>
             <p className={Styles.message}>
               <Phone className={Styles.IconPhone} />

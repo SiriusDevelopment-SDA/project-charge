@@ -15,6 +15,7 @@ import { Templates } from '../../templates/entities/templatesMeta';
 import { Company } from '../../companies/entities/companies';
 import { Client } from '../../clients/entities.ts/clients';
 import { Category } from '../../category/entities/category.entity';
+import { TemplateMapVar } from '../types';
 
 @Entity('campaigns')
 export class Campaign {
@@ -40,17 +41,14 @@ export class Campaign {
   endDate!: Date;
 
   @Column()
-  dispatchStartTime!: string;
-
-  @Column()
-  dispatchEndTime!: string;
+  dispatchTime!: string;
 
   @Column({ default: 'America/Sao_Paulo' })
   timezone!: string;
 
   @Column({ default: false })
   recurring!: boolean;
-
+  
   @ManyToMany(() => Client, (client) => client.campaigns)
   @JoinTable({
     name: 'campaign_clients',
@@ -63,14 +61,17 @@ export class Campaign {
       referencedColumnName: 'id'
     },
   })
-  client!: Client[];
+  clients!: Client[];
 
   @ManyToOne(() => Category, (category) => category.campaigns, { nullable: true })
   @JoinColumn({ name: 'category' })
   category!: Category;
 
+  @Column({ type: "jsonb", nullable: true })
+  templateMapVars!: TemplateMapVar[];
+
   @Column({ default: 'pending' })
-  status!: 'pending' | 'running' | 'finished';
+  status!: 'queue' | 'pending' | 'running' | 'finished';
 
   @Column({ default: true })
   isEnabled!: boolean;

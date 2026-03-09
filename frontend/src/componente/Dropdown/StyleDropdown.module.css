@@ -178,3 +178,26 @@
   color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
 }
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+}
+.menuUp {
+  bottom: calc(100% + 4px);
+  top: auto;
+}
+
+.virtualContainer {
+  position: relative;
+  width: 100%;
+}
+
+.virtualInner {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.optionSelected {
+  background: rgba(0,0,0,0.05);
+}

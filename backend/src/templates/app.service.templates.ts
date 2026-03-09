@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { Templates } from './entities/templatesMeta';
@@ -7,6 +7,7 @@ import { RelatoryDispatchTemplate } from './entities/relatory.entity';
 import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
 import { CreateTemplateDTO } from './dto/create.request.dto.template';
 import { Company } from '../companies/entities/companies';
+import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 
 @Injectable()
 export class AppServiceTemplate {
@@ -20,6 +21,7 @@ export class AppServiceTemplate {
 
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly campaignMetricsGateway: CampaignMetricsGateway,
   ) { }
 
   async getTemplates(dto: SearchRequestDtoTemplates) {
@@ -38,7 +40,7 @@ export class AppServiceTemplate {
 
     if (query) where.name = ILike(`%${query}%`);
 
-    const [data,] = await this.templateRepository.findAndCount({
+    const [data, total] = await this.templateRepository.findAndCount({
       where,
       relations: {
         company: true
@@ -60,13 +62,13 @@ export class AppServiceTemplate {
 
     return {
       page: safePage,
-      total: data.length,
+      total,
       data
     };
   }
 
   async sendTemplate(data: SendTemplateDto) {
-    const { templateId, account, to } = data;
+    const { templateId, account, to, campaignId } = data;
     const results = [];
     const template = await this.templateRepository.findOne({
       where: {
@@ -83,6 +85,7 @@ export class AppServiceTemplate {
         name: true,
         language: true,
         variables: true,
+        components: true,
         company: {
           id: true,
           canalId_notificameHub: true,
@@ -134,24 +137,52 @@ export class AppServiceTemplate {
         },
       );
 
-      const responseData = await response.json();
+      let responseData: any = {};
+      try {
+        responseData = await response.json();
+      } catch {
+        responseData = {};
+      }
+
+      const status = response.ok
+        ? responseData?.status ?? 'DISPATCHED'
+        : `ERROR_${response.status}`;
+
+      const message =
+        responseData?.message ??
+        responseData?.error ??
+        (response.ok ? null : `HTTP ${response.status}`);
 
       await this.relatoryDispatchRepository.insert({
-        external_message_id: responseData.id,
-        status_sent: responseData.status,
+        external_message_id: responseData?.id,
+        status_sent: status,
         date_dispatch: new Date(),
         template: { id: template.id },
         name: recipient.name ?? recipient.number,
         number: recipient.number,
         components_maped: { components: safeComponents },
-        company: { id: template.company.id }
+        company: { id: template.company.id },
+        campaign: campaignId ? { id: campaignId } : null,
+        message,
       });
-      results.push(responseData);
+      results.push({
+        number: recipient.number,
+        ok: response.ok,
+        status,
+        providerResponse: responseData,
+      });
     }
+
+    const successCount = results.filter((r) => r.ok).length;
+    const failedCount = results.length - successCount;
+    this.campaignMetricsGateway.emitCampaignsSync(String(account));
+
     return {
-      success: true,
+      success: failedCount === 0,
       total: results.length,
-      status: 'DISPATCHED',
+      successCount,
+      failedCount,
+      status: failedCount === 0 ? 'DISPATCHED' : 'PARTIAL',
       messages: results
     };
 
@@ -181,7 +212,7 @@ export class AppServiceTemplate {
     ];
 
 
-    const [data,] = await this.relatoryDispatchRepository.findAndCount({
+    const [data, total] = await this.relatoryDispatchRepository.findAndCount({
       where,
       relations: {
         template: true
@@ -203,7 +234,7 @@ export class AppServiceTemplate {
 
     return {
       page: safePage,
-      total: data.length,
+      total,
       data
     };
   }
@@ -278,7 +309,7 @@ export class AppServiceTemplate {
     if (!response.ok) {
       const error = await response.text();
       throw new BadRequestException(
-        `Erro ao criar template na NotificaMe: ${error}`,
+        `Erro ao criar template no meta: ${error}`,
       );
     }
 
@@ -292,10 +323,11 @@ export class AppServiceTemplate {
         language: dto.language,
         message: dto.components.filter(
           m => m.type.toUpperCase() === "BODY"
-        ).map(m => m.text)[0],
+        ).map(m => m.text)[0] ?? '',
         meta_id: responseData.id,
         meta_status: responseData.status,
         variables: dto.variables,
+        components: dto.components,
         company: { id: dto.companyId },
         name: dto.name,
       },
@@ -303,5 +335,38 @@ export class AppServiceTemplate {
 
     // Retorno final
     return responseData
+  }
+
+  async getTemplateOrFail(templateId: string){
+    const template = await this.templateRepository.findOne({
+      where: {
+        id: templateId,
+        isEnabled: true
+      }
+    });
+    if (!template) {
+      throw new NotFoundException({
+        code: 'TEMPLATE_NOT_FOUND',
+        message: 'Template não encontrado',
+        field: 'templateId',
+      });
+    }
+
+    return template
+  }
+  extractRequiredTemplateVars(template: Templates): string[] {
+    try {
+      const vars =
+        typeof template.variables === "string"
+          ? JSON.parse(template.variables)
+          : template.variables || {};
+  
+      return Object.values(vars) as string[];
+    } catch {
+      throw new UnprocessableEntityException({
+        code: 'TEMPLATE_VARIABLES_INVALID',
+        message: 'Variáveis do template estão inválidas',
+      });
+    }
   }
 }

@@ -1,239 +1,291 @@
-/* CardCampanhas.module.css (Versão Final com Menus) */
-
-/* 1. Animações */
-@keyframes ping {
-  0% { 
-    box-shadow: 0 0 0 0 rgba(60, 255, 0, 0.7);
-  }
-  100% { 
-    box-shadow: 0 0 5px 15px transparent;
-    infinity: 1;
-  }
-}
-
-@keyframes blink {
-  0%, 49% { 
-    opacity: 1; 
-  }
-  50%, 100% { 
-    opacity: 1; 
-  }
-}
-
-/* 2. Card Principal */
-.campaignCard {
-  background: #2a2410;
-  border: 1px solid #c09802;
-  border-radius: 10px;
-  padding: 14px;
+﻿.campaignCard {
+  background: linear-gradient(180deg, #0d0d0d 0%, #0a0a0a 100%);
+  border: 1px solid rgba(199, 160, 47, 0.28);
+  border-radius: 18px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  height: 270px;
-  position: relative;
+  min-height: 360px;
   overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-/* 3. Header */
+.campaignCard:hover {
+  border-color: rgba(230, 188, 57, 0.65);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.55);
+  transform: translateY(-2px);
+}
+
+.activeCard {
+  border-color: rgba(230, 188, 57, 0.55);
+}
+
 .header {
+  align-items: center;
+  border-bottom: 1px solid rgba(199, 160, 47, 0.15);
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(192, 152, 2, 0.3);
-}
-.title {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #ffd700;
-}
-.statusIcon {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  cursor: pointer;
-}
-.flameActive .statusIcon {
-  animation: ping 1.2s infinite, blink 1.2s ease-in-out infinite;
-  border-radius: 100%;
- 
+  gap: 12px;
+  padding: 16px 18px;
 }
 
-/* 4. Bloco do Template com Botão de Ajuda */
-.templateBox {
-  background-color: rgba(0, 0, 0, 0.2);
-  padding: 10px;
-  border-radius: 6px;
-  border-left: 3px solid #ffd700;
-  position: relative;
-}
-.templateHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-.templateLabel {
-  font-size: 0.65rem;
+.title {
+  color: #f5f1e8;
+  font-size: 1.18rem;
   font-weight: 700;
-  color: #ffd700;
-  text-transform: uppercase;
-}
-.helpButton {
-  background: transparent;
-  border: 1px solid #c09802;
-  color: #c09802;
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.helpButton:hover {
-  background-color: #c09802;
-  color: #1a1a1a;
-}
-.templateBox p {
   margin: 0;
-  font-size: 0.85rem;
-  line-height: 1.4;
-  color: #f0f0f0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.tooltip {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: -54px;
-  width: 100%;
-  background-color: #1c1809;
-  padding: 12px;
-  border-radius: 5px;
-  border: 1px solid #ffd700;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  max-height: 150px;
-  overflow-y: auto;
-  z-index: 20;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  white-space: nowrap;
 }
 
-/* 5. Bloco de Detalhes com Menu de Ações */
-.detailsBox {
-  background-color: rgba(0, 0, 0, 0.15);
-  padding: 10px;
-  border-radius: 6px;
-}
-.detailsHeader {
-  display: flex;
-  justify-content: space-between;
+.headerActions {
   align-items: center;
-  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
 }
-.detailsHeader h4 {
-  font-size: 0.7rem;
+
+.statusBadge {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #c09802;
-  text-transform: uppercase;
+  gap: 6px;
+  letter-spacing: 0.03em;
+  padding: 5px 10px;
 }
+
+.statusOn {
+  background: rgba(26, 104, 58, 0.38);
+  border-color: rgba(81, 218, 129, 0.3);
+  color: #69f39f;
+}
+
+.statusOff {
+  background: rgba(109, 24, 24, 0.35);
+  border-color: rgba(255, 123, 123, 0.3);
+  color: #ff8f8f;
+}
+
+/* .statusDot {
+  border-radius: 50%;
+  height: 7px;
+  width: 7px;
+} */
+.statusOn::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #69f39f; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
+
+.statusOn .statusDot {
+  background: #58f191;
+  box-shadow: 0 0 9px rgba(88, 241, 145, 0.75);
+}
+
+.statusOff .statusDot {
+  background: #ff7f7f;
+  box-shadow: 0 0 9px rgba(255, 127, 127, 0.75);
+}
+
 .actionsMenuWrapper {
   position: relative;
 }
+
 .actionsMenuButton {
+  align-items: center;
   background: transparent;
-  border: 1px solid #c09802;
-  color: #c09802;
-  border-radius: 5px;
-  padding: 4px;
-  display: flex;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: all 0.2s;
+  display: flex;
+  justify-content: center;
+  padding: 6px;
 }
+
 .actionsMenuButton:hover {
-  background-color: #c09802;
-  color: #1a1a1a;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
+
 .actionsDropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 5px;
-  background-color: #1c1809;
-  border: 1px solid #c09802;
-  border-radius: 5px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-  z-index: 30;
-  overflow: hidden;
+  background: #111;
+  border: 1px solid rgba(199, 160, 47, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  width: 120px; /* Largura fixa para o menu */
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 126px;
+  z-index: 20;
 }
+
 .actionsDropdown button {
-  background: none;
+  align-items: center;
+  background: transparent;
   border: none;
   color: #f0f0f0;
-  padding: 10px 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
   cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.2s;
+  display: flex;
+  font-size: 0.84rem;
+  gap: 8px;
+  padding: 10px 12px;
+  text-align: left;
 }
+
 .actionsDropdown button:hover {
-  background-color: #c09802;
-  color: #1a1a1a;
+  background: rgba(230, 188, 57, 0.16);
 }
+
 .deleteAction {
-  color: #ff8b8b;
+  color: #ff9a9a !important;
 }
+
 .deleteAction:hover {
-  background-color: #c0392b !important;
-  color: #fff !important;
+  background: rgba(170, 35, 35, 0.3) !important;
+}
+
+.templateSection,
+.detailsSection {
+  padding: 16px 18px;
+  position: relative;
+}
+
+.templateSection {
+  border-bottom: 1px solid rgba(199, 160, 47, 0.12);
+}
+
+.templateSection h4,
+.detailsSection h4 {
+  color: #d8ad36;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+}
+
+.templateText {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+  min-height: 84px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.templateVar {
+  background: rgba(216, 173, 54, 0.22);
+  border-radius: 6px;
+  color: #efc24b;
+  font-weight: 700;
+  margin: 0 2px;
+  padding: 1px 6px;
+}
+
+.previewButton {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: #d8ad36;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 0;
+}
+
+.previewButton:hover {
+  color: #f4cb52;
+}
+
+.templateModalContent {
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid rgba(199, 160, 47, 0.35);
+  border-radius: 20px;
+  max-width: 480px;
+  min-width: 340px;
+  padding: 24px;
+}
+
+.templateModalContent h4 {
+  color: #d8ad36;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0 0 14px;
+}
+
+.templateModalContent p {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  line-height: 1.65;
+  margin: 0 0 26px;
+  min-height: 120px;
+  white-space: pre-wrap;
+}
+
+.templateModalClose {
+  background: transparent;
+  border: 1px solid rgba(199, 160, 47, 0.4);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 12px 20px;
+  width: 100%;
+}
+
+.templateModalClose:hover {
+  border-color: rgba(230, 188, 57, 0.9);
+  color: #fff;
 }
 
 .detailsGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 15px;                   
-  font-size: 0.75rem;
-  color: #ccc;
-  margin-top: 0;
-}
-.detailsGrid p {
-  margin: 0;
-  display: -webkit-box;
-  line-clamp: 1;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
-  word-break: break-word;
-}
-.detailsGrid strong {
-  color: #bda03c;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* 6. Estilos do Modal de Edição */
+.detailsGrid div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailsGrid span {
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.detailsGrid strong {
+  color: #e4b83e;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
 .modalOverlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 }
+
 .modal {
   background: #2a2410;
   border: 1px solid #c09802;
@@ -244,11 +296,13 @@
   color: #f0f0f0;
   box-shadow: 0 5px 25px rgba(0,0,0,0.5);
 }
+
 .modal h3 {
   color: #ffd700;
   margin-top: 0;
   margin-bottom: 24px;
 }
+
 .modal label {
   display: block;
   margin-top: 16px;
@@ -257,31 +311,12 @@
   color: #c09802;
   text-transform: uppercase;
 }
-.timeInput {
-  width: 100%;
-  box-sizing: border-box;
-  background-color: rgba(0, 0, 0, 0.3);
-  border: 1px solid #c09802;
-  color: #f0f0f0;
-  padding: 10px;
-  border-radius: 5px;
-  color-scheme: dark;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 1rem;
-}
 
-.timeInput:focus {
-  outline: none;
-  border-color: #ffd700;
-  box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
-}
-
-.timeInput::-webkit-calendar-picker-indicator {
-  filter: invert(0.7) sepia(1) saturate(5) hue-rotate(15deg);
-  cursor: pointer;
-}
-.modal input, .modal textarea, .modal select {
+.modal input,
+.modal textarea,
+.modal select,
+.timeInput,
+.dateInputButton {
   width: 100%;
   box-sizing: border-box;
   background-color: rgba(0, 0, 0, 0.3);
@@ -291,149 +326,46 @@
   border-radius: 5px;
 }
 
-.modal select {
+.dateInputButton {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffd700' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 20px;
-  padding-right: 35px;
+  text-align: left;
 }
 
-.modal select option {
-  background-color: #1a1a1a;
-  color: #f0f0f0;
+.dateInputButton span {
+  flex: 1;
 }
 
-.modal input[type="date"],
-.modal input[type="time"] {
-  color-scheme: dark;
-  cursor: pointer;
-}
-
-.modal input[type="date"]::-webkit-calendar-picker-indicator,
-.modal input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.7) sepia(1) saturate(5) hue-rotate(15deg);
-  cursor: pointer;
-}
-
-.modal textarea {
-  min-height: 50px;
-  max-height: 50px;
-  height: 50px;
-  resize: none;
-  font-family: inherit;
-  overflow-y: auto;
-}
-
-.modal textarea::-webkit-scrollbar {
-  width: 6px;
-}
-
-.modal textarea::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-}
-
-.modal textarea::-webkit-scrollbar-thumb {
-  background: #c09802;
-  border-radius: 10px;
-}
-
-.modal textarea::-webkit-scrollbar-thumb:hover {
-  background: #ffd700;
-}
-.charCount {
-  display: block;
-  text-align: right;
-  font-size: 0.75rem;
-  color: #aaa;
-  margin-top: 4px;
-}
 .modalActions {
   margin-top: 24px;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
 }
+
 .modalActions button {
   border: none;
   padding: 10px 20px;
   border-radius: 5px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.2s;
 }
+
 .modalActions button:first-of-type {
   background-color: #c0392b;
   color: #fff;
 }
-.modalActions button:first-of-type:hover {
-  background-color: #dd2713;
-}
+
 .modalActions button:last-of-type {
   background-color: #c09802;
   color: #1a1a1a;
 }
-.modalActions button:last-of-type:hover {
-  background-color: #e6b400;
-}
 
-/* 7. Estilos do Campo de Data Customizado */
-.dateInputButton {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.3);
-  border: 1px solid #c09802;
-  color: #f0f0f0;
-  padding: 10px 15px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 1rem;
-  transition: all 0.2s;
-  text-align: left;
-}
-
-.dateInputButton:hover {
-  background-color: rgba(0, 0, 0, 0.5);
-  border-color: #ffd700;
-}
-
-.dateInputButton:focus {
-  outline: none;
-  border-color: #ffd700;
-  box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
-}
-
-.dateInputButton span {
-  flex: 1;
-  color: #f0f0f0;
-}
-
-.dateInputButton svg {
-  color: #ffd700;
-  flex-shrink: 0;
-}
-
-/* 8. Estilos do Botão Fechar no Modal Customizado */
-.closeCalendarButton {
-  background-color: #c09802;
-  color: #1a1a1a;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-  align-self: center;
-  width: 100%;
-  max-width: 200px;
-}
-
-.closeCalendarButton:hover {
-  background-color: #e6b400;
+.fieldError {
+  color: #ff8e8e;
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 6px;
 }

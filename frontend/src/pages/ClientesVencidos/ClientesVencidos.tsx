@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState, type SetStateAction } from "react";
+﻿import { useMemo, useState, type SetStateAction } from "react";
 import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 /* =========================
-   TIPOS E UTILITÁRIOS
+   TIPOS E UTILITÃRIOS
 ========================= */
-import type { Cliente } from "../../types";
+import type { Cliente, Template } from "../../types";
 import { validarSelecaoCliente } from "../../utils/validation";
 import { maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
 import type {Service} from "../../types/index"
@@ -34,6 +34,7 @@ import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard"
 ========================= */
 import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
+import { useClientesVencidosSync } from "../../hooks/controller/clients/useClientesVencidosSync";
 
 
 /* =========================
@@ -41,11 +42,12 @@ import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 ========================= */
 import Style from "./Styles/ClientesVencidos.module.css";
 import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
+import { useFilterTemplates } from "../../hooks/components/useFilterTemplates.Controller";
 
 /* =========================
    CONSTANTES
 ========================= */
-const ITEMS_PER_PAGE = 8;
+
 
 export function ClientesVencidos() {
   // State para o campo de WhatsApp
@@ -65,13 +67,14 @@ export function ClientesVencidos() {
   //const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
   const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
 
-  const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
-  const [modalPage, setModalPage] = useState(1);
+  const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
+  
   const [diasRegua, setDiasRegua] = useState(0);
 
   const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [selectedPlans, setSelectedPlans] = useState<{ id: string; name: string; id_servico?: string }[]>([]);
 
@@ -85,8 +88,8 @@ export function ClientesVencidos() {
     setSelectedTemplate,
     modoPage,
   } = useDispatchTemplate();
-
-  const { clients, services } = useClient();
+  const { paginatedTemplates, setModalPage, totalModalPages, itemsPerPage } = useFilterTemplates();
+  const { clients, services = [], setQuery } = useClient();
   const { page, setPage, templates } = useTemplate();
 
   function toggleCliente(clienteId: string) {
@@ -137,55 +140,27 @@ export function ClientesVencidos() {
   }, [clients, diasRegua, selectedPlans]);
 
 
-  useEffect(() => {
-    if (diasRegua > 0) {
-      setSelectedClientes(clientesFiltrados);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diasRegua, clientesFiltrados]);
-
-  useEffect(() => {
-    // Atualiza selectedClientes quando clients recebe as invoices
-    if (selectedClientes.length > 0) {
-      const clientesAtualizados = selectedClientes.map(selectedClient => {
-        const clientAtualizado = clients.find(c => c.id === selectedClient.id);
-        return clientAtualizado || selectedClient;
-      });
-      setSelectedClientes(clientesAtualizados);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clients]);
-
-useEffect(() => {
-
-  const filteredByPlans = clients.filter((client) =>
-    client.services && client.services.some((s) =>
-      selectedPlans.some((p) => p.id === s.id || p.name === s.name || p.name === s.id_servico)
-    )
-  );
-
-  setSelectedClientes(filteredByPlans);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedPlans]);
+  useClientesVencidosSync({
+    diasRegua,
+    clientesFiltrados,
+    selectedClientes,
+    clients,
+    selectedPlans,
+    setSelectedClientes,
+  });
 
   /* =========================
-     PAGINAÇÃO MODAL
+     PAGINAÃ‡ÃƒO MODAL
   ========================= */
-  const totalModalPages = Math.max(
-    1,
-    Math.ceil(templates.length / ITEMS_PER_PAGE)
-  );
 
-  const paginatedTemplates = useMemo(() => {
-    return templates.slice(
-      (modalPage - 1) * ITEMS_PER_PAGE,
-      modalPage * ITEMS_PER_PAGE
-    );
-  }, [templates, modalPage]);
 
   return (
     <PageContainer className={Style.VencidosContainer}>
-      <TitlePage title="Clientes Vencidos" />
+      <TitlePage 
+      title="Clientes Vencidos" 
+      subtitle="Filtre inadimplencia e avance para disparos ou campanhas" 
+      
+      />
 
       <div className={Style.contentPanel}>
         {/* ================= FILTROS ================= */}
@@ -205,7 +180,7 @@ useEffect(() => {
                 <InputFields
                   className={Style.InputDividas}
                   type="number"
-                  label="R$ Valor mínimo da Dívida"
+                  label="R$ Valor mínimo da dívida"
                 />
 
                 <Dropdown
@@ -219,7 +194,6 @@ useEffect(() => {
                   onClose={() => setVarOpen(false)}
                   onChange={(selected) => {
                     setSelectedPlans(selected as { id: string; name: string }[]);
-                    console.log('Selected plans:', selected);
                   }}
                 />
 
@@ -228,6 +202,7 @@ useEffect(() => {
                     className={Style.FiltroClientes}
                     label="Buscar clientes no ERP"
                     options={clients}
+                    searchable
                     multiple
                     selected={selectedClientes}
                     onChange={(v) => {
@@ -240,10 +215,11 @@ useEffect(() => {
                     open={openDropdown === "clientes"}
                     onOpen={() => setOpenDropdown("clientes")}
                     onClose={() => setOpenDropdown(null)}
+                    onSearchTermChange={(term) => setQuery(term)}
                   />
                 ) : (
                   <InputFields
-                    label="Número de Whatsapp"
+                    label="NÃºmero de Whatsapp"
                     onlyNumbers={true}
                     value={whatsappValue}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
@@ -253,7 +229,7 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* ================= MÉTRICAS ================= */}
+          {/* ================= MÃ‰TRICAS ================= */}
           <div className={Style.filterRight}>
             <BaseCard classname={Style.cardMetricas}>
               <Metricas
@@ -269,7 +245,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* ================= AÇÕES ================= */}
+        {/* ================= AÃ‡Ã•ES ================= */}
         <div className={Style.submenuActions}>
           <MyButton
             type="button"
@@ -302,15 +278,15 @@ useEffect(() => {
           )}
         </div>
 
-        {/* ================= MODAL OPÇÕES ================= */}
+        {/* ================= MODAL OPÃ‡Ã•ES ================= */}
         {openProsseguirModal && (
           <DynamicModal
             open
             type="modaltemplates"
-            title="Escolha uma opção:"
+            title="Escolha uma opÃ§Ã£o:"
             description={
               <>
-                Você selecionou <b>{clientesMarcados.length}</b> clientes.
+                VocÃª selecionou <b>{clientesMarcados.length}</b> clientes.
               </>
             }
             onClose={() => setOpenProsseguirModal(false)}
@@ -336,7 +312,7 @@ useEffect(() => {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  navigate("/CreateCampanha");
+                  navigate(`/CreateCampanha${location.search}`);
                 },
               },
             ]}
@@ -346,6 +322,9 @@ useEffect(() => {
         <ModalCardCampanhas
           open={openCampanhaModal}
           onClose={() => setOpenCampanhaModal(false)}
+          onConfirmCampaign={() =>
+            toast.success("Campanha disparada com sucesso (Implementar)!")
+          }
         />
 
 
@@ -376,7 +355,7 @@ useEffect(() => {
                   ))}
                 </div>
 
-                {templates.length > ITEMS_PER_PAGE && (
+                {templates.length > itemsPerPage && (
                   <Pagination
                     className={Style.Pagination}
                     page={modalPage}
@@ -428,7 +407,7 @@ useEffect(() => {
             ]}
           />
         )}
-        {/* ================= PAGINAÇÃO PRINCIPAL ================= */}
+        {/* ================= PAGINAÃ‡ÃƒO PRINCIPAL ================= */}
         <Pagination
           className={Style.Pagination}
           page={page}
@@ -440,3 +419,8 @@ useEffect(() => {
     </PageContainer>
   );
 }
+
+
+
+
+

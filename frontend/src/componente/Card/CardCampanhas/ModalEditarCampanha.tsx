@@ -1,71 +1,67 @@
 import { Calendar, Clock } from "lucide-react";
 import Style from "./CardCampanhas.module.css";
-
-type ModalEditarCampanhaProps = {
+import { Controller, type UseFormReturn } from "react-hook-form";
+import type { CampaignFormValues } from "../../../schemas/campaign.schema";
+type Props = {
   open: boolean;
   onClose: () => void;
-  onSave: () => void;
-  tipo: string;
-  setTipo: (value: string) => void;
-  dataDisparo: string;
+  form: UseFormReturn<CampaignFormValues>;
   onOpenCalendarDisparo: () => void;
-  dataFinalizacao: string;
   onOpenCalendarFinalizacao: () => void;
-  horario: string;
   onOpenTimePicker: () => void;
 };
 
 export function ModalEditarCampanha({
   open,
   onClose,
-  onSave,
-  tipo,
-  setTipo,
-  dataDisparo,
+  form,
   onOpenCalendarDisparo,
-  dataFinalizacao,
   onOpenCalendarFinalizacao,
-  horario,
   onOpenTimePicker,
-}: ModalEditarCampanhaProps) {
+}: Props) {
   if (!open) return null;
-  const isRecorrente = tipo === "true"; // se você estiver usando string "true"/"false"
+
+  const { control, watch, handleSubmit, formState: { errors } } = form;
+  const isRecurring = watch("isRecurring");
 
   return (
     <div className={Style.modalOverlay}>
       <div className={Style.modal}>
         <h3>Editar dados da campanha</h3>
 
+        {/* Tipo */}
         <label>Tipo</label>
-        <select
-          className={Style.dateInputButton}
-          value={tipo}
-          onChange={(e) => {
-            const novoTipo = e.target.value;
-            setTipo(novoTipo);
+        <Controller
+          control={control}
+          name="isRecurring"
+          render={({ field }) => (
+            <select
+              className={Style.dateInputButton}
+              value={field.value ? "true" : "false"}
+              onChange={(e) => field.onChange(e.target.value === "true")}
+            >
+              <option value="false">Disparo Único</option>
+              <option value="true">Disparo Contínuo</option>
+            </select>
+          )}
+        />
 
-            // 🔥 Se virar disparo único, limpa data final
-            if (novoTipo === "Disparo Único" && dataFinalizacao) {
-              // opcional: você pode limpar aqui
-              // setDataFinalizacao("");
-            }
-          }}
-        >
-          <option value="false">Disparo Único</option>
-          <option value="true">Disparo Contínuo</option>
-        </select>
-
+        {/* Data de disparo */}
         <label>Data de Disparo</label>
         <button
           type="button"
           className={Style.dateInputButton}
           onClick={onOpenCalendarDisparo}
         >
-          <span>{dataDisparo || "Selecione a data"}</span>
+          <span>{watch("dispatchDate") || "Selecione a data"}</span>
           <Calendar size={18} />
         </button>
+        {errors.dispatchDate && (
+          <span className={Style.fieldError}>{errors.dispatchDate.message}</span>
+        )}
 
-        {isRecorrente && (
+        {/* Data de finalização — só exibida em modo recorrente */}
+        {isRecurring && (
           <>
             <label>Data de Finalização</label>
             <button
@@ -73,26 +69,36 @@ export function ModalEditarCampanha({
               className={Style.dateInputButton}
               onClick={onOpenCalendarFinalizacao}
             >
-              <span>{dataFinalizacao || "Selecione a data"}</span>
+              <span>{watch("endDate") || "Selecione a data"}</span>
               <Calendar size={18} />
             </button>
+            {errors.endDate && (
+              <span className={Style.fieldError}>{errors.endDate.message}</span>
+            )}
           </>
-        )}  
+        )}
 
-
+        {/* Horário */}
         <label>Horário</label>
         <button
           type="button"
           className={Style.dateInputButton}
           onClick={onOpenTimePicker}
         >
-          <span>{horario || "Selecione o horário"}</span>
+          <span>{watch("dispatchTime") || "Selecione o horário"}</span>
           <Clock size={18} />
         </button>
+        {errors.dispatchTime && (
+          <span className={Style.fieldError}>{errors.dispatchTime.message}</span>
+        )}
 
         <div className={Style.modalActions}>
-          <button onClick={onClose}>Cancelar</button>
-          <button onClick={onSave}>Salvar</button>
+          <button type="button" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="button" onClick={handleSubmit(() => onClose())}>
+            Salvar
+          </button>
         </div>
       </div>
     </div>

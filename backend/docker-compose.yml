@@ -6,5 +6,52 @@ services:
     container_name: minha-api-teste
     env_file:
       - .env
+    environment:
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER_NAME: ${DB_USER_NAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+    depends_on:
+      redis:
+        condition: service_healthy
     ports:
-      - "4000:4000"
+      - "3000:3000"
+  redis:
+    image: redis:7-alpine
+    container_name: project-charge-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: project-charge-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: project_charge
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres -d project_charge"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  redis_data:
+  # postgres_data:

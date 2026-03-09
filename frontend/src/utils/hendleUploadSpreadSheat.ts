@@ -1,118 +1,158 @@
-import * as XLSX from "xlsx"
-import { toast } from "react-toastify"
-import type { Cliente, Lead } from "../types"
-import { extrairDocumentosClientes, extrairLeads, getTipoPlanilha, todasColunasPreenchidas, validarArquivo } from "./validation"
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
+import type { Cliente, Lead } from "../types";
+import {
+  extrairDocumentosClientes,
+  extrairLeads,
+  getTipoPlanilha,
+  todasColunasPreenchidas,
+  validarArquivo,
+} from "./validation";
+import { ClientService } from "../services/client/client.service";
 
 type HandleUploadParams = {
-  file: File
-  clients: Cliente[]
-  setQuery: (q: string) => void
-  setSelectedClientes: React.Dispatch<React.SetStateAction<Cliente[]>>
-  setSelectedLeads: React.Dispatch<React.SetStateAction<Lead[]>>
-  processarDocumentos: (docs: string[]) => void
+  file: File;
+  clients: Cliente[];
+  setQuery?: (q: string) => void;
+  setSelectedClientes: (clientes: Cliente[]) => void;
+  setSelectedLeads?: (updater: (prev: Lead[]) => Lead[]) => void;
+  processarDocumentos: (docs: string[]) => void;
+  account?: string | null;
+};
+
+function normalizeDoc(value?: string) {
+  return String(value ?? "").replace(/\D/g, "");
 }
 
 export async function handleUploadPlanilha({
   file,
   clients,
-  setQuery,
   setSelectedClientes,
   setSelectedLeads,
-  processarDocumentos
+  processarDocumentos,
+  account,
 }: HandleUploadParams) {
   try {
-    const res = await file.arrayBuffer()
-    const workbook = XLSX.read(res)
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const res = await file.arrayBuffer();
+    const workbook = XLSX.read(res);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet);
 
-    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet)
-
-    const data = rows.filter(row =>
+    const data = rows.filter((row) =>
       Object.values(row).some(
-        value => value !== undefined && value !== null && String(value).trim() !== ""
+        (value) => value !== undefined && value !== null && String(value).trim() !== ""
       )
-    )
+    );
 
-    validarArquivo(file)
-    const tipo = getTipoPlanilha(file.name)
+    validarArquivo(file);
+    const tipo = getTipoPlanilha(file.name);
 
-    /* ===========================
-       CLIENTES
-    =========================== */
     if (tipo === "cliente") {
-      const documents = extrairDocumentosClientes(data)
-
-      if (documents.length === 0) {
-        toast.warning("Nenhum cliente válido encontrado")
-        return
+      const documents = extrairDocumentosClientes(data);
+      if (!documents.length) {
+        toast.warning("Nenhum cliente válido encontrado");
+        return;
       }
 
-      processarDocumentos(documents)
+      processarDocumentos(documents);
 
-      documents.forEach((cnpjCpf, index) => {
-        setTimeout(() => setQuery(cnpjCpf), index * 1000)
-      })
+      const normalizedDocs = documents.map(normalizeDoc).filter(Boolean);
+      const fromLoadedClients = clients.filter((client) =>
+        normalizedDocs.includes(normalizeDoc(client.cnpj_cpf))
+      );
 
-      setSelectedClientes(prev => {
-        const clientesFromPlanilha = clients.filter(cliente =>
-          documents.includes(cliente.cnpj_cpf.replace(/\D/g, ""))
-        )
+      const foundByDoc = new Map(fromLoadedClients.map((client) => [normalizeDoc(client.cnpj_cpf), client]));
+      const missingDocs = normalizedDocs.filter((doc) => !foundByDoc.has(doc));
 
-        const novosClientes = clientesFromPlanilha.filter(
-          cliente => !prev.some(c => c.cnpj_cpf === cliente.cnpj_cpf)
-        )
+      if (missingDocs.length && account) {
+        const lookups = await Promise.all(
+          missingDocs.map(async (doc) => {
+            try {
+              const response = await ClientService.searchClients({
+                account,
+                query: doc,
+                page: 1,
+                limit: 10,
+                sortorder: "DESC",
+                relationService: false,
+              });
 
-        return [...prev, ...novosClientes]
-      })
+              return (response.data.data ?? []).find(
+                (client) => normalizeDoc(client.cnpj_cpf) === doc
+              );
+            } catch {
+              return undefined;
+            }
+          })
+        );
 
-      toast.success(`${documents.length} clientes importados`)
-      return
+        lookups.forEach((client) => {
+          if (client) {
+            foundByDoc.set(normalizeDoc(client.cnpj_cpf), client);
+          }
+        });
+      }
+
+      const finalClients = normalizedDocs
+        .map((doc) => foundByDoc.get(doc))
+        .filter((client): client is Cliente => Boolean(client));
+
+      const notFound = normalizedDocs.filter((doc) => !foundByDoc.has(doc));
+      notFound.forEach((doc) =>
+        toast.warning(`Cliente ${doc} não foi encontrado na API. Revise o cpf_cnpj.`)
+      );
+
+      if (!finalClients.length) {
+        toast.error("Nenhum cliente foi encontrado, revise os documentos enviados!");
+        return;
+      }
+
+      setSelectedClientes(finalClients);
+      toast.success(`${finalClients.length} clientes importados da planilha`);
+      return;
     }
 
-    /* ===========================
-       LEADS
-    =========================== */
     if (tipo === "lead") {
-      const leads = extrairLeads(data)
-
-      if (leads.length === 0) {
-        toast.warning("Nenhum lead encontrado na planilha")
-        return
+      const leads = extrairLeads(data);
+      if (!leads.length) {
+        toast.warning("Nenhum lead encontrado na planilha");
+        return;
       }
 
-      const leadsValidos = leads.filter(lead => {
-        todasColunasPreenchidas(lead)
-
+      const leadsValidos = leads.filter((lead) => {
+        if (!todasColunasPreenchidas(lead)) {
+          toast.warning("Lead ignorado por colunas obrigatorias vazias.");
+          return false;
+        }
         if (lead.status === "inválido") {
           toast.error(
             `Lead inválido: ${lead.whatsapp}. Use o padrão 5511999999999`,
             { autoClose: 6000 }
-          )
-          return false
+          );
+          return false;
         }
+        return true;
+      });
 
-        return true
-      })
-
-      if (leadsValidos.length === 0) {
-        toast.warning("Nenhum lead válido para importar")
-        return
+      if (!leadsValidos.length) {
+        toast.warning("Nenhum lead válido para importar");
+        return;
       }
 
-      setSelectedLeads(prev => {
+      setSelectedLeads?.((prev) => {
         const novosLeads = leadsValidos.filter(
-          lead => !prev.some(p => p.whatsapp === lead.whatsapp)
-        )
-        return [...prev, ...novosLeads]
-      })
+          (lead) => !prev.some((p) => p.whatsapp === lead.whatsapp)
+        );
+        return [...prev, ...novosLeads];
+      });
 
-      toast.success(`${leadsValidos.length} leads importados`)
-      return
+      toast.success(`${leadsValidos.length} leads importados`);
+      return;
     }
 
-    toast.error("Tipo de planilha não reconhecido. Nunca altere o nome do arquivo!")
-
-  } catch (err: any) {
-    toast.error(err?.message || "Erro ao processar planilha")
+    toast.error("Tipo de planilha não reconhecido. Nunca altere o nome do arquivo!");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro ao processar planilha";
+    toast.error(message);
   }
 }

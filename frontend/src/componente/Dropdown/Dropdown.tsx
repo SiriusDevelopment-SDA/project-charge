@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
 import S from "./StyleDropdown.module.css";
-
+import { useDropdownController } from "../../hooks/components/useDropdownController";
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 export type DropdownProps<T> = {
   label: string;
   typeCategory?: boolean;
@@ -20,10 +20,15 @@ export type DropdownProps<T> = {
   isOptionDisabled?: (option: T) => boolean;
   children?: React.ReactNode;
   searchable?: boolean;
+  onSearchTermChange?: (term: string) => void;
+  placeholder?: string;
 };
 
-export function Dropdown<T extends { id: string; name: string; category?: string }>({
+export function Dropdown<
+  T extends { id: string; name: string; category?: string }
+>({
   label,
+  placeholder,
   options,
   value,
   selected,
@@ -35,81 +40,103 @@ export function Dropdown<T extends { id: string; name: string; category?: string
   className,
   children,
   typeCategory,
-  searchable
+  searchable,
+  onSearchTermChange,
 }: DropdownProps<T>) {
-
-  const [focused, setFocused] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  const hasValue = multiple
-    ? selected && selected.length > 0
-    : Boolean(value);
-
-  const filteredOptions = searchable 
-    ? options.filter(opt => 
-        opt.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : options;  
+  const {
+    wrapperRef,
+    searchTerm,
+    hasValue,
+    setSearchTerm,
+    visibleOptions,
+    totalHeight,
+    openUpwards,
+    handleScroll,
+    ITEM_HEIGHT,
+    startIndex,
+    MAX_HEIGHT,
+  } = useDropdownController({
+    options,
+    searchable,
+    multiple,
+    value,
+    selected,
+    externalSearch: Boolean(onSearchTermChange),
+    open,
+  });
 
   const selectedLabel = value?.name ?? "";
 
-  if (!open && !hasValue && focused)setTimeout(() => setFocused(false), 0);
   return (
-    <div className={`${S.wrapper} ${className ?? ""}`} ref={wrapperRef}>
+    <div
+      className={`${S.wrapper} ${className ?? ""}`}
+      ref={wrapperRef}
+      tabIndex={-1}
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget as Node | null;
+        if (!nextTarget || !wrapperRef.current?.contains(nextTarget)) {
+          onClose();
+        }
+      }}
+    >
       <div
         className={`${S.control} ${open ? S.activeBorder : ""}`}
         onClick={() => {
           if (open) {
             onClose();
-            if (!hasValue) setFocused(false);
-          } else {
-            onOpen();
-            setFocused(true);
+            return;
           }
+          onOpen();
+          wrapperRef.current?.focus();
         }}
       >
-        <span className={`${S.label} ${focused || hasValue ? S.active : ""}`}>
+        <span className={`${S.label} ${open || hasValue ? S.active : ""}`}>
           {label}
         </span>
-        
+
         <div className={S.valueContainer}>
           {multiple ? (
             <div className={S.chipsContainer}>
-              {selected?.map(item => (
+              {selected?.map((item) => (
                 <div
                   key={item.id}
                   className={S.chip}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
                 >
                   {item.name}
                   <span
                     className={S.remove}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const newList = selected.filter(s => s.id !== item.id);
-                      onChange(newList);
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const nextSelected = selected.filter((current) => current.id !== item.id);
+                      onChange(nextSelected);
                     }}
                   >
-                    ×
+                    x
                   </span>
                 </div>
               ))}
-              {!selected?.length && <span className={S.placeholder}></span>}
+              {!selected?.length && <span className={S.placeholderText}>{placeholder}</span>}
+              
             </div>
           ) : (
-            <span className={S.value}>{selectedLabel}</span>
+            <span className={`${S.value} ${!value ? S.placeholderText : ""}`}>
+              {value ? selectedLabel : placeholder}
+            </span>
           )}
         </div>
 
-        {!typeCategory && <span className={`${S.arrow} ${open ? S.rotate : ""}`}>▼</span>}
+        {!typeCategory && <span className={`${S.arrow} ${open ? S.rotate : ""}`}><ExpandMoreIcon /></span>}
       </div>
 
       {children}
       {open && (
         <div
-          className={S.menu}
-          onClick={(e) => e.stopPropagation()}
+          className={`${S.menu} ${openUpwards ? S.menuUp : ""}`}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => event.stopPropagation()}
+          style={{ maxHeight: MAX_HEIGHT }}
+          onScroll={handleScroll}
         >
           {searchable && (
             <div className={S.searchContainer}>
@@ -118,45 +145,52 @@ export function Dropdown<T extends { id: string; name: string; category?: string
                 className={S.searchInput}
                 placeholder="Pesquisar..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
+                onChange={(event) => {
+                  const term = event.target.value;
+                  setSearchTerm(term);
+                  onSearchTermChange?.(term);
+                }}
+                onClick={(event) => event.stopPropagation()}
                 autoFocus
               />
             </div>
           )}
-          {filteredOptions.length === 0 ? (
+          {visibleOptions.length === 0 ? (
             <div className={S.noResults}>Nenhum resultado encontrado</div>
           ) : (
-            filteredOptions.map(opt => (
+            <div className={S.virtualContainer} style={{ height: totalHeight }}>
               <div
-                key={opt.id}
-            className={S.option}
-            onClick={(e) => {
-              e.stopPropagation();
-
-              if (multiple) {
-                const exists = selected?.some(s => s.id === opt.id);
-                const newList = exists
-                  ? (selected ?? []).filter(s => s.id !== opt.id)
-                  : [...(selected ?? []), opt];
-
-                onChange(newList);
-              } else {
-                onChange(opt);
-                onClose();
-                setFocused(false);
-                setSearchTerm("");
-              }
-            }}
-            title={"Cliente sem faturas em aberto"}
+                className={S.virtualInner}
+                style={{ transform: `translateY(${startIndex * ITEM_HEIGHT}px)` }}
               >
-                {typeCategory ? (
-                  <span>{opt.category}</span>
-                ) : (
-                  <span>{opt.name}</span>
-                )}
+                {visibleOptions.map((option) => (
+                  <div
+                    key={option.id}
+                    className={S.option}
+                    onClick={(event) => {
+                      event.stopPropagation();
+
+                      if (multiple) {
+                        const exists = selected?.some((current) => current.id === option.id);
+                        const nextSelected = exists
+                          ? (selected ?? []).filter((current) => current.id !== option.id)
+                          : [...(selected ?? []), option];
+
+                        onChange(nextSelected);
+                        return;
+                      }
+
+                      onChange(option);
+                      onClose();
+                      setSearchTerm("");
+                    }}
+                    title={"Cliente sem faturas em aberto"}
+                  >
+                    {typeCategory ? <span>{option.category}</span> : <span>{option.name}</span>}
+                  </div>
+                ))}
               </div>
-            ))
+            </div>
           )}
         </div>
       )}
