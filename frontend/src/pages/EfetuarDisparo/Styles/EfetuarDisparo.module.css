@@ -19,37 +19,42 @@
 }
 .cardMetricas{
   width: 400px;
-  height: 120px;
+  min-height: 120px;
   padding-top: 15px !important;
-  background: #eab308 !important;
-  border: 1px solid rgba(255, 215, 0, 0.35) !important;
-  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px !important;
+  background: linear-gradient(145deg, rgba(28, 23, 9, 0.9) 0%, rgba(14, 12, 5, 0.95) 100%) !important;
+  border: 1px solid rgba(212, 166, 0, 0.32) !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(212, 166, 0, 0.12) !important;
+  border-radius: 16px !important;
 
   h1{
-    font-size: 50px;
-    font-weight: 600;
-    color: #ffff;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+    font-size: 46px;
+    font-weight: 700;
+    color: #f4df9e;
   }
   h3{
-    color: #ffff;
-    font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+    color: rgba(229, 201, 117, 0.78);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 }
 .contentMetricas{
-  padding-left: 50px;
+  padding-left: 0;
+  margin-top: 8px;
 }
 .containerCenter{
   padding: 28px 29px;
-  border: 1px solid rgba(245, 208, 51, 0.5) ;
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.94) 0%, rgba(18, 15, 7, 0.94) 100%);
+  border: 1px solid rgba(212, 166, 0, 0.42) ;
   border-radius: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow: hidden;
   box-shadow:
-  0 0 10px rgba(255, 215, 0, 0.35),
-  0 0 20px rgba(255, 215, 0, 0.2);
+  0 0 10px rgba(212, 166, 0, 0.24),
+  0 0 20px rgba(212, 166, 0, 0.14);
 }
 .FilterDropdownTemplate{
   display: flex;
@@ -163,4 +168,17 @@
     margin-top: 0px !important;
     margin-left: 20px;
   }
+}
+
+.containerButtonSend{
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(245, 208, 51, 0.2);
+  padding: 16px 0 4px;
+  background: transparent;
+}
+
+.submitButton{
+  min-width: 220px;
 }

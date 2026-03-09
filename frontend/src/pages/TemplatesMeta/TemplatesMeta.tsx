@@ -1,10 +1,7 @@
-import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState, useMemo, useContext } from "react";
+import { useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import { toast } from "react-toastify";
-
-/* =========================
-   COMPONENTES
-========================= */
 import { Pagination } from "../../componente/global/Pagination/Pagination";
 import {
   PageContainer,
@@ -15,139 +12,40 @@ import {
 import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates";
 import { CardTemplates } from "../../componente/Card/CardTemplates";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
-
-/* =========================
-   HOOKS / CONTEXT
-========================= */
 import { useTemplate } from "../../hooks";
-import { TemplateContext } from "../../context/contextTemplates";
-
-/* =========================
-   TYPES / STYLES
-========================= */
-import type { Template } from "../../types";
-import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import { useTemplatesPageController } from "../../hooks/controller/templates/useTemplatesPageController";
 import Style from "./Styles/TemplatesMeta.module.css";
 
-/* =========================
-   COMPONENTE
-========================= */
 export default function TemplatesMeta() {
   const navigate = useNavigate();
-  const { templates } = useTemplate();
-  const { deleteTemplate } = useContext(TemplateContext);
+  const location = useLocation();
+  const { templates, deleteTemplate } = useTemplate();
 
-  /* =========================
-     STATES
-  ========================= */
-  const [page, setPage] = useState(1);
-  const [openTemplateId, setOpenTemplateId] = useState<string | null>(null);
-  const [searchTemplateName, setSearchTemplateName] = useState("");
-  const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null);
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [loadingDelete, setLoadingDelete] = useState(false);
-  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
+  const {
+    page,
+    totalPages,
+    openTemplateId,
+    searchTemplateName,
+    categoryTemplateFilter,
+    openDeleteModal,
+    loadingDelete,
+    openCategoryDropdown,
+    templateToDelete,
+    categories,
+    paginatedTemplates,
+    setPage,
+    setOpenCategoryDropdown,
+    handleToggle,
+    handleSearchChange,
+    handleCategoryChange,
+    openDeleteConfirmation,
+    closeDeleteConfirmation,
+    confirmDelete,
+  } = useTemplatesPageController({ templates, deleteTemplate });
 
-  const LIMIT = 8;
-
-  /* =========================
-     REFS
-  ========================= */
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const filterIconRef = useRef<HTMLDivElement | null>(null);
 
-  /* =========================
-     FECHAR DROPDOWN AO CLICAR FORA
-  ========================= */
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      if (
-        openCategoryDropdown &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(target) &&
-        filterIconRef.current &&
-        !filterIconRef.current.contains(target)
-      ) {
-        setOpenCategoryDropdown(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openCategoryDropdown]);
-
-  /* =========================
-     RESET PAGE AO FILTRAR
-  ========================= */
-  useEffect(() => {
-    setPage(1);
-  }, [searchTemplateName, categoryTemplateFilter]);
-
-  /* =========================
-     CATEGORIAS
-  ========================= */
-  const categories = useMemo(
-    () => Array.from(new Set(templates.map((t) => t.category))),
-    [templates]
-  );
-
-  /* =========================
-     FILTRO DE TEMPLATES
-  ========================= */
-  const filteredTemplates = useMemo(() => {
-    return templates.filter((template) => {
-      const matchName = template.name
-        .toLowerCase()
-        .includes(searchTemplateName.toLowerCase());
-
-      const matchCategory =
-        !categoryTemplateFilter ||
-        template.category === categoryTemplateFilter;
-
-      return matchName && matchCategory;
-    });
-  }, [templates, searchTemplateName, categoryTemplateFilter]);
-
-  /* =========================
-     PAGINAÇÃO
-  ========================= */
-  const startIndex = (page - 1) * LIMIT;
-  const paginatedTemplates = filteredTemplates.slice(
-    startIndex,
-    startIndex + LIMIT
-  );
-
-  /* =========================
-     HANDLERS
-  ========================= */
-  function handleToggle(templateId: string) {
-    setOpenTemplateId((prev) => (prev === templateId ? null : templateId));
-  }
-
-  async function handleDelete(templateId: string) {
-    try {
-      setLoadingDelete(true);
-      const result = await deleteTemplate(templateId);
-
-      if (result.success) {
-        toast.success("Template deletado com sucesso!");
-        setOpenDeleteModal(false);
-        setTemplateToDelete(null);
-      } else {
-        toast.error("Erro ao deletar template");
-      }
-    } catch {
-      toast.error("Erro inesperado ao deletar template");
-    } finally {
-      setLoadingDelete(false);
-    }
-  }
-
-  /* =========================
-     DADOS DO GRÁFICO
-  ========================= */
   const graphData = Object.values(
     templates.reduce<Record<string, { id: number; nome: string; quantidade: number }>>(
       (acc, template, index) => {
@@ -162,25 +60,20 @@ export default function TemplatesMeta() {
     )
   );
 
-  /* =========================
-     RENDER
-  ========================= */
   return (
     <PageContainer className={Style.TemplatesContainer}>
-      {/* TOPO */}
       <div className={Style.Grafico}>
-        <TitlePage title="Templates META" className={Style.TitlePage} />
+        <TitlePage title="Templates META" subtitle="Gerencie modelos oficiais para disparos e campanhas" className={Style.TitlePage} />
         <TemplatesUsageCard data={graphData} />
       </div>
 
-      {/* FILTROS */}
       <div className={Style.ContainerSubMenu}>
         <div className={Style.ContainerFiltro}>
           <MyButton
             text="Criar Template"
             variant="secondary"
             className={Style.BtnCriarTemplate}
-            onClick={() => navigate("/CreateTemplate")}
+            onClick={() => navigate(`/CreateTemplate${location.search}`)}
           />
 
           <div className={Style.ContainerFiltros}>
@@ -188,11 +81,20 @@ export default function TemplatesMeta() {
               className={Style.InputFiltro}
               placeholder="Buscar template pelo nome"
               value={searchTemplateName}
-              onChange={(e) => setSearchTemplateName(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
 
-            {/* FILTRO DE CATEGORIA */}
-            <div ref={filterIconRef} className={Style.FilterWrapper}>
+            <div
+              ref={filterIconRef}
+              className={Style.FilterWrapper}
+              tabIndex={0}
+              onBlur={(event) => {
+                const next = event.relatedTarget as Node | null;
+                if (!next || !filterIconRef.current?.contains(next)) {
+                  setOpenCategoryDropdown(false);
+                }
+              }}
+            >
               <FilterAltOutlinedIcon
                 className={`${Style.iconFilterDropdownTemplate} ${
                   categoryTemplateFilter ? Style.activeFilter : ""
@@ -209,10 +111,7 @@ export default function TemplatesMeta() {
                     className={`${Style.CategoryOption} ${
                       categoryTemplateFilter === null ? Style.activeOption : ""
                     }`}
-                    onClick={() => {
-                      setCategoryTemplateFilter(null);
-                      setOpenCategoryDropdown(false);
-                    }}
+                    onClick={() => handleCategoryChange(null)}
                   >
                     Todas
                   </button>
@@ -223,10 +122,7 @@ export default function TemplatesMeta() {
                       className={`${Style.CategoryOption} ${
                         categoryTemplateFilter === category ? Style.activeOption : ""
                       }`}
-                      onClick={() => {
-                        setCategoryTemplateFilter(category);
-                        setOpenCategoryDropdown(false);
-                      }}
+                      onClick={() => handleCategoryChange(category)}
                     >
                       {category}
                     </button>
@@ -238,7 +134,6 @@ export default function TemplatesMeta() {
         </div>
       </div>
 
-      {/* CARDS */}
       <div className={Style.Cards}>
         {paginatedTemplates.map((template) => (
           <CardTemplates
@@ -246,16 +141,12 @@ export default function TemplatesMeta() {
             template={template}
             isOpen={openTemplateId === template.id}
             onToggle={handleToggle}
-            setOpenModal={setOpenDeleteModal}
-            onDelete={(tpl: Template) => {
-              setTemplateToDelete(tpl);
-              setOpenDeleteModal(true);
-            }}
+            onDelete={openDeleteConfirmation}
+            onUse={() => toast.info("Ação de usar template (implementar)")}
           />
         ))}
-      </div>  
+      </div>
 
-      {/* MODAL EXCLUSÃO */}
       {openDeleteModal && templateToDelete && (
         <DynamicModal
           open
@@ -263,46 +154,39 @@ export default function TemplatesMeta() {
           title="Excluir template"
           description={
             <>
-              Tem certeza que deseja excluir o template{" "}
-              <b>{templateToDelete.name}</b>? <br />
+              Tem certeza que deseja excluir o template <b>{templateToDelete.name}</b>?
+              <br />
               Essa ação não poderá ser desfeita.
             </>
           }
-          onClose={() => {
-            setOpenDeleteModal(false);
-            setTemplateToDelete(null);
-          }}
+          onClose={closeDeleteConfirmation}
           buttons={[
             {
               label: "Cancelar",
               variant: "success",
-              onClick: () => {
-                setOpenDeleteModal(false);
-                setTemplateToDelete(null);
-              },
+              onClick: closeDeleteConfirmation,
             },
             {
               label: loadingDelete ? "Excluindo..." : "Excluir",
               variant: "danger",
-              onClick: () => {
-                if (!templateToDelete) return;
-                handleDelete(templateToDelete.id);
-              },
+              onClick: confirmDelete,
             },
           ]}
         />
       )}
-      {/* =========================
-         PAGINAÇÃO
-      ========================= */}
+
       <Pagination
         className={Style.Pagination}
         page={page}
-        onPrev={() => setPage((p) => Math.max(p - 1, 1))}
-        onNext={() => setPage((p) => p + 1)}
+        onPrev={() => setPage((prev) => Math.max(prev - 1, 1))}
+        onNext={() => setPage((prev) => Math.min(prev + 1, totalPages))}
         disablePrev={page === 1}
-        disableNext={filteredTemplates.length < 4}
+        disableNext={page === totalPages}
       />
     </PageContainer>
   );
 }
+
+
+
+

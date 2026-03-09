@@ -7,47 +7,41 @@ import { useLocation } from "react-router-dom";
 
 export function Navbar() {
   const location = useLocation();
+  const search = location.search;
   return (
     <div className={styles.navbar}>
-      <NavLink to="/">
+      <NavLink to={`/${search}`}>
         <img src={logo} alt="Coraxy" />
       </NavLink>
 
 
       <div className={styles.navbarMenu}>
         <NavLink
-          to="/dashboard"
-          className={() =>
-            location.pathname === "/dashboard" ||
-            location.pathname.startsWith("/Dashboard")
-              ? styles.active
-              : ''
-          }
+          to={`/dashboard${search}`}
+          className={({ isActive }) => (isActive ? styles.active : "")}
         >
           Dashboard
         </NavLink>
 
         <NavLink
-          to="/clientesVencidos"
+          to={`/clientesVencidos${search}`}
           className={({ isActive }) => (isActive ? styles.active : "")}
-          // onClick={(e) => e.preventDefault()}
         >
           Clientes Vencidos
         </NavLink>
 
         <NavLink
-          to="/campanhas"
+          to={`/campanhas${search}`}
           className={({ isActive }) => (isActive ? styles.active : "")}
-          //onClick={(e) => e.preventDefault()}
         >
           Campanhas
         </NavLink>
 
         <NavLink
-            to="/Templates"
+            to={`/templates${search}`}
           className={() =>
-            location.pathname === "/Templates" ||
-            location.pathname.startsWith("/CreateTemplate")
+            location.pathname === "/templates" ||
+            location.pathname.startsWith("/createTemplate")
               ? styles.active
               : ''
           }
@@ -56,7 +50,14 @@ export function Navbar() {
         </NavLink>
 
         <NavLink
-          to="/"
+          to={`/chat${search}`}
+          className={({ isActive }) => (isActive ? styles.active : "")}
+        >
+          Chat
+        </NavLink>
+
+        <NavLink
+          to={`/${search}`}
           className={() =>
             location.pathname === "/" ||
             location.pathname.startsWith("/historico")

@@ -1,0 +1,14 @@
+.details {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 13px;
+    color: #cfcfcf;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 14px;
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(242, 192, 16, 0.15);
+  }

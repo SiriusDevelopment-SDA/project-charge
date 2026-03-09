@@ -6,9 +6,9 @@ import { HubsoftInvoicesService } from '../services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../services/sgpInvoicesService';
 import { Raw, Repository } from 'typeorm';
 import {  InvoiceBatchPartialDto, InvoiceBatchResponseDto, InvoicesResponseDto, ResultInvoicesDto, SearchRequestInvoicesDto } from '../dto/search.request.dto.invoices';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('Faturas')
+@ApiTags('Invoices')
 @Controller('invoices')
 export class InvoicesController {
   constructor(
@@ -21,6 +21,8 @@ export class InvoicesController {
  
   @Post('search')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Busca faturas por lista de documentos' })
+  @ApiBody({ type: SearchRequestInvoicesDto })
   @ApiOkResponse({ type: InvoiceBatchPartialDto })
   async getInvoices(@Body() data: SearchRequestInvoicesDto) {
     if (!data.documents.length) throw new NotFoundException('Nenhum cliente encontrado');

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Templates } from './templatesMeta';
 import { Company } from '../../companies/entities/companies';
+import { Campaign } from '../../campanhas/entities/campanhas.entity';
 
 
 @Entity()
@@ -41,6 +42,9 @@ export class RelatoryDispatchTemplate {
   @Column({ default: false })
   response!: boolean;
 
+  @Column({ nullable: true, type: 'timestamp' })
+  response_at?: Date | null;
+
   @Column({
     type: 'jsonb',
     default: () => "'{}'",
@@ -59,4 +63,8 @@ export class RelatoryDispatchTemplate {
   @ManyToOne(() => Company, (company) => company.relatories)
   @JoinColumn({ name: 'companyId' })
   company!: Company;
+
+  @ManyToOne(() => Campaign, { nullable: true })
+  @JoinColumn({ name: 'campaignId' })
+  campaign?: Campaign | null;
 }

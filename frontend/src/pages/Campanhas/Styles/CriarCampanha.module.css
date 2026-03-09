@@ -1,0 +1,108 @@
+/* =========================
+   CONTAINER PÁGINA
+========================= */
+.createCampaign {
+    min-height: calc(100vh - 14vh);
+    overflow-y: auto;
+}
+/* =========================
+   CONTAINER HEADER
+========================= */
+.createCampaign__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+/* =========================
+   CONTAINER CONTEUDO
+========================= */
+.createCampaign__form {
+    padding: 20px;
+    border: 1px solid rgba(212, 166, 0, 0.42);
+    background: linear-gradient(180deg, rgba(10, 10, 10, 0.94) 0%, rgba(18, 15, 7, 0.94) 100%);
+    border-radius: 5px;
+    box-shadow:
+    0 0 10px rgba(212, 166, 0, 0.24),
+    0 0 20px rgba(212, 166, 0, 0.14);
+
+    h3 {
+        display: flex;
+        justify-content: center;
+        padding: 0 0 15px;
+    }
+
+    width: 100%;
+    height: auto;
+} 
+
+/* =========================
+   CARDBASE
+========================= */
+.createCampaign__metricsCard{
+  min-width: 400px;
+  width: 400px;
+  height: 120px;
+  padding: 20px !important;
+  background: linear-gradient(145deg, rgba(28, 23, 9, 0.9) 0%, rgba(14, 12, 5, 0.95) 100%) !important;
+  border: 1px solid rgba(212, 166, 0, 0.32) !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(212, 166, 0, 0.12) !important;
+  border-radius: 12px;
+  flex: 0 0 30%;
+
+  h1{
+    font-size: 50px;
+    font-weight: 600;
+    padding: 0;
+    color: #ffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+  h3{
+    color: #ffff;
+    font-weight: 600;
+    padding: 0;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
+  }
+}
+.createCampaign__metricsContent{
+  padding-left: 50px;
+  display: flex;
+  flex-direction: column;
+}
+/* =========================
+   GRID DOS CONTEUDOS
+========================= */
+.createCampaign__grid {
+    padding: 30px 0px 20px;
+    display: flex;
+    justify-content: space-between;
+    gap: 50px;
+}
+
+/* =========================
+ FORMULARIO DA CAMPANHA
+========================= */
+.createCampaign__calendar{
+    display: flex;
+}
+.createCampaign__schedule {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.grid_left, .grid_right{
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    height: 100%;
+}
+.grid_right{
+    width: 100%;
+}
+.createCampaign__scheduleTime {
+    display: flex;
+    justify-content: space-between;
+}
+.createCampaign__selectedClientsDropdown{
+    margin-top: 10px;
+}

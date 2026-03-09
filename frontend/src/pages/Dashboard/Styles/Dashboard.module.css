@@ -29,7 +29,6 @@
   border: 1px solid rgba(255, 215, 0, 0.35) !important; /* Borda amarela transparente */
   box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px !important; /* Sombra suave */
 
-  /* Título grande (valor numérico) */
   h1{
     font-size: 50px;
     font-weight: 600;
