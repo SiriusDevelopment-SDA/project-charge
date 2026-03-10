@@ -1,5 +1,5 @@
-import type { SetStateAction } from "react";
-import type { Invoice, InvoicesResponse } from "./invoiceApiTypes";
+
+import type { InvoicesResponse } from "./invoiceApiTypes";
 
 type company = {
     id: string;
@@ -41,13 +41,16 @@ export type Cliente = {
     total: number;
   }
   export interface IClientsContext {
-    clients: Cliente[] | [];
-    setQuery: React.Dispatch<SetStateAction<string>>
-    setPage: React.Dispatch<SetStateAction<number>>;
-    setLimit: React.Dispatch<SetStateAction<number>>;
-    setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
-    setGroupInvoices: React.Dispatch<SetStateAction<boolean>>;
-    fetchServices: (companyId?: string) => Promise<void>;
+    clients: Cliente[];
     services: Service[];
-    fetchInvoices: (client: Cliente[]) => void;
+  
+    setQuery: (value: string) => void;
+    setPage: (value: number) => void;
+    setLimit: (value: number) => void;
+    setOrder: (value: "DESC" | "ASC") => void;
+    setGroupInvoices: (value: boolean) => void;
+    setGroupServices: (value: boolean) => void;
+  
+    fetchInvoices: (clients: Cliente[]) => Promise<Cliente[]>;
+    fetchServices: (companyId?: string) => Promise<void>;
   }

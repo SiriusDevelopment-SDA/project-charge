@@ -1,3 +1,8 @@
+type OverdueInvoice = {
+  status?: string;
+  data_vencimento_fatura?: string;
+};
+
 export function calcularDiasVencidos(dataVencimento: string): number {
 
   const safeDate = String(dataVencimento)
@@ -25,7 +30,6 @@ export function calcularDiasVencidos(dataVencimento: string): number {
   vencimento.setHours(0, 0, 0, 0);
 
   const diff = hoje.getTime() - vencimento.getTime();
-
   const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
 
   return dias > 0 ? dias : 0;

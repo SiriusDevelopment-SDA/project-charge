@@ -7,47 +7,93 @@ import {
   Param,
   Body,
   Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
+import {
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { CampaignsService } from './campanhas.service';
-import { CreateCampaignDto } from './dto/create-campanhas.dto';
-import { UpdateCampaignDto } from './dto/update-campanhas.dto';
+import { CreateCampaignDto, UpdateCampaignDto } from './dto/create-campanhas.dto';
+import { CollectionsMetricsResponseDto, MarkCollectionResponseDto } from './dto/collections.dto';
 
+@ApiTags('Campaigns')
 @Controller('campaigns')
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 
-  @Post()
+  @Post('create')
+  @ApiOperation({ summary: 'Cria uma nova campanha' })
+  @ApiBody({ type: CreateCampaignDto })
   create(@Body() createDto: CreateCampaignDto) {
-    console.log('Received CreateCampaignDto:', createDto);
     return this.campaignsService.create(createDto);
   }
 
   @Get()
-  findAll(@Query('account') account?: string) {
-    if (account) {
-      return this.campaignsService.findByAccount(account);
-    }
-    return this.campaignsService.findAll();
+  @ApiOperation({ summary: 'Lista campanhas por account' })
+  @ApiQuery({ name: 'account', required: true, type: String })
+  findAll(@Query('account') account: string) {
+    return this.campaignsService.findByAccount(account);
+  }
+
+  @Get('metrics')
+  @ApiOperation({ summary: 'Retorna métricas de campanhas por account' })
+  @ApiQuery({ name: 'account', required: true, type: String })
+  getMetrics(@Query('account') account: string) {
+    return this.campaignsService.getMetricsByAccount(account);
+  }
+
+  @Get('collections/metrics')
+  @ApiOperation({ summary: 'Returns collections response metrics by account' })
+  @ApiQuery({ name: 'account', required: true, type: String })
+  getCollectionsMetrics(@Query('account') account: string): Promise<CollectionsMetricsResponseDto> {
+    return this.campaignsService.getCollectionsMetricsByAccount(account);
+  }
+
+  @Post('collections/responded')
+  @ApiOperation({ summary: 'Marks a customer as responded after collection dispatch' })
+  @ApiBody({ type: MarkCollectionResponseDto })
+  markCollectionsResponded(@Body() dto: MarkCollectionResponseDto) {
+    return this.campaignsService.markCustomerRespondedAfterCharge(
+      dto.account,
+      dto.number,
+      dto.respondedAt,
+    );
   }
 
   @Patch(':id/toggle-status')
-  toggleStatus(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Alterna status da campanha (ativa/inativa)' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  toggleStatus(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.campaignsService.toggleStatus(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDto: UpdateCampaignDto) {
+  @ApiOperation({ summary: 'Atualiza dados da campanha' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @ApiBody({ type: UpdateCampaignDto })
+  update(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() updateDto: UpdateCampaignDto,
+  ) {
     return this.campaignsService.update(id, updateDto);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Busca campanha por ID' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  findOne(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.campaignsService.findOne(id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Remove campanha por ID' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.campaignsService.remove(id);
   }
 }

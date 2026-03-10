@@ -14,6 +14,7 @@ import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity'
 import { Campaign } from '../campanhas/entities/campanhas.entity';
 import { Category } from '../category/entities/category.entity';
 import { Overdue } from '../invoices/entities/Overdue';
+import { Agent } from '../agents/entities/agent.entity';
 
 export default <TypeOrmModuleAsyncOptions>{
   inject: [ConfigService],
@@ -27,7 +28,7 @@ export default <TypeOrmModuleAsyncOptions>{
       username: configService.get('DB_USER_NAME'),
       password: configService.get('DB_PASSWORD'),
       database: configService.get('DB_DATABASE'),
-      entities: [Invoice, Client, Service, Company, Templates, RelatoryDispatchTemplate ,Campaign, Category, Overdue],
+      entities: [Invoice, Client, Service, Company, Templates, RelatoryDispatchTemplate ,Campaign, Category, Agent, Overdue],
       synchronize: true,
     };
   },

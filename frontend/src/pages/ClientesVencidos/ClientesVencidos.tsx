@@ -1,93 +1,58 @@
-// Função utilitária para formatar valor monetário
-function formatarValor(valor: string) {
-  valor = valor.replace(/\D/g, "");
-  if (!valor) return "";
-  valor = (parseInt(valor, 10) / 100).toFixed(2);
-  return "R$ " + valor.replace('.', ',').replace(/(\d)(?=(\d{3})+(,))/g, '$1.');
-}
 import { useEffect, useMemo, useState, type SetStateAction } from "react";
-import { toast } from "react-toastify";
 import { Funnel } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useLocation, useNavigate } from "react-router-dom";
 
-/* =========================
-   TIPOS E UTILITÁRIOS
-========================= */
-import type { Cliente } from "../../types";
-import { validarSelecaoCliente } from "../../utils/validation";
-import { maiorAtrasoCliente, calcularDividaCliente } from "../../utils/filtrosClientesVencidos";
-import type { Service } from "../../types/index"
-
-/* =========================
-   COMPONENTES
-========================= */
 import { ClientesCard } from "../../componente/ClientesCard/ClientesCard";
 import {
   BaseCard,
   Dropdown,
+  InputFields,
   Metricas,
+  MyButton,
   PageContainer,
   TitlePage,
-  InputFields,
-  MyButton,
 } from "../../componente/Index";
 import { Pagination } from "../../componente/global/Pagination/Pagination";
 import RangeSlider from "../../componente/Slider/RangeSlider";
+import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard";
 
-/* =========================
-   HOOKS/CONTEXT
-========================= */
-import { useClient, useTemplate, useCampaign } from "../../hooks";
+import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
+import { useFilterTemplates } from "../../hooks/components/useFilterTemplates.Controller";
 
+import { calcularDividaCliente, maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
+import { validarSelecaoCliente } from "../../utils/validation";
+import type { Cliente, Service, Template } from "../../types";
 
-/* =========================
-   STYLES
-========================= */
 import Style from "./Styles/ClientesVencidos.module.css";
-import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 
-/* =========================
-   CONSTANTES
-========================= */
-const ITEMS_PER_PAGE = 8;
+const MIN_INPUT_PLACEHOLDER = "R$ Valor minimo da divida";
 
 export function ClientesVencidos() {
-  // State para o campo de WhatsApp
-  const [whatsappValue, setWhatsappValue] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  /* =========================
-     ESTADOS
-  ========================= */
   const [varOpen, setVarOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<"clientes" | null>(null);
   const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
-  // se o usuário usar o dropdown para buscar clientes, armazenamos aqui
   const [overrideClientes, setOverrideClientes] = useState<Cliente[]>([]);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
-  // template modal
   const [openTemplateModal, setOpenTemplateModal] = useState(false);
-  // campanha modal
-  //const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
   const [openConfirmTemplateModal, setOpenConfirmTemplateModal] = useState(false);
+  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
 
-  const [templateSelecionado, setTemplateSelecionado] = useState<any | null>(null);
-  const [modalPage, setModalPage] = useState(1);
+  const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
   const [diasRegua, setDiasRegua] = useState(0);
   const [valorMinimoDivida, setValorMinimaDivivda] = useState("");
 
-  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
+  const [selectedPlans, setSelectedPlans] = useState<
+    { id: string; name: string; id_servico?: string }[]
+  >([]);
 
-  const navigate = useNavigate();
-
-  const [selectedPlans, setSelectedPlans] = useState<{ id: string; name: string; id_servico?: string }[]>([]);
-
-  /* =========================
-     CONTEXTOS
-  ========================= */
   const {
     selectedClientes,
     setSelectedClientes,
@@ -96,16 +61,82 @@ export function ClientesVencidos() {
     modoPage,
   } = useDispatchTemplate();
 
-  const { setSelectedClientes: setCampaignSelectedClientes } = useCampaign();
+  const { paginatedTemplates, setModalPage, totalModalPages, itemsPerPage, modalPage } =
+    useFilterTemplates();
 
-  const { clients, services, setGroupInvoices } = useClient();
+  const { clients, services = [], setGroupInvoices, setQuery } = useClient();
   const { page, setPage, templates } = useTemplate();
+
+  useEffect(() => {
+    setGroupInvoices(true);
+  }, [setGroupInvoices]);
+
+  const valorMinimoNumero = useMemo(() => {
+    if (!valorMinimoDivida) return 0;
+    const normalized = valorMinimoDivida.replace(",", ".");
+    const numero = Number(normalized);
+    return Number.isFinite(numero) ? numero : 0;
+  }, [valorMinimoDivida]);
+
+  const clientesFiltrados = useMemo(() => {
+    let filtered = clients.filter((client) => {
+      if (!client.invoices || client.invoices.list.length === 0) return false;
+
+      const atraso = maiorAtrasoCliente(client.invoices.list);
+      if (atraso <= 0) return false;
+
+      if (diasRegua > 0 && atraso < diasRegua) return false;
+
+      if (valorMinimoNumero > 0) {
+        const divida = calcularDividaCliente(client.invoices.list);
+        if (Math.round(divida * 100) < Math.round(valorMinimoNumero * 100)) return false;
+      }
+
+      return true;
+    });
+
+    if (selectedPlans.length > 0) {
+      filtered = filtered.filter(
+        (client) =>
+          client.services &&
+          client.services.some((service) => selectedPlans.some((plan) => plan.id === service.id))
+      );
+    }
+
+    return filtered;
+  }, [clients, diasRegua, selectedPlans, valorMinimoNumero]);
+
+  const filtrosAtivos = diasRegua > 0 || valorMinimoNumero > 0 || selectedPlans.length > 0;
+
+  const availableClientes =
+    overrideClientes.length > 0 ? overrideClientes : filtrosAtivos ? clientesFiltrados : [];
+
+  useEffect(() => {
+    if (!filtrosAtivos) {
+      setSelectedClientes([]);
+      setClientesMarcados([]);
+      setOverrideClientes([]);
+    }
+
+    if (filtrosAtivos && overrideClientes.length) {
+      setOverrideClientes([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diasRegua, valorMinimoNumero, selectedPlans]);
+
+  useEffect(() => {
+    if (selectedClientes.length === 0) return;
+    const atualizados = selectedClientes.map((selectedClient) => {
+      const clientAtualizado = clients.find((c) => c.id === selectedClient.id);
+      return clientAtualizado || selectedClient;
+    });
+    setSelectedClientes(atualizados);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
 
   function toggleCliente(cliente: Cliente) {
     setClientesMarcados((prev) =>
-      prev.includes(cliente.id)
-        ? prev.filter((id) => id !== cliente.id)
-        : [...prev, cliente.id]
+      prev.includes(cliente.id) ? prev.filter((id) => id !== cliente.id) : [...prev, cliente.id]
     );
 
     setSelectedClientes((prev) =>
@@ -130,141 +161,14 @@ export function ClientesVencidos() {
     setOpenProsseguirModal(true);
   }
 
-  const valorMinimoNumero = useMemo(() => {
-
-    if (!valorMinimoDivida) return 0;
-
-    const normalized = valorMinimoDivida.replace(',', '.');
-
-    const n = Number(normalized);
-
-    console.log("INPUT:", valorMinimoDivida);
-    console.log("NORMALIZED:", normalized);
-    console.log("NUMERO FINAL:", n);
-
-    return Number.isFinite(n) ? n : 0;
-
-  }, [valorMinimoDivida]);
-
-  const clientesFiltrados = useMemo(() => {
-
-    console.log("VALOR MINIMO NO FILTRO:", valorMinimoNumero);
-
-    let filtered = clients.filter((client) => {
-
-      if (!client.invoices || client.invoices.list.length === 0)
-        return false;
-
-      const maiorAtraso = maiorAtrasoCliente(client.invoices.list);
-
-      if (maiorAtraso <= 0)
-        return false;
-
-      /* ✅ RÉGUA DE COBRANÇA (CORRETA) */
-      if (diasRegua > 0 && maiorAtraso < diasRegua)
-        return false;
-
-      /* ✅ VALOR MÍNIMO DA DÍVIDA */
-      if (valorMinimoNumero > 0) {
-
-        const divida = calcularDividaCliente(client.invoices.list);
-
-        console.log("DIVIDA CLIENTE:", client.name, divida);
-
-        if (Math.round(divida * 100) < Math.round(valorMinimoNumero * 100))
-          return false;
-      }
-
-      return true;
-    });
-
-    /* ✅ FILTRO DE PLANOS (INALTERADO) */
-    if (selectedPlans.length > 0) {
-
-      filtered = filtered.filter(client =>
-        client.services &&
-        client.services.some(service =>
-          selectedPlans.some(plan => plan.id === service.id)
-        )
-      );
-    }
-
-    return filtered;
-
-  }, [clients, diasRegua, selectedPlans, valorMinimoNumero]);
-
-  // lista efetivamente exibida no painel: primeiro vem override (busca manual), caso contrário os resultados do filtro
-  // se houver override manual, usamos ele; senão, mostramos os filtrados
-  // porém, quando nenhum filtro está ativo queremos lista vazia para evitar
-  // preencher automaticamente ao carregar a página ou limpar os filtros.
-  const filtrosAtivos =
-    diasRegua > 0 ||
-    valorMinimoNumero > 0 ||
-    selectedPlans.length > 0;
-
-  const availableClientes = overrideClientes.length > 0
-    ? overrideClientes
-    : filtrosAtivos
-    ? clientesFiltrados
-    : [];
-
-
-  // limpa seleção de clientes quando todos os filtros forem removidos
-  useEffect(() => {
-    const filtrosAtivos =
-      diasRegua > 0 ||
-      valorMinimoNumero > 0 ||
-      selectedPlans.length > 0;
-
-    if (!filtrosAtivos) {
-      setSelectedClientes([]);
-      setClientesMarcados([]);
-      setOverrideClientes([]);
-    }
-    // quando qualquer filtro ativo muda, abandonamos resultados do dropdown manual
-    if (filtrosAtivos && overrideClientes.length) {
-      setOverrideClientes([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diasRegua, valorMinimoNumero, selectedPlans]);
-
-  useEffect(() => {
-    // Atualiza selectedClientes quando clients recebe as invoices
-    if (selectedClientes.length > 0) {
-      const clientesAtualizados = selectedClientes.map(selectedClient => {
-        const clientAtualizado = clients.find(c => c.id === selectedClient.id);
-        return clientAtualizado || selectedClient;
-      });
-      setSelectedClientes(clientesAtualizados);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clients]);
-
-  useEffect(() => {
-    setGroupInvoices(true);
-  }, []);
-
-  /* =========================
-     PAGINAÇÃO MODAL
-  ========================= */
-  const totalModalPages = Math.max(
-    1,
-    Math.ceil(templates.length / ITEMS_PER_PAGE)
-  );
-
-  const paginatedTemplates = useMemo(() => {
-    return templates.slice(
-      (modalPage - 1) * ITEMS_PER_PAGE,
-      modalPage * ITEMS_PER_PAGE
-    );
-  }, [templates, modalPage]);
-
   return (
     <PageContainer className={Style.VencidosContainer}>
-      <TitlePage title="Clientes Vencidos" />
+      <TitlePage
+        title="Clientes Vencidos"
+        subtitle="Filtre inadimplencia e avance para disparos ou campanhas"
+      />
 
       <div className={Style.contentPanel}>
-        {/* ================= FILTROS ================= */}
         <div className={Style.filterPanel}>
           <div className={Style.filterLeft}>
             <div className={Style.ContainerForm}>
@@ -283,17 +187,18 @@ export function ClientesVencidos() {
                 <InputFields
                   className={Style.InputDividas}
                   type="text"
-                  placeholder="R$ Valor mínimo da Dívida"
+                  placeholder={MIN_INPUT_PLACEHOLDER}
                   value={valorMinimoDivida}
-                  onChange={(e) => {
-                    setValorMinimaDivivda(e.target.value);
-                  }}
+                  onChange={(event) => setValorMinimaDivivda(event.target.value)}
                 />
 
                 <Dropdown
                   className={Style.DropdownPlanos}
                   label="Planos por Clientes"
-                  options={services.map((service: Service) => ({ id: service.id, name: service.name }))}
+                  options={services.map((service: Service) => ({
+                    id: service.id,
+                    name: service.name,
+                  }))}
                   multiple
                   selected={selectedPlans}
                   open={varOpen}
@@ -301,45 +206,38 @@ export function ClientesVencidos() {
                   onClose={() => setVarOpen(false)}
                   onChange={(selected) => {
                     setSelectedPlans(selected as { id: string; name: string }[]);
-                    console.log('Selected plans:', selected);
                   }}
                 />
 
-                
-                  <Dropdown<Cliente>
-                    className={Style.FiltroClientes}
-                    label="Buscar clientes no ERP"
-                    options={clients}
-                    multiple
-                    selected={selectedClientes}
-                    summaryOnMultiple
-                    onChange={(v) => {
-                      const clientesValidos = (v as Cliente[]).filter(
-                        (cliente) =>
-                          validarSelecaoCliente(cliente, selectedTemplate!)
-                      );
-                      // dropdown manual substitui os resultados do filtro
-                      setOverrideClientes(clientesValidos);
-                      setSelectedClientes(clientesValidos);
-                      setClientesMarcados(clientesValidos.map((c) => c.id));
-                    }}
-                    open={openDropdown === "clientes"}
-                    onOpen={() => setOpenDropdown("clientes")}
-                    onClose={() => setOpenDropdown(null)}
-                  />
+                <Dropdown<Cliente>
+                  className={Style.FiltroClientes}
+                  label="Buscar clientes no ERP"
+                  options={clients}
+                  multiple
+                  selected={selectedClientes}
+                  summaryOnMultiple
+                  onChange={(value) => {
+                    const clientesValidos = (value as Cliente[]).filter((cliente) =>
+                      validarSelecaoCliente(cliente, selectedTemplate ?? undefined)
+                    );
+                    setOverrideClientes(clientesValidos);
+                    setSelectedClientes(clientesValidos);
+                    setClientesMarcados(clientesValidos.map((c) => c.id));
+                  }}
+                  open={openDropdown === "clientes"}
+                  onOpen={() => setOpenDropdown("clientes")}
+                  onClose={() => setOpenDropdown(null)}
+                  searchable
+                  onSearchTermChange={(term) => setQuery(term)}
+                />
               </div>
             </div>
           </div>
 
-          {/* ================= MÉTRICAS ================= */}
           <div className={Style.filterRight}>
             <BaseCard className={Style.cardMetricas}>
               <Metricas
-                chave={
-                  modoPage === "clientes"
-                    ? "Clientes Vencidos"
-                    : "Leads selecionados"
-                }
+                chave={modoPage === "clientes" ? "Clientes Vencidos" : "Leads selecionados"}
                 valor={String(availableClientes.length)}
                 className={Style.contentMetricas}
               />
@@ -347,24 +245,12 @@ export function ClientesVencidos() {
           </div>
         </div>
 
-        {/* ================= AÇÕES ================= */}
         <div className={Style.submenuActions}>
-          <MyButton
-            type="button"
-            variant="btn-norm"
-            text="Selecionar todos"
-            onClick={marcarTodos}
-          />
+          <MyButton type="button" variant="btn-norm" text="Selecionar todos" onClick={marcarTodos} />
 
-          <MyButton
-            type="button"
-            variant="btn-norm"
-            text="Prosseguir"
-            onClick={handleProsseguir}
-          />
+          <MyButton type="button" variant="btn-norm" text="Prosseguir" onClick={handleProsseguir} />
         </div>
 
-        {/* ================= CARDS ================= */}
         <div className={Style.Cards}>
           {!availableClientes.length ? (
             <span className={Style.empty}>Nenhum cliente selecionado</span>
@@ -380,15 +266,14 @@ export function ClientesVencidos() {
           )}
         </div>
 
-        {/* ================= MODAL OPÇÕES ================= */}
         {openProsseguirModal && (
           <DynamicModal
             open
             type="modaltemplates"
-            title="Escolha uma opção:"
+            title="Escolha uma opcao:"
             description={
               <>
-                Você selecionou <b>{clientesMarcados.length}</b> clientes.
+                Voce selecionou <b>{clientesMarcados.length}</b> clientes.
               </>
             }
             onClose={() => setOpenProsseguirModal(false)}
@@ -406,26 +291,15 @@ export function ClientesVencidos() {
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  setOpenCampanhaModal(true); 
-                }
+                  setOpenCampanhaModal(true);
+                },
               },
               {
                 label: "Criar campanha",
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);
-                  const clientesParaCampanha = clients.filter((c) =>
-                    clientesMarcados.includes(c.id)
-                  );
-                  if (clientesParaCampanha.length === 0) {
-                    setSelectedClientes(selectedClientes);
-                    setCampaignSelectedClientes(selectedClientes);
-                  } else {
-                    setSelectedClientes(clientesParaCampanha);
-                    setCampaignSelectedClientes(clientesParaCampanha);
-                  }
-
-                  navigate("/CreateCampanha");
+                  navigate(`/createCampanha${location.search}`);
                 },
               },
             ]}
@@ -435,10 +309,9 @@ export function ClientesVencidos() {
         <ModalCardCampanhas
           open={openCampanhaModal}
           onClose={() => setOpenCampanhaModal(false)}
+          onConfirmCampaign={() => toast.success("Campanha disparada com sucesso (Implementar)!")}
         />
 
-
-        {/* ================= MODAL TEMPLATES ================= */}
         {openTemplateModal && (
           <DynamicModal
             open
@@ -465,14 +338,12 @@ export function ClientesVencidos() {
                   ))}
                 </div>
 
-                {templates.length > ITEMS_PER_PAGE && (
+                {templates.length > itemsPerPage && (
                   <Pagination
                     className={Style.Pagination}
                     page={modalPage}
                     onPrev={() => setModalPage((p) => Math.max(p - 1, 1))}
-                    onNext={() =>
-                      setModalPage((p) => Math.min(p + 1, totalModalPages))
-                    }
+                    onNext={() => setModalPage((p) => Math.min(p + 1, totalModalPages))}
                     disablePrev={modalPage === 1}
                     disableNext={modalPage === totalModalPages}
                   />
@@ -484,8 +355,6 @@ export function ClientesVencidos() {
           />
         )}
 
-
-        {/* MODAL DE CONFIRMAÇÃO */}
         {openConfirmTemplateModal && (
           <DynamicModal
             open
@@ -510,14 +379,14 @@ export function ClientesVencidos() {
                 },
               },
               {
-                label: "Não",
+                label: "Nao",
                 variant: "danger",
                 onClick: () => setOpenConfirmTemplateModal(false),
               },
             ]}
           />
         )}
-        {/* ================= PAGINAÇÃO PRINCIPAL ================= */}
+
         <Pagination
           className={Style.Pagination}
           page={page}

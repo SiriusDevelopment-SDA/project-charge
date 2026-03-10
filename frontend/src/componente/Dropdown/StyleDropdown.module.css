@@ -173,7 +173,13 @@
   outline: none;
   transition: border-color 0.2s ease;
 }
-
+.search{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
 .searchInput:focus {
   border-color: #f1c40f;
 }
@@ -187,4 +193,69 @@
   text-align: center;
   color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+}
+.menuUp {
+  bottom: calc(100% + 4px);
+  top: auto;
+}
+
+.virtualContainer {
+  position: relative;
+  width: 100%;
+}
+
+.virtualInner {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.optionSelected {
+  background: rgba(0,0,0,0.05);
+}
+.categoryMenu{
+  position: absolute;
+  top: -3px;
+  right: -40px;
+  background: #333;
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  border-radius: 5px;
+  padding: 10px;
+  box-shadow:
+    0 6px 10px rgba(255, 215, 0, 0.35),
+    0 12px 20px rgba(255, 215, 0, 0.2);
+  z-index: 9999999;
+  text-align: center;
+  max-height: 200px;
+  width: 150px;
+}
+.categoryItem{
+  padding: 5px;
+  margin: 5px 0;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.categoryItem:hover{
+  background: rgba(255, 215, 0, 0.1);
+}
+.iconFilterDropdownTemplate{
+  font-size: 25px;
+  padding: 3px;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+}
+.activeFilter{
+  background: rgba(255, 215, 0, 0.1);
+  padding: 3px;
+  border-radius: 3px;
+}
+.categoryItemActive{
+  background: rgba(255, 215, 0, 0.2);
 }

@@ -25,31 +25,99 @@ export class IXCInvoicesService {
   ) { }
 
   async getInvoices(cliente: Client): Promise<InvoicesResponseDto> {
-    const fim = new Date()
-    fim.setDate(fim.getDate() + 33)
+        const fim = new Date()
+        fim.setDate(fim.getDate() + 33)
+      
+        const content = {
+          qtype: 'fn_areceber.id_cliente',
+          query: cliente.clientId.toString(),
+          oper: '=',
+          page: '1',
+          rp: '700',
+          sortname: 'fn_areceber.data_vencimento',
+          sortorder: 'asc',
+          grid_param: JSON.stringify([
+            { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
+            { TB: 'fn_areceber.status', OP: 'L', P: 'A' },
+            {
+              TB: 'fn_areceber.data_vencimento',
+              OP: '<=',
+              P: formatDateLocal2(fim),
+            },
+          ]),
+        }
+      
+        const empresa = cliente.company;
+        const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
+        const url = `https://${empresa.url}/webservice/v1/fn_areceber`;
+      
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: authorizationHeader,
+            'Content-Type': 'application/json',
+            'ixcsoft': 'listar'
+          },
+          body: JSON.stringify(content),
+        });
+      
+        if (!response.ok) {
+          const err = await response.text();
+          throw new BadRequestException(
+            `Erro no ERP (IXC): ${response.status} -> ${err}`,
+          );
+        }
+      
+        const data = await response.json()
+        let map: InvoiceMapResultDto[] = []
+        
+        if (data.registros) {
+          map = await Promise.all(
+            data.registros.map(async (t: ResponseFnAReceber): Promise<InvoiceMapResultDto> => {
 
-    const content = {
-      qtype: 'fn_areceber.id_cliente',
-      query: cliente.clientId.toString(),
-      oper: '=',
-      page: '1',
-      rp: '700',
-      sortname: 'fn_areceber.data_vencimento',
-      sortorder: 'asc',
-      grid_param: JSON.stringify([
-        { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
-        { TB: 'fn_areceber.status', OP: 'L', P: 'A' },
-        {
-          TB: 'fn_areceber.data_vencimento',
-          OP: '<=',
-          P: formatDateLocal2(fim),
-        },
-      ]),
-    }
-
-    const empresa = cliente.company;
-    const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
-    const url = `https://${empresa.url}/webservice/v1/fn_areceber`;
+              const contractId =
+                t.id_contrato && t.id_contrato !== "" && t.id_contrato !== "0"
+                  ? t.id_contrato
+                  : t.id_contrato_principal && t.id_contrato_principal !== "" && t.id_contrato_principal !== "0"
+                  ? t.id_contrato_principal
+                  : t.id_contrato_avulso && t.id_contrato_avulso !== "" && t.id_contrato_avulso !== "0"
+                  ? t.id_contrato_avulso
+                  : null;
+      
+              const pix = await this.getPixByInvoice({
+                companyId: empresa.id,
+                invoiceId: String(t.id),
+              })
+              return {
+                invoice_id: String(t.id) ?? null,
+                contract_id: String(contractId),
+                invoice_due_date: formatarDataBR(t.data_vencimento) ?? null,
+                invoice_amount: String(t.valor_aberto),
+                invoice_status: 'A Receber',
+                ticket_digitable_line: null,
+                ticket_pdf_link: null,
+                code_pix: pix,
+              };
+            })
+          );
+      
+          map.sort((a, b) => {
+            const parseDate = (str?: string) => {
+              if (!str) return 0;
+              const [day, month, year] = str.split('/');
+              const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
+              return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
+            };
+            return parseDate(b.invoice_due_date) - parseDate(a.invoice_due_date);
+          });
+        }
+      
+        return Object.assign(new InvoicesResponseDto(), {
+          status: data?.type ?? "success",
+          message: data?.message ?? (data.page ? "Dados consultados com sucesso" : "Falha ao consultar dados!"),
+          list: map,
+        });
+  }
 
     const response = await fetch(url, {
       method: 'POST',

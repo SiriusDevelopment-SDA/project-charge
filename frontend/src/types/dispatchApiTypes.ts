@@ -13,7 +13,8 @@ export interface IDispatchTemplateContext {
     templateMapVars: mappedVars[] | null;
     setModoPage: React.Dispatch<SetStateAction<"clientes" | "leads">>;
     modoPage: "clientes" | "leads";
-    sendTemplate: () => void
+    sendTemplate: (extraLeads?: Lead[]) => Promise<void>;
+    isSending: boolean;
 }
 export type mappedVars = {
     nome_cliente?: string;
@@ -25,6 +26,10 @@ export type mappedVars = {
     valor_fatura?: string;
     linha_digitavel_boleto?: string;
     link_boleto_pdf?: string;
+    code_pix?: string;
+    codigo_qr?: string;
+    codigo_qr_code?: string;
+    codigo_pix?: string;
     mensagem?: string;
     cnpj_cpf?: string;
   };

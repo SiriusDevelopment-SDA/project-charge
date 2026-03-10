@@ -14,6 +14,7 @@ import { Service } from '../../services/entities/services';
 import { Templates } from '../../templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from '../../templates/entities/relatory.entity';
 import { Campaign } from '../../campanhas/entities/campanhas.entity';
+import { Agent } from '../../agents/entities/agent.entity';
   
   @Entity()
   export class Company {
@@ -88,6 +89,9 @@ import { Campaign } from '../../campanhas/entities/campanhas.entity';
     
     @UpdateDateColumn()
     updatedAt!: Date;
+
+    @Column({ default: true })
+    active!: boolean;
     
     @OneToMany(() => Service, (service) => service.company, { nullable: false })
     services!: Service[];
@@ -106,4 +110,7 @@ import { Campaign } from '../../campanhas/entities/campanhas.entity';
 
     @OneToMany(() => Campaign, (campaign) => campaign.company, { nullable: true })
     campaigns!: Campaign[] | null;
+
+    @OneToMany(() => Agent, (agent) => agent.company, { nullable: true })
+    agents!: Agent[] | null;
   }

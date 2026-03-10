@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
+import { IsArray, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 
@@ -10,16 +10,17 @@ class ComponentExampleDto {
 class CreateComponentDto {
   @ApiProperty({ example: 'BODY', required: true })
   @IsString()
-  type!: 'BODY' | 'HEADER' | 'FOOTER';
+  type!: 'BODY' | 'HEADER' | 'FOOTER' | 'BUTTON' | 'BUTTONS';
 
   @ApiProperty({ example: 'TEXT', required: false, default: 'TEXT' })
   @IsString()
   @IsOptional()
   format?: string;
 
-  @ApiProperty({ example: 'Bem vindo, {{1}}!', required: true })
+  @ApiProperty({ example: 'Bem vindo, {{1}}!', required: false })
+  @IsOptional()
   @IsString()
-  text!: string;
+  text?: string;
 
   @ApiProperty({
     example: {
@@ -31,6 +32,31 @@ class CreateComponentDto {
   @ValidateNested()
   @Type(() => ComponentExampleDto)
   example?: ComponentExampleDto;
+
+  @ApiProperty({ example: "URL", required: false })
+  @IsOptional()
+  @IsString()
+  sub_type?: string;
+
+  @ApiProperty({ example: "0", required: false })
+  @IsOptional()
+  @IsString()
+  index?: string;
+
+  @ApiProperty({
+    example: [{ type: "URL", text: "Pagar agora" }, { type: "COPY_CODE", text: "Copiar codigo" }],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  buttons?: Record<string, any>[];
+
+  @ApiProperty({ required: false, example: { link: "https://example.com/fatura.pdf" } })
+  @IsOptional()
+  @IsObject()
+  document?: Record<string, any>;
+
+  [key: string]: any;
 }
 
 class Variables {

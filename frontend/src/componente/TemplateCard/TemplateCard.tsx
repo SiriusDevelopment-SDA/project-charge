@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { Play, Trash2 } from "lucide-react";
 import type { TemplateBalloonCardProps } from "../../types";
 import { BaseCard } from "../Index";
 import styles from "./TemplateCard.module.css";
+import { useTemplateBalloonCardController } from "../../hooks/components/useTemplateBalloonCardController";
 
 export function TemplateBalloonCard({
   title,
@@ -11,13 +11,13 @@ export function TemplateBalloonCard({
   onUse,
   onDelete,
   showExpand = true,
-  children,   
+  children,
 }: TemplateBalloonCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const { isOpen, toggle } = useTemplateBalloonCardController();
+
   return (
     <div className={styles.CardWrap}>
       <BaseCard classname={styles.TemplateCard}>
-        {/* BALÃO */}
         {isOpen && (
           <div className={styles.Balloon}>
             <span className={styles.BalloonTitle}>{title}</span>
@@ -41,10 +41,7 @@ export function TemplateBalloonCard({
                   )}
 
                   {onDelete && (
-                    <button
-                      className={styles.BtnDelete}
-                      onClick={onDelete}
-                    >
+                    <button className={styles.BtnDelete} onClick={onDelete}>
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -57,19 +54,17 @@ export function TemplateBalloonCard({
 
           {children}
 
-         {/* 🔥 CONTROLE AQUI */}
           {showExpand && (
             <span
               className={styles.VerMais}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOpen((prev) => !prev);
+              onClick={(event) => {
+                event.stopPropagation();
+                toggle();
               }}
             >
               {isOpen ? "Fechar" : "Ver mais"}
             </span>
           )}
-
         </div>
       </BaseCard>
     </div>
