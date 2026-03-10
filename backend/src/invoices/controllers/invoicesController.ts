@@ -1,11 +1,20 @@
-import { Controller, Post, Body, NotFoundException, BadRequestException, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, NotFoundException, BadRequestException, HttpCode, Param } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Client } from '../../clients/entities.ts/clients';
 import { IXCInvoicesService } from '../services/ixcInvoicesService';
 import { HubsoftInvoicesService } from '../services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../services/sgpInvoicesService';
 import { Raw, Repository } from 'typeorm';
-import {  InvoiceBatchPartialDto, InvoiceBatchResponseDto, InvoicesResponseDto, ResultInvoicesDto, SearchRequestInvoicesDto } from '../dto/search.request.dto.invoices';
+import {
+  InvoiceBatchPartialDto,
+  InvoiceBatchResponseDto,
+  InvoiceOverdueDto,
+  InvoicesOverdueResponseDto,
+  InvoicesResponseDto,
+  ResultInvoicesDto,
+  ResultInvoicesOverdueDto,
+  SearchRequestInvoicesDto
+} from '../dto/search.request.dto.invoices';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Faturas')
@@ -18,7 +27,7 @@ export class InvoicesController {
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
   ) { }
- 
+
   @Post('search')
   @HttpCode(200)
   @ApiOkResponse({ type: InvoiceBatchPartialDto })
@@ -32,60 +41,60 @@ export class InvoicesController {
       try {
         const normalizedQuery = doc.replace(/\D/g, '');
 
-      const cliente = await this.clientRepo.findOne({
-        where: {
-          cnpj_cpf: Raw(
-            alias =>
-              `regexp_replace(${alias}, '\\D', '', 'g') ILIKE :doc`,
-            { doc: `%${normalizedQuery}%` }
-          ),
-        },
-        relations: ['company'],
-      });
-      if (!cliente) {
+        const cliente = await this.clientRepo.findOne({
+          where: {
+            cnpj_cpf: Raw(
+              alias =>
+                `regexp_replace(${alias}, '\\D', '', 'g') ILIKE :doc`,
+              { doc: `%${normalizedQuery}%` }
+            ),
+          },
+          relations: ['company'],
+        });
+        if (!cliente) {
+          errors.push({
+            document: doc,
+            reason: 'Cliente não encontrado',
+          });
+          continue;
+        }
+
+        let invoices: InvoicesResponseDto;
+
+        switch (cliente.company.erp) {
+          case 'IXC':
+            invoices = await this.ixcService.getInvoices(cliente);
+            break;
+
+          case 'HUBSOFT':
+
+            invoices = await this.hubsoftService.getInvoices(cliente);
+            break;
+
+          case 'SGP':
+            invoices = await this.sgpService.getInvoices(cliente);
+            break;
+
+          default:
+            errors.push({
+              document: doc,
+              reason: `ERP não suportado: ${cliente.company.erp}`,
+            });
+            continue;
+        }
+
+        resultados.push({
+          client: cliente.name,
+          document: normalizedQuery,
+          erp: cliente.company.erp,
+          invoices,
+        });
+      } catch {
         errors.push({
           document: doc,
-          reason: 'Cliente não encontrado',
+          reason: 'Erro inesperado ao processar o cliente',
         });
-        continue;
       }
-
-      let invoices: InvoicesResponseDto;
-
-      switch (cliente.company.erp) {
-        case 'IXC':
-          invoices = await this.ixcService.getInvoices(cliente);
-          break;
-
-        case 'HUBSOFT':
-          
-          invoices = await this.hubsoftService.getInvoices(cliente);
-          break;
-
-        case 'SGP':
-          invoices = await this.sgpService.getInvoices(cliente);
-          break;
-
-        default:
-        errors.push({
-          document: doc,
-           reason: `ERP não suportado: ${cliente.company.erp}`,
-        });
-        continue;
-      }
-
-      resultados.push({
-        client: cliente.name,
-        document: normalizedQuery,
-        erp: cliente.company.erp,
-        invoices,
-      });
-     }catch{
-      errors.push({
-        document: doc,
-        reason: 'Erro inesperado ao processar o cliente',
-      });
-     }
     }
     let status: InvoiceBatchResponseDto['status'];
     let message: string;
@@ -110,6 +119,22 @@ export class InvoicesController {
       data: resultados,
       errors: errors.length ? errors : undefined,
     };
-    
+  }
+
+  @Post('overdue/:companyId')
+  @HttpCode(200)
+  async getInvoicesOverdue(
+    @Param('companyId') companyId: string
+  ) {
+
+    const data = await this.hubsoftService.getInvoicesOverdue(companyId);
+
+    return {
+      status: data.length ? 'success' : 'error',
+      message: data.length
+        ? 'Clientes inadimplentes encontrados com sucesso.'
+        : 'Nenhum cliente inadimplente encontrado.',
+      data
+    };
   }
 }
