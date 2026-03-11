@@ -79,7 +79,7 @@ import { RedisController } from './redis/redis.controller';
     HubsoftInvoicesService,
     SGPInvoicesService,
     AppServiceServices,
-    AppServiceGraphics
+    AppServiceGraphics,
     TemplateVarsValidator,
     CampaignMetricsGateway,
     AuthService,
