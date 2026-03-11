@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useContext, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -11,41 +11,24 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import styles from "./GraficoCobranca.module.css";
-import { usePollingChartData } from "../../hooks/components/usePollingChartData";
-
-interface DataPoint {
-  month: string;
-  inadimplencia: number;
-  pagamentos: number;
-}
-
-const initialData: DataPoint[] = [
-  { month: "Jan", inadimplencia: 60000, pagamentos: 32000 },
-  { month: "Fev", inadimplencia: 42000, pagamentos: 12000 },
-  { month: "Mar", inadimplencia: 52000, pagamentos: 28000 },
-  { month: "Abr", inadimplencia: 76000, pagamentos: 50000 },
-  { month: "Mai", inadimplencia: 60000, pagamentos: 35000 },
-  { month: "Jun", inadimplencia: 68000, pagamentos: 42000 },
-  { month: "Jul", inadimplencia: 50000, pagamentos: 32000 },
-  { month: "Ago", inadimplencia: 88000, pagamentos: 62000 },
-  { month: "Set", inadimplencia: 68000, pagamentos: 40000 },
-  { month: "Out", inadimplencia: 60000, pagamentos: 50000 },
-  { month: "Nov", inadimplencia: 92000, pagamentos: 45000 },
-  { month: "Dez", inadimplencia: 98000, pagamentos: 75000 },
-];
+import { DashboardContext } from "../../context/contextDashboard";
 
 const GraficoCobranca: React.FC = () => {
-  const generateData = useCallback(
-    (base: DataPoint[]) =>
-      base.map((item) => ({
-        ...item,
-        inadimplencia: Math.floor(Math.random() * 100000),
-        pagamentos: Math.floor(Math.random() * 80000),
-      })),
-    []
-  );
+  
+  const { charges,  loading } = useContext(DashboardContext)!
 
-  const { data } = usePollingChartData(initialData, generateData, 15000);
+  const ALL_MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  const data = useMemo(() => {
+    const map = new Map(charges.map(c => [c.month, c]));
+    return ALL_MONTHS.map(month => ({
+      month,
+      inadimplencia: map.get(month)?.default ?? 0,
+      pagamentos: map.get(month)?.payments ?? 0,
+    }));
+  }, [charges])
+
+  if(loading) if(loading) return <div className={styles.container}>Carregando...</div>
 
   return (
     <div className={styles.container}>
@@ -102,9 +85,9 @@ const GraficoCobranca: React.FC = () => {
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#888", fontSize: 12 }}
-              ticks={[25000, 50000, 75000, 100000, 125000, 150000]}
-              tickFormatter={(value) => `${value / 1000}K`}
+              allowDecimals={false}
               dx={-10}
+              domain={[0, (dataMax: number) => dataMax + 1]}
             />
 
             <Tooltip

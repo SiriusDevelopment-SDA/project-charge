@@ -41,16 +41,16 @@ export class AppServiceGraphics {
     let paymentsCount = 0;
 
     // Mapa de meses
-    const monthsMap: Record<string, { default: number }> = {};
+    const monthsMap: Record<string, { default: number; payments: number }> = {};
 
     overdueList.forEach(item => {
 
       const date = new Date(item.dueDate);
 
-      const month = this.getMonthName(date.getMonth() + 1);
+      const month = this.getMonthName(date.getUTCMonth() + 1);
 
       if (!monthsMap[month]) {
-        monthsMap[month] = { default: 0 };
+        monthsMap[month] = { default: 0, payments: 0 };
       }
 
       monthsMap[month].default++;
@@ -76,7 +76,8 @@ export class AppServiceGraphics {
     const months = Object.entries(monthsMap).map(
       ([month, values]) => ({
         month,
-        default: values.default
+        default: values.default,
+        payments: paymentsCount
       })
     );
 

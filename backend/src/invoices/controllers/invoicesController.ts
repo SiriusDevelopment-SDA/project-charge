@@ -8,14 +8,11 @@ import { Raw, Repository } from 'typeorm';
 import {
   InvoiceBatchPartialDto,
   InvoiceBatchResponseDto,
-  InvoiceOverdueDto,
-  InvoicesOverdueResponseDto,
   InvoicesResponseDto,
   ResultInvoicesDto,
-  ResultInvoicesOverdueDto,
   SearchRequestInvoicesDto
 } from '../dto/search.request.dto.invoices';
-import { ApiBody, ApiOkResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Invoices')
 @Controller('invoices')
