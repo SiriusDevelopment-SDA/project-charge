@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Templates } from './templatesMeta';
 import { Company } from '../../companies/entities/companies';
-import { Campaign } from '../../campanhas/entities/campanhas.entity';
+import { Campaign } from '../../campaigns/entities/campanhas.entity';
 
 
 @Entity()
@@ -29,11 +29,11 @@ export class RelatoryDispatchTemplate {
   @Column()
   date_dispatch!: Date;
 
-  @Column()
-  status_sent!: string;
+  @Column({ type: 'varchar', default: 'queued' })
+  status_sent!: 'queued' | 'delivered' | 'sent' | 'read' | 'failed' | 'pending' | 'error';
 
-  @Column({ nullable: true })
-  message!: string;
+  @Column({ type: 'text', nullable: true })
+  message?: string | null;
 
   @ManyToOne(() => Templates, (template: Templates) => template.relatories)
   @JoinColumn({ name: 'templateId' })
@@ -56,9 +56,6 @@ export class RelatoryDispatchTemplate {
 
   @UpdateDateColumn()
   updatedAt!: Date;
-
-  @Column({ nullable: true })
-  providerMessageId!: string
 
   @ManyToOne(() => Company, (company) => company.relatories)
   @JoinColumn({ name: 'companyId' })

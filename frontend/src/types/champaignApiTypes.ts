@@ -23,6 +23,11 @@ export type CampaignMetrics = {
   totalCampaigns: number;
   activeCampaigns: number;
   dispatchesToday: number;
+  totalDispatch: number;
+  totalDispatchSuccess: number;
+  totalDispatch24h: number;
+  totalDispatchSuccess24h: number;
+  deliveryRateTotal: number;
   deliveryRate24h: number;
   nextDispatchTime: string | null;
   nextDispatchLabel: string;

@@ -16,6 +16,48 @@ type CampaignCreatePayload = {
   templateMapVars: Record<string, unknown>[];
 };
 
+const DEFAULT_CAMPAIGN_METRICS: CampaignMetrics = {
+  totalCampaigns: 0,
+  activeCampaigns: 0,
+  dispatchesToday: 0,
+  totalDispatch: 0,
+  totalDispatchSuccess: 0,
+  totalDispatch24h: 0,
+  totalDispatchSuccess24h: 0,
+  deliveryRateTotal: 0,
+  deliveryRate24h: 0,
+  nextDispatchTime: null,
+  nextDispatchLabel: "Sem disparos agendados",
+};
+
+function toNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeCampaignMetrics(data: unknown): CampaignMetrics {
+  if (!data || typeof data !== "object") return DEFAULT_CAMPAIGN_METRICS;
+  const payload = data as Partial<CampaignMetrics>;
+
+  return {
+    totalCampaigns: toNumber(payload.totalCampaigns),
+    activeCampaigns: toNumber(payload.activeCampaigns),
+    dispatchesToday: toNumber(payload.dispatchesToday),
+    totalDispatch: toNumber(payload.totalDispatch),
+    totalDispatchSuccess: toNumber(payload.totalDispatchSuccess),
+    totalDispatch24h: toNumber(payload.totalDispatch24h),
+    totalDispatchSuccess24h: toNumber(payload.totalDispatchSuccess24h),
+    deliveryRateTotal: toNumber(payload.deliveryRateTotal),
+    deliveryRate24h: toNumber(payload.deliveryRate24h),
+    nextDispatchTime:
+      typeof payload.nextDispatchTime === "string" ? payload.nextDispatchTime : null,
+    nextDispatchLabel:
+      typeof payload.nextDispatchLabel === "string" && payload.nextDispatchLabel.trim()
+        ? payload.nextDispatchLabel
+        : DEFAULT_CAMPAIGN_METRICS.nextDispatchLabel,
+  };
+}
+
 export class CampaignService {
   static async list(account: string | null): Promise<CampaignData[]> {
     const query = account ? `?account=${account}` : "";
@@ -43,8 +85,8 @@ export class CampaignService {
 
   static async metrics(account: string | null): Promise<CampaignMetrics> {
     const query = account ? `?account=${account}` : "";
-    const { data } = await Api.get<CampaignMetrics>(`/campaigns/metrics${query}`);
-    return data;
+    const { data } = await Api.get(`/campaigns/metrics${query}`);
+    return normalizeCampaignMetrics(data);
   }
 
   static async collectionsMetrics(account: string | null): Promise<CollectionsMetrics> {

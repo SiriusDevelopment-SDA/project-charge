@@ -75,7 +75,7 @@
   background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);
   border: 1px solid rgba(199, 160, 47, 0.28);
   border-radius: 16px;
-  min-height: 108px;
+  height: 100%;
   padding: 18px 22px;
   display: flex;
   flex-direction: column;
@@ -101,6 +101,64 @@
   font-size: 1rem;
   color: rgba(255, 255, 255, 0.55);
   margin: 0;
+}
+
+.metricCardDual {
+  gap: 0;
+  height: 100%;
+  padding-top: 25px;
+  justify-content: space-between;
+}
+
+.dualMetricTop {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dualMetricCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dualMetricCol + .dualMetricCol {
+  border-left: 1px solid rgba(199, 160, 47, 0.2);
+  padding-left: 12px;
+}
+
+.dualMetricCol p {
+  font-size: 0.95rem;
+}
+
+.metricPill {
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.84rem;
+  line-height: 1;
+  padding: 6px 10px;
+  margin-top: 4px;
+}
+
+.dualMetricFooter {
+  margin-top: 12px;
+  border-top: 1px solid rgba(199, 160, 47, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dualMetricFooter p {
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.dualMetricFooter span {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.1rem;
 }
 /* =========================
    WRAPPER DO ÍCONE DE FILTRO

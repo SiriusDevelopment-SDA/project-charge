@@ -5,8 +5,7 @@
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, ILike, Repository } from 'typeorm';
-
+import { Between, ILike, Not, Repository } from 'typeorm';
 import { Campaign } from './entities/campanhas.entity';
 import { CreateCampaignDto } from './dto/create-campanhas.dto';
 import { UpdateCampaignDto } from './dto/update-campanhas.dto';
@@ -197,104 +196,6 @@ export class CampaignsService {
     return this.campaignRepository.save(campaign);
   }
 
-  async getMetricsByAccount(account: string) {
-    const safeAccount = String(account ?? '').trim();
-    const cacheKey = `campaigns:${safeAccount}:metrics`;
-    const cached = await this.redisService.get<any>(cacheKey);
-    if (cached) return cached;
-
-    const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-
-    const todayEnd = new Date(now);
-    todayEnd.setHours(23, 59, 59, 999);
-
-    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-    const [campaigns, relatoriesToday, relatories24h] = await Promise.all([
-      this.findByAccount(account),
-      this.relatoryRepository.find({
-        where: {
-          company: { account_chatwoot: String(account) },
-          date_dispatch: Between(todayStart, todayEnd),
-        },
-      }),
-      this.relatoryRepository.find({
-        where: {
-          company: { account_chatwoot: String(account) },
-          date_dispatch: Between(last24h, now),
-        },
-      }),
-    ]);
-
-    const activeCampaigns = campaigns.filter((campaign) => campaign.isEnabled).length;
-    const totalCampaigns = campaigns.length;
-    const dispatchesToday = relatoriesToday.length;
-
-    const success24h = relatories24h.filter((relatory) => {
-      const normalized = String(relatory.status_sent ?? '').toLowerCase();
-      return !normalized.includes('error') && !normalized.includes('fail');
-    }).length;
-
-    const deliveryRate24h = relatories24h.length
-      ? Number(((success24h / relatories24h.length) * 100).toFixed(1))
-      : 0;
-
-    const enabledCampaigns = campaigns.filter((campaign) => campaign.isEnabled);
-
-    const nextDispatchCandidates = enabledCampaigns
-      .map((campaign) => ({
-        campaignId: campaign.id,
-        timezone: campaign.timezone ?? 'America/Sao_Paulo',
-        nextDispatchAt: this.getNextDispatchAt(campaign, now),
-      }))
-      .filter(
-        (
-          candidate,
-        ): candidate is {
-          campaignId: string;
-          timezone: string;
-          nextDispatchAt: Date;
-        } =>
-          candidate.nextDispatchAt instanceof Date,
-      )
-      .sort((a, b) => a.nextDispatchAt.getTime() - b.nextDispatchAt.getTime());
-
-    const nextDispatchData = nextDispatchCandidates[0];
-    const nextDispatch = nextDispatchData?.nextDispatchAt ?? null;
-    const nextDispatchTimezone =
-      nextDispatchData?.timezone ?? 'America/Sao_Paulo';
-    const nextDispatchCount = nextDispatch
-      ? nextDispatchCandidates.filter(
-          (candidate) => candidate.nextDispatchAt.getTime() === nextDispatch.getTime(),
-        ).length
-      : 0;
-
-    const payload = {
-      totalCampaigns,
-      activeCampaigns,
-      dispatchesToday,
-      deliveryRate24h,
-      nextDispatchTime: nextDispatch
-        ? nextDispatch.toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: nextDispatchTimezone,
-          })
-        : null,
-      nextDispatchLabel: this.getNextDispatchLabel(
-        nextDispatch,
-        nextDispatchCount,
-        now,
-        nextDispatchTimezone,
-      ),
-    };
-
-    await this.redisService.set(cacheKey, payload, 10);
-    return payload;
-  }
-
   async markCustomerRespondedAfterCharge(
     account: string,
     number: string,
@@ -423,6 +324,69 @@ export class CampaignsService {
     return payload;
   }
 
+  async getMetricsByAccount(account: string) {
+    const safeAccount = String(account ?? '').trim();
+    if (!safeAccount) {
+      throw new BadRequestException('account e obrigatorio');
+    }
+
+    const cacheKey = `campaigns:${safeAccount}:metrics`;
+
+    const cached = await this.redisService.get(cacheKey);
+    if (cached && this.hasCompleteDeliveryMetrics(cached)) {
+      return cached;
+    }
+
+    const now = new Date();
+
+    const campaigns = await this.findByAccount(safeAccount);
+
+    const [dispatchStats, deliveryMetrics, nextDispatch] = await Promise.all([
+      this.getDispatchStats(safeAccount),
+      this.calculateDeliveryRate(safeAccount, now),
+      this.getNextDispatch(campaigns, now),
+    ]);
+
+    const payload = {
+      totalCampaigns: campaigns.length,
+      activeCampaigns: campaigns.filter((campaign) => campaign.isEnabled).length,
+      dispatchesToday: dispatchStats,
+      totalDispatch: deliveryMetrics.totalDispatch,
+      totalDispatchSuccess: deliveryMetrics.totalDispatchSuccess,
+      totalDispatch24h: deliveryMetrics.totalDispatch24h,
+      totalDispatchSuccess24h: deliveryMetrics.totalDispatchSuccess24h,
+      deliveryRateTotal: deliveryMetrics.deliveryRateTotal,
+      deliveryRate24h: deliveryMetrics.deliveryRate24h,
+      nextDispatchTime: nextDispatch?.nextDispatchTime ?? null,
+      nextDispatchLabel: nextDispatch?.label ?? 'Sem disparos agendados',
+    };
+
+    await this.redisService.set(cacheKey, payload, 10);
+
+    return payload;
+  }
+
+  private hasCompleteDeliveryMetrics(payload: unknown) {
+    if (!payload || typeof payload !== 'object') return false;
+
+    const data = payload as Record<string, unknown>;
+    const numericKeys = [
+      'totalDispatch',
+      'totalDispatchSuccess',
+      'totalDispatch24h',
+      'totalDispatchSuccess24h',
+      'deliveryRateTotal',
+      'deliveryRate24h',
+    ];
+
+    return numericKeys.every((key) => {
+      const value = data[key];
+      return typeof value === 'number' && Number.isFinite(value);
+    });
+  }
+
+
+  ///funcoes extras
   private getDispatchDate(startDate: string, dispatchTime: string) {
     const [hour, minute] = dispatchTime.split(':').map(Number);
     const date = new Date(startDate);
@@ -451,39 +415,6 @@ export class CampaignsService {
       doc: client.cnpj_cpf,
       reason: 'MISSING_REQUIRED_TEMPLATE_VARS',
     }));
-  }
-
-  private getNextDispatchAt(campaign: Campaign, now: Date): Date | null {
-    const [hour, minute] = (campaign.dispatchTime ?? '00:00')
-      .split(':')
-      .map(Number);
-
-    const start = new Date(campaign.startDate);
-    const end = new Date(campaign.endDate);
-
-    if (!campaign.recurring) {
-      const dispatchAt = new Date(start);
-      dispatchAt.setHours(hour, minute, 0, 0);
-      return dispatchAt >= now ? dispatchAt : null;
-    }
-
-    if (now > end) return null;
-
-    const candidate = new Date(now);
-    candidate.setHours(hour, minute, 0, 0);
-
-    if (candidate < now) {
-      candidate.setDate(candidate.getDate() + 1);
-    }
-
-    if (candidate < start) {
-      candidate.setTime(start.getTime());
-      candidate.setHours(hour, minute, 0, 0);
-    }
-
-    if (candidate > end) return null;
-
-    return candidate;
   }
 
   private notifyMetricsRefresh(account: string | null | undefined) {
@@ -536,37 +467,198 @@ export class CampaignsService {
     return campaign?.company?.account_chatwoot ?? null;
   }
 
-  private getNextDispatchLabel(
-    nextDispatch: Date | null,
-    nextDispatchCount: number,
-    now: Date,
-    timeZone: string,
-  ) {
-    if (!nextDispatch) return 'Sem disparos agendados';
+  private async getDispatchStats(account: string) {
+    const todayStart = new Date();
+    todayStart.setHours(0,0,0,0);
+  
+    const todayEnd = new Date();
+    todayEnd.setHours(23,59,59,999);
+  
+    return this.relatoryRepository.count({
+      where: {
+        company: { account_chatwoot: account },
+        date_dispatch: Between(todayStart, todayEnd)
+      }
+    });
+  }
 
-    const dispatchDayKey = this.getDayKey(nextDispatch, timeZone);
-    const nowDayKey = this.getDayKey(now, timeZone);
+  private async calculateDeliveryRate(account: string, now: Date) {
+    const last24h = new Date(now.getTime() - 86400000);
+  
+    const result = await this.relatoryRepository.query(`
+      SELECT 
+        COUNT(*) AS total_all,
+  
+        COUNT(*) FILTER (
+          WHERE status_sent IN ('sent','delivered','read')
+        ) AS success_all,
+  
+        COUNT(*) FILTER (
+          WHERE date_dispatch >= $2
+        ) AS total_24h,
+  
+        COUNT(*) FILTER (
+          WHERE date_dispatch >= $2
+          AND status_sent IN ('sent','delivered','read')
+        ) AS success_24h,
+  
+        ROUND(
+          COUNT(*) FILTER (
+            WHERE status_sent IN ('sent','delivered','read')
+          ) * 100.0 / NULLIF(COUNT(*),0)
+        ,1) AS delivery_rate_total,
+  
+        ROUND(
+          COUNT(*) FILTER (
+            WHERE date_dispatch >= $2
+            AND status_sent IN ('sent','delivered','read')
+          ) * 100.0 /
+          NULLIF(
+            COUNT(*) FILTER (
+              WHERE date_dispatch >= $2
+            ),0)
+        ,1) AS delivery_rate_24h
+  
+      FROM relatory_dispatch_template
+      WHERE "companyId" = (
+        SELECT id FROM company WHERE account_chatwoot = $1
+      )
+    `, [account, last24h]);
+  
+    return {
+      totalDispatch: Number(result[0].total_all),
+      totalDispatchSuccess: Number(result[0].success_all),
+    
+      totalDispatch24h: Number(result[0].total_24h),
+      totalDispatchSuccess24h: Number(result[0].success_24h),
+    
+      deliveryRateTotal: Number(result[0].delivery_rate_total),
+      deliveryRate24h: Number(result[0].delivery_rate_24h)
+    };
+  }
+
+  private getNextDispatch(campaigns: Campaign[], now: Date) {
+    let nextDate: Date | null = null;
+    let count = 0;
+    let nextTimeZone = 'America/Sao_Paulo';
+
+    for (const campaign of campaigns) {
+      if (!campaign.isEnabled) continue;
+      if (campaign.status === 'finished') continue;
+
+      const start = new Date(campaign.startDate);
+      const end = new Date(campaign.endDate);
+
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime()) ||
+        end < now
+      ) {
+        continue;
+      }
+
+      const [parsedHour, parsedMinute] = String(
+        campaign.dispatchTime ?? '00:00',
+      )
+        .split(':')
+        .map(Number);
+
+      const hour = Number.isFinite(parsedHour) ? parsedHour : 0;
+      const minute = Number.isFinite(parsedMinute) ? parsedMinute : 0;
+      const timeZone = campaign.timezone ?? 'America/Sao_Paulo';
+
+      let candidate: Date | null = null;
+
+      if (campaign.recurring) {
+        const base = start > now ? start : now;
+        const baseParts = this.getZonedParts(base, timeZone);
+
+        candidate = this.toUtcFromZonedDateTime({
+          timezone: timeZone,
+          year: baseParts.year,
+          month: baseParts.month,
+          day: baseParts.day,
+          hour,
+          minute,
+          second: 0,
+        });
+
+        if (candidate < base) {
+          const nextDay = new Date(
+            Date.UTC(baseParts.year, baseParts.month - 1, baseParts.day),
+          );
+          nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+
+          candidate = this.toUtcFromZonedDateTime({
+            timezone: timeZone,
+            year: nextDay.getUTCFullYear(),
+            month: nextDay.getUTCMonth() + 1,
+            day: nextDay.getUTCDate(),
+            hour,
+            minute,
+            second: 0,
+          });
+        }
+      } else {
+        const startParts = this.getZonedParts(start, timeZone);
+        candidate = this.toUtcFromZonedDateTime({
+          timezone: timeZone,
+          year: startParts.year,
+          month: startParts.month,
+          day: startParts.day,
+          hour,
+          minute,
+          second: 0,
+        });
+
+        if (candidate < now) {
+          candidate = null;
+        }
+      }
+
+      if (!candidate) continue;
+      if (candidate < start || candidate > end) continue;
+
+      if (!nextDate || candidate < nextDate) {
+        nextDate = candidate;
+        nextTimeZone = timeZone;
+        count = 1;
+      } else if (candidate.getTime() === nextDate.getTime()) {
+        count++;
+      }
+    }
+
+    if (!nextDate) return null;
+
+    const dispatchDayKey = this.getDayKey(nextDate, nextTimeZone);
+    const nowDayKey = this.getDayKey(now, nextTimeZone);
 
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowDayKey = this.getDayKey(tomorrow, timeZone);
+    const tomorrowDayKey = this.getDayKey(tomorrow, nextTimeZone);
 
-    const sameDay = dispatchDayKey === nowDayKey;
-    const isTomorrow = dispatchDayKey === tomorrowDayKey;
+    const dateLabel =
+      dispatchDayKey === nowDayKey
+        ? 'Hoje'
+        : dispatchDayKey === tomorrowDayKey
+          ? 'Amanhã'
+          : nextDate.toLocaleDateString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              timeZone: nextTimeZone,
+            });
 
-    const dateLabel = sameDay
-      ? 'Hoje'
-      : isTomorrow
-        ? 'Amanhã'
-        : nextDispatch.toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            timeZone,
-          });
-
-    const count = Number(nextDispatchCount) || 0;
     const campaignLabel = count === 1 ? 'campanha' : 'campanhas';
-    return `${dateLabel} · ${count} ${campaignLabel}`;
+
+    return {
+      nextDispatchTime: nextDate.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: nextTimeZone,
+      }),
+      nextDispatchDate: dateLabel,
+      label: `${dateLabel} · ${count} ${campaignLabel}`,
+    };
   }
 
   private getDayKey(date: Date, timeZone: string) {
@@ -576,5 +668,68 @@ export class CampaignsService {
       month: '2-digit',
       day: '2-digit',
     }).format(date);
+  }
+
+  private getZonedParts(date: Date, timeZone: string) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+
+    const get = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+    return {
+      year: get('year'),
+      month: get('month'),
+      day: get('day'),
+      hour: get('hour'),
+      minute: get('minute'),
+      second: get('second'),
+    };
+  }
+
+  private getTimeZoneOffsetMs(date: Date, timeZone: string) {
+    const zoned = this.getZonedParts(date, timeZone);
+    const zonedAsUtc = Date.UTC(
+      zoned.year,
+      zoned.month - 1,
+      zoned.day,
+      zoned.hour,
+      zoned.minute,
+      zoned.second,
+    );
+
+    return zonedAsUtc - date.getTime();
+  }
+
+  private toUtcFromZonedDateTime(params: {
+    timezone: string;
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+  }) {
+    const guessUtc = new Date(
+      Date.UTC(
+        params.year,
+        params.month - 1,
+        params.day,
+        params.hour,
+        params.minute,
+        params.second,
+      ),
+    );
+
+    const offsetMs = this.getTimeZoneOffsetMs(guessUtc, params.timezone);
+    return new Date(guessUtc.getTime() - offsetMs);
   }
 }

@@ -12,7 +12,7 @@ import {
 import { Service } from '../../services/entities/services';
 import { Company } from '../../companies/entities/companies';
 import { Invoice } from '../../invoices/entities/invoices';
-import { Campaign } from '../../campanhas/entities/campanhas.entity';
+import { Campaign } from '../../campaigns/entities/campanhas.entity';
 
 @Entity()
 export class Client {
