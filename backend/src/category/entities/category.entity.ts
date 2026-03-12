@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { Campaign } from '../../campanhas/entities/campanhas.entity';
+import { Campaign } from '../../campaigns/entities/campanhas.entity';
 
 @Entity('categories')
 export class Category {

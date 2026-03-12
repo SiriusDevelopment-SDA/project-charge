@@ -50,12 +50,15 @@ export function Campanhas() {
     await deleteCampaign(campaign.id);
   };
 
+  const formatPercent = (value: number) =>
+    `${value.toFixed(1).replace(".", ",")}%`;
+
   return (
     <PageContainer className={Style.TemplatesContainer}>
       <div className={Style.Grafico}>
         <TitlePage
           title="Campanhas"
-          subtitle="Gerencie e acompanhe seus disparos ativos"
+          subtitle="Gerencie e acompanhe suas campanhas ativos"
           className={Style.TitlePage}
         />
         <div className={Style.ContainerSubMenu}>
@@ -152,16 +155,30 @@ export function Campanhas() {
           </p>
         </article>
 
-        <article className={Style.metricCard}>
-          <span>DISPAROS HOJE</span>
-          <strong>{metrics.dispatchesToday.toLocaleString("pt-BR")}</strong>
-          <p>Atualizado em tempo real</p>
+        <article className={`${Style.metricCard} ${Style.metricCardDual}`}>
+          <div className={Style.dualMetricTop}>
+            <div className={Style.dualMetricCol}>
+              <span>DISPAROS HOJE</span>
+              <strong>{metrics.dispatchesToday.toLocaleString("pt-BR")}</strong>
+            </div>
+
+            <div className={Style.dualMetricCol}>
+              <span>ENTREGAS</span>
+              <strong>{formatPercent(metrics.deliveryRateTotal)}</strong>
+            </div>
+            
+          </div>
+          <div className={Style.dualMetricFooter}>
+            <p>Enviados vs entregues</p>
+            <span>—</span>
+            <p>tempo real</p>
+          </div>
         </article>
 
         <article className={Style.metricCard}>
-          <span>TAXA DE ENTREGA</span>
-          <strong>{metrics.deliveryRate24h.toFixed(1).replace(".", ",")}%</strong>
-          <p>últimas 24h</p>
+          <span>TAXA DE ENTREGA TOTAL</span>
+          <strong>{formatPercent(metrics.deliveryRateTotal)}</strong>
+          <p>janela completa</p>
         </article>
 
         <article className={Style.metricCard}>

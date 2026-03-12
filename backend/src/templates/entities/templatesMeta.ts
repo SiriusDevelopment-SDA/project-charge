@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/companies';
 import { RelatoryDispatchTemplate } from './relatory.entity';
-import { Campaign } from '../../campanhas/entities/campanhas.entity';
+import { Campaign } from '../../campaigns/entities/campanhas.entity';
 
 @Entity()
 export class Templates {

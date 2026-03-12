@@ -1,36 +1,46 @@
+/* ================= TRADUCAO DE STATUS ================= */
+export const traduzirStatus = (status: string) => {
+  const normalized = String(status ?? '').trim().toLowerCase();
 
- /* ================= TRADUÇÃO DE STATUS ================= */
-  export const traduzirStatus = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case "DELIVERED":
-        return "Entregue";
-      case "READ":
-        return "Lido";
-      case "SENT":
-        return "Enviado";
-      case "QUEUED":
-        return "Em fila";
-      case "ERROR":
-        return "Erro";
-      default:
-        return status || "-";
-    }
-  };
+  switch (normalized) {
+    case 'delivered':
+      return 'Entregue';
+    case 'read':
+      return 'Lido';
+    case 'sent':
+      return 'Enviado';
+    case 'queued':
+      return 'Em fila';
+    case 'pending':
+      return 'Pendente';
+    case 'failed':
+      return 'Falhou';
+    case 'error':
+      return 'Erro';
+    default:
+      return status || '-';
+  }
+};
 
- export  const statusSeverity = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case "DELIVERED":
-        return "success";
-      case "READ":
-        return "info";
-      case "SENT":
-        return "warning";
-      case "QUEUED":
-        return "secondary";
-      case "ERROR":
-        return "danger";
-      default:
-        return "secondary";
-    }
-  };
+export const statusSeverity = (status: string) => {
+  const normalized = String(status ?? '').trim().toLowerCase();
 
+  switch (normalized) {
+    case 'delivered':
+      return 'success';
+    case 'read':
+      return 'info';
+    case 'sent':
+      return 'warning';
+    case 'queued':
+      return 'secondary';
+    case 'pending':
+      return 'secondary';
+    case 'failed':
+      return 'danger';
+    case 'error':
+      return 'danger';
+    default:
+      return 'secondary';
+  }
+};

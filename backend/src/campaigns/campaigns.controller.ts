@@ -17,7 +17,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { CampaignsService } from './campanhas.service';
+import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto, UpdateCampaignDto } from './dto/create-campanhas.dto';
 import { CollectionsMetricsResponseDto, MarkCollectionResponseDto } from './dto/collections.dto';
 

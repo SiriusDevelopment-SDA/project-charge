@@ -78,6 +78,11 @@ const initialState: State = {
     totalCampaigns: 0,
     activeCampaigns: 0,
     dispatchesToday: 0,
+    totalDispatch: 0,
+    totalDispatchSuccess: 0,
+    totalDispatch24h: 0,
+    totalDispatchSuccess24h: 0,
+    deliveryRateTotal: 0,
     deliveryRate24h: 0,
     nextDispatchTime: null,
     nextDispatchLabel: "Sem disparos agendados",
@@ -97,7 +102,6 @@ export function useCampaignsController() {
       type: "SET_LOADING",
       payload: { status: true, req: "FINDALL", type: "CAMPAIGN" },
     });
-
     try {
       const account = getAccount();
 
@@ -106,7 +110,6 @@ export function useCampaignsController() {
         CampaignService.listCategories(),
         CampaignService.metrics(account),
       ]);
-
       dispatch({ type: "SET_CAMPAIGNS", payload: campaigns });
       dispatch({ type: "SET_CATEGORIES", payload: categories });
       dispatch({ type: "SET_METRICS", payload: metrics });

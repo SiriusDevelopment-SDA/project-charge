@@ -13,7 +13,7 @@ import { Invoice } from '../../invoices/entities/invoices';
 import { Service } from '../../services/entities/services';
 import { Templates } from '../../templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from '../../templates/entities/relatory.entity';
-import { Campaign } from '../../campanhas/entities/campanhas.entity';
+import { Campaign } from '../../campaigns/entities/campanhas.entity';
 import { Agent } from '../../agents/entities/agent.entity';
   
   @Entity()

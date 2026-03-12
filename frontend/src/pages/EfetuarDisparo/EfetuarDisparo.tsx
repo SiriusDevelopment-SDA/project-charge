@@ -291,7 +291,7 @@ export default function EfetuarDisparo() {
         title="Informe o nome do atendente"
         onClose={() => setOpenAttendantModal(false)}
         customContent={
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
             <p style={{ margin: 0 }}>
               Este template exige a variavel <strong>nome_atendente</strong>.
             </p>
@@ -299,7 +299,6 @@ export default function EfetuarDisparo() {
               label="Nome do atendente"
               value={attendantName}
               onChange={(event) => setAttendantName(event.target.value)}
-              placeholder="Digite o nome para continuar"
             />
             <MyButton
               text="Confirmar e enviar"
