@@ -1,11 +1,15 @@
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AuthService } from "../services/auth/auth.service";
+import { Navbar } from "../componente/Index";
+import Style from "./AccountLayout.module.css";
 
 export function AccountLayout() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isAuthorizing, setIsAuthorizing] = useState(true);
 
   const setAccount = useCallback((value: string) => {
     localStorage.setItem("account", value);
@@ -17,19 +21,13 @@ export function AccountLayout() {
     const hasEmbedCredentials = Boolean(accountParam && tokenParam);
     const accessToken = localStorage.getItem("access_token");
     const currentPath = `${location.pathname}${location.search}`;
+    let isMounted = true;
+
+    setIsAuthorized(false);
+    setIsAuthorizing(true);
 
     if (hasEmbedCredentials) {
       const embedSignature = `${window.location.origin}|${accountParam}|${tokenParam}`;
-      const alreadyAuthenticated =
-        localStorage.getItem("embed_signature") === embedSignature &&
-        Boolean(accessToken);
-
-      if (alreadyAuthenticated && accountParam) {
-        setAccount(accountParam);
-        return;
-      }
-
-      let isMounted = true;
       const authenticateEmbed = async () => {
         try {
           const result = await AuthService.embedLogin({
@@ -47,6 +45,8 @@ export function AccountLayout() {
           localStorage.removeItem("agent_name");
           localStorage.removeItem("attendant_name");
           setAccount(result.company.account);
+          setIsAuthorized(true);
+          setIsAuthorizing(false);
 
           const params = new URLSearchParams(location.search);
           params.delete("token");
@@ -72,20 +72,6 @@ export function AccountLayout() {
       };
     }
 
-    if (accountParam && !hasEmbedCredentials) {
-      if (!accessToken) {
-        localStorage.removeItem("account");
-        navigate("/login", {
-          replace: true,
-          state: { from: currentPath },
-        });
-        return;
-      }
-
-      setAccount(accountParam);
-      return;
-    }
-
     if (!accessToken) {
       localStorage.removeItem("account");
       navigate("/login", {
@@ -95,12 +81,11 @@ export function AccountLayout() {
       return;
     }
 
-    let isMounted = true;
-
-    const resolveAccountByToken = async () => {
+    const validateSession = async () => {
       try {
         const result = await AuthService.me();
         if (!isMounted) return;
+
         setAccount(result.company.account);
         if (result.agent?.name) {
           localStorage.setItem("agent_name", result.agent.name);
@@ -109,10 +94,16 @@ export function AccountLayout() {
           localStorage.setItem("auth_mode", "embed");
           localStorage.removeItem("agent_name");
         }
-        const queryPrefix = location.search ? `${location.search}&` : "?";
-        navigate(`${location.pathname}${queryPrefix}account=${result.company.account}`, {
-          replace: true,
-        });
+        setIsAuthorized(true);
+        setIsAuthorizing(false);
+
+        if (accountParam !== result.company.account) {
+          const params = new URLSearchParams(location.search);
+          params.set("account", result.company.account);
+          navigate(`${location.pathname}?${params.toString()}`, {
+            replace: true,
+          });
+        }
       } catch {
         if (!isMounted) return;
         localStorage.removeItem("access_token");
@@ -124,12 +115,36 @@ export function AccountLayout() {
       }
     };
 
-    void resolveAccountByToken();
+    void validateSession();
 
     return () => {
       isMounted = false;
     };
   }, [searchParams, setAccount, navigate, location.pathname, location.search]);
 
-  return <Outlet />;
+  if (isAuthorizing) {
+    return (
+      <main className={Style.authGate}>
+        <section className={Style.authCard}>
+          <span className={Style.authBadge}>Validando sessao</span>
+          <h1 className={Style.authTitle}>Carregando ambiente</h1>
+          <p className={Style.authDescription}>
+            Aguarde enquanto validamos o acesso da sua conta.
+          </p>
+          <div className={Style.authSpinner} aria-hidden="true" />
+        </section>
+      </main>
+    );
+  }
+
+  if (!isAuthorized) {
+    return null;
+  }
+
+  return (
+    <>
+      <Navbar />
+      <Outlet />
+    </>
+  );
 }

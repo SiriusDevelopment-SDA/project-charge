@@ -11,6 +11,7 @@ import { CriarCampanha } from "../pages/Campanhas/Subpages/CriarCampanha";
 import { Login } from "../pages/Login/Login";
 import { ChatwootPage } from "../pages/Chatwoot/Chatwoot";
 import { DashboardProvider } from "../context/contextDashboard";
+import { NotFoundPage } from "../pages/NotFound/NotFound";
 
 export function AppRoutes() {
   return (
@@ -31,6 +32,7 @@ export function AppRoutes() {
         <Route path="createCampanha" element={<CriarCampanha />} />
         <Route path="dashboard" element={<DashboardProvider><Dashboard /></DashboardProvider>} />
         <Route path="chat" element={<ChatwootPage />} />
+        <Route path="*" element={<NotFoundPage />} />
 
       </Route>
 

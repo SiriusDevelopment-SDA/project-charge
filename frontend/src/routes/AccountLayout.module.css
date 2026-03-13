@@ -1,0 +1,66 @@
+.authGate {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.authCard {
+  width: min(100%, 460px);
+  background:
+    radial-gradient(circle at top, rgba(212, 166, 0, 0.14), transparent 58%),
+    linear-gradient(180deg, rgba(12, 12, 12, 0.96) 0%, rgba(19, 15, 6, 0.96) 100%);
+  border: 1px solid rgba(212, 166, 0, 0.38);
+  border-radius: 24px;
+  padding: 36px 32px;
+  color: #f7f7f7;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.42);
+  text-align: center;
+}
+
+.authBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 152px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 166, 0, 0.35);
+  background: rgba(212, 166, 0, 0.12);
+  color: #f2cb52;
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.authTitle {
+  margin: 18px 0 8px;
+  font-size: clamp(1.8rem, 3vw, 2.35rem);
+  font-weight: 700;
+}
+
+.authDescription {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.authSpinner {
+  width: 58px;
+  height: 58px;
+  margin: 26px auto 0;
+  border-radius: 50%;
+  border: 3px solid rgba(212, 166, 0, 0.16);
+  border-top-color: #f2cb52;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
