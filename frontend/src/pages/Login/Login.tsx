@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { AuthService } from "../../services/auth/auth.service";
 import { getErrorMessage } from "../../utils/error";
 import styles from "./Styles/Login.module.css";
+import logoCoraxy from "../../assets/icons/coraxy.svg";
 
 export function Login() {
   const [email, setEmail] = useState("");
@@ -60,7 +61,11 @@ export function Login() {
   return (
     <main className={styles.loginPage}>
       <section className={styles.loginCard}>
-        <h1>Login da empresa</h1>
+        <div className={styles.loginBrand}>
+          <img src={logoCoraxy} alt="Coraxy" className={styles.loginLogo} />
+          {/* <h1>Sistema de cobrança</h1> */}
+        </div>
+        
         <p>Informe email e senha para acessar o painel.</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
@@ -89,6 +94,7 @@ export function Login() {
           <button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Entrando..." : "Entrar"}
           </button>
+          <p className={styles.textBotton}>Automatize disparos e acompanhe resultados em tempo real.</p>
         </form>
       </section>
     </main>

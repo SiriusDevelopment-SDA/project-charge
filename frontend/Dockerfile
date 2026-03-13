@@ -1,11 +1,14 @@
 # =========================
-# 1️⃣ Stage de build
+# 1. Stage de build
 # =========================
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copia apenas os arquivos de dependência primeiro (melhora cache)
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
+# Copia apenas os arquivos de dependencia primeiro
 COPY package.json package-lock.json* ./
 
 RUN npm install
@@ -13,19 +16,22 @@ RUN npm install
 # Copia o restante do projeto
 COPY . .
 
-# Build da aplicação
+# Build da aplicacao
 RUN npm run build
 
 
 # =========================
-# 2️⃣ Stage de produção
+# 2. Stage de producao
 # =========================
 FROM nginx:stable-alpine
 
-# Remove config padrão do nginx
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
+# Remove config padrao do nginx
 RUN rm -rf /etc/nginx/conf.d/default.conf
 
-# Copia config customizada (opcional)
+# Copia config customizada
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copia build gerado

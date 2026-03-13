@@ -16,16 +16,33 @@
   box-shadow: 0 14px 26px rgba(0, 0, 0, 0.35);
 }
 
+.loginBrand {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.loginLogo {
+  display: block;
+  width: min(220px, 100%);
+  height: auto;
+}
+
 .loginCard h1 {
   font-size: 1.8rem;
   margin-bottom: 4px;
 }
 
 .loginCard p {
-  color: rgba(255, 255, 255, 0.66);
+  color: darkgray;
   margin-bottom: 20px;
 }
-
+.textBotton{
+  font-size: 11px;
+  display: flex;
+  justify-content: center;
+}
 .form {
   display: flex;
   flex-direction: column;
