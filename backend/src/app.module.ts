@@ -9,6 +9,7 @@ import { AppServiceClient } from './clients/app.service.clients';
 import { AppServiceTemplate } from './templates/app.service.templates';
 import { Templates } from './templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from './templates/entities/relatory.entity';
+import { TemplateDispatchBatch } from './templates/entities/template-dispatch-batch.entity';
 import { Invoice } from './invoices/entities/invoices';
 import { InvoicesController } from './invoices/controllers/invoicesController';
 import { Company } from './companies/entities/companies';
@@ -41,6 +42,7 @@ import { RedisController } from './redis/redis.controller';
     TypeOrmModule.forFeature([Client]),
     TypeOrmModule.forFeature([Templates]),
     TypeOrmModule.forFeature([RelatoryDispatchTemplate]),
+    TypeOrmModule.forFeature([TemplateDispatchBatch]),
     TypeOrmModule.forFeature([Invoice]),
     TypeOrmModule.forFeature([Company]),
     TypeOrmModule.forFeature([Campaign]),

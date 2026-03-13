@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Injectable,
   NotFoundException,
+  OnModuleInit,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,11 +12,18 @@ import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 
 import { Templates } from './entities/templatesMeta';
 import {
+  DispatchBatchStatusDto,
+  LatestDispatchBatchReportDto,
   SearchRequestDtoRelatories,
   SearchRequestDtoTemplates,
   SendTemplateDto,
+  ToComponentDto,
 } from './dto/search.request.dto.templates';
 import { RelatoryDispatchTemplate } from './entities/relatory.entity';
+import {
+  TemplateDispatchBatch,
+  TemplateDispatchBatchStatus,
+} from './entities/template-dispatch-batch.entity';
 import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
 import { CreateTemplateDTO } from './dto/create.request.dto.template';
 import { Company } from '../companies/entities/companies';
@@ -37,9 +45,15 @@ type DispatchTemplateResult = {
   error?: string | null;
 };
 
+type SendTemplateRecipient = SendTemplateDto['to'][number];
+
+const TEMPLATE_DISPATCHES_PER_SECOND = 15;
+const TEMPLATE_DISPATCH_WINDOW_MS = 1000;
+
 @Injectable()
-export class AppServiceTemplate {
+export class AppServiceTemplate implements OnModuleInit {
   private readonly baseUrl = 'https://api.notificame.com.br/v2';
+  private readonly companyDispatchQueue = new Map<string, Promise<void>>();
 
   constructor(
     @InjectRepository(Templates)
@@ -48,11 +62,31 @@ export class AppServiceTemplate {
     @InjectRepository(RelatoryDispatchTemplate)
     private readonly relatoryDispatchRepository: Repository<RelatoryDispatchTemplate>,
 
+    @InjectRepository(TemplateDispatchBatch)
+    private readonly dispatchBatchRepository: Repository<TemplateDispatchBatch>,
+
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
 
     private readonly campaignMetricsGateway: CampaignMetricsGateway,
   ) {}
+
+  async onModuleInit() {
+    const pendingBatches = await this.dispatchBatchRepository.find({
+      where: [{ status: 'queued' }, { status: 'processing' }],
+      relations: {
+        company: true,
+      },
+      order: {
+        createdAt: 'ASC',
+      },
+    });
+
+    pendingBatches.forEach((batch) => {
+      if (!batch.company?.id) return;
+      this.enqueueBatchProcessing(batch.id, batch.company.id);
+    });
+  }
 
   async getTemplates(dto: SearchRequestDtoTemplates) {
     const { account, page, limit, sortorder, query } = dto;
@@ -97,7 +131,6 @@ export class AppServiceTemplate {
 
   async sendTemplate(data: SendTemplateDto) {
     const { templateId, account, to, campaignId } = data;
-    const results: DispatchTemplateResult[] = [];
 
     const template = await this.templateRepository.findOne({
       where: {
@@ -115,6 +148,7 @@ export class AppServiceTemplate {
         language: true,
         variables: true,
         components: true,
+        message: true,
         company: {
           id: true,
           canalId_notificameHub: true,
@@ -136,174 +170,165 @@ export class AppServiceTemplate {
       );
     }
 
-    for (const recipient of to) {
-      const expected = Object.keys(template.variables || {}).length;
-      const safeComponents = Array.isArray(recipient.components)
-        ? recipient.components
-        : [];
-      const bodyComponent = safeComponents.find((component) => component.type === 'BODY');
-      const parametersLength = bodyComponent?.parameters?.length ?? 0;
-
-      if (expected !== parametersLength) {
-        throw new NotFoundException(
-          `Template exige ${expected} variaveis, recebido ${parametersLength}`,
-        );
-      }
-
-      const templatePayload = {
-        name: template.name,
-        language: { code: template.language },
-        components:
-          expected > 0 && parametersLength > 0
-            ? safeComponents
-            : [{ type: 'BODY', parameters: [] }],
-      };
-
-      const content = {
-        from: template.company.canalId_notificameHub,
-        to: recipient.number,
-        contents: [
-          {
-            type: 'template',
-            template: templatePayload,
-          },
-        ],
-        message_activity_sharing: true,
-        message_send_ttl_seconds: 3600,
-      };
-
-      try {
-        const providerResponse = await fetch(
-          `${this.baseUrl}/channels/whatsapp/messages`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Api-Token': template.company.token_notificameHub,
-            },
-            body: JSON.stringify(content),
-          },
-        );
-
-        const responseData = await this.readJsonResponse(providerResponse);
-        const providerEntry = this.extractProviderEntry(responseData);
-        const externalMessageId = this.getProviderExternalMessageId(
-          providerEntry,
-          responseData,
-        );
-        const status = this.normalizeDispatchStatus(
-          providerEntry.status,
-          providerResponse.ok,
-        );
-        const message = this.getProviderMessage(
-          providerEntry,
-          responseData,
-          providerResponse,
-        );
-
-        const relatory = await this.relatoryDispatchRepository.save({
-          date_dispatch: new Date(),
-          external_message_id: externalMessageId ?? undefined,
-          status_sent: status,
-          template: { id: template.id },
-          name: recipient.name ?? recipient.number,
-          number: recipient.number,
-          components_maped: {
-            components: safeComponents,
-            providerResponse: providerEntry,
-          },
-          company: { id: template.company.id },
-          campaign: campaignId ? { id: campaignId } : null,
-          message,
-        });
-
-        results.push({
-          number: recipient.number,
-          ok: status !== 'failed',
-          status,
-          relatoryId: relatory.id,
-          externalMessageId,
-        });
-      } catch (error: any) {
-        const errorMessage = `Dispatch error: ${error?.message ?? 'unknown error'}`;
-
-        const relatory = await this.relatoryDispatchRepository.save({
-          date_dispatch: new Date(),
-          status_sent: 'failed',
-          template: { id: template.id },
-          name: recipient.name ?? recipient.number,
-          number: recipient.number,
-          components_maped: { components: safeComponents },
-          company: { id: template.company.id },
-          campaign: campaignId ? { id: campaignId } : null,
-          message: errorMessage,
-        });
-
-        results.push({
-          number: recipient.number,
-          ok: false,
-          status: 'failed',
-          relatoryId: relatory.id,
-          error: errorMessage,
-        });
-      }
+    if (!to.length) {
+      throw new BadRequestException('Nenhum destinatario informado para envio.');
     }
 
-    const successCount = results.filter((result) => result.ok).length;
-    const failedCount = results.length - successCount;
+    const requiredTemplateVarsCount = this.extractRequiredTemplateVars(template).length;
 
-    this.campaignMetricsGateway.emitCampaignsSync(String(account));
+    to.forEach((recipient) => {
+      const safeComponents = this.getSafeRecipientComponents(recipient);
+
+      this.validateRecipientTemplateVariables(
+        recipient,
+        safeComponents,
+        requiredTemplateVarsCount,
+      );
+    });
+
+    const batch = await this.dispatchBatchRepository.save({
+      account: String(account),
+      status: 'queued',
+      totalRecipients: to.length,
+      processedRecipients: 0,
+      successCount: 0,
+      failedCount: 0,
+      rateLimitPerSecond: TEMPLATE_DISPATCHES_PER_SECOND,
+      payload: {
+        recipients: to,
+      },
+      template: { id: template.id },
+      company: { id: template.company.id },
+      campaign: campaignId ? { id: campaignId } : null,
+    });
+
+    this.enqueueBatchProcessing(batch.id, template.company.id);
 
     return {
-      success: failedCount === 0,
-      total: results.length,
-      successCount,
-      failedCount,
-      status: failedCount === 0 ? 'sent' : 'partial',
-      messages: results,
+      accepted: true,
+      batchId: batch.id,
+      status: batch.status,
+      total: batch.totalRecipients,
+      rateLimitPerSecond: batch.rateLimitPerSecond,
+      estimatedDurationSeconds: this.getEstimatedBatchDurationSeconds(
+        batch.totalRecipients,
+        batch.rateLimitPerSecond,
+      ),
+    };
+  }
+
+  async getDispatchBatchStatus(dto: DispatchBatchStatusDto) {
+    const batch = await this.dispatchBatchRepository.findOne({
+      where: {
+        id: dto.batchId,
+        company: {
+          account_chatwoot: String(dto.account),
+        },
+      },
+      relations: {
+        company: true,
+        template: true,
+        campaign: true,
+      },
+    });
+
+    if (!batch) {
+      throw new NotFoundException('Lote de disparo nao encontrado.');
+    }
+
+    return this.mapDispatchBatchResponse(batch);
+  }
+
+  async getLatestDispatchBatchReport(dto: LatestDispatchBatchReportDto) {
+    const queryBuilder = this.dispatchBatchRepository
+      .createQueryBuilder('batch')
+      .innerJoin('batch.company', 'company')
+      .leftJoinAndSelect('batch.template', 'template')
+      .leftJoinAndSelect('batch.campaign', 'campaign')
+      .where('company.account_chatwoot = :account', {
+        account: String(dto.account),
+      })
+      .orderBy('batch.createdAt', 'DESC')
+      .take(1);
+
+    if (dto.manualOnly) {
+      queryBuilder.andWhere('batch."campaignId" IS NULL');
+    }
+
+    if (dto.campaignOnly) {
+      queryBuilder.andWhere('batch."campaignId" IS NOT NULL');
+    }
+
+    const batch = await queryBuilder.getOne();
+
+    if (!batch) {
+      return {
+        batch: null,
+        records: [],
+      };
+    }
+
+    const records = await this.relatoryDispatchRepository
+      .createQueryBuilder('relatory')
+      .leftJoinAndSelect('relatory.template', 'template')
+      .where('relatory."dispatchBatchId" = :batchId', {
+        batchId: batch.id,
+      })
+      .orderBy('relatory.createdAt', 'DESC')
+      .getMany();
+
+    return {
+      batch: this.mapDispatchBatchResponse(batch),
+      records: records.map((record) => this.mapDispatchBatchRecord(record)),
     };
   }
 
   async getRelatoriesDispatchTemplate(dto: SearchRequestDtoRelatories) {
-    const { account, page, limit, sortorder, query } = dto;
+    const {
+      account,
+      page,
+      limit,
+      sortorder,
+      query,
+      manualOnly,
+      campaignOnly,
+      batchId,
+    } = dto;
     const safeLimit = limit > 0 ? limit : 10;
     const safePage = page > 0 ? page : 1;
     const skip = (safePage - 1) * safeLimit;
-
     const order = sortorder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    const where: FindOptionsWhere<RelatoryDispatchTemplate>[] = [
-      {
-        company: {
-          account_chatwoot: String(account),
-        },
-        name: ILike(`%${query}%`),
-      },
-      {
-        company: {
-          account_chatwoot: String(account),
-        },
-        number: ILike(`%${query}%`),
-      },
-    ];
+    const safeQuery = `%${String(query ?? '').trim()}%`;
 
-    const [data, total] = await this.relatoryDispatchRepository.findAndCount({
-      where,
-      relations: {
-        template: true,
-      },
-      select: {
-        template: {
-          id: true,
-          category: true,
-          variables: true,
-        },
-      },
-      skip,
-      take: safeLimit,
-      order: {
-        createdAt: order,
-      },
-    });
+    const queryBuilder = this.relatoryDispatchRepository
+      .createQueryBuilder('relatory')
+      .leftJoinAndSelect('relatory.template', 'template')
+      .innerJoin('relatory.company', 'company')
+      .where('company.account_chatwoot = :account', {
+        account: String(account),
+      })
+      .andWhere('(relatory.name ILIKE :query OR relatory.number ILIKE :query)', {
+        query: safeQuery,
+      })
+      .orderBy('relatory.createdAt', order)
+      .skip(skip)
+      .take(safeLimit);
+
+    if (manualOnly) {
+      queryBuilder.andWhere('relatory."campaignId" IS NULL');
+    }
+
+    if (campaignOnly) {
+      queryBuilder.andWhere('relatory."campaignId" IS NOT NULL');
+    }
+
+    if (batchId) {
+      queryBuilder.andWhere('relatory."dispatchBatchId" = :batchId', {
+        batchId,
+      });
+    }
+
+    const [data, total] = await queryBuilder.getManyAndCount();
 
     return {
       page: safePage,
@@ -440,6 +465,435 @@ export class AppServiceTemplate {
         message: 'Variaveis do template estao invalidas',
       });
     }
+  }
+
+  private enqueueBatchProcessing(batchId: string, companyId: string) {
+    const previousQueue = this.companyDispatchQueue.get(companyId) ?? Promise.resolve();
+
+    const nextQueue = previousQueue
+      .catch(() => undefined)
+      .then(async () => {
+        await this.processDispatchBatch(batchId);
+      });
+
+    this.companyDispatchQueue.set(companyId, nextQueue);
+
+    void nextQueue.finally(() => {
+      if (this.companyDispatchQueue.get(companyId) === nextQueue) {
+        this.companyDispatchQueue.delete(companyId);
+      }
+    });
+  }
+
+  private async processDispatchBatch(batchId: string) {
+    const batch = await this.dispatchBatchRepository.findOne({
+      where: {
+        id: batchId,
+      },
+      relations: {
+        template: {
+          company: true,
+        },
+        company: true,
+        campaign: true,
+      },
+    });
+
+    if (!batch || this.isDispatchBatchFinished(batch.status)) {
+      return;
+    }
+
+    const template = batch.template;
+
+    if (
+      !template?.company?.canalId_notificameHub ||
+      !template.company?.token_notificameHub
+    ) {
+      await this.failDispatchBatch(
+        batch.id,
+        'Empresa nao possui integracao ativa com a NotificaMe.',
+      );
+      return;
+    }
+
+    const remainingRecipients = this.getPendingBatchRecipients(batch);
+    const requiredTemplateVarsCount = this.extractRequiredTemplateVars(template).length;
+    const startedAt = batch.startedAt ?? new Date();
+    let processedRecipients = batch.processedRecipients;
+    let successCount = batch.successCount;
+    let failedCount = batch.failedCount;
+
+    await this.dispatchBatchRepository.update(batch.id, {
+      status: 'processing',
+      startedAt,
+      errorMessage: null,
+    });
+
+    try {
+      for (
+        let startIndex = 0;
+        startIndex < remainingRecipients.length;
+        startIndex += batch.rateLimitPerSecond
+      ) {
+        const batchStartedAt = Date.now();
+        const recipientsWindow = remainingRecipients.slice(
+          startIndex,
+          startIndex + batch.rateLimitPerSecond,
+        );
+
+        const dispatchResults = await Promise.all(
+          recipientsWindow.map((recipient) =>
+            this.dispatchTemplateToRecipient({
+              template,
+              recipient,
+              campaignId: batch.campaign?.id,
+              dispatchBatchId: batch.id,
+              requiredTemplateVarsCount,
+            }),
+          ),
+        );
+
+        processedRecipients += dispatchResults.length;
+        successCount += dispatchResults.filter((result) => result.ok).length;
+        failedCount += dispatchResults.filter((result) => !result.ok).length;
+
+        await this.dispatchBatchRepository.update(batch.id, {
+          processedRecipients,
+          successCount,
+          failedCount,
+          status: 'processing',
+          startedAt,
+        });
+
+        const hasMoreRecipients =
+          startIndex + batch.rateLimitPerSecond < remainingRecipients.length;
+
+        if (hasMoreRecipients) {
+          await this.waitForNextDispatchWindow(batchStartedAt);
+        }
+      }
+
+      await this.dispatchBatchRepository.update(batch.id, {
+        processedRecipients,
+        successCount,
+        failedCount,
+        status: this.resolveCompletedBatchStatus(successCount, failedCount),
+        startedAt,
+        finishedAt: new Date(),
+        errorMessage: null,
+      });
+
+      this.campaignMetricsGateway.emitCampaignsSync(batch.account);
+    } catch (error: unknown) {
+      await this.failDispatchBatch(
+        batch.id,
+        error instanceof Error ? error.message : 'Erro inesperado ao processar lote.',
+      );
+    }
+  }
+
+  private getPendingBatchRecipients(batch: TemplateDispatchBatch) {
+    const recipients = Array.isArray(batch.payload?.recipients)
+      ? batch.payload.recipients
+      : [];
+
+    return recipients.slice(batch.processedRecipients);
+  }
+
+  private async failDispatchBatch(batchId: string, errorMessage: string) {
+    const batch = await this.dispatchBatchRepository.findOne({
+      where: { id: batchId },
+    });
+
+    if (!batch) {
+      return;
+    }
+
+    await this.dispatchBatchRepository.update(batch.id, {
+      status: 'failed',
+      finishedAt: new Date(),
+      errorMessage,
+    });
+
+    this.campaignMetricsGateway.emitCampaignsSync(batch.account);
+  }
+
+  private mapDispatchBatchResponse(batch: TemplateDispatchBatch) {
+    const progressPercentage =
+      batch.totalRecipients > 0
+        ? Math.min(
+            100,
+            Math.round((batch.processedRecipients / batch.totalRecipients) * 100),
+          )
+        : 0;
+
+    return {
+      id: batch.id,
+      status: batch.status,
+      totalRecipients: batch.totalRecipients,
+      processedRecipients: batch.processedRecipients,
+      successCount: batch.successCount,
+      failedCount: batch.failedCount,
+      rateLimitPerSecond: batch.rateLimitPerSecond,
+      startedAt: batch.startedAt ?? null,
+      finishedAt: batch.finishedAt ?? null,
+      errorMessage: batch.errorMessage ?? null,
+      progressPercentage,
+      estimatedDurationSeconds: this.getEstimatedBatchDurationSeconds(
+        batch.totalRecipients,
+        batch.rateLimitPerSecond,
+      ),
+      templateId: batch.template?.id ?? null,
+      templateName: batch.template?.name ?? null,
+      campaignId: batch.campaign?.id ?? null,
+      createdAt: batch.createdAt,
+      updatedAt: batch.updatedAt,
+    };
+  }
+
+  private mapDispatchBatchRecord(record: RelatoryDispatchTemplate) {
+    return {
+      id: record.id,
+      name: record.name,
+      number: record.number,
+      message: record.message ?? null,
+      date_dispatch: record.date_dispatch,
+      status_sent: record.status_sent,
+      response: record.response,
+      response_at: record.response_at ?? null,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      templateId: record.template?.id,
+    };
+  }
+
+  private getEstimatedBatchDurationSeconds(totalRecipients: number, rateLimitPerSecond: number) {
+    if (totalRecipients <= 0 || rateLimitPerSecond <= 0) {
+      return 0;
+    }
+
+    return Math.ceil(totalRecipients / rateLimitPerSecond);
+  }
+
+  private resolveCompletedBatchStatus(
+    successCount: number,
+    failedCount: number,
+  ): TemplateDispatchBatchStatus {
+    if (successCount > 0 && failedCount > 0) {
+      return 'partial';
+    }
+
+    if (successCount > 0) {
+      return 'completed';
+    }
+
+    return 'failed';
+  }
+
+  private isDispatchBatchFinished(status: TemplateDispatchBatchStatus) {
+    return status === 'completed' || status === 'partial' || status === 'failed';
+  }
+
+  private async dispatchTemplateToRecipient(params: {
+    template: Templates;
+    recipient: SendTemplateRecipient;
+    campaignId?: string;
+    dispatchBatchId?: string;
+    requiredTemplateVarsCount: number;
+  }): Promise<DispatchTemplateResult> {
+    const {
+      template,
+      recipient,
+      campaignId,
+      dispatchBatchId,
+      requiredTemplateVarsCount,
+    } = params;
+    const safeComponents = this.getSafeRecipientComponents(recipient);
+
+    this.validateRecipientTemplateVariables(
+      recipient,
+      safeComponents,
+      requiredTemplateVarsCount,
+    );
+
+    const content = this.buildProviderDispatchPayload(
+      template,
+      recipient,
+      safeComponents,
+      requiredTemplateVarsCount,
+    );
+
+    try {
+      const providerResponse = await fetch(
+        `${this.baseUrl}/channels/whatsapp/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Token': template.company!.token_notificameHub,
+          },
+          body: JSON.stringify(content),
+        },
+      );
+
+      const responseData = await this.readJsonResponse(providerResponse);
+      const providerEntry = this.extractProviderEntry(responseData);
+      const externalMessageId = this.getProviderExternalMessageId(
+        providerEntry,
+        responseData,
+      );
+      const status = this.normalizeDispatchStatus(
+        providerEntry.status,
+        providerResponse.ok,
+      );
+      const providerMessage =
+        this.getProviderMessage(providerEntry, responseData, providerResponse) ??
+        template.message;
+
+      const relatory = await this.saveDispatchRelatory({
+        template,
+        recipient,
+        campaignId,
+        dispatchBatchId,
+        status,
+        componentsMaped: safeComponents as Record<string, any>,
+        externalMessageId,
+        message: providerMessage,
+      });
+
+      return {
+        number: recipient.number,
+        ok: status !== 'failed',
+        status,
+        relatoryId: relatory.id,
+        externalMessageId,
+      };
+    } catch (error: unknown) {
+      const errorMessage = `Dispatch error: ${
+        error instanceof Error ? error.message : 'unknown error'
+      }`;
+
+      const relatory = await this.saveDispatchRelatory({
+        template,
+        recipient,
+        campaignId,
+        dispatchBatchId,
+        status: 'failed',
+        componentsMaped: { components: safeComponents },
+        message: errorMessage,
+      });
+
+      return {
+        number: recipient.number,
+        ok: false,
+        status: 'failed',
+        relatoryId: relatory.id,
+        error: errorMessage,
+      };
+    }
+  }
+
+  private getSafeRecipientComponents(recipient: SendTemplateRecipient) {
+    return Array.isArray(recipient.components) ? recipient.components : [];
+  }
+
+  private validateRecipientTemplateVariables(
+    recipient: SendTemplateRecipient,
+    safeComponents: ToComponentDto['components'],
+    requiredTemplateVarsCount: number,
+  ) {
+    const bodyComponent = safeComponents.find((component) => component.type === 'BODY');
+    const parametersLength = bodyComponent?.parameters?.length ?? 0;
+
+    if (requiredTemplateVarsCount !== parametersLength) {
+      throw new BadRequestException(
+        `Template exige ${requiredTemplateVarsCount} variaveis, recebido ${parametersLength}`,
+      );
+    }
+
+    if (!String(recipient.number ?? '').trim()) {
+      throw new BadRequestException('Numero do destinatario nao informado.');
+    }
+  }
+
+  private buildProviderDispatchPayload(
+    template: Templates,
+    recipient: SendTemplateRecipient,
+    safeComponents: ToComponentDto['components'],
+    requiredTemplateVarsCount: number,
+  ) {
+    const bodyComponent = safeComponents.find((component) => component.type === 'BODY');
+    const parametersLength = bodyComponent?.parameters?.length ?? 0;
+
+    return {
+      from: template.company!.canalId_notificameHub,
+      to: recipient.number,
+      contents: [
+        {
+          type: 'template',
+          template: {
+            name: template.name,
+            language: { code: template.language },
+            components:
+              requiredTemplateVarsCount > 0 && parametersLength > 0
+                ? safeComponents
+                : [{ type: 'BODY', parameters: [] }],
+          },
+        },
+      ],
+      message_activity_sharing: true,
+      message_send_ttl_seconds: 3600,
+    };
+  }
+
+  private saveDispatchRelatory(params: {
+    template: Templates;
+    recipient: SendTemplateRecipient;
+    campaignId?: string;
+    dispatchBatchId?: string;
+    status: RelatoryDispatchTemplate['status_sent'];
+    componentsMaped: Record<string, any>;
+    message: string | null;
+    externalMessageId?: string | null;
+  }): Promise<RelatoryDispatchTemplate> {
+    const {
+      template,
+      recipient,
+      campaignId,
+      dispatchBatchId,
+      status,
+      componentsMaped,
+      message,
+      externalMessageId,
+    } = params;
+
+    return this.relatoryDispatchRepository.save({
+      date_dispatch: new Date(),
+      external_message_id: externalMessageId ?? undefined,
+      status_sent: status,
+      template: { id: template.id },
+      name: recipient.name ?? recipient.number,
+      number: recipient.number,
+      components_maped: componentsMaped,
+      company: { id: template.company!.id },
+      campaign: campaignId ? { id: campaignId } : null,
+      dispatchBatch: dispatchBatchId ? { id: dispatchBatchId } : null,
+      message: message ?? '',
+    });
+  }
+
+  private async waitForNextDispatchWindow(batchStartedAt: number) {
+    const elapsedMs = Date.now() - batchStartedAt;
+
+    if (elapsedMs >= TEMPLATE_DISPATCH_WINDOW_MS) {
+      return;
+    }
+
+    await this.delay(TEMPLATE_DISPATCH_WINDOW_MS - elapsedMs);
+  }
+
+  private async delay(ms: number) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async readJsonResponse(response: Response): Promise<unknown> {

@@ -2,6 +2,7 @@
 import { Type } from "class-transformer";
 import {
   IsArray,
+  IsBoolean,
   IsObject,
   IsIn,
   IsInt,
@@ -167,6 +168,53 @@ export class SendTemplateDto {
   to!: ToComponentDto[];
 }
 
+export class DispatchBatchStatusDto {
+  @ApiProperty({
+    description: "ID da account do sistema",
+    example: 4,
+  })
+  @IsNumber({}, { message: "account deve ser um número" })
+  @Type(() => Number)
+  account!: number;
+
+  @ApiProperty({
+    description: "ID do lote de disparo",
+    example: "123e4567-e89b-12d3-a456-426614174000",
+  })
+  @IsUUID("4", { message: "batchId deve ser um UUID válido" })
+  batchId!: string;
+}
+
+export class LatestDispatchBatchReportDto {
+  @ApiProperty({
+    description: "ID da account do sistema",
+    example: 4,
+  })
+  @IsNumber({}, { message: "account deve ser um número" })
+  @Type(() => Number)
+  account!: number;
+
+  @ApiProperty({
+    description: "Quando true, retorna apenas lotes sem vínculo com campanha.",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean({ message: "manualOnly deve ser boolean" })
+  manualOnly?: boolean;
+
+  @ApiProperty({
+    description: "Quando true, retorna apenas lotes vinculados a campanha.",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean({ message: "campaignOnly deve ser boolean" })
+  campaignOnly?: boolean;
+}
+
 export class SearchRequestDtoRelatories {
   @ApiProperty({
     description: "Account é obrigatório, envie o id da account do sistema que está utilizando.",
@@ -210,4 +258,33 @@ export class SearchRequestDtoRelatories {
   })
   @IsIn(["ASC", "DESC"], { message: "sortorder deve ser ASC ou DESC" })
   sortorder?: "ASC" | "DESC";
+
+  @ApiProperty({
+    description: "Quando true, retorna apenas disparos sem vínculo com campanha.",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean({ message: "manualOnly deve ser boolean" })
+  manualOnly?: boolean;
+
+  @ApiProperty({
+    description: "Quando true, retorna apenas disparos vinculados a campanha.",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean({ message: "campaignOnly deve ser boolean" })
+  campaignOnly?: boolean;
+
+  @ApiProperty({
+    description: "Quando informado, retorna apenas disparos do lote especificado.",
+    example: "123e4567-e89b-12d3-a456-426614174000",
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID("4", { message: "batchId deve ser um UUID válido" })
+  batchId?: string;
 }

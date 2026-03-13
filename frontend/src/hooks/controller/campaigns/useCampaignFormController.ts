@@ -1,13 +1,16 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { toast } from "react-toastify";
 import type { DateRange } from "react-day-picker";
-import { campaignSchema, mapVarsSchema } from "../../../schemas/campaign.schema";
+import { toast } from "react-toastify";
+import { campaignSchema } from "../../../schemas/campaign.schema";
 import type { Category, Cliente, mappedVars, Template } from "../../../types";
 import { CampaignService } from "../../../services/campaign/campaign.service";
 import { ClientContext } from "../../../context/contextClients";
-import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import {
+  areOnlyAttendantFieldsMissing,
+  getIncompleteTemplateRecipients,
+  getStoredAuthMode,
   getStoredAttendantName,
+  mapRecipientsToTemplateVars,
   templateRequiresAttendantName,
 } from "../../../mappers/templateVars.mapper";
 import { validarSelecaoCliente } from "../../../utils/validation";
@@ -15,7 +18,13 @@ import { getErrorMessage } from "../../../utils/error";
 
 type ValidationResult =
   | { success: true }
-  | { success: false; error: { issues: { message: string }[] } };
+  | {
+      success: false;
+      error: {
+        issues: { message: string }[];
+        code?: "ATTENDANT_MODAL_REQUIRED";
+      };
+    };
 
 type CampaignCreateWarning = {
   doc?: string;
@@ -42,7 +51,6 @@ export function useCampaignFormController() {
 
   const toCampaignDateIso = useCallback((date: Date) => {
     const safeDate = new Date(date);
-    // Force noon to prevent day-shift issues caused by timezone conversions.
     safeDate.setHours(12, 0, 0, 0);
     return safeDate.toISOString();
   }, []);
@@ -55,6 +63,7 @@ export function useCampaignFormController() {
     setDateRange(undefined);
     setRecurring(false);
     setSelectedClients([]);
+    setTemplateMapsVars([]);
   }, []);
 
   useEffect(() => {
@@ -69,12 +78,12 @@ export function useCampaignFormController() {
 
         if (selectedTemplate.category.toLowerCase().includes("cobr")) {
           const hasPendingInvoices = selectedClients.some(
-            (client) => client.invoices?.status !== "success"
+            (client) => client.invoices?.status !== "success",
           );
 
           if (hasPendingInvoices) {
             const needInvoices = selectedClients.filter(
-              (client) => !client.invoices || client.invoices.status === "error"
+              (client) => !client.invoices || client.invoices.status === "error",
             );
 
             source = await fetchInvoices(needInvoices);
@@ -82,12 +91,13 @@ export function useCampaignFormController() {
         }
 
         const validClients = source.filter((client) =>
-          validarSelecaoCliente(client, selectedTemplate)
+          validarSelecaoCliente(client, selectedTemplate),
         );
 
         if (validClients.length !== source.length) {
           const sourceIds = source.map((client) => client.id).sort().join(",");
           const validIds = validClients.map((client) => client.id).sort().join(",");
+
           if (sourceIds !== validIds) {
             setSelectedClients(validClients);
             return;
@@ -101,12 +111,12 @@ export function useCampaignFormController() {
         setTemplateMapsVars(mapped);
       } catch {
         setSelectedTemplate(undefined);
-        toast.error("Este template não pode ser utilizado, contate o suporte.");
+        toast.error("Este template nao pode ser utilizado, contate o suporte.");
         setTemplateMapsVars([]);
       }
     };
 
-    mapVars();
+    void mapVars();
   }, [selectedTemplate, selectedClients, fetchInvoices]);
 
   const createCampaign = useCallback(async (): Promise<{ success: boolean }> => {
@@ -119,30 +129,29 @@ export function useCampaignFormController() {
         return { success: false };
       }
 
-       const attendantName = getStoredAttendantName();
-       const requiresAttendant = templateRequiresAttendantName(selectedTemplate);
-       if (requiresAttendant && !attendantName) {
-         toast.warning("Informe o nome do atendente para usar este template.");
-         return { success: false };
-       }
+      const attendantName = getStoredAttendantName();
+      const requiresAttendant = templateRequiresAttendantName(selectedTemplate);
+      if (requiresAttendant && !attendantName) {
+        toast.warning("Informe o nome do atendente para usar este template.");
+        return { success: false };
+      }
 
       let source = selectedClients;
 
       if (selectedTemplate.category.toLowerCase().includes("cobr")) {
         const needInvoices = selectedClients.filter(
-          (client) => !client.invoices || client.invoices.status === "error"
+          (client) => !client.invoices || client.invoices.status === "error",
         );
+
         if (needInvoices.length) {
           source = await fetchInvoices(needInvoices);
           setSelectedClients(source);
         }
       }
 
-      const mappedVarsForSubmit = mapRecipientsToTemplateVars(
-        source,
-        selectedTemplate,
-        { filterByTemplateVars: true }
-      ) as Array<Record<string, unknown>>;
+      const mappedVarsForSubmit = mapRecipientsToTemplateVars(source, selectedTemplate, {
+        filterByTemplateVars: true,
+      }) as Array<Record<string, unknown>>;
 
       const templateMapVarsForSubmit = mappedVarsForSubmit
         .map((item) => ({
@@ -164,11 +173,11 @@ export function useCampaignFormController() {
           (item) =>
             item.clientId.length > 0 &&
             item.cnpj_cpf.length > 0 &&
-            item.whatsapp.length > 0
+            item.whatsapp.length > 0,
         );
 
       if (!templateMapVarsForSubmit.length) {
-        toast.error("Nenhum cliente válido para campanha após validação do template.");
+        toast.error("Nenhum cliente valido para campanha apos validacao do template.");
         return { success: false };
       }
 
@@ -204,7 +213,7 @@ export function useCampaignFormController() {
         const warnings = Array.isArray(createData.warnings) ? createData.warnings : [];
         warnings.forEach((item) => {
           toast.info(
-            `O cliente de documento:${item.doc} foi retirado da campanha pois não foram mapeadas todas as variáveis obrigatórias!`
+            `O cliente de documento:${item.doc} foi retirado da campanha pois nao foram mapeadas todas as variaveis obrigatorias!`,
           );
         });
 
@@ -221,15 +230,16 @@ export function useCampaignFormController() {
       setIsSubmitting(false);
     }
   }, [
-    name,
-    selectedTemplate,
-    selectedCategory,
     dateRange,
     dispatchTime,
-    selectedClients,
-    recurring,
+    fetchInvoices,
     isSubmitting,
+    name,
+    recurring,
     resetForm,
+    selectedCategory,
+    selectedClients,
+    selectedTemplate,
     toCampaignDateIso,
   ]);
 
@@ -255,82 +265,110 @@ export function useCampaignFormController() {
     if (!parsed.success) {
       return {
         success: false,
-        error: { issues: [{ message: parsed.error.issues[0]?.message ?? "Erro de validação" }] },
+        error: {
+          issues: [{ message: parsed.error.issues[0]?.message ?? "Erro de validacao" }],
+        },
       };
     }
-
-    const validMapVars: mappedVars[] = [];
-    const validClients: Cliente[] = [];
-    const removedClients: string[] = [];
 
     const effectiveMapVars =
       templateMapVars.length && selectedTemplate
         ? templateMapVars
         : selectedTemplate
-        ? mapRecipientsToTemplateVars(selectedClients, selectedTemplate, {
-            filterByTemplateVars: true,
-          })
-        : [];
+          ? mapRecipientsToTemplateVars(selectedClients, selectedTemplate, {
+              filterByTemplateVars: true,
+            })
+          : [];
 
-    effectiveMapVars.forEach((mapVar) => {
-      const result = mapVarsSchema.partial().safeParse(mapVar);
-      const client = selectedClients.find(
-        (current) =>
-          current.cnpj_cpf.replace(/\D/g, "") ===
-          (mapVar.cnpj_cpf ?? "").replace(/\D/g, "")
-      );
-
-      if (result.success) {
-        validMapVars.push(mapVar);
-        if (client) validClients.push(client);
-        return;
-      }
-
-      if (client) removedClients.push(client.name);
-    });
-
-    if (removedClients.length) {
-      toast.warning(
-        `Clientes removidos por erro de mapeamento: ${removedClients.join(", ")} contate o suporte.`
-      );
-    }
-
-    if (!validClients.length) {
+    if (!selectedTemplate || !effectiveMapVars.length) {
       return {
         success: false,
         error: {
-          issues: [{ message: "Nenhum cliente válido para envio, contate o suporte." }],
+          issues: [{ message: "Nenhum cliente valido para envio." }],
         },
       };
     }
 
-    setSelectedClients(validClients);
-    setTemplateMapsVars(validMapVars);
+    const incompleteRecipients = getIncompleteTemplateRecipients(
+      selectedTemplate,
+      effectiveMapVars,
+    );
+
+    if (incompleteRecipients.length) {
+      if (
+        getStoredAuthMode() === "embed" &&
+        areOnlyAttendantFieldsMissing(incompleteRecipients)
+      ) {
+        return {
+          success: false,
+          error: {
+            code: "ATTENDANT_MODAL_REQUIRED",
+            issues: [{ message: "Informe o nome do atendente para continuar." }],
+          },
+        };
+      }
+
+      if (areOnlyAttendantFieldsMissing(incompleteRecipients)) {
+        return {
+          success: false,
+          error: {
+            issues: [{ message: "Nao foi possivel identificar o nome do usuario logado." }],
+          },
+        };
+      }
+
+      const invalidNames = incompleteRecipients
+        .slice(0, 3)
+        .map((recipient) => selectedClients[recipient.index]?.name || `Cliente ${recipient.index + 1}`);
+
+      return {
+        success: false,
+        error: {
+          issues: [
+            {
+              message:
+                `Preencha todas as variaveis obrigatorias antes do preview. ` +
+                `Pendencias encontradas em ${incompleteRecipients.length} cliente(s): ${invalidNames.join(", ")}.`,
+            },
+          ],
+        },
+      };
+    }
+
+    setTemplateMapsVars(effectiveMapVars);
 
     return { success: true };
   }, [
-    name,
-    selectedTemplate,
-    selectedCategory,
     dateRange,
     dispatchTime,
-    selectedClients,
-    templateMapVars,
+    name,
     recurring,
+    selectedCategory,
+    selectedClients,
+    selectedTemplate,
+    templateMapVars,
   ]);
 
   const handleSubmit = useCallback(
-    (setOpenModal: (value: boolean) => void) => {
+    (
+      setOpenModal: (value: boolean) => void,
+      onRequireAttendantModal?: () => void,
+    ) => {
       const result = validateForm();
 
       if (!result.success) {
+        if (result.error.code === "ATTENDANT_MODAL_REQUIRED") {
+          onRequireAttendantModal?.();
+          return;
+        }
+
         toast.error(result.error.issues[0]?.message);
         return;
       }
 
       setOpenModal(true);
     },
-    [validateForm]
+    [validateForm],
   );
 
   return useMemo(
@@ -348,6 +386,7 @@ export function useCampaignFormController() {
       recurring,
       setRecurring,
       isSubmitting,
+      templateMapVars,
       createCampaign,
       resetForm,
       selectedClients,
@@ -356,18 +395,19 @@ export function useCampaignFormController() {
       validateForm,
     }),
     [
-      name,
-      dispatchTime,
-      selectedTemplate,
-      selectedCategory,
-      dateRange,
-      recurring,
-      isSubmitting,
       createCampaign,
-      resetForm,
-      selectedClients,
+      dateRange,
+      dispatchTime,
       handleSubmit,
+      isSubmitting,
+      name,
+      recurring,
+      resetForm,
+      selectedCategory,
+      selectedClients,
+      selectedTemplate,
+      templateMapVars,
       validateForm,
-    ]
+    ],
   );
 }

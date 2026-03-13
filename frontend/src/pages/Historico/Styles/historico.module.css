@@ -1,3 +1,307 @@
 .table{
     height: 80%;
 }
+
+.batchSummaryCard{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    border-radius: 16px;
+    border: 1px solid rgba(212, 166, 0, 0.35);
+    background: linear-gradient(145deg, rgba(24, 21, 12, 0.95) 0%, rgba(11, 11, 11, 0.94) 100%);
+    box-shadow:
+      0 10px 22px rgba(0, 0, 0, 0.26),
+      inset 0 0 0 1px rgba(212, 166, 0, 0.08);
+}
+
+.batchSummaryHeader{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+
+    strong{
+        display: block;
+        margin-top: 4px;
+        color: #fff1b8;
+        font-size: 1.25rem;
+    }
+
+    p{
+        margin: 6px 0 0;
+        color: rgba(255, 236, 179, 0.78);
+        word-break: break-all;
+    }
+}
+
+.batchSummaryEyebrow{
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(229, 201, 117, 0.72);
+}
+
+.batchSummaryBadge{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    color: #14120b;
+    background: linear-gradient(90deg, #f0c44f 0%, #ffd700 100%);
+    font-weight: 700;
+}
+
+.batchSummaryStats{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: rgba(255, 244, 209, 0.88);
+    font-size: 0.92rem;
+}
+
+.batchSummaryBar{
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.batchSummaryFill{
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f0c44f 0%, #ffd700 100%);
+    box-shadow: 0 0 18px rgba(255, 215, 0, 0.25);
+    transition: width 0.3s ease;
+}
+
+.batchSummaryFallback{
+    margin: 0;
+    color: rgba(255, 236, 179, 0.68);
+}
+
+.liveReportModal{
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.liveReportEmpty{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    text-align: left;
+    margin: 0;
+
+    strong{
+        color: #fff1b8;
+        font-size: 1.08rem;
+    }
+
+    p{
+        margin: 0;
+        color: rgba(255, 236, 179, 0.78);
+    }
+}
+
+.liveReportHero{
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+
+    strong{
+        display: block;
+        margin-top: 4px;
+        color: #fff4cc;
+        font-size: 1.35rem;
+    }
+
+    p{
+        margin: 8px 0 0;
+        color: rgba(255, 236, 179, 0.78);
+    }
+}
+
+.liveReportHeroInfo{
+    display: inline-block;
+    margin-top: 10px;
+    color: rgba(255, 236, 179, 0.6);
+    font-size: 0.82rem;
+    word-break: break-all;
+}
+
+.liveReportEyebrow{
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(229, 201, 117, 0.72);
+}
+
+.liveReportHeroMeta{
+    min-width: 96px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(245, 208, 51, 0.14) 0%, rgba(245, 208, 51, 0.06) 100%);
+    border: 1px solid rgba(245, 208, 51, 0.18);
+    text-align: center;
+
+    span{
+        display: block;
+        color: #ffd85e;
+        font-size: 1.45rem;
+        font-weight: 700;
+    }
+
+    small{
+        color: rgba(255, 236, 179, 0.72);
+        font-size: 0.8rem;
+    }
+}
+
+.liveReportProgress{
+    width: 100%;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.liveReportProgressFill{
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f0c44f 0%, #ffd700 100%);
+    box-shadow: 0 0 18px rgba(255, 215, 0, 0.25);
+    transition: width 0.3s ease;
+}
+
+.liveReportNumbers{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+
+    article{
+        padding: 14px;
+        border-radius: 14px;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+        border: 1px solid rgba(212, 166, 0, 0.14);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    span{
+        color: rgba(255, 236, 179, 0.68);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    strong{
+        color: #fff;
+        font-size: 1.08rem;
+    }
+}
+
+.liveReportActions{
+    display: flex;
+    justify-content: flex-end;
+}
+
+.liveReportList{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(245, 208, 51, 0.16);
+}
+
+.liveReportListHeader{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+
+    span{
+        color: #fff1b8;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    small{
+        color: rgba(255, 236, 179, 0.68);
+    }
+}
+
+.liveReportRows{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.liveReportRow{
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(212, 166, 0, 0.16);
+    background: linear-gradient(145deg, rgba(20, 18, 10, 0.96) 0%, rgba(13, 13, 13, 0.96) 100%);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+}
+
+.liveReportRowMain{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    strong{
+        color: #fff;
+        font-size: 0.98rem;
+    }
+
+    span{
+        color: rgba(255, 236, 179, 0.7);
+        font-size: 0.88rem;
+    }
+}
+
+.liveReportRowMessage{
+    max-width: 520px;
+    color: rgba(255, 236, 179, 0.58);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.liveReportRowMeta{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    color: rgba(255, 244, 209, 0.72);
+    font-size: 0.88rem;
+}
+
+.liveReportRowStatus{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(245, 208, 51, 0.12);
+    border: 1px solid rgba(245, 208, 51, 0.16);
+    color: #fff1b8;
+    font-weight: 700;
+}

@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { useLocation } from "react-router-dom";
 import { Api } from "../../../services/api";
 import type { IHistoricoContext, history, responseHistorico } from "../../../types";
 import { getErrorMessage } from "../../../utils/error";
+
+const HISTORY_REFRESH_INTERVAL_MS = 10000;
 
 export function useHistoricoController(): IHistoricoContext {
   const [histories, setHistory] = useState<history[]>([]);
@@ -10,11 +13,16 @@ export function useHistoricoController(): IHistoricoContext {
   const [limit, setLimit] = useState<number>(10);
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC");
   const [query, setQuery] = useState<string>("");
+  const location = useLocation();
 
-  useEffect(() => {
-    const fetchHistorico = async () => {
+  const fetchHistorico = useCallback(
+    async (showErrorToast = true) => {
       try {
-        const account = new URLSearchParams(window.location.search).get("account");
+        const searchParams = new URLSearchParams(location.search);
+        const account = searchParams.get("account");
+        const scope = searchParams.get("scope");
+        const batchId = searchParams.get("batchId");
+        if (!account) return;
 
         const response = await Api.post<responseHistorico>(
           "/templates/reports/search",
@@ -24,23 +32,33 @@ export function useHistoricoController(): IHistoricoContext {
             page,
             limit,
             sortorder: order,
+            manualOnly: scope !== "campaigns",
+            campaignOnly: scope === "campaigns",
+            batchId: batchId || undefined,
           }
         );
 
-        setHistory((prev) => {
-          const map = new Map<string, history>();
-          [...prev, ...response.data.data].forEach((item) => {
-            map.set(item.id, item);
-          });
-          return Array.from(map.values());
-        });
+        setHistory(response.data.data ?? []);
       } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Erro ao buscar o historico."));
+        if (showErrorToast) {
+          toast.error(getErrorMessage(error, "Erro ao buscar o historico."));
+        }
       }
-    };
+    },
+    [limit, location.search, order, page, query]
+  );
 
+  useEffect(() => {
     void fetchHistorico();
-  }, [query, page, limit, order]);
+  }, [fetchHistorico]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void fetchHistorico(false);
+    }, HISTORY_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [fetchHistorico]);
 
   return {
     histories,

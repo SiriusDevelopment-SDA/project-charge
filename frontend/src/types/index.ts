@@ -19,6 +19,7 @@ import type {
 } from "./componentsTypes";
 
 import type {
+  DispatchBatchStatus,
   IDispatchTemplateContext, 
   mappedVars 
 } from "./dispatchApiTypes";
@@ -81,6 +82,7 @@ export type
   propAmostras, 
   propTemplate,
   mappedVars,
+  DispatchBatchStatus,
   Template, 
   SendTemplate, 
   TemplateComponent,

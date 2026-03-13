@@ -3,9 +3,9 @@ import { z } from "zod";
 
 export const campaignSchema = z
   .object({
-    name: z.string().min(1, "Nome da campanha Ã© obrigatÃ³rio"),
-    templateId: z.string().min(1, "Template Ã© obrigatÃ³rio"),
-    categoryId: z.string().min(1, "Categoria Ã© obrigatÃ³ria"),
+    name: z.string().min(1, "Nome da campanha é obrigatório!"),
+    templateId: z.string().min(1, "Template é obrigatório!"),
+    categoryId: z.string().min(1, "Categoria Ãé obrigatória!"),
     startDate: z.coerce.date({ message: "Escolha um dia na agenda." }),
     endDate: z.coerce
       .date({ message: "Escolha um dia para finalizar a campanha!" })
@@ -13,7 +13,7 @@ export const campaignSchema = z
     recurring: z.boolean(),
     dispatchTime: z
       .string()
-      .regex(/^([0-1]\d|2[0-3]):([0-5]\d)$/, "HorÃ¡rio invÃ¡lido"),
+      .regex(/^([0-1]\d|2[0-3]):([0-5]\d)$/, "Horário inválido"),
     clientIds: z.array(z.string()).min(1, "Selecione pelo menos um cliente"),
   })
   .superRefine((data, ctx) => {
@@ -62,7 +62,7 @@ export const campaignSchema = z
         code: "custom",
         path: ["dispatchTime"],
         message:
-          "O horÃ¡rio de disparo deve ser no mÃ­nimo 59 minutos Ã  frente do horÃ¡rio atual.",
+          "O horário de disparo deve conter o mínimo 1 hora a frente do horário atual.",
       });
     }
   });
@@ -73,13 +73,13 @@ export const campaignSchema = z
 export const campaignFormSchema = z
   .object({
     isRecurring: z.boolean(),
-    dispatchDate: z.string().min(10, "Data Ã© obrigatÃ³ria para alteraÃ§Ã£o!"),
+    dispatchDate: z.string().min(10, "Data é obrigatória para alteração!"),
     endDate: z
       .string()
-      .min(10, "Data de finalizaÃ§Ã£o da campanha Ã© obrigatÃ³ria para alteraÃ§Ã£o!"),
+      .min(10, "Data de finalização da campanha é obrigatória para alteração!"),
     dispatchTime: z
       .string()
-      .min(4, "HorÃ¡rio de disparo Ã© obrigatÃ³rio para alteraÃ§Ã£o!"),
+      .min(4, "Horário de disparo é obrigatório para alteração!"),
     note: z.string().optional(),
   })
   .refine(
@@ -91,7 +91,7 @@ export const campaignFormSchema = z
     },
     {
       message:
-        "Data de finalizaÃ§Ã£o deve ser igual ou maior que a data de inÃ­cio!",
+        "Data de finalização deve ser igual ou maior que a data de início!",
       path: ["endDate"],
     }
   );
@@ -102,11 +102,11 @@ export type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 // Schema: variÃ¡veis de template
 // ---------------------------------------------------------------------------
 export const mapVarsSchema = z.object({
-  nome_cliente: z.string().min(1, "Nome do cliente Ã© obrigatÃ³rio"),
-  whatsapp: z.string().min(1, "Whatsapp do cliente Ã© obrigatÃ³rio"),
-  cnpj_cpf: z.string().min(1, "CNPJ/CPF Ã© obrigatÃ³rio"),
-  numero_contrato: z.string().min(1, "NÃºmero do contrato Ã© obrigatÃ³rio"),
-  valor_fatura: z.string().min(1, "Valor da fatura Ã© obrigatÃ³rio"),
-  linha_digitavel_boleto: z.string().min(1, "Linha digitÃ¡vel Ã© obrigatÃ³ria"),
-  link_boleto_pdf: z.string().min(1, "Link do boleto Ã© obrigatÃ³rio"),
+  nome_cliente: z.string().min(1, "Nome do cliente é obrigatório"),
+  whatsapp: z.string().min(1, "Whatsapp do cliente é obrigatório"),
+  cnpj_cpf: z.string().min(1, "CNPJ/CPF é obrigatório"),
+  numero_contrato: z.string().min(1, "Número do contrato é obrigatório"),
+  valor_fatura: z.string().min(1, "Valor da fatura é obrigatório"),
+  linha_digitavel_boleto: z.string().min(1, "Linha digitável é obrigatória"),
+  link_boleto_pdf: z.string().min(1, "Link do boleto é obrigatório"),
 });

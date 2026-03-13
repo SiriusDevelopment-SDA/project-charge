@@ -11,6 +11,7 @@ import { Templates } from '../templates/entities/templatesMeta';
 import { Service } from '../services/entities/services';
 import { Invoice } from '../invoices/entities/invoices';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
+import { TemplateDispatchBatch } from '../templates/entities/template-dispatch-batch.entity';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { Category } from '../category/entities/category.entity';
 import { Agent } from '../agents/entities/agent.entity';
@@ -27,7 +28,18 @@ export default <TypeOrmModuleAsyncOptions>{
       username: configService.get('DB_USER_NAME'),
       password: configService.get('DB_PASSWORD'),
       database: configService.get('DB_DATABASE'),
-      entities: [Invoice, Client, Service, Company, Templates, RelatoryDispatchTemplate ,Campaign, Category, Agent],
+      entities: [
+        Invoice,
+        Client,
+        Service,
+        Company,
+        Templates,
+        RelatoryDispatchTemplate,
+        TemplateDispatchBatch,
+        Campaign,
+        Category,
+        Agent,
+      ],
       synchronize: true,
     };
   },

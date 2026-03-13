@@ -32,18 +32,6 @@
     ]
   },
   "include": [
-    "src",
-    "sem utilidade/ButtonNavigation.tsx",
-    "sem utilidade/alert.tsx",
-    "src/componente/table/tableHistory.tsx",
-    "sem utilidade/ClientsSelectedCard.tsx",
-    "sem utilidade/DisparoContainer.tsx",
-    "sem utilidade/Dropdown.tsx",
-    "sem utilidade/filtrocliente.tsx",
-    "sem utilidade/MessagePreview.tsx",
-    "sem utilidade/inputnumber.tsx",
-    "sem utilidade/VariablesPreview.tsx",
-    "sem utilidade/pagination.tsx",
-    "sem utilidade/MyButton.tsx"
+    "src"
   ]
 }

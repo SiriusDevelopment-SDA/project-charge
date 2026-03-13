@@ -53,6 +53,13 @@ export function Campanhas() {
   const formatPercent = (value: number) =>
     `${value.toFixed(1).replace(".", ",")}%`;
 
+  const buildCampaignHistorySearch = () => {
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set("scope", "campaigns");
+    const nextSearch = searchParams.toString();
+    return nextSearch ? `?${nextSearch}` : "";
+  };
+
   return (
     <PageContainer className={Style.TemplatesContainer}>
       <div className={Style.Grafico}>
@@ -74,7 +81,7 @@ export function Campanhas() {
               text="Histórico"
               variant="secondary"
               className={Style.BtnCriarTemplate}
-              onClick={() => navigate(`/historico${location.search}`)}
+              onClick={() => navigate(`/historico${buildCampaignHistorySearch()}`)}
             />
 
             <div className={Style.ContainerFiltros}>
