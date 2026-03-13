@@ -1,7 +1,8 @@
-import type { Cliente, Lead, Template, mappedVars } from "../types";
+import type { Cliente, Template, mappedVars } from "../types";
 import { compilarTemplate } from "../utils/validation";
 
 type Recipient = {
+  [key: string]: unknown;
   id?: string;
   name?: string;
   cnpj_cpf?: string;
@@ -50,6 +51,19 @@ function normalizeTemplateComponents(components: Template["components"]) {
   return components as TemplateComponentBlueprint[];
 }
 
+export function getOrderedTemplateVariableKeys(template: Template) {
+  const vars = normalizeTemplateVars(template.variables);
+
+  return Array.from(
+    new Set(
+      Object.keys(vars)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((key) => String(vars[key] ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 export function getStoredAttendantName() {
   if (typeof window === "undefined") return "";
   return (
@@ -59,14 +73,38 @@ export function getStoredAttendantName() {
   ).trim();
 }
 
+export function getStoredAuthMode() {
+  if (typeof window === "undefined") return "";
+  return (localStorage.getItem("auth_mode") || "").trim().toLowerCase();
+}
+
+export function getStoredCompanyName() {
+  if (typeof window === "undefined") return "";
+  return (
+    localStorage.getItem("dispatch_company_name") ||
+    localStorage.getItem("company_name") ||
+    ""
+  ).trim();
+}
+
 export function setStoredAttendantName(name: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem("attendant_name", name.trim());
 }
 
+export function setStoredCompanyName(name: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("dispatch_company_name", name.trim());
+}
+
 export function templateRequiresAttendantName(template: Template) {
   const vars = normalizeTemplateVars(template.variables);
   return Object.values(vars).some((value) => String(value) === "nome_atendente");
+}
+
+export function templateRequiresCompanyName(template: Template) {
+  const vars = normalizeTemplateVars(template.variables);
+  return Object.values(vars).some((value) => String(value) === "nome_empresa");
 }
 
 function getInvoice(recipient: Recipient) {
@@ -81,9 +119,12 @@ function toLower(value?: string) {
 
 export function buildTemplateVars(recipient: Recipient, template: Template): mappedVars {
   const invoice = getInvoice(recipient);
-  const attendantName =
-    recipient.nome_atendente ??
-    getStoredAttendantName();
+  const attendantName = recipient.nome_atendente ?? getStoredAttendantName();
+  const companyName =
+    recipient.company?.name?.trim() ||
+    getStoredCompanyName() ||
+    template.company?.name?.trim() ||
+    "";
   const pixCode =
     invoice?.code_pix?.pix ??
     recipient.code_pix ??
@@ -91,16 +132,33 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
     recipient.codigo_qr_code ??
     recipient.codigo_pix ??
     "";
+  const customFields = Object.fromEntries(
+    Object.entries(recipient)
+      .filter(
+        ([key, value]) =>
+          typeof value === "string" &&
+          ![
+            "id",
+            "name",
+            "cnpj_cpf",
+            "whatsapp",
+            "inputSource",
+            "company",
+            "invoices",
+          ].includes(key)
+      )
+      .map(([key, value]) => [key, String(value).trim()])
+  );
 
   return {
+    ...customFields,
     nome_cliente: toLower(recipient.name ?? recipient.nome_cliente),
     whatsapp: recipient.whatsapp ?? "",
     cnpj_cpf: recipient.cnpj_cpf ?? "",
     nome_atendente: toLower(attendantName),
     data_vencimento_fatura:
       invoice?.invoice_due_date ?? recipient.data_vencimento_fatura ?? "",
-    nome_empresa:
-      toLower(recipient.company?.name) ?? toLower(template.company?.name) ?? "",
+    nome_empresa: toLower(companyName),
     numero_contrato: invoice?.contract_id ?? recipient.numero_contrato ?? "",
     valor_fatura: invoice?.invoice_amount ?? recipient.valor_fatura ?? "",
     linha_digitavel_boleto:
@@ -111,6 +169,15 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
     codigo_qr_code: pixCode,
     codigo_pix: pixCode,
   };
+}
+
+export function getMissingTemplateVariables(template: Template, recipient: Recipient) {
+  const allVars = buildTemplateVars(recipient, template);
+
+  return getOrderedTemplateVariableKeys(template).filter((fieldKey) => {
+    if (fieldKey === "whatsapp") return false;
+    return !String(allVars[fieldKey as keyof mappedVars] ?? "").trim();
+  });
 }
 
 export function pickTemplateVars(
@@ -261,4 +328,69 @@ export function buildTemplateRecipients(
     );
 
   return recipients;
+}
+
+export type TemplateRecipientDiagnostic = {
+  index: number;
+  number: string;
+  missingNumber: boolean;
+  missingFields: string[];
+  bodyPreview: Array<{
+    key: string;
+    value: string;
+  }>;
+};
+
+export function diagnoseTemplateRecipients(
+  template: Template,
+  mappedVarsList: mappedVars[]
+): TemplateRecipientDiagnostic[] {
+  const templateVars = normalizeTemplateVars(template.variables);
+
+  return mappedVarsList.map((mappedVar, index) => {
+    const bodyPreview = Object.keys(templateVars)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((key) => {
+        const fieldKey = templateVars[key];
+        const value = String(mappedVar[fieldKey as keyof mappedVars] ?? "");
+
+        return {
+          key: fieldKey,
+          value,
+        };
+      });
+
+    return {
+      index,
+      number: String(mappedVar.whatsapp ?? ""),
+      missingNumber: !String(mappedVar.whatsapp ?? "").trim(),
+      missingFields: bodyPreview
+        .filter((item) => !item.value.trim())
+        .map((item) => item.key),
+      bodyPreview,
+    };
+  });
+}
+
+export function getIncompleteTemplateRecipients(
+  template: Template,
+  mappedVarsList: mappedVars[]
+) {
+  return diagnoseTemplateRecipients(template, mappedVarsList).filter(
+    (recipient) => recipient.missingNumber || recipient.missingFields.length > 0,
+  );
+}
+
+export function areOnlyAttendantFieldsMissing(
+  incompleteRecipients: TemplateRecipientDiagnostic[],
+) {
+  return (
+    incompleteRecipients.length > 0 &&
+    incompleteRecipients.every(
+      (recipient) =>
+        !recipient.missingNumber &&
+        recipient.missingFields.length === 1 &&
+        recipient.missingFields[0] === "nome_atendente",
+    )
+  );
 }

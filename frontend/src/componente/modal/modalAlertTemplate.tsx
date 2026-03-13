@@ -14,21 +14,25 @@ export type ModalButton = {
 export type DynamicModalProps = {
   open: boolean;
   type: ModalType;
+  size?: "default" | "wide";
   title: string;
   description?: string | ReactNode;
   buttons?: ModalButton[];
   onClose: () => void;
   customContent?: ReactNode;
+  containerClassName?: string;
 };
 
 export default function DynamicModal({
   open,
   type,
+  size = "default",
   title,
   description,
   buttons,
   onClose,
   customContent,
+  containerClassName = "",
 }: DynamicModalProps) {
   if (!open) return null;
 
@@ -40,7 +44,7 @@ export default function DynamicModal({
       />
 
       <div
-        className={`${styles.modalContainer} ${styles[`modal-${type}`]}`}
+        className={`${styles.modalContainer} ${styles[`modal-${type}`]} ${styles[`modal-${size}`]} ${containerClassName}`}
         onClick={(e) => e.stopPropagation()}
       >
         {customContent ? (

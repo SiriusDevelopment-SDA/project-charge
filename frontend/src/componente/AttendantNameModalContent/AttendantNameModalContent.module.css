@@ -1,0 +1,9 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.description {
+  margin: 0;
+}

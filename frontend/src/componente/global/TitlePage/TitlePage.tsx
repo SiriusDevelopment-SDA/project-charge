@@ -20,6 +20,12 @@ export const TitlePage = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const buildHistorySearch = () => {
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set("scope", "manual");
+    const nextSearch = searchParams.toString();
+    return nextSearch ? `?${nextSearch}` : "";
+  };
 
   return (
     <div className={`${className} ${S.container_title}`}>
@@ -43,7 +49,7 @@ export const TitlePage = ({
         {setModoPage && (
           <MyButton
             text="Historico"
-            onClick={() => navigate(`/historico${location.search}`)}
+            onClick={() => navigate(`/historico${buildHistorySearch()}`)}
           />
         )}
         {children}

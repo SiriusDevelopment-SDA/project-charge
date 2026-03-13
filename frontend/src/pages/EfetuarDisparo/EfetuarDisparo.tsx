@@ -1,12 +1,8 @@
-import { useRef, useState } from "react";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
-import { toast } from "react-toastify";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css";
-import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 import type { Cliente, Template } from "../../types";
-import { useClient, useTemplate } from "../../hooks";
-import { processarDocumentos, validarSelecaoCliente } from "../../utils/validation";
 import {
+  AttendantNameModalContent,
   PageContainer,
   BaseCard,
   Metricas,
@@ -15,114 +11,79 @@ import {
   PreviewBox,
   UploadButton,
   DownloadModeloButton,
+  DispatchPreviewContent,
   InputFields,
   MyButton,
   DynamicModal,
 } from "../../componente/Index";
-import { handleUploadPlanilha } from "../../utils/hendleUploadSpreadSheat";
-import {
-  getStoredAttendantName,
-  setStoredAttendantName,
-  templateRequiresAttendantName,
-} from "../../mappers/templateVars.mapper";
+import { useDispatchPageController } from "../../hooks/controller/dispatch/useDispatchPageController";
 
 export default function EfetuarDisparo() {
-  const [whatsappValue, setWhatsappValue] = useState("");
-  const [openAttendantModal, setOpenAttendantModal] = useState(false);
-  const [attendantName, setAttendantName] = useState(getStoredAttendantName());
-  const [pendingExtraLeads, setPendingExtraLeads] = useState<Array<{ whatsapp: string }>>([]);
-  const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
-  const account = new URLSearchParams(window.location.search).get("account");
-  const [openCategoryDropdown, setOpenCategoryDropdown] = useState<boolean>(false);
-  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
-  const categoryFilterRef = useRef<SVGSVGElement | null>(null);
-
-  const { clients, setQuery, fetchInvoices } = useClient();
   const {
-    setSearchTemplateName,
+    dispatch,
+    manualLead,
+    categoryMenuRef,
+    categoryFilterRef,
+    openDropdown,
+    setOpenDropdown,
+    openCategoryDropdown,
+    setOpenCategoryDropdown,
+    isDispatchPreviewOpen,
+    setIsDispatchPreviewOpen,
+    openDispatchAttendantModal,
+    setOpenDispatchAttendantModal,
+    isFinishedBatch,
+    previewAudienceCount,
+    previewMessage,
+    previewDetails,
+    batchLabel,
     searchTemplateName,
+    setSearchTemplateName,
     categoryTemplateFilter,
     setCategoryTemplateFilter,
     filteredTemplates,
     categories,
-  } = useTemplate();
-
-  const {
-    selectedClientes,
-    setSelectedClientes,
-    setSelectedTemplate,
-    selectedTemplate,
-    templateMapVars,
-    sendTemplate,
-    isSending,
-    modoPage,
-    setModoPage,
-    selectedLeads,
-    setSelectedLeads,
-  } = useDispatchTemplate();
-
-  const submitDispatch = async () => {
-    let extraLeads: Array<{ whatsapp: string }> = [];
-
-    if (modoPage === "leads" && whatsappValue.trim()) {
-      const digits = whatsappValue.replace(/\D/g, "");
-      if (digits.length < 12) {
-        toast.warning("Numero de WhatsApp invalido. Use o padrao 55DDNUMERO.");
-        return;
-      }
-
-      const exists = selectedLeads.some(
-        (lead) => String(lead.whatsapp ?? "").replace(/\D/g, "") === digits,
-      );
-      if (!exists) {
-        extraLeads = [{ whatsapp: digits }];
-        setSelectedLeads((prev) => [...prev, { whatsapp: digits }]);
-        setWhatsappValue("");
-      }
-    }
-
-    const requiresAttendantName =
-      selectedTemplate && templateRequiresAttendantName(selectedTemplate);
-    const isEmbedMode = localStorage.getItem("auth_mode") === "embed";
-    const hasAttendantName = getStoredAttendantName().length > 0;
-
-    if (requiresAttendantName && isEmbedMode && !hasAttendantName) {
-      setPendingExtraLeads(extraLeads);
-      setOpenAttendantModal(true);
-      return;
-    }
-
-    await sendTemplate(extraLeads);
-  };
+    clients,
+    handleClientSearch,
+    handleCloseFloatingMenus,
+    handleClientsChange,
+    handleLeadUpload,
+    handleOpenDispatchPreview,
+    handleConfirmDispatchPreview,
+    handleOpenBatchHistory,
+    handleConfirmAttendant,
+  } = useDispatchPageController();
 
   return (
     <PageContainer className={Style.EfeturarDisparoContainer}>
       <TitlePage
-        title={modoPage === "clientes" ? "Disparo clientes ativos" : "Disparo para leads"}
+        title={
+          dispatch.modoPage === "clientes"
+            ? "Disparo clientes ativos"
+            : "Disparo para leads"
+        }
         subtitle={
-          modoPage === "clientes"
+          dispatch.modoPage === "clientes"
             ? "Envie mensagens para clientes ativos com controle total"
             : "Envie mensagens diretas para leads com template validado"
         }
         className={Style.navTitlePage}
-        setModoPage={setModoPage}
-        text={modoPage === "clientes" ? "Disparo para leads" : "Disparo clientes ativos"}
+        setModoPage={dispatch.setModoPage}
+        text={
+          dispatch.modoPage === "clientes"
+            ? "Disparo para leads"
+            : "Disparo clientes ativos"
+        }
       />
 
-      <div
-        className={Style.containerCenter}
-        onClick={() => {
-          setOpenDropdown(null);
-          setOpenCategoryDropdown(false);
-        }}
-      >
+      <div className={Style.containerCenter} onClick={handleCloseFloatingMenus}>
         <div className={Style.containerCenterTop}>
           <div className={Style.containerInput} onClick={(e) => e.stopPropagation()}>
             <Dropdown<Template>
               label="Buscar template"
               options={filteredTemplates}
-              value={selectedTemplate}
-              onChange={(value) => setSelectedTemplate(value as Template)}
+              value={dispatch.selectedTemplate}
+              onChange={(value) => dispatch.setSelectedTemplate(value as Template)}
               open={openDropdown === "template"}
               onOpen={() => {
                 setOpenDropdown("template");
@@ -179,7 +140,9 @@ export default function EfetuarDisparo() {
                           <div
                             key={category}
                             className={`${Style.categoryItem} ${
-                              categoryTemplateFilter === category ? Style.categoryItemActive : ""
+                              categoryTemplateFilter === category
+                                ? Style.categoryItemActive
+                                : ""
                             }`}
                             onClick={() => {
                               setCategoryTemplateFilter(category);
@@ -196,26 +159,14 @@ export default function EfetuarDisparo() {
               )}
             </Dropdown>
 
-
-            {modoPage === "clientes" ? (
+            {dispatch.modoPage === "clientes" ? (
               <Dropdown<Cliente>
                 label="Buscar clientes no ERP"
                 options={clients}
                 searchable
                 multiple
-                selected={selectedClientes}
-                onChange={(value) => {
-                  const novosClientes = value as Cliente[];
-                  const clientesValidos = novosClientes.filter((cliente) => {
-                    if (!selectedTemplate) return false;
-                    return validarSelecaoCliente(cliente, selectedTemplate);
-                  });
-
-                  setSelectedClientes(clientesValidos);
-                  if (selectedTemplate?.category === "Cobrança" && clientesValidos.length) {
-                    void fetchInvoices(clientesValidos);
-                  }
-                }}
+                selected={dispatch.selectedClientes}
+                onChange={(value) => handleClientsChange(value as Cliente[])}
                 open={openDropdown === "clientes"}
                 onOpen={() => {
                   setOpenDropdown("clientes");
@@ -225,25 +176,37 @@ export default function EfetuarDisparo() {
                   setOpenDropdown(null);
                   setOpenCategoryDropdown(false);
                 }}
-                onSearchTermChange={(term) => setQuery(term)}
+                onSearchTermChange={handleClientSearch}
               />
             ) : (
               <InputFields
                 label="Numero de Whatsapp"
                 onlyNumbers={true}
-                value={whatsappValue}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWhatsappValue(e.target.value)}
+                disabled={manualLead.shouldDisableLeadWhatsappInput}
+                placeholder={
+                  manualLead.shouldDisableLeadWhatsappInput
+                    ? "Limpe os leads importados para usar numero manual"
+                    : undefined
+                }
+                value={manualLead.whatsappValue}
+                onChange={(e) =>
+                  manualLead.handleWhatsappInputChange(e.target.value)
+                }
               />
             )}
           </div>
 
           <BaseCard classname={Style.cardMetricas}>
             <Metricas
-              chave={modoPage === "clientes" ? "Clientes selecionados" : "Leads selecionados"}
+              chave={
+                dispatch.modoPage === "clientes"
+                  ? "Clientes selecionados"
+                  : "Leads selecionados"
+              }
               valor={
-                modoPage === "clientes"
-                  ? String(selectedClientes.length)
-                  : String(selectedLeads.length)
+                dispatch.modoPage === "clientes"
+                  ? String(dispatch.selectedClientes.length)
+                  : String(dispatch.selectedLeads.length)
               }
               classname={Style.contentMetricas}
               showIconBadge={false}
@@ -253,68 +216,205 @@ export default function EfetuarDisparo() {
 
         <div className={Style.containerButtonsPlanilha}>
           <UploadButton
-            onUpload={(file) =>
-              handleUploadPlanilha({
-                file,
-                clients,
-                setQuery,
-                account,
-                setSelectedClientes,
-                setSelectedLeads,
-                processarDocumentos,
-              })
+            onUpload={handleLeadUpload}
+            disabled={
+              !dispatch.selectedTemplate ||
+              (dispatch.modoPage === "leads" && manualLead.shouldDisableLeadUpload)
             }
-            disabled={modoPage === "leads" && !selectedTemplate}
           />
-          <DownloadModeloButton templateSelecionado={selectedTemplate} modo={modoPage} />
+          <DownloadModeloButton
+            templateSelecionado={dispatch.selectedTemplate}
+            modo={dispatch.modoPage}
+          />
+          {dispatch.modoPage === "leads" &&
+            (dispatch.selectedLeads.length > 0 || manualLead.hasTypedWhatsapp) && (
+              <MyButton
+                text="Limpar leads"
+                variant="secondary"
+                onClick={manualLead.clearLeadSelection}
+              />
+            )}
         </div>
 
         <PreviewBox classname={Style.containerPreview}>
-          {!selectedTemplate
+          {!dispatch.selectedTemplate
             ? "Selecione um template"
-            : templateMapVars?.[0]?.mensagem ?? selectedTemplate.message}
+            : dispatch.templateMapVars?.[0]?.mensagem ??
+              dispatch.selectedTemplate.message}
         </PreviewBox>
+
+        {dispatch.activeDispatchBatch && (
+          <section className={Style.batchProgressCard}>
+            <div className={Style.batchProgressHeader}>
+              <div>
+                <span className={Style.batchProgressEyebrow}>Lote de disparo</span>
+                <strong>{batchLabel}</strong>
+                <p>
+                  {dispatch.activeDispatchBatch.processedRecipients} de{" "}
+                  {dispatch.activeDispatchBatch.totalRecipients} processados
+                </p>
+              </div>
+              {isFinishedBatch && (
+                <div className={Style.batchProgressActions}>
+                  <MyButton
+                    text="Ver lote no historico"
+                    variant="secondary"
+                    onClick={handleOpenBatchHistory}
+                  />
+                  <MyButton
+                    text="Fechar painel"
+                    variant="secondary"
+                    onClick={dispatch.clearActiveDispatchBatch}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className={Style.batchProgressBar}>
+              <div
+                className={Style.batchProgressFill}
+                style={{
+                  width: `${dispatch.activeDispatchBatch.progressPercentage}%`,
+                }}
+              />
+            </div>
+
+            <div className={Style.batchProgressStats}>
+              <span>{dispatch.activeDispatchBatch.progressPercentage}% concluido</span>
+              <span>{dispatch.activeDispatchBatch.successCount} sucesso</span>
+              <span>{dispatch.activeDispatchBatch.failedCount} falhas</span>
+              <span>{dispatch.activeDispatchBatch.rateLimitPerSecond} msg/s</span>
+            </div>
+
+            <p className={Style.batchProgressHint}>
+              {isFinishedBatch
+                ? dispatch.activeDispatchBatch.errorMessage ||
+                  "Lote finalizado. Consulte o historico para detalhes."
+                : `Processamento em segundo plano. Estimativa inicial: ${dispatch.activeDispatchBatch.estimatedDurationSeconds}s.`}
+            </p>
+          </section>
+        )}
+
         <section className={Style.containerButtonSend}>
           <MyButton
-            text={isSending ? "Enviando..." : "Enviar disparo"}
+            text={dispatch.isSending ? "Enviando..." : "Enviar disparo"}
             variant="btn-enviar"
             className={Style.submitButton}
-            disabled={isSending || !selectedTemplate}
-            onClick={submitDispatch}
+            disabled={dispatch.isSending || !dispatch.selectedTemplate}
+            onClick={handleOpenDispatchPreview}
           />
         </section>
       </div>
 
       <DynamicModal
-        open={openAttendantModal}
+        open={isDispatchPreviewOpen}
+        type="custom"
+        size="wide"
+        title="Preview do disparo"
+        onClose={() => setIsDispatchPreviewOpen(false)}
+        customContent={
+          <DispatchPreviewContent
+            eyebrow="Disparo imediato"
+            headline={
+              dispatch.modoPage === "clientes"
+                ? "Envio para clientes ativos"
+                : "Envio direto para leads"
+            }
+            summary="Confira o publico selecionado, o template e a mensagem antes de iniciar o lote."
+            audienceLabel={
+              dispatch.modoPage === "clientes"
+                ? "Clientes selecionados"
+                : "Leads selecionados"
+            }
+            audienceCount={previewAudienceCount}
+            templateName={
+              dispatch.selectedTemplate?.name ?? "Template nao selecionado"
+            }
+            message={previewMessage}
+            // details={previewDetails}
+            note="Ao confirmar, o disparo sera iniciado imediatamente e o lote passara a ser acompanhado em tempo real."
+            confirmLabel={
+              dispatch.isSending ? "Enviando..." : "Confirmar e disparar"
+            }
+            confirmDisabled={dispatch.isSending}
+            onCancel={() => setIsDispatchPreviewOpen(false)}
+            onConfirm={handleConfirmDispatchPreview}
+          />
+        }
+      />
+
+      <DynamicModal
+        open={openDispatchAttendantModal}
         type="custom"
         title="Informe o nome do atendente"
-        onClose={() => setOpenAttendantModal(false)}
+        onClose={() => setOpenDispatchAttendantModal(false)}
+        customContent={
+          <AttendantNameModalContent
+            value={manualLead.attendantName}
+            onChange={manualLead.setAttendantName}
+            onConfirm={handleConfirmAttendant}
+          />
+        }
+      />
+
+      <DynamicModal
+        open={manualLead.openManualLeadModal}
+        type="custom"
+        title={
+          manualLead.manualLeadFlowAction === "preview"
+            ? "Preencha as variaveis para o preview"
+            : "Preencha as variaveis do lead"
+        }
+        onClose={manualLead.closeManualLeadModal}
         customContent={
           <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
             <p style={{ margin: 0 }}>
-              Este template exige a variavel <strong>nome_atendente</strong>.
+              {manualLead.manualLeadFlowAction === "preview"
+                ? "Informe os campos pendentes para seguir para o preview do disparo."
+                : "Informe os campos pendentes para concluir o disparo manual."}
             </p>
-            <InputFields
-              label="Nome do atendente"
-              value={attendantName}
-              onChange={(event) => setAttendantName(event.target.value)}
-            />
-            <MyButton
-              text="Confirmar e enviar"
-              variant="btn-enviar"
-              onClick={async () => {
-                const normalized = attendantName.trim();
-                if (!normalized) {
-                  toast.warning("Informe o nome do atendente.");
-                  return;
+            {manualLead.pendingManualLeadFields.includes("nome_atendente") && (
+              <InputFields
+                label="Nome do atendente"
+                value={manualLead.attendantName}
+                onChange={(event) =>
+                  manualLead.setAttendantName(event.target.value)
                 }
-
-                setStoredAttendantName(normalized);
-                setOpenAttendantModal(false);
-                await sendTemplate(pendingExtraLeads);
-                setPendingExtraLeads([]);
-              }}
+              />
+            )}
+            {manualLead.pendingManualLeadFields.includes("nome_empresa") && (
+              <InputFields
+                label="Nome da empresa"
+                value={manualLead.companyName}
+                onChange={(event) => manualLead.setCompanyName(event.target.value)}
+              />
+            )}
+            {manualLead.pendingManualLeadFields
+              .filter(
+                (fieldKey) =>
+                  fieldKey !== "nome_atendente" && fieldKey !== "nome_empresa",
+              )
+              .map((fieldKey) => (
+                <InputFields
+                  key={fieldKey}
+                  label={manualLead.getManualFieldLabel(fieldKey)}
+                  value={manualLead.manualLeadFieldValues[fieldKey] ?? ""}
+                  onChange={(event) =>
+                    manualLead.updateManualLeadFieldValue(
+                      fieldKey,
+                      event.target.value,
+                    )
+                  }
+                />
+              ))}
+            <MyButton
+              text={
+                manualLead.manualLeadFlowAction === "preview"
+                  ? "Confirmar e ver preview"
+                  : "Confirmar e enviar"
+              }
+              variant="btn-enviar"
+              onClick={manualLead.confirmManualLeadDispatch}
             />
           </div>
         }
@@ -322,10 +422,3 @@ export default function EfetuarDisparo() {
     </PageContainer>
   );
 }
-
-
-
-
-
-
-

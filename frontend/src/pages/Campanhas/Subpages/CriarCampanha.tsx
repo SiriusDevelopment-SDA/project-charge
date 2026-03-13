@@ -1,91 +1,59 @@
-import { useEffect, useState } from "react";
-import type { Category, Cliente, DropdownType, Template } from "../../../types";
-import Style from "../Styles/CriarCampanha.module.css";
-import { useLocation, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import type { Category, Cliente, Template } from "../../../types";
 import {
-  useCampaign,
-  useCampaignEditController,
-  useCampaignForm,
-  useClient,
-  useTemplate,
-} from "../../../hooks";
-import {
+  AttendantNameModalContent,
   BaseCard,
+  DispatchPreviewContent,
+  DownloadModeloButton,
   Dropdown,
+  DynamicModal,
   InputFields,
   Metricas,
   MyButton,
-  PageContainer,
-  TitlePage,
   MyCalendar,
+  PageContainer,
   SwitchLabels,
-  DownloadModeloButton,
-  DynamicModal,
+  TitlePage,
   UploadButton,
 } from "../../../componente/Index";
-import { handleUploadPlanilha } from "../../../utils/hendleUploadSpreadSheat";
-import { processarDocumentos } from "../../../utils/validation";
 import {
-  getStoredAttendantName,
-  setStoredAttendantName,
-  templateRequiresAttendantName,
-} from "../../../mappers/templateVars.mapper";
+  useCreateCampaignPageController,
+} from "../../../hooks/controller/campaigns/useCreateCampaignPageController";
+import Style from "../Styles/CriarCampanha.module.css";
 
 export function CriarCampanha() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [openDropdown, setOpenDropdown] = useState<DropdownType>(null);
-  const [openAttendantModal, setOpenAttendantModal] = useState(false);
-  const [attendantName, setAttendantName] = useState(getStoredAttendantName());
-
-  const { clients, setQuery } = useClient();
-  const account = new URLSearchParams(location.search).get("account");
-  const { templates } = useTemplate();
   const {
-    createCampaign,
-    isSubmitting,
-    dateRange,
-    setDateRange,
-    name,
-    setName,
-    dispatchTime,
-    setdispatchTime,
-    selectedCategory,
-    setSelectedCategory,
-    selectedClients,
-    setSelectedClients,
-    recurring,
-    setRecurring,
-    handleSubmit,
-    selectedTemplate,
-    setSelectedTemplate,
-  } = useCampaignForm();
-
-  const { categories, reload } = useCampaign();
-
-  const { ui, closeModal, openCreate } = useCampaignEditController();
-
-  const toggleDropdown = (type: DropdownType) => {
-    setOpenDropdown((prev) => (prev === type ? null : type));
-  };
-  const submitCampaign = async () => {
-    const result = await createCampaign();
-  
-    closeModal(); // sempre fecha
-  
-    if (!result?.success) return;
-  
-    await reload();
-    navigate(`/campanhas${location.search}`);
-  };
+    clients,
+    templates,
+    categories,
+    form,
+    modal,
+    openDropdown,
+    openAttendantModal,
+    attendantName,
+    previewDetails,
+    previewMessage,
+    setAttendantName,
+    handleClientSearch,
+    toggleDropdown,
+    handleBackToCampaigns,
+    handleUploadClientsSpreadsheet,
+    handleOpenPreview,
+    handleConfirmPreview,
+    handleCloseAttendantModal,
+    handleConfirmAttendant,
+  } = useCreateCampaignPageController();
 
   return (
     <PageContainer className={Style.createCampaign}>
       <div className={Style.createCampaign__header}>
         <TitlePage
           title="Criar Campanha"
-          subtitle="Configure audiência, agendamento e mensagem da campanha"
+          subtitle="Configure audiencia, agendamento e mensagem da campanha"
+        />
+        <MyButton
+          text="Voltar para campanhas"
+          variant="secondary"
+          onClick={handleBackToCampaigns}
         />
       </div>
 
@@ -94,43 +62,38 @@ export function CriarCampanha() {
 
         <InputFields
           label="Nome da Campanha"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={form.name}
+          onChange={(e) => form.setName(e.target.value)}
         />
 
         <div className={Style.createCampaign__grid}>
           <section className={Style.grid_left}>
             <div className={Style.createCampaign__calendar}>
-              {recurring ? (
-                <MyCalendar mode="range" selected={dateRange} onSelect={setDateRange} />
+              {form.recurring ? (
+                <MyCalendar
+                  mode="range"
+                  selected={form.dateRange}
+                  onSelect={form.setDateRange}
+                />
               ) : (
                 <MyCalendar
                   mode="single"
-                  selectedSingle={dateRange?.from}
+                  selectedSingle={form.dateRange?.from}
                   onSelectSingle={(date) =>
-                    setDateRange(date ? { from: date, to: date } : undefined)
+                    form.setDateRange(date ? { from: date, to: date } : undefined)
                   }
                 />
               )}
             </div>
 
             <DownloadModeloButton
-              templateSelecionado={selectedTemplate}
-              modo={"clientes"}
+              templateSelecionado={form.selectedTemplate}
+              modo="clientes"
               className={Style.btn_dawnload}
             />
 
             <UploadButton
-              onUpload={(file) => {
-                handleUploadPlanilha({
-                  file,
-                  clients,
-                  setQuery,
-                  account,
-                  setSelectedClientes: setSelectedClients,
-                  processarDocumentos,
-                });
-              }}
+              onUpload={handleUploadClientsSpreadsheet}
               className={Style.btn_upload}
             />
           </section>
@@ -139,37 +102,37 @@ export function CriarCampanha() {
             <div className={Style.createCampaign__schedule}>
               <div className={Style.createCampaign__scheduleTime}>
                 <div>
-                  <span>Horário de disparo</span>
+                  <span>Horario de disparo</span>
                   <InputFields
                     type="time"
-                    value={dispatchTime}
-                    onChange={(e) => setdispatchTime(e.target.value)}
+                    value={form.dispatchTime}
+                    onChange={(e) => form.setdispatchTime(e.target.value)}
                     required
                   />
                 </div>
 
                 <BaseCard classname={Style.createCampaign__metricsCard}>
                   <Metricas
-                    chave={"Clientes selecionados"}
-                    valor={String(selectedClients?.length ?? 0)}
+                    chave="Clientes selecionados"
+                    valor={String(form.selectedClients?.length ?? 0)}
                     classname={Style.createCampaign__metricsContent}
                   />
                 </BaseCard>
               </div>
 
               <SwitchLabels
-                checked={recurring}
+                checked={form.recurring}
                 onChange={(value) => {
-                  setRecurring(value);
-                  setDateRange(undefined);
+                  form.setRecurring(value);
+                  form.setDateRange(undefined);
                 }}
               />
 
               <Dropdown<Template>
                 label="Selecione um template"
                 options={templates ?? []}
-                value={selectedTemplate}
-                onChange={(value) => setSelectedTemplate(value as Template)}
+                value={form.selectedTemplate}
+                onChange={(value) => form.setSelectedTemplate(value as Template)}
                 open={openDropdown === "template"}
                 onOpen={() => toggleDropdown("template")}
                 onClose={() => toggleDropdown(null)}
@@ -179,8 +142,8 @@ export function CriarCampanha() {
               <Dropdown<Category>
                 label="Selecione uma categoria"
                 options={categories ?? []}
-                value={selectedCategory}
-                onChange={(value) => setSelectedCategory(value as Category)}
+                value={form.selectedCategory}
+                onChange={(value) => form.setSelectedCategory(value as Category)}
                 open={openDropdown === "category"}
                 onOpen={() => toggleDropdown("category")}
                 onClose={() => toggleDropdown(null)}
@@ -191,59 +154,50 @@ export function CriarCampanha() {
               label="Selecionar Clientes"
               className={Style.createCampaign__selectedClientsDropdown}
               options={clients}
-              selected={selectedClients}
-              onChange={(value) => setSelectedClients(value as Cliente[])}
+              selected={form.selectedClients}
+              onChange={(value) => form.setSelectedClients(value as Cliente[])}
               open={openDropdown === "client"}
-              onOpen={() =>  toggleDropdown("client")}
+              onOpen={() => toggleDropdown("client")}
               onClose={() => toggleDropdown(null)}
               multiple
               searchable
-              onSearchTermChange={(term) => setQuery(term)}
+              onSearchTermChange={handleClientSearch}
             />
 
             <MyButton
               text="Prosseguir"
               variant="btn-enviar"
-              onClick={() => handleSubmit(openCreate)}
+              onClick={handleOpenPreview}
               className={Style.btn_dispatch}
             />
           </section>
         </div>
       </div>
 
-      {ui.activeModal === "CREATE" && (
+      {modal.ui.activeModal === "CREATE" && (
         <DynamicModal
-          open={ui.activeModal === "CREATE"}
-          type="warning"
-          title="Confirmação"
-          description={<>Deseja realmente criar esta campanha?</>}
-          onClose={closeModal}
-          buttons={[
-            {
-              label: "Cancelar",
-              variant: "danger",
-              disabled: isSubmitting,
-              onClick: closeModal,
-            },
-            {
-              label: isSubmitting ? "Enviando..." : "Confirmar",
-              variant: "success",
-              disabled: isSubmitting,
-              onClick: async () => {
-                const requiresAttendantName =
-                  selectedTemplate && templateRequiresAttendantName(selectedTemplate);
-                const hasAttendantName = getStoredAttendantName().length > 0;
-
-                if (requiresAttendantName && !hasAttendantName) {
-                  closeModal();
-                  setOpenAttendantModal(true);
-                  return;
-                }
-
-                await submitCampaign();
-              },
-            },
-          ]}
+          open={modal.ui.activeModal === "CREATE"}
+          type="custom"
+          size="wide"
+          title="Preview da campanha"
+          onClose={modal.closeModal}
+          customContent={
+            <DispatchPreviewContent
+              eyebrow="Campanha validada"
+              headline={form.name.trim() || "Campanha pronta para criacao"}
+              summary="Revise audiencia, template e janela de disparo antes de confirmar o agendamento."
+              audienceLabel="Clientes na campanha"
+              audienceCount={form.selectedClients.length}
+              templateName={form.selectedTemplate?.name ?? "Template nao selecionado"}
+              message={previewMessage}
+              details={previewDetails}
+              note="Ao confirmar, a campanha sera criada com as datas, horario e recorrencia definidos neste resumo."
+              confirmLabel={form.isSubmitting ? "Criando..." : "Confirmar e criar campanha"}
+              confirmDisabled={form.isSubmitting}
+              onCancel={modal.closeModal}
+              onConfirm={handleConfirmPreview}
+            />
+          }
         />
       )}
 
@@ -251,36 +205,14 @@ export function CriarCampanha() {
         open={openAttendantModal}
         type="custom"
         title="Informe o nome do atendente"
-        onClose={() => setOpenAttendantModal(false)}
+        onClose={handleCloseAttendantModal}
         customContent={
-          <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
-            <p style={{ margin: 0 }}>
-              Este template exige a variavel <strong>nome_atendente</strong>.
-            </p>
-            <InputFields
-              label="Nome do atendente"
-              value={attendantName}
-              onChange={(event) => setAttendantName(event.target.value)}
-              
-            />
-            <MyButton
-              text={isSubmitting ? "Enviando..." : "Confirmar e criar campanha"}
-              variant="btn-enviar"
-              disabled={isSubmitting}
-              onClick={async (e) => {
-                e.stopPropagation()
-                const normalized = attendantName.trim();
-                if (!normalized) {
-                  toast.warning("Informe o nome do atendente.");
-                  return;
-                }
-
-                setStoredAttendantName(normalized);
-                setOpenAttendantModal(false);
-                await submitCampaign();
-              }}
-            />
-          </div>
+          <AttendantNameModalContent
+            value={attendantName}
+            disabled={form.isSubmitting}
+            onChange={setAttendantName}
+            onConfirm={handleConfirmAttendant}
+          />
         }
       />
     </PageContainer>

@@ -2,16 +2,19 @@ import type { SetStateAction } from "react";
 
 export type history = {
   id: string;
-  cliente_name?: string;
-  cliente_document?: string;
-  cliente_whatsapp?: string;
-  message: string;
+  name?: string;
+  number?: string;
+  message?: string | null;
+  date_dispatch?: string | Date | null;
+  status_sent?: string;
+  response?: boolean | null;
+  response_at?: string | Date | null;
   templateId?: string;
   category?: string;
-  status: string;
+  status?: string;
   errorMessage?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 };
 export interface IHistoricoContext {
     histories: history[] | [];

@@ -23,6 +23,8 @@ import { MyTimePicker } from "./TimePicker/timePicker";
 import SwitchLabels from "./Switch/Switch";
 import DynamicModal from "./modal/modalAlertTemplate";
 import {CampaignDetails} from "./CampaignDetails/CampaignDetails"
+import { DispatchPreviewContent } from "./DispatchPreview/DispatchPreviewContent";
+import { AttendantNameModalContent } from "./AttendantNameModalContent/AttendantNameModalContent";
 
 export
 { 
@@ -50,5 +52,7 @@ export
   BaseCardCampanhas,
   SwitchLabels,
   DynamicModal,
-  CampaignDetails
+  CampaignDetails,
+  DispatchPreviewContent,
+  AttendantNameModalContent
 }

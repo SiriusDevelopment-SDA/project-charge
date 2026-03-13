@@ -12,25 +12,21 @@ export function useDownloadModeloButtonController({
   modo,
 }: Params) {
   const [loading, setLoading] = useState(false);
+  const disabled = !templateSelecionado;
 
   const handleClick = async () => {
+    if (disabled) return;
+
     try {
       setLoading(true);
-
-      if (modo === "clientes") {
-        gerarModeloPlanilha(null, "clientes");
-        return;
-      }
-
-      if (modo === "leads" && templateSelecionado) {
-        gerarModeloPlanilha(templateSelecionado, "leads");
-      }
+      gerarModeloPlanilha(templateSelecionado, modo ?? "clientes");
     } finally {
       setLoading(false);
     }
   };
 
   return {
+    disabled,
     loading,
     handleClick,
   };

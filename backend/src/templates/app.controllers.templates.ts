@@ -4,7 +4,13 @@ import {
   Post,
 } from '@nestjs/common';
 import { AppServiceTemplate } from './app.service.templates';
-import { SearchRequestDtoRelatories, SearchRequestDtoTemplates, SendTemplateDto } from './dto/search.request.dto.templates';
+import {
+  DispatchBatchStatusDto,
+  LatestDispatchBatchReportDto,
+  SearchRequestDtoRelatories,
+  SearchRequestDtoTemplates,
+  SendTemplateDto,
+} from './dto/search.request.dto.templates';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
 import { CreateTemplateDTO } from './dto/create.request.dto.template';
@@ -26,6 +32,20 @@ export class ControllerTemplates {
   @ApiBody({ type: SendTemplateDto })
   sendTemplate(@Body() sendTemplateDto: SendTemplateDto) {
     return this.appService.sendTemplate(sendTemplateDto);
+  }
+
+  @Post('batches/latest-report')
+  @ApiOperation({ summary: 'Consulta o relatório do último lote de disparo' })
+  @ApiBody({ type: LatestDispatchBatchReportDto })
+  getLatestDispatchBatchReport(@Body() dto: LatestDispatchBatchReportDto) {
+    return this.appService.getLatestDispatchBatchReport(dto);
+  }
+
+  @Post('batches/status')
+  @ApiOperation({ summary: 'Consulta o status de um lote de disparo' })
+  @ApiBody({ type: DispatchBatchStatusDto })
+  getDispatchBatchStatus(@Body() dto: DispatchBatchStatusDto) {
+    return this.appService.getDispatchBatchStatus(dto);
   }
 
   @Post('reports/search')

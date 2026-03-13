@@ -47,6 +47,7 @@ export type Lead = {
   nome_cliente?: string;
   whatsapp?: string;
   cnpj_cpf?: string;
+  inputSource?: "manual" | "spreadsheet";
 }
 export type PropsSelect = {
   children: ReactNode | string;

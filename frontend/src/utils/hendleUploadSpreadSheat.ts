@@ -50,7 +50,7 @@ export async function handleUploadPlanilha({
     if (tipo === "cliente") {
       const documents = extrairDocumentosClientes(data);
       if (!documents.length) {
-        toast.warning("Nenhum cliente válido encontrado");
+        toast.warning("Nenhum cliente valido encontrado");
         return;
       }
 
@@ -61,7 +61,9 @@ export async function handleUploadPlanilha({
         normalizedDocs.includes(normalizeDoc(client.cnpj_cpf))
       );
 
-      const foundByDoc = new Map(fromLoadedClients.map((client) => [normalizeDoc(client.cnpj_cpf), client]));
+      const foundByDoc = new Map(
+        fromLoadedClients.map((client) => [normalizeDoc(client.cnpj_cpf), client])
+      );
       const missingDocs = normalizedDocs.filter((doc) => !foundByDoc.has(doc));
 
       if (missingDocs.length && account) {
@@ -99,7 +101,7 @@ export async function handleUploadPlanilha({
 
       const notFound = normalizedDocs.filter((doc) => !foundByDoc.has(doc));
       notFound.forEach((doc) =>
-        toast.warning(`Cliente ${doc} não foi encontrado na API. Revise o cpf_cnpj.`)
+        toast.warning(`Cliente ${doc} nao foi encontrado na API. Revise o cpf_cnpj.`)
       );
 
       if (!finalClients.length) {
@@ -124,33 +126,37 @@ export async function handleUploadPlanilha({
           toast.warning("Lead ignorado por colunas obrigatorias vazias.");
           return false;
         }
-        if (lead.status === "inválido") {
-          toast.error(
-            `Lead inválido: ${lead.whatsapp}. Use o padrão 5511999999999`,
-            { autoClose: 6000 }
-          );
+
+        if (lead.status === "invalido") {
+          toast.error(`Lead invalido: ${lead.whatsapp}. Use o padrao 5511999999999`, {
+            autoClose: 6000,
+          });
           return false;
         }
+
         return true;
       });
 
       if (!leadsValidos.length) {
-        toast.warning("Nenhum lead válido para importar");
+        toast.warning("Nenhum lead valido para importar");
         return;
       }
 
-      setSelectedLeads?.((prev) => {
-        const novosLeads = leadsValidos.filter(
-          (lead) => !prev.some((p) => p.whatsapp === lead.whatsapp)
-        );
-        return [...prev, ...novosLeads];
-      });
+      const importedLeads = Array.from(
+        new Map(
+          leadsValidos.map((lead) => [
+            String(lead.whatsapp ?? "").trim(),
+            { ...lead, inputSource: "spreadsheet" as const },
+          ])
+        ).values()
+      );
 
-      toast.success(`${leadsValidos.length} leads importados`);
+      setSelectedLeads?.(() => importedLeads);
+      toast.success(`${importedLeads.length} leads importados`);
       return;
     }
 
-    toast.error("Tipo de planilha não reconhecido. Nunca altere o nome do arquivo!");
+    toast.error("Tipo de planilha nao reconhecido. Nunca altere o nome do arquivo!");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Erro ao processar planilha";
     toast.error(message);

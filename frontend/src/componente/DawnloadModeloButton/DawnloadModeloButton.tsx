@@ -14,7 +14,7 @@ export function DownloadModeloButton({
   modo,
   className,
 }: DownloadModeloButtonProps) {
-  const { loading, handleClick } = useDownloadModeloButtonController({
+  const { disabled, loading, handleClick } = useDownloadModeloButtonController({
     templateSelecionado,
     modo,
   });
@@ -39,6 +39,7 @@ export function DownloadModeloButton({
         },
       }}
       className={className}
+      disabled={disabled || loading}
       onClick={handleClick}
     >
       {loading

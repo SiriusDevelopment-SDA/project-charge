@@ -1,7 +1,7 @@
 ﻿.container_title{
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: end;
     margin-bottom: 20px;
     gap: 16px;
 }
@@ -49,6 +49,6 @@
 @media (max-width: 900px){
   .container_title{
     flex-direction: column;
-    align-items: flex-start;
+    align-items: end;
   }
 }
