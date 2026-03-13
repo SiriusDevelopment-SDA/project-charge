@@ -131,6 +131,7 @@ export class AppServiceTemplate implements OnModuleInit {
 
   async sendTemplate(data: SendTemplateDto) {
     const { templateId, account, to, campaignId } = data;
+    const results: DispatchTemplateResult[] = [];
 
     const template = await this.templateRepository.findOne({
       where: {

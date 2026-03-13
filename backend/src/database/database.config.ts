@@ -14,6 +14,7 @@ import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity'
 import { TemplateDispatchBatch } from '../templates/entities/template-dispatch-batch.entity';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { Category } from '../category/entities/category.entity';
+import { Overdue } from '../invoices/entities/Overdue';
 import { Agent } from '../agents/entities/agent.entity';
 
 export default <TypeOrmModuleAsyncOptions>{
@@ -39,6 +40,7 @@ export default <TypeOrmModuleAsyncOptions>{
         Campaign,
         Category,
         Agent,
+        Overdue
       ],
       synchronize: true,
     };

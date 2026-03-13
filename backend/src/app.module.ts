@@ -25,6 +25,9 @@ import { CategoryService } from './category/category.service';
 import { ControllerServices } from './services/app.controller.services';
 import { AppServiceServices } from './services/app.service.services';
 import { Service } from './services/entities/services';
+import { AppServiceGraphics } from './graphics/app.service.graphics';
+import { GraphicsController } from './graphics/app.controller.graphics';
+import { Overdue } from './invoices/entities/Overdue';
 import { TemplateVarsValidator } from './validations';
 import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
 import { AuthController } from './auth/auth.controller';
@@ -48,6 +51,7 @@ import { RedisController } from './redis/redis.controller';
     TypeOrmModule.forFeature([Campaign]),
     TypeOrmModule.forFeature([Category]),
     TypeOrmModule.forFeature([Service]),
+    TypeOrmModule.forFeature([Overdue]),
     TypeOrmModule.forFeature([Agent]),
     JwtModule.register({
       global: true,
@@ -66,6 +70,7 @@ import { RedisController } from './redis/redis.controller';
     AuthController,
     ChatwootController,
     RedisController,
+    GraphicsController
   ],
   providers: [
     AppServiceClient, 
@@ -76,6 +81,7 @@ import { RedisController } from './redis/redis.controller';
     HubsoftInvoicesService,
     SGPInvoicesService,
     AppServiceServices,
+    AppServiceGraphics,
     TemplateVarsValidator,
     CampaignMetricsGateway,
     AuthService,
