@@ -104,6 +104,12 @@ export function useCampaignsController() {
     });
     try {
       const account = getAccount();
+      if (!account) {
+        dispatch({ type: "SET_CAMPAIGNS", payload: [] });
+        dispatch({ type: "SET_CATEGORIES", payload: [] });
+        dispatch({ type: "SET_METRICS", payload: initialState.metrics });
+        return;
+      }
 
       const [campaigns, categories, metrics] = await Promise.all([
         CampaignService.list(account),
@@ -126,6 +132,8 @@ export function useCampaignsController() {
   const refreshRealtime = useCallback(async () => {
     try {
       const account = getAccount();
+      if (!account) return;
+
       const [campaigns, metrics] = await Promise.all([
         CampaignService.list(account),
         CampaignService.metrics(account),

@@ -180,6 +180,10 @@ export function useClientsDataController() {
     const fetchClients = async () => {
       try {
         const account = new URLSearchParams(window.location.search).get("account");
+        if (!account) {
+          dispatch({ type: "SET_CLIENTS", payload: [] });
+          return;
+        }
 
         const response = await ClientService.searchClients({
           account,

@@ -21,6 +21,10 @@ export function useTemplatesController(): ITemplatesContext {
     const fetchTemplates = async () => {
       try {
         const account = new URLSearchParams(window.location.search).get("account");
+        if (!account) {
+          setTemplates([]);
+          return;
+        }
 
         const response = await Api.post<TemplateSearchResponse>("/templates/search", {
           account,
