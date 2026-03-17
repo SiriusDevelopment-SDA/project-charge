@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { PageContainer, TitlePage } from "../../componente/Index";
+import { Dropdown, PageContainer, TitlePage } from "../../componente/Index";
 import { ChatwootClientService } from "../../services/chatwoot/chatwootClient.service";
 import type {
   ChatwootAgent,
@@ -10,6 +10,8 @@ import type {
   ChatwootTeam,
 } from "../../types/chatwootApiTypes";
 import { getErrorMessage } from "../../utils/error";
+import { AppStorage } from "../../services/storage/storage.service";
+import { useAccountParam } from "../../hooks/useAccountParam";
 import Style from "./Styles/Chatwoot.module.css";
 import {
   useChatwootAutoLoadConversations,
@@ -18,9 +20,18 @@ import {
 } from "../../hooks/controller/chatwoot/useChatwootEffects";
 
 type StatusFilter = "all" | "open" | "pending" | "resolved" | "snoozed";
+type ChatwootSelectOption = { id: string; name: string };
+
+const STATUS_OPTIONS: ChatwootSelectOption[] = [
+  { id: "all", name: "Todos" },
+  { id: "open", name: "Abertos" },
+  { id: "pending", name: "Pendentes" },
+  { id: "resolved", name: "Resolvidos" },
+  { id: "snoozed", name: "Snoozed" },
+];
 
 export function ChatwootPage() {
-  const account = useMemo(() => new URLSearchParams(window.location.search).get("account") ?? "", []);
+  const account = useAccountParam();
 
   const [inboxes, setInboxes] = useState<ChatwootInboxOption[]>([]);
   const [inboxIdentifier, setInboxIdentifier] = useState("");
@@ -40,6 +51,9 @@ export function ChatwootPage() {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<number | "">("");
   const [labelInput, setLabelInput] = useState("");
   const [newMessage, setNewMessage] = useState("");
+  const [openDropdown, setOpenDropdown] = useState<
+    "status" | "inbox" | "team" | "agent" | null
+  >(null);
 
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -49,13 +63,61 @@ export function ChatwootPage() {
     [conversations, selectedConversationId]
   );
 
+  const selectedStatusOption = useMemo(
+    () => STATUS_OPTIONS.find((option) => option.id === statusFilter) ?? STATUS_OPTIONS[0],
+    [statusFilter]
+  );
+
+  const inboxOptions = useMemo<ChatwootSelectOption[]>(
+    () =>
+      inboxes.map((inbox) => ({
+        id: inbox.identifier,
+        name: inbox.name,
+      })),
+    [inboxes]
+  );
+
+  const teamOptions = useMemo<ChatwootSelectOption[]>(
+    () =>
+      teams.map((team) => ({
+        id: String(team.id),
+        name: team.name,
+      })),
+    [teams]
+  );
+
+  const agentOptions = useMemo<ChatwootSelectOption[]>(
+    () =>
+      agents.map((agent) => ({
+        id: String(agent.id),
+        name: agent.name,
+      })),
+    [agents]
+  );
+
+  const selectedInboxOption = useMemo(
+    () => inboxOptions.find((option) => option.id === inboxIdentifier) ?? null,
+    [inboxIdentifier, inboxOptions]
+  );
+
+  const selectedTeamOption = useMemo(
+    () => teamOptions.find((option) => option.id === String(selectedTeamId)) ?? null,
+    [selectedTeamId, teamOptions]
+  );
+
+  const selectedAgentOption = useMemo(
+    () =>
+      agentOptions.find((option) => option.id === String(selectedAssigneeId)) ?? null,
+    [agentOptions, selectedAssigneeId]
+  );
+
   const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
     return conversations.filter((item) => {
       const matchesSearch =
         !term || `${item.contactName} ${item.phone} ${item.lastMessage}`.toLowerCase().includes(term);
 
-      const currentAgent = localStorage.getItem("agent_name") ?? "";
+      const currentAgent = AppStorage.getAgentName();
       const matchesMine =
         myFilter === "new"
           ? !item.assigneeName
@@ -220,13 +282,19 @@ export function ChatwootPage() {
         </div>
         <div className={Style.filters}>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar conversa..." />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-            <option value="all">Todos</option>
-            <option value="open">Abertos</option>
-            <option value="pending">Pendentes</option>
-            <option value="resolved">Resolvidos</option>
-            <option value="snoozed">Snoozed</option>
-          </select>
+          <Dropdown<ChatwootSelectOption>
+            className={Style.filtersDropdown}
+            label="Status"
+            options={STATUS_OPTIONS}
+            value={selectedStatusOption}
+            placeholder="Selecionar"
+            open={openDropdown === "status"}
+            onOpen={() => setOpenDropdown("status")}
+            onClose={() => setOpenDropdown(null)}
+            onChange={(value) =>
+              setStatusFilter((value as ChatwootSelectOption).id as StatusFilter)
+            }
+          />
         </div>
       </section>
       </TitlePage>
@@ -235,14 +303,19 @@ export function ChatwootPage() {
           <div className={Style.modal}>
             <h3>Escolha a inbox</h3>
             <p>Selecione a caixa de entrada para iniciar o atendimento.</p>
-            <select value={inboxIdentifier} onChange={(e) => setInboxIdentifier(e.target.value)}>
-              <option value="">Selecione</option>
-              {inboxes.map((inbox) => (
-                <option key={inbox.id} value={inbox.identifier}>
-                  {inbox.name}
-                </option>
-              ))}
-            </select>
+            <Dropdown<ChatwootSelectOption>
+              className={Style.modalDropdown}
+              label="Inbox"
+              options={inboxOptions}
+              value={selectedInboxOption}
+              placeholder="Selecione"
+              open={openDropdown === "inbox"}
+              onOpen={() => setOpenDropdown("inbox")}
+              onClose={() => setOpenDropdown(null)}
+              onChange={(value) =>
+                setInboxIdentifier((value as ChatwootSelectOption).id)
+              }
+            />
             <button type="button" disabled={!inboxIdentifier} onClick={() => setShowInboxPicker(false)}>
               Entrar
             </button>
@@ -333,24 +406,36 @@ export function ChatwootPage() {
 
           <h4>Transferência</h4>
           <label>Time/Setor</label>
-          <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value ? Number(e.target.value) : "")}>
-            <option value="">Selecionar</option>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </select>
+          <Dropdown<ChatwootSelectOption>
+            className={Style.sideToolsDropdown}
+            label="Time/Setor"
+            options={teamOptions}
+            value={selectedTeamOption}
+            placeholder="Selecionar"
+            open={openDropdown === "team"}
+            onOpen={() => setOpenDropdown("team")}
+            onClose={() => setOpenDropdown(null)}
+            onChange={(value) => {
+              const nextValue = (value as ChatwootSelectOption).id;
+              setSelectedTeamId(nextValue ? Number(nextValue) : "");
+            }}
+          />
 
           <label>Agente</label>
-          <select value={selectedAssigneeId} onChange={(e) => setSelectedAssigneeId(e.target.value ? Number(e.target.value) : "")}>
-            <option value="">Selecionar</option>
-            {agents.map((agent) => (
-              <option key={agent.id} value={agent.id}>
-                {agent.name}
-              </option>
-            ))}
-          </select>
+          <Dropdown<ChatwootSelectOption>
+            className={Style.sideToolsDropdown}
+            label="Agente"
+            options={agentOptions}
+            value={selectedAgentOption}
+            placeholder="Selecionar"
+            open={openDropdown === "agent"}
+            onOpen={() => setOpenDropdown("agent")}
+            onClose={() => setOpenDropdown(null)}
+            onChange={(value) => {
+              const nextValue = (value as ChatwootSelectOption).id;
+              setSelectedAssigneeId(nextValue ? Number(nextValue) : "");
+            }}
+          />
 
           <button type="button" onClick={() => void transferConversation()} disabled={!selectedConversation || loading || !accountApiEnabled}>
             Transferir

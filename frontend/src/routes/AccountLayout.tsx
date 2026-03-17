@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { AuthService } from "../services/auth/auth.service";
+import { AppStorage } from "../services/storage/storage.service";
 import { Navbar } from "../componente/Index";
 import Style from "./AccountLayout.module.css";
 
@@ -12,14 +13,14 @@ export function AccountLayout() {
   const [isAuthorizing, setIsAuthorizing] = useState(true);
 
   const setAccount = useCallback((value: string) => {
-    localStorage.setItem("account", value);
+    AppStorage.setAccount(value);
   }, []);
 
   useEffect(() => {
     const accountParam = searchParams.get("account");
     const tokenParam = searchParams.get("token");
     const hasEmbedCredentials = Boolean(accountParam && tokenParam);
-    const accessToken = localStorage.getItem("access_token");
+    const accessToken = AppStorage.getAccessToken();
     const currentPath = `${location.pathname}${location.search}`;
     let isMounted = true;
 
@@ -37,13 +38,12 @@ export function AccountLayout() {
 
           if (!isMounted) return;
 
-          localStorage.setItem("access_token", result.accessToken);
-          localStorage.setItem("account", result.company.account);
-          localStorage.setItem("company_name", result.company.name);
-          localStorage.setItem("embed_signature", embedSignature);
-          localStorage.setItem("auth_mode", "embed");
-          localStorage.removeItem("agent_name");
-          localStorage.removeItem("attendant_name");
+          AppStorage.setAccessToken(result.accessToken);
+          AppStorage.setAccount(result.company.account);
+          AppStorage.setCompanyName(result.company.name);
+          AppStorage.setEmbedSignature(embedSignature);
+          AppStorage.setAuthMode("embed");
+          AppStorage.clearOnLogin();
           setAccount(result.company.account);
           setIsAuthorized(true);
           setIsAuthorizing(false);
@@ -56,9 +56,7 @@ export function AccountLayout() {
           });
         } catch {
           if (!isMounted) return;
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("account");
-          localStorage.removeItem("embed_signature");
+          AppStorage.clearSession();
           navigate("/login", {
             replace: true,
             state: { from: currentPath },
@@ -73,7 +71,7 @@ export function AccountLayout() {
     }
 
     if (!accessToken) {
-      localStorage.removeItem("account");
+      AppStorage.removeAccount();
       navigate("/login", {
         replace: true,
         state: { from: currentPath },
@@ -88,11 +86,11 @@ export function AccountLayout() {
 
         setAccount(result.company.account);
         if (result.agent?.name) {
-          localStorage.setItem("agent_name", result.agent.name);
-          localStorage.setItem("auth_mode", "agent");
+          AppStorage.setAgentName(result.agent.name);
+          AppStorage.setAuthMode("agent");
         } else {
-          localStorage.setItem("auth_mode", "embed");
-          localStorage.removeItem("agent_name");
+          AppStorage.setAuthMode("embed");
+          AppStorage.removeAgentName();
         }
         setIsAuthorized(true);
         setIsAuthorizing(false);
@@ -106,8 +104,7 @@ export function AccountLayout() {
         }
       } catch {
         if (!isMounted) return;
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("account");
+        AppStorage.clearSession();
         navigate("/login", {
           replace: true,
           state: { from: currentPath },

@@ -7,7 +7,12 @@ import { ConfigService } from '@nestjs/config';
 import { useContainer } from 'class-validator';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? ['log', 'warn', 'error']
+        : ['log', 'warn', 'error', 'verbose'],
+  });
   const configService = app.get(ConfigService);
   app.enableCors({
     // origin: configService.get<string>('NODE_ENV') === 'production'

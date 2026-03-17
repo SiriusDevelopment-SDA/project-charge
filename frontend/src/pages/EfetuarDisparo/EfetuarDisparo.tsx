@@ -1,4 +1,3 @@
-import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css";
 import type { Cliente, Template } from "../../types";
 import {
@@ -22,12 +21,8 @@ export default function EfetuarDisparo() {
   const {
     dispatch,
     manualLead,
-    categoryMenuRef,
-    categoryFilterRef,
     openDropdown,
     setOpenDropdown,
-    openCategoryDropdown,
-    setOpenCategoryDropdown,
     isDispatchPreviewOpen,
     setIsDispatchPreviewOpen,
     openDispatchAttendantModal,
@@ -35,7 +30,6 @@ export default function EfetuarDisparo() {
     isFinishedBatch,
     previewAudienceCount,
     previewMessage,
-    previewDetails,
     batchLabel,
     searchTemplateName,
     setSearchTemplateName,
@@ -85,79 +79,16 @@ export default function EfetuarDisparo() {
               value={dispatch.selectedTemplate}
               onChange={(value) => dispatch.setSelectedTemplate(value as Template)}
               open={openDropdown === "template"}
-              onOpen={() => {
-                setOpenDropdown("template");
-                setOpenCategoryDropdown(false);
-              }}
-              onClose={() => {
-                setOpenDropdown(null);
-                setOpenCategoryDropdown(false);
-              }}
+              onOpen={() => setOpenDropdown("template")}
+              onClose={() => setOpenDropdown(null)}
               className={Style.dropdownTemplate}
-            >
-              {openDropdown === "template" && (
-                <span className={Style.FilterDropdownTemplate}>
-                  <InputFields
-                    placeholder="Buscar template pelo nome"
-                    value={searchTemplateName}
-                    onChange={(event) => setSearchTemplateName(event.target.value)}
-                  />
-
-                  <div
-                    className={Style.filterWrapper}
-                    tabIndex={0}
-                    onBlur={(event) => {
-                      const nextTarget = event.relatedTarget as Node | null;
-                      if (!nextTarget || !categoryMenuRef.current?.contains(nextTarget)) {
-                        setOpenCategoryDropdown(false);
-                      }
-                    }}
-                  >
-                    <FilterAltOutlinedIcon
-                      ref={categoryFilterRef}
-                      className={`${Style.iconFilterDropdownTemplate} ${
-                        categoryTemplateFilter ? Style.activeFilter : ""
-                      }`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setOpenCategoryDropdown((previous) => !previous);
-                      }}
-                    />
-
-                    {openCategoryDropdown && (
-                      <div ref={categoryMenuRef} className={Style.categoryMenu}>
-                        <div
-                          className={Style.categoryItem}
-                          onClick={() => {
-                            setCategoryTemplateFilter(null);
-                            setOpenCategoryDropdown(false);
-                          }}
-                        >
-                          Todas
-                        </div>
-
-                        {categories.map((category) => (
-                          <div
-                            key={category}
-                            className={`${Style.categoryItem} ${
-                              categoryTemplateFilter === category
-                                ? Style.categoryItemActive
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setCategoryTemplateFilter(category);
-                              setOpenCategoryDropdown(false);
-                            }}
-                          >
-                            {category}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </span>
-              )}
-            </Dropdown>
+              searchValue={searchTemplateName}
+              searchPlaceholder="Buscar template pelo nome"
+              onSearchTermChange={setSearchTemplateName}
+              filterOptions={categories}
+              filterValue={categoryTemplateFilter}
+              onFilterChange={setCategoryTemplateFilter}
+            />
 
             {dispatch.modoPage === "clientes" ? (
               <Dropdown<Cliente>
@@ -168,14 +99,8 @@ export default function EfetuarDisparo() {
                 selected={dispatch.selectedClientes}
                 onChange={(value) => handleClientsChange(value as Cliente[])}
                 open={openDropdown === "clientes"}
-                onOpen={() => {
-                  setOpenDropdown("clientes");
-                  setOpenCategoryDropdown(false);
-                }}
-                onClose={() => {
-                  setOpenDropdown(null);
-                  setOpenCategoryDropdown(false);
-                }}
+                onOpen={() => setOpenDropdown("clientes")}
+                onClose={() => setOpenDropdown(null)}
                 onSearchTermChange={handleClientSearch}
               />
             ) : (

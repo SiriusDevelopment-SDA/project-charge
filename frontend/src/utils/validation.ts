@@ -2,6 +2,7 @@ import type { Cliente, Template } from "../types";
 import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
 import { toast } from "react-toastify";
+import { normalizeDoc } from "./document";
 
 type SpreadsheetRow = Record<string, string | number | null | undefined>;
 
@@ -11,7 +12,7 @@ export function extrairDocumentosClientes(data: SpreadsheetRow[]) {
   }
 
   return data
-    .map((row) => String(row.cnpj_cpf ?? "").replace(/\D/g, ""))
+    .map((row) => normalizeDoc(String(row.cnpj_cpf ?? "")))
     .filter((doc) => doc.length === 11 || doc.length === 14);
 }
 

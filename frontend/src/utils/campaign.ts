@@ -1,14 +1,11 @@
-type CampaignStatusSnapshot = {
-  isEnabled?: boolean;
-  endDate: string;
-};
+import type { CampaignData } from "../types/champaignApiTypes";
 
-export function isCampaignFinished(campaign: Pick<CampaignStatusSnapshot, "endDate">) {
-  const endDate = new Date(campaign.endDate);
-  endDate.setHours(23, 59, 59, 999);
-  return endDate.getTime() < Date.now();
+export function isCampaignFinished(campaign: CampaignData): boolean {
+  if (campaign.status === "finished") return true;
+  return new Date(campaign.endDate) < new Date();
 }
 
-export function isCampaignActive(campaign: CampaignStatusSnapshot) {
-  return Boolean(campaign.isEnabled) && !isCampaignFinished(campaign);
+export function isCampaignActive(campaign: CampaignData): boolean {
+  if (isCampaignFinished(campaign)) return false;
+  return campaign.isEnabled === true;
 }

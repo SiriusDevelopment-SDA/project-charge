@@ -3,13 +3,10 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
-  OneToMany,
   ManyToMany,
   JoinTable,
-  OneToOne,
 } from 'typeorm';
 import { Templates } from '../../templates/entities/templatesMeta';
 import { Company } from '../../companies/entities/companies';
@@ -33,7 +30,6 @@ export class Campaign {
   @JoinColumn({ name: 'template' })
   template!: Templates;
 
-
   @Column({ type: 'timestamp' })
   startDate!: Date;
 
@@ -48,17 +44,17 @@ export class Campaign {
 
   @Column({ default: false })
   recurring!: boolean;
-  
+
   @ManyToMany(() => Client, (client) => client.campaigns)
   @JoinTable({
     name: 'campaign_clients',
     joinColumn: {
       name: 'campaignId',
-      referencedColumnName: 'id'
+      referencedColumnName: 'id',
     },
     inverseJoinColumn: {
       name: 'clientId',
-      referencedColumnName: 'id'
+      referencedColumnName: 'id',
     },
   })
   clients!: Client[];
@@ -67,14 +63,17 @@ export class Campaign {
   @JoinColumn({ name: 'category' })
   category!: Category;
 
-  @Column({ type: "jsonb", nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   templateMapVars!: TemplateMapVar[];
 
-  @Column({ default: 'pending' })
+  @Column({ type: 'varchar', default: 'pending' })
   status!: 'queue' | 'pending' | 'running' | 'finished';
 
   @Column({ default: true })
   isEnabled!: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastDispatchedAt?: Date | null;
 
   @CreateDateColumn({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt!: Date;

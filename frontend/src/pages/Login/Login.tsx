@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { AuthService } from "../../services/auth/auth.service";
+import { AppStorage } from "../../services/storage/storage.service";
 import { getErrorMessage } from "../../utils/error";
 import styles from "./Styles/Login.module.css";
 import logoCoraxy from "../../assets/icons/coraxy.svg";
@@ -29,16 +30,13 @@ export function Login() {
         return;
       }
 
-      localStorage.setItem("access_token", result.accessToken);
-      localStorage.setItem("account", result.company.account);
-      localStorage.setItem("company_name", result.company.name);
-      localStorage.setItem("auth_mode", "agent");
-      localStorage.removeItem("embed_signature");
-      localStorage.removeItem("attendant_name");
+      AppStorage.setAccessToken(result.accessToken);
+      AppStorage.setAccount(result.company.account);
+      AppStorage.setCompanyName(result.company.name);
+      AppStorage.setAuthMode("agent");
+      AppStorage.clearOnLogin();
       if (result.agent?.name) {
-        localStorage.setItem("agent_name", result.agent.name);
-      } else {
-        localStorage.removeItem("agent_name");
+        AppStorage.setAgentName(result.agent.name);
       }
 
       const from =

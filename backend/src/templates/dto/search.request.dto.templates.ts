@@ -1,4 +1,4 @@
-﻿import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   IsArray,
@@ -60,6 +60,107 @@ export class SearchRequestDtoTemplates {
   sortorder?: "ASC" | "DESC";
 }
 
+export class OrderDetailsPixPaymentDto {
+  @ApiProperty({ example: "pix_dynamic_code" })
+  @IsString()
+  type!: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsObject()
+  pix_dynamic_code?: {
+    merchant_name: string;
+    key: string;
+    key_type: string;
+  };
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsObject()
+  pix_static_code?: {
+    merchant_name: string;
+    key: string;
+    key_type: string;
+  };
+}
+
+export class OrderDetailsItemDto {
+  @ApiProperty({ example: "ITEM-001" })
+  @IsString()
+  retailer_id!: string;
+
+  @ApiProperty({ example: "Fatura" })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ example: 1 })
+  @IsNumber()
+  quantity!: number;
+
+  @ApiProperty({ example: 25000 })
+  @IsNumber()
+  unit_price!: number;
+
+  @ApiProperty({ example: "BRL" })
+  @IsString()
+  currency!: string;
+}
+
+export class OrderDetailsDataDto {
+  @ApiProperty({ example: "ORDER-001" })
+  @IsString()
+  reference_id!: string;
+
+  @ApiProperty({ example: "digital-goods" })
+  @IsString()
+  type!: string;
+
+  @ApiProperty({ example: "br" })
+  @IsString()
+  payment_type!: string;
+
+  @ApiProperty({ type: [OrderDetailsPixPaymentDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderDetailsPixPaymentDto)
+  payment_settings!: OrderDetailsPixPaymentDto[];
+
+  @ApiProperty({ example: "BRL" })
+  @IsString()
+  currency!: string;
+
+  @ApiProperty({ example: 25000 })
+  @IsNumber()
+  total_amount!: number;
+
+  @ApiProperty({ example: 100 })
+  @IsNumber()
+  amount_offset!: number;
+
+  @ApiProperty()
+  @IsObject()
+  order!: {
+    status: string;
+    subtotal: number;
+    tax: number;
+    discount: number;
+    shipping: number;
+    items: OrderDetailsItemDto[];
+  };
+}
+
+export class OrderDetailsActionDto {
+  @ApiProperty({ type: OrderDetailsDataDto })
+  @ValidateNested()
+  @Type(() => OrderDetailsDataDto)
+  order_details!: OrderDetailsDataDto;
+}
+
 export class TemplateParameterDto {
   @ApiProperty({ example: "text", required: false })
   @IsString()
@@ -79,6 +180,12 @@ export class TemplateParameterDto {
   @IsOptional()
   @IsObject()
   image?: Record<string, any>;
+
+  @ApiProperty({ required: false, type: OrderDetailsActionDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrderDetailsActionDto)
+  action?: OrderDetailsActionDto;
 
   [key: string]: any;
 }
@@ -168,51 +275,36 @@ export class SendTemplateDto {
   to!: ToComponentDto[];
 }
 
-export class DispatchBatchStatusDto {
-  @ApiProperty({
-    description: "ID da account do sistema",
-    example: 4,
-  })
-  @IsNumber({}, { message: "account deve ser um número" })
-  @Type(() => Number)
-  account!: number;
-
-  @ApiProperty({
-    description: "ID do lote de disparo",
-    example: "123e4567-e89b-12d3-a456-426614174000",
-  })
-  @IsUUID("4", { message: "batchId deve ser um UUID válido" })
-  batchId!: string;
-}
-
 export class LatestDispatchBatchReportDto {
-  @ApiProperty({
-    description: "ID da account do sistema",
-    example: 4,
-  })
-  @IsNumber({}, { message: "account deve ser um número" })
+  @ApiProperty({ example: 4 })
   @Type(() => Number)
+  @IsNumber({}, { message: 'account deve ser um número' })
+  @IsNotEmpty({ message: 'account é obrigatório' })
   account!: number;
 
-  @ApiProperty({
-    description: "Quando true, retorna apenas lotes sem vínculo com campanha.",
-    example: true,
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @Type(() => Boolean)
-  @IsBoolean({ message: "manualOnly deve ser boolean" })
+  @IsBoolean()
   manualOnly?: boolean;
 
-  @ApiProperty({
-    description: "Quando true, retorna apenas lotes vinculados a campanha.",
-    example: true,
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @Type(() => Boolean)
-  @IsBoolean({ message: "campaignOnly deve ser boolean" })
+  @IsBoolean()
   campaignOnly?: boolean;
+}
+
+export class DispatchBatchStatusDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsUUID('4', { message: 'batchId deve ser um UUID válido' })
+  batchId!: string;
+
+  @ApiProperty({ required: false, example: 4 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'account deve ser um número' })
+  account?: number;
 }
 
 export class SearchRequestDtoRelatories {

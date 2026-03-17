@@ -9,6 +9,7 @@ import {
   validarArquivo,
 } from "./validation";
 import { ClientService } from "../services/client/client.service";
+import { normalizeDoc } from "./document";
 
 type HandleUploadParams = {
   file: File;
@@ -19,10 +20,6 @@ type HandleUploadParams = {
   processarDocumentos: (docs: string[]) => void;
   account?: string | null;
 };
-
-function normalizeDoc(value?: string) {
-  return String(value ?? "").replace(/\D/g, "");
-}
 
 export async function handleUploadPlanilha({
   file,

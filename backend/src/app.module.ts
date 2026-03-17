@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { MessageQueueModule } from './message-queue/message-queue.module';
 import { DatabaseModule } from './database/database.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Client } from './clients/entities.ts/clients';
@@ -9,7 +11,6 @@ import { AppServiceClient } from './clients/app.service.clients';
 import { AppServiceTemplate } from './templates/app.service.templates';
 import { Templates } from './templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from './templates/entities/relatory.entity';
-import { TemplateDispatchBatch } from './templates/entities/template-dispatch-batch.entity';
 import { Invoice } from './invoices/entities/invoices';
 import { InvoicesController } from './invoices/controllers/invoicesController';
 import { Company } from './companies/entities/companies';
@@ -38,14 +39,17 @@ import { ChatwootController } from './chatwoot/chatwoot.controller';
 import { ChatwootService } from './chatwoot/chatwoot.service';
 import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
+import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
+import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
+    MessageQueueModule,
     TypeOrmModule.forFeature([Client]),
     TypeOrmModule.forFeature([Templates]),
     TypeOrmModule.forFeature([RelatoryDispatchTemplate]),
-    TypeOrmModule.forFeature([TemplateDispatchBatch]),
     TypeOrmModule.forFeature([Invoice]),
     TypeOrmModule.forFeature([Company]),
     TypeOrmModule.forFeature([Campaign]),
@@ -70,7 +74,8 @@ import { RedisController } from './redis/redis.controller';
     AuthController,
     ChatwootController,
     RedisController,
-    GraphicsController
+    GraphicsController,
+    NotificaMeWebhookController,
   ],
   providers: [
     AppServiceClient, 
@@ -87,6 +92,7 @@ import { RedisController } from './redis/redis.controller';
     AuthService,
     ChatwootService,
     RedisService,
+    RelatoryResolverCron,
   ],
   exports: [AppServiceTemplate, AppServiceClient],
 })

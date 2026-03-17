@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Dropdown } from "../Index";
 import { usePollingChartData } from "../../hooks/components/usePollingChartData";
 import styles from "./GraficoDisparo.module.css";
 
@@ -19,11 +20,18 @@ interface MonthlyData {
   value: number;
 }
 
-const periods = [
-  { label: "Jan - Jun", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
-  { label: "Jul - Dez", months: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
+type PeriodOption = {
+  id: string;
+  name: string;
+  months: string[];
+};
+
+const periods: PeriodOption[] = [
+  { id: "jan-jun", name: "Jan - Jun", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
+  { id: "jul-dez", name: "Jul - Dez", months: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
   {
-    label: "Ano todo",
+    id: "ano-todo",
+    name: "Ano todo",
     months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
   },
 ];
@@ -45,6 +53,7 @@ const initialData: MonthlyData[] = [
 
 const GraficoDisparo: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState(periods[0]);
+  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
 
   const generateData = useCallback(
     (base: MonthlyData[]) =>
@@ -67,20 +76,17 @@ const GraficoDisparo: React.FC = () => {
       <div className={styles.header}>
         <h2 className={styles.title}>Disparo mensal</h2>
 
-        <select
+        <Dropdown<PeriodOption>
           className={styles.dateSelector}
-          value={selectedPeriod.label}
-          onChange={(event) => {
-            const period = periods.find((p) => p.label === event.target.value);
-            if (period) setSelectedPeriod(period);
-          }}
-        >
-          {periods.map((period) => (
-            <option key={period.label} value={period.label}>
-              {period.label}
-            </option>
-          ))}
-        </select>
+          label="Periodo"
+          options={periods}
+          value={selectedPeriod}
+          placeholder="Selecionar"
+          open={isPeriodDropdownOpen}
+          onOpen={() => setIsPeriodDropdownOpen(true)}
+          onClose={() => setIsPeriodDropdownOpen(false)}
+          onChange={(value) => setSelectedPeriod(value as PeriodOption)}
+        />
       </div>
 
       <div className={styles.chartArea}>

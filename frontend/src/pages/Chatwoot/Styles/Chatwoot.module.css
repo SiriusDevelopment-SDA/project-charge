@@ -38,6 +38,15 @@
   gap: 8px;
 }
 
+.filtersDropdown {
+  min-width: 210px;
+}
+
+.sideToolsDropdown,
+.modalDropdown {
+  width: 100%;
+}
+
 .filters input,
 .filters select,
 .sideTools input,
