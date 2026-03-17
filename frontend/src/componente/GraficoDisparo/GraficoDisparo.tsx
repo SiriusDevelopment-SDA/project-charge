@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -11,13 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { usePollingChartData } from "../../hooks/components/usePollingChartData";
+import { useDashboardDispatches } from "../../hooks/controller/dashboard/useDashboardDispatches";
 import styles from "./GraficoDisparo.module.css";
-
-interface MonthlyData {
-  month: string;
-  value: number;
-}
 
 const periods = [
   { label: "Jan - Jun", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
@@ -28,38 +23,18 @@ const periods = [
   },
 ];
 
-const initialData: MonthlyData[] = [
-  { month: "Jan", value: 40 },
-  { month: "Fev", value: 20 },
-  { month: "Mar", value: 35 },
-  { month: "Abr", value: 30 },
-  { month: "Mai", value: 38 },
-  { month: "Jun", value: 50 },
-  { month: "Jul", value: 32 },
-  { month: "Ago", value: 40 },
-  { month: "Set", value: 52 },
-  { month: "Out", value: 48 },
-  { month: "Nov", value: 53 },
-  { month: "Dez", value: 75 },
-];
-
 const GraficoDisparo: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState(periods[0]);
-
-  const generateData = useCallback(
-    (base: MonthlyData[]) =>
-      base.map((item) => ({
-        ...item,
-        value: Math.floor(Math.random() * 80) + 10,
-      })),
-    []
-  );
-
-  const { data } = usePollingChartData(initialData, generateData, 15000);
+  const { dispatches } = useDashboardDispatches();
 
   const filteredData = useMemo(
-    () => data.filter((item) => selectedPeriod.months.includes(item.month)),
-    [data, selectedPeriod]
+    () => dispatches.filter((item) => selectedPeriod.months.includes(item.month)),
+    [dispatches, selectedPeriod]
+  );
+
+  const maxValue = useMemo(
+    () => Math.max(...filteredData.map((d) => d.value), 9),
+    [filteredData]
   );
 
   return (
@@ -125,8 +100,7 @@ const GraficoDisparo: React.FC = () => {
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#777", fontSize: 13 }}
-              domain={[0, 80]}
-              ticks={[10, 20, 30, 40, 50, 60]}
+              domain={[0, maxValue]}
               dx={-5}
             />
 
