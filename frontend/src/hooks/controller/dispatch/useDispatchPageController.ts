@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import type { Cliente } from "../../../types";
@@ -8,15 +8,14 @@ import { useDispatchTemplate } from "../../useDispatchTemplate";
 import { processarDocumentos, validarSelecaoCliente } from "../../../utils/validation";
 import { handleUploadPlanilha } from "../../../utils/hendleUploadSpreadSheat";
 import { useManualLeadDispatchController } from "./useManualLeadDispatchController";
+import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import {
   areOnlyAttendantFieldsMissing,
   getIncompleteTemplateRecipients,
-  getStoredAttendantName,
-  getStoredAuthMode,
-  mapRecipientsToTemplateVars,
-  setStoredAttendantName,
   templateRequiresAttendantName,
-} from "../../../mappers/templateVars.mapper";
+} from "../../../validators/template.validator";
+import { AppStorage } from "../../../services/storage/storage.service";
+import { useAccountParam } from "../../useAccountParam";
 
 function getDispatchBatchLabel(status: string) {
   if (status === "queued") return "Na fila";
@@ -29,13 +28,14 @@ function getDispatchBatchLabel(status: string) {
 
 export function useDispatchPageController() {
   const navigate = useNavigate();
-  const account = new URLSearchParams(window.location.search).get("account");
+  const account = useAccountParam();
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
   const [isDispatchPreviewOpen, setIsDispatchPreviewOpen] = useState(false);
   const [openDispatchAttendantModal, setOpenDispatchAttendantModal] = useState(false);
-  const [openCategoryDropdown, setOpenCategoryDropdown] = useState(false);
-  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
-  const categoryFilterRef = useRef<SVGSVGElement | null>(null);
+  const [previewMapOverride, setPreviewMapOverride] = useState<{
+    selectionKey: string;
+    mappedVars: import("../../../types").mappedVars[];
+  } | null>(null);
 
   const { clients, setQuery, fetchInvoices } = useClient();
   const templates = useTemplate();
@@ -68,6 +68,29 @@ export function useDispatchPageController() {
       ? dispatch.selectedClientes.length
       : dispatch.selectedLeads.length + (hasPendingManualLead ? 1 : 0);
 
+  const previewSelectionKey = useMemo(() => {
+    const audienceKey =
+      dispatch.modoPage === "clientes"
+        ? dispatch.selectedClientes.map((cliente) => cliente.id).join("|")
+        : dispatch.selectedLeads
+            .map((lead) =>
+              String(
+                lead.whatsapp ??
+                  lead.cnpj_cpf ??
+                  lead.nome_cliente ??
+                  "lead-sem-identificador",
+              ),
+            )
+            .join("|");
+
+    return [dispatch.modoPage, dispatch.selectedTemplate?.id ?? "", audienceKey].join("::");
+  }, [
+    dispatch.modoPage,
+    dispatch.selectedClientes,
+    dispatch.selectedLeads,
+    dispatch.selectedTemplate?.id,
+  ]);
+
   const previewMappedVars = useMemo(() => {
     if (!dispatch.selectedTemplate) return [];
 
@@ -88,8 +111,13 @@ export function useDispatchPageController() {
     dispatch.selectedTemplate,
   ]);
 
+  const activeMappedVars =
+    previewMapOverride?.selectionKey === previewSelectionKey
+      ? previewMapOverride.mappedVars
+      : previewMappedVars;
+
   const previewMessage = String(
-    previewMappedVars?.[0]?.mensagem ??
+    activeMappedVars?.[0]?.mensagem ??
       dispatch.templateMapVars?.[0]?.mensagem ??
       dispatch.selectedTemplate?.message ??
       "Sem mensagem de template",
@@ -131,7 +159,6 @@ export function useDispatchPageController() {
 
   const handleCloseFloatingMenus = useCallback(() => {
     setOpenDropdown(null);
-    setOpenCategoryDropdown(false);
   }, []);
 
   const handleClientsChange = useCallback(
@@ -150,7 +177,7 @@ export function useDispatchPageController() {
         void fetchInvoices(clientesValidos);
       }
     },
-    [dispatch.selectedTemplate, dispatch.setSelectedClientes, fetchInvoices],
+    [dispatch, fetchInvoices],
   );
 
   const handleLeadUpload = useCallback(
@@ -188,8 +215,8 @@ export function useDispatchPageController() {
 
     if (
       templateRequiresAttendantName(dispatch.selectedTemplate) &&
-      !getStoredAttendantName() &&
-      getStoredAuthMode() === "embed"
+      !AppStorage.getAttendantName() &&
+      AppStorage.getAuthMode() === "embed"
     ) {
       setOpenDispatchAttendantModal(true);
       return;
@@ -230,14 +257,27 @@ export function useDispatchPageController() {
       return;
     }
 
+    // Compute fresh here so AppStorage reads reflect the latest attendant name,
+    // avoiding repeated modal prompts when the name was already confirmed.
+    const freshSource =
+      dispatch.modoPage === "clientes"
+        ? dispatch.selectedClientes
+        : dispatch.selectedLeads;
+    const freshMappedVars =
+      freshSource.length
+        ? mapRecipientsToTemplateVars(freshSource, dispatch.selectedTemplate, {
+            filterByTemplateVars: false,
+          })
+        : [];
+
     const incompleteRecipients = getIncompleteTemplateRecipients(
       dispatch.selectedTemplate,
-      previewMappedVars,
+      freshMappedVars,
     );
 
     if (incompleteRecipients.length) {
       if (
-        getStoredAuthMode() === "embed" &&
+        AppStorage.getAuthMode() === "embed" &&
         areOnlyAttendantFieldsMissing(incompleteRecipients)
       ) {
         setOpenDispatchAttendantModal(true);
@@ -260,10 +300,7 @@ export function useDispatchPageController() {
 
     manualLead.prepareDispatchPreview();
   }, [
-    dispatch.modoPage,
-    dispatch.selectedClientes.length,
-    dispatch.selectedLeads.length,
-    dispatch.selectedTemplate,
+    dispatch,
     manualLead,
     previewAudienceCount,
     previewMappedVars,
@@ -294,7 +331,7 @@ export function useDispatchPageController() {
       return;
     }
 
-    setStoredAttendantName(normalized);
+    AppStorage.setAttendantName(normalized);
     setOpenDispatchAttendantModal(false);
 
     if (dispatch.modoPage === "leads" && hasPendingManualLead) {
@@ -333,6 +370,14 @@ export function useDispatchPageController() {
       return;
     }
 
+    // Store the freshly-computed vars (with attendant name) so previewMessage shows correct content
+    if (refreshedMappedVars.length) {
+      setPreviewMapOverride({
+        selectionKey: previewSelectionKey,
+        mappedVars: refreshedMappedVars,
+      });
+    }
+
     setIsDispatchPreviewOpen(true);
   }, [
     dispatch.modoPage,
@@ -341,6 +386,7 @@ export function useDispatchPageController() {
     dispatch.selectedTemplate,
     hasPendingManualLead,
     manualLead,
+    previewSelectionKey,
   ]);
 
   return {
@@ -349,12 +395,8 @@ export function useDispatchPageController() {
     templates,
     dispatch,
     manualLead,
-    categoryMenuRef,
-    categoryFilterRef,
     openDropdown,
     setOpenDropdown,
-    openCategoryDropdown,
-    setOpenCategoryDropdown,
     isDispatchPreviewOpen,
     setIsDispatchPreviewOpen,
     openDispatchAttendantModal,

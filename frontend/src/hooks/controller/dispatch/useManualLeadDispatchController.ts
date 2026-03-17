@@ -2,13 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import type { Dispatch, SetStateAction } from "react";
 import type { Lead, Template } from "../../../types";
-import {
-  getMissingTemplateVariables,
-  getStoredAttendantName,
-  getStoredCompanyName,
-  setStoredAttendantName,
-  setStoredCompanyName,
-} from "../../../mappers/templateVars.mapper";
+import { getMissingTemplateVariables } from "../../../validators/template.validator";
+import { AppStorage } from "../../../services/storage/storage.service";
 
 const MANUAL_FIELD_LABELS: Record<string, string> = {
   nome_cliente: "Nome do cliente",
@@ -57,8 +52,8 @@ export function useManualLeadDispatchController({
 }: UseManualLeadDispatchControllerParams) {
   const [whatsappValue, setWhatsappValue] = useState("");
   const [openManualLeadModal, setOpenManualLeadModal] = useState(false);
-  const [attendantName, setAttendantName] = useState(getStoredAttendantName());
-  const [companyName, setCompanyName] = useState(getStoredCompanyName());
+  const [attendantName, setAttendantName] = useState(AppStorage.getAttendantName());
+  const [companyName, setCompanyName] = useState(AppStorage.getDispatchCompanyName());
   const [pendingExtraLeads, setPendingExtraLeads] = useState<Lead[]>([]);
   const [pendingManualLeadFields, setPendingManualLeadFields] = useState<string[]>([]);
   const [manualLeadFieldValues, setManualLeadFieldValues] = useState<Record<string, string>>({});
@@ -150,8 +145,8 @@ export function useManualLeadDispatchController({
       setPendingExtraLeads(leads);
       setPendingManualLeadFields(fields);
       setPendingManualLeadAction(action);
-      setAttendantName(getStoredAttendantName());
-      setCompanyName(getStoredCompanyName());
+      setAttendantName(AppStorage.getAttendantName());
+      setCompanyName(AppStorage.getDispatchCompanyName());
       setManualLeadFieldValues(buildInitialManualFieldValues(fields));
       setOpenManualLeadModal(true);
     },
@@ -309,11 +304,11 @@ export function useManualLeadDispatchController({
     }
 
     if (resolvedFieldValues.nome_atendente) {
-      setStoredAttendantName(resolvedFieldValues.nome_atendente);
+      AppStorage.setAttendantName(resolvedFieldValues.nome_atendente);
     }
 
     if (resolvedFieldValues.nome_empresa) {
-      setStoredCompanyName(resolvedFieldValues.nome_empresa);
+      AppStorage.setDispatchCompanyName(resolvedFieldValues.nome_empresa);
     }
 
     const enrichedLeads = pendingExtraLeads.map((lead) => ({

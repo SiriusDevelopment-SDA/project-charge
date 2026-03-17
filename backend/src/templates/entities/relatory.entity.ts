@@ -10,7 +10,6 @@ import {
 import { Templates } from './templatesMeta';
 import { Company } from '../../companies/entities/companies';
 import { Campaign } from '../../campaigns/entities/campanhas.entity';
-import { TemplateDispatchBatch } from './template-dispatch-batch.entity';
 
 
 @Entity()
@@ -66,7 +65,9 @@ export class RelatoryDispatchTemplate {
   @JoinColumn({ name: 'campaignId' })
   campaign?: Campaign | null;
 
-  @ManyToOne(() => TemplateDispatchBatch, { nullable: true })
-  @JoinColumn({ name: 'dispatchBatchId' })
-  dispatchBatch?: TemplateDispatchBatch | null;
+  @Column({ type: 'varchar', nullable: true })
+  batchId?: string | null;
+
+  @Column({ default: false })
+  resolved!: boolean;
 }

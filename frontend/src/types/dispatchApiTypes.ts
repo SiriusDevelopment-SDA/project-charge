@@ -3,25 +3,7 @@ import type { Cliente } from "./clientApiTypes";
 import type { Lead } from "./componentsTypes";
 import type { Template } from "./templateApiTypes";
 
-export type DispatchBatchStatus = {
-  id: string;
-  status: "queued" | "processing" | "completed" | "partial" | "failed";
-  totalRecipients: number;
-  processedRecipients: number;
-  successCount: number;
-  failedCount: number;
-  rateLimitPerSecond: number;
-  progressPercentage: number;
-  estimatedDurationSeconds: number;
-  startedAt?: string | Date | null;
-  finishedAt?: string | Date | null;
-  errorMessage?: string | null;
-  templateId?: string | null;
-  templateName?: string | null;
-  campaignId?: string | null;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
-};
+
 
 export interface IDispatchTemplateContext {
   setSelectedClientes: React.Dispatch<SetStateAction<Cliente[]>>;
@@ -38,6 +20,28 @@ export interface IDispatchTemplateContext {
   activeDispatchBatch: DispatchBatchStatus | null;
   clearActiveDispatchBatch: () => void;
 }
+
+export type DispatchBatchStatus = {
+  id: string;
+  companyId: string;
+  campaignId?: string | null;
+  templateId?: string | null;
+  templateName?: string | null;
+  status: 'queued' | 'processing' | 'completed' | 'partial' | 'failed';
+  totalRecipients: number;
+  processedRecipients: number;
+  progressPercentage: number;
+  successCount: number;
+  failedCount: number;
+  rateLimitPerSecond: number;
+  errorMessage?: string | null;
+  estimatedDurationSeconds?: number;
+  scope: 'manual' | 'campaign';
+  startedAt?: string | Date | null;
+  finishedAt?: string | Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+};
 
 export type mappedVars = {
   [key: string]: string | undefined;
@@ -56,4 +60,12 @@ export type mappedVars = {
   codigo_pix?: string;
   mensagem?: string;
   cnpj_cpf?: string;
+  /** ORDER_DETAILS button fields */
+  order_reference_id?: string;
+  order_item_name?: string;
+  order_item_description?: string;
+  order_pix_merchant_name?: string;
+  /** PIX key of the merchant (CNPJ, CPF, e-mail ou telefone) */
+  order_pix_key?: string;
+  order_pix_key_type?: string;
 };

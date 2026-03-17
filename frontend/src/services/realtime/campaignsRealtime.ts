@@ -1,5 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 import { Api } from "../api";
+import { queryClient } from "../../lib/queryClient";
 
 const CAMPAIGNS_NAMESPACE = "/campaigns";
 
@@ -16,4 +17,23 @@ export function createCampaignsSocket(account: string): Socket {
     transports: ["websocket", "polling"],
     query: { account },
   });
+}
+
+export function setupCampaignsSocket(account: string): () => void {
+  const socket = createCampaignsSocket(account);
+
+  socket.on("connect", () => {
+    socket.emit("campaigns:subscribe", { account });
+  });
+
+  socket.on("campaigns:sync", () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["campaigns", account],
+    });
+  });
+
+  return () => {
+    socket.off("campaigns:sync");
+    socket.disconnect();
+  };
 }

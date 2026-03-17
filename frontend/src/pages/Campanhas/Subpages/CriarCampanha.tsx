@@ -24,7 +24,9 @@ export function CriarCampanha() {
   const {
     clients,
     templates,
+    filteredTemplates,
     categories,
+    templateCategories,
     form,
     modal,
     openDropdown,
@@ -32,6 +34,10 @@ export function CriarCampanha() {
     attendantName,
     previewDetails,
     previewMessage,
+    searchTemplateName,
+    setSearchTemplateName,
+    categoryTemplateFilter,
+    setCategoryTemplateFilter,
     setAttendantName,
     handleClientSearch,
     toggleDropdown,
@@ -130,13 +136,18 @@ export function CriarCampanha() {
 
               <Dropdown<Template>
                 label="Selecione um template"
-                options={templates ?? []}
+                options={filteredTemplates ?? templates ?? []}
                 value={form.selectedTemplate}
                 onChange={(value) => form.setSelectedTemplate(value as Template)}
                 open={openDropdown === "template"}
                 onOpen={() => toggleDropdown("template")}
                 onClose={() => toggleDropdown(null)}
-                searchable
+                searchValue={searchTemplateName}
+                searchPlaceholder="Buscar template pelo nome"
+                onSearchTermChange={setSearchTemplateName}
+                filterOptions={templateCategories}
+                filterValue={categoryTemplateFilter}
+                onFilterChange={setCategoryTemplateFilter}
               />
 
               <Dropdown<Category>

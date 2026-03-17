@@ -20,8 +20,8 @@ import type {
 
 import type {
   DispatchBatchStatus,
-  IDispatchTemplateContext, 
-  mappedVars 
+  IDispatchTemplateContext,
+  mappedVars
 } from "./dispatchApiTypes";
 import type {
   IHistoricoContext,
@@ -43,13 +43,17 @@ import type {
 } from "./invoiceApiTypes";
 
 import type {
-  Template, 
-  ITemplatesContext, 
-  SendTemplate, 
+  Template,
+  ITemplatesContext,
+  SendTemplate,
   TemplateComponent,
   TemplateParameter,
-  TemplateRecipient, 
-  TemplateSearchResponse
+  TemplateRecipient,
+  TemplateSearchResponse,
+  OrderDetailsData,
+  OrderDetailsPixPayment,
+  OrderDetailsItem,
+  OrderDetailsAction,
 } from "./templateApiTypes";
 
 import type {
@@ -57,7 +61,6 @@ import type {
   CampaignMetrics,
   CollectionsMetrics,
   Category,
-  PropsCardCampanhas
 } from "./champaignApiTypes"
 type DropdownType = "template" | "category" | "client" | null;
 export type 
@@ -81,17 +84,20 @@ export type
   UploadButtonProps, 
   propAmostras, 
   propTemplate,
-  mappedVars,
   DispatchBatchStatus,
-  Template, 
+  mappedVars,
+  Template,
   SendTemplate, 
   TemplateComponent,
   TemplateParameter,
-  TemplateRecipient, 
+  TemplateRecipient,
   TemplateSearchResponse,
+  OrderDetailsData,
+  OrderDetailsPixPayment,
+  OrderDetailsItem,
+  OrderDetailsAction,
   BatchStatus, 
   CodePix,
-  PropsCardCampanhas, 
   CodePixStatus, 
   Invoice, 
   InvoiceBatchResponse, 

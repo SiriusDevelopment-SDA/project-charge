@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.360dialog.com)",
+      "WebFetch(domain:developers.facebook.com)",
+      "WebFetch(domain:support.wati.io)",
+      "WebFetch(domain:helpdocs.ycloud.com)",
+      "WebSearch",
+      "WebFetch(domain:developers.sinch.com)",
+      "WebFetch(domain:notificamehub.com.br)",
+      "WebFetch(domain:www.postman.com)",
+      "Bash(/tmp/frontend_analysis.md:*)",
+      "Read(//tmp/**)"
+    ]
+  }
+}

@@ -1,89 +1,42 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "react-toastify";
-import { Api } from "../../../services/api";
-import type { DispatchBatchStatus, history } from "../../../types";
-import { getErrorMessage } from "../../../utils/error";
-
-type LatestDispatchReportResponse = {
-  batch: DispatchBatchStatus | null;
-  records: history[];
-};
+import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useLatestDispatchReportQuery,
+} from "../../queries/useLatestDispatchReportQuery";
+import { queryKeys } from "../../../lib/queryKeys";
 
 type LatestDispatchReportScope = "manual" | "campaigns" | null;
-
-const LIVE_REPORT_POLL_INTERVAL_MS = 1000;
 
 export function useLatestDispatchReportController(
   scope: LatestDispatchReportScope,
   account: string | null,
 ) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [report, setReport] = useState<LatestDispatchReportResponse | null>(null);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const enabled = scope !== null;
+  const queryClient = useQueryClient();
 
-  const fetchLatestReport = useCallback(
-    async (showLoader = false, showErrorToast = true) => {
-      if (!enabled) return;
-      if (!account) {
-        if (showErrorToast) {
-          toast.warning("Conta nao identificada para consultar o ultimo disparo.");
-        }
-        return;
-      }
+  const {
+    data: report,
+    isLoading,
+    dataUpdatedAt,
+  } = useLatestDispatchReportQuery(scope, account, isOpen);
 
-      try {
-        if (showLoader) {
-          setIsLoading(true);
-        }
-
-        const response = await Api.post<LatestDispatchReportResponse>(
-          "/templates/batches/latest-report",
-          {
-            account,
-            manualOnly: scope === "manual",
-            campaignOnly: scope === "campaigns",
-          },
-        );
-
-        setReport(response.data);
-        setLastUpdatedAt(new Date());
-      } catch (error: unknown) {
-        if (showErrorToast) {
-          toast.error(getErrorMessage(error, "Erro ao carregar o ultimo disparo"));
-        }
-      } finally {
-        if (showLoader) {
-          setIsLoading(false);
-        }
-      }
-    },
-    [account, enabled, scope],
-  );
+  const lastUpdatedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
   const openLatestReport = useCallback(async () => {
     setIsOpen(true);
-    await fetchLatestReport(true);
-  }, [fetchLatestReport]);
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.history.latestReport(account ?? "", scope ?? ""),
+    });
+  }, [queryClient, account, scope]);
 
   const closeLatestReport = useCallback(() => {
     setIsOpen(false);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen || !enabled) return;
-
-    const intervalId = window.setInterval(() => {
-      void fetchLatestReport(false, false);
-    }, LIVE_REPORT_POLL_INTERVAL_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, [enabled, fetchLatestReport, isOpen]);
-
   const processedRecipients = report?.batch?.processedRecipients ?? 0;
   const totalRecipients = report?.batch?.totalRecipients ?? 0;
   const remainingRecipients = Math.max(totalRecipients - processedRecipients, 0);
+
   const liveStatusLabel = useMemo(() => {
     if (!report?.batch) return "Sem lote recente";
     if (report.batch.status === "queued") return "Na fila";
@@ -98,7 +51,7 @@ export function useLatestDispatchReportController(
     latestDispatchReportScope: scope,
     isLatestReportOpen: isOpen,
     isLatestReportLoading: isLoading,
-    latestDispatchReport: report,
+    latestDispatchReport: report ?? null,
     latestDispatchProcessedRecipients: processedRecipients,
     latestDispatchTotalRecipients: totalRecipients,
     latestDispatchRemainingRecipients: remainingRecipients,

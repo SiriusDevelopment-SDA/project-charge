@@ -1,4 +1,5 @@
 import axios from "axios";
+import { AppStorage } from "../storage/storage.service";
 
 const DEFAULT_API_URL = import.meta.env.DEV
   ? "http://127.0.0.1:3000/api"
@@ -17,7 +18,7 @@ export const Api = axios.create({
 });
 
 Api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
+  const token = AppStorage.getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

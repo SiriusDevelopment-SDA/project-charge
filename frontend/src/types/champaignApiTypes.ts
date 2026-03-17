@@ -1,5 +1,5 @@
 
-export type CampaignStatus = "pending" | "running" | "finished";
+export type CampaignStatus = "queue" | "pending" | "running" | "finished";
 
 export type CampaignData = {
   id: string;

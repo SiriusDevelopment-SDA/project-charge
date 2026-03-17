@@ -11,11 +11,12 @@ import { Templates } from '../templates/entities/templatesMeta';
 import { Service } from '../services/entities/services';
 import { Invoice } from '../invoices/entities/invoices';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
-import { TemplateDispatchBatch } from '../templates/entities/template-dispatch-batch.entity';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { Category } from '../category/entities/category.entity';
 import { Overdue } from '../invoices/entities/Overdue';
 import { Agent } from '../agents/entities/agent.entity';
+import { MessageQueue } from '../message-queue/entities/message-queue.entity';
+import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 
 export default <TypeOrmModuleAsyncOptions>{
   inject: [ConfigService],
@@ -36,11 +37,12 @@ export default <TypeOrmModuleAsyncOptions>{
         Company,
         Templates,
         RelatoryDispatchTemplate,
-        TemplateDispatchBatch,
         Campaign,
         Category,
         Agent,
-        Overdue
+        Overdue,
+        MessageQueue,
+        DispatchBatch,
       ],
       synchronize: true,
     };

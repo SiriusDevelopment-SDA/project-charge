@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAccountParam } from "../../useAccountParam";
 import { toast } from "react-toastify";
 import type { DropdownType } from "../../../types";
 import { useCampaign } from "../../useCampaign";
@@ -9,11 +10,8 @@ import { useCampaignEditController } from "./useCampaignEditController";
 import { useCampaignFormController } from "./useCampaignFormController";
 import { handleUploadPlanilha } from "../../../utils/hendleUploadSpreadSheat";
 import { processarDocumentos } from "../../../utils/validation";
-import {
-  getStoredAttendantName,
-  setStoredAttendantName,
-  templateRequiresAttendantName,
-} from "../../../mappers/templateVars.mapper";
+import { templateRequiresAttendantName } from "../../../validators/template.validator";
+import { AppStorage } from "../../../services/storage/storage.service";
 
 function formatPreviewDate(value?: Date) {
   if (!value) return "--";
@@ -25,17 +23,22 @@ export function useCreateCampaignPageController() {
   const location = useLocation();
   const [openDropdown, setOpenDropdown] = useState<DropdownType>(null);
   const [openAttendantModal, setOpenAttendantModal] = useState(false);
-  const [attendantName, setAttendantName] = useState(getStoredAttendantName());
+  const [attendantName, setAttendantName] = useState(AppStorage.getAttendantName());
 
   const { clients, setQuery } = useClient();
-  const { templates } = useTemplate();
+  const {
+    templates,
+    filteredTemplates,
+    categories: templateCategories,
+    searchTemplateName,
+    setSearchTemplateName,
+    categoryTemplateFilter,
+    setCategoryTemplateFilter,
+  } = useTemplate();
   const { categories, reload } = useCampaign();
   const form = useCampaignFormController();
   const modal = useCampaignEditController();
-  const account = useMemo(
-    () => new URLSearchParams(location.search).get("account"),
-    [location.search],
-  );
+  const account = useAccountParam();
 
   const toggleDropdown = useCallback((type: DropdownType) => {
     setOpenDropdown((prev) => (prev === type ? null : type));
@@ -107,7 +110,7 @@ export function useCreateCampaignPageController() {
       form.selectedTemplate &&
       templateRequiresAttendantName(form.selectedTemplate);
 
-    if (requiresAttendant && !getStoredAttendantName()) {
+    if (requiresAttendant && !AppStorage.getAttendantName()) {
       modal.closeModal();
       setOpenAttendantModal(true);
       return;
@@ -127,7 +130,7 @@ export function useCreateCampaignPageController() {
       return;
     }
 
-    setStoredAttendantName(normalized);
+    AppStorage.setAttendantName(normalized);
     setOpenAttendantModal(false);
     form.handleSubmit(modal.openCreate);
   }, [attendantName, form, modal]);
@@ -136,7 +139,9 @@ export function useCreateCampaignPageController() {
     account,
     clients,
     templates,
+    filteredTemplates,
     categories,
+    templateCategories,
     form,
     modal,
     openDropdown,
@@ -148,6 +153,10 @@ export function useCreateCampaignPageController() {
         form.selectedTemplate?.message ??
         "Sem mensagem de template",
     ),
+    searchTemplateName,
+    setSearchTemplateName,
+    categoryTemplateFilter,
+    setCategoryTemplateFilter,
     setAttendantName,
     handleClientSearch: setQuery,
     toggleDropdown,

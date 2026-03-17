@@ -1,46 +1,35 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Api } from "../../../services/api";
-import { ClientContext } from "../../../context/contextClients";
-import {
-  buildTemplateRecipients,
-  diagnoseTemplateRecipients,
-  mapRecipientsToTemplateVars,
-} from "../../../mappers/templateVars.mapper";
+import { useClient } from "../../useCliente";
+import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
+import { buildTemplateRecipients } from "../../../mappers/templateRecipient.builder";
 import type {
   Cliente,
-  DispatchBatchStatus,
   Lead,
   mappedVars,
   Template,
   TemplateRecipient,
 } from "../../../types";
 import { getErrorMessage } from "../../../utils/error";
-
-type SendTemplateStartResponse = {
-  accepted: boolean;
-  batchId: string;
-  status: DispatchBatchStatus["status"];
-  total: number;
-  rateLimitPerSecond: number;
-  estimatedDurationSeconds: number;
-};
-
-const DISPATCH_BATCH_POLL_INTERVAL_MS = 1000;
-
-function isDispatchBatchFinished(status?: DispatchBatchStatus["status"]) {
-  return status === "completed" || status === "partial" || status === "failed";
-}
+import { useAccountParam } from "../../useAccountParam";
+import { useBatchStatusQuery } from "../../queries/useLatestDispatchReportQuery";
 
 export function useDispatchTemplateController() {
+  const account = useAccountParam();
   const [selectedClientes, setSelectedClientes] = useState<Cliente[]>([]);
   const [selectedLeads, setSelectedLeads] = useState<Lead[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeDispatchBatch, setActiveDispatchBatch] = useState<DispatchBatchStatus | null>(null);
-  const completedBatchToastRef = useRef<string | null>(null);
-  const { fetchInvoices } = useContext(ClientContext);
+  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const { fetchInvoices } = useClient();
+
+  const { data: activeDispatchBatch = null } = useBatchStatusQuery(account, activeBatchId);
+
+  const clearActiveDispatchBatch = useCallback(() => {
+    setActiveBatchId(null);
+  }, []);
 
   const templateMapVars = useMemo(() => {
     if (!selectedTemplate) return [] as mappedVars[];
@@ -78,171 +67,42 @@ export function useDispatchTemplateController() {
     void fetchInvoices(needInvoices);
   }, [selectedTemplate, selectedClientes, fetchInvoices]);
 
-  const clearActiveDispatchBatch = useCallback(() => {
-    setActiveDispatchBatch(null);
-    completedBatchToastRef.current = null;
-  }, []);
-
-  const notifyFinishedBatch = useCallback((batch: DispatchBatchStatus) => {
-    if (completedBatchToastRef.current === batch.id) {
-      return;
-    }
-
-    completedBatchToastRef.current = batch.id;
-
-    if (batch.status === "completed") {
-      toast.success(`Lote concluido com sucesso! (${batch.successCount} mensagens)`);
-      return;
-    }
-
-    if (batch.status === "partial") {
-      toast.warning(
-        `Lote concluido com falhas. Sucesso: ${batch.successCount} | Falhas: ${batch.failedCount}`,
-      );
-      return;
-    }
-
-    toast.error(batch.errorMessage || "O lote de disparo falhou.");
-  }, []);
-
-  const fetchDispatchBatchStatus = useCallback(
-    async (batchId: string, showErrorToast = true) => {
-      try {
-        const account = new URLSearchParams(window.location.search).get("account");
-        if (!account) return;
-
-        const response = await Api.post<DispatchBatchStatus>("/templates/batches/status", {
-          account,
-          batchId,
-        });
-
-        const batch = response.data;
-        setActiveDispatchBatch(batch);
-
-        if (isDispatchBatchFinished(batch.status)) {
-          notifyFinishedBatch(batch);
-        }
-      } catch (error: unknown) {
-        if (showErrorToast) {
-          toast.error(getErrorMessage(error, "Erro ao atualizar o progresso do lote"));
-        }
-      }
-    },
-    [notifyFinishedBatch],
-  );
-
   const handleSubmit = useCallback(async (templateId: string, to: TemplateRecipient[]) => {
     try {
-      const account = new URLSearchParams(window.location.search).get("account");
-
-      const response = await Api.post<SendTemplateStartResponse>("/templates/send", {
+      const response = await Api.post<{ batchId: string; queued: number }>("/templates/send", {
         templateId,
         account,
         to,
       });
       const result = response.data;
-
-      if (result?.accepted && result.batchId) {
-        completedBatchToastRef.current = null;
-        setActiveDispatchBatch({
-          id: result.batchId,
-          status: result.status,
-          totalRecipients: result.total,
-          processedRecipients: 0,
-          successCount: 0,
-          failedCount: 0,
-          rateLimitPerSecond: result.rateLimitPerSecond,
-          progressPercentage: 0,
-          estimatedDurationSeconds: result.estimatedDurationSeconds,
-          startedAt: null,
-          finishedAt: null,
-          errorMessage: null,
-        });
-        toast.info(`Lote iniciado para ${result.total} mensagens.`);
-        return;
-      }
-
-      toast.warn("Lote iniciado, mas sem confirmacao completa.");
+      setActiveBatchId(result.batchId);
+      toast.success("Disparo efetuado!");
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Erro ao enviar mensagens"));
     }
-  }, []);
-
-  const logInvalidRecipientsDebug = useCallback(
-    (mappedVarsList: mappedVars[]) => {
-      if (!selectedTemplate) return;
-
-      const sourceCount =
-        modoPage === "clientes" ? selectedClientes.length : selectedLeads.length;
-      const diagnostics = diagnoseTemplateRecipients(selectedTemplate, mappedVarsList);
-
-      console.groupCollapsed("[dispatch-debug] nenhum destinatario valido para envio");
-      console.log("resumo", {
-        modoPage,
-        templateId: selectedTemplate.id,
-        templateName: selectedTemplate.name,
-        sourceCount,
-        mappedCount: mappedVarsList.length,
-      });
-      console.table(
-        diagnostics.map((item) => ({
-          index: item.index,
-          number: item.number || "(vazio)",
-          missingNumber: item.missingNumber,
-          missingFields: item.missingFields.join(", ") || "-",
-        })),
-      );
-      console.log("detalhes", diagnostics);
-      console.groupEnd();
-
-      const firstInvalidRecipient = diagnostics.find(
-        (item) => item.missingNumber || item.missingFields.length > 0,
-      );
-
-      const reason = firstInvalidRecipient
-        ? [
-            firstInvalidRecipient.missingNumber ? "whatsapp" : "",
-            ...firstInvalidRecipient.missingFields,
-          ]
-            .filter(Boolean)
-            .join(", ")
-        : "";
-
-      toast.warning(
-        reason
-          ? `Nenhum ${
-              modoPage === "clientes" ? "cliente" : "lead"
-            } valido para envio. Veja o console. Campos faltando: ${reason}`
-          : `Nenhum ${
-              modoPage === "clientes" ? "cliente" : "lead"
-            } valido para envio. Veja o console para o debug.`,
-      );
-    },
-    [modoPage, selectedClientes.length, selectedLeads.length, selectedTemplate],
-  );
+  }, [account]);
 
   const sendTemplate = useCallback(
     async (extraLeads?: Lead[]) => {
       if (isSubmitting) return;
-      if (activeDispatchBatch && !isDispatchBatchFinished(activeDispatchBatch.status)) {
-        toast.info("Ja existe um lote de disparo em andamento.");
-        return;
-      }
       if (!selectedTemplate) return;
 
-      const baseMappedVars =
-        modoPage === "leads" && Array.isArray(extraLeads) && extraLeads.length
-          ? mapRecipientsToTemplateVars([...selectedLeads, ...extraLeads], selectedTemplate, {
-              filterByTemplateVars: false,
-            })
-          : templateMapVars;
+      // Always recompute fresh so AppStorage values set just before dispatch
+      // (e.g. attendant name confirmed in modal) are picked up correctly.
+      const source =
+        modoPage === "leads" && Array.isArray(extraLeads) && extraLeads.length > 0
+          ? [...selectedLeads, ...extraLeads]
+          : modoPage === "clientes"
+          ? selectedClientes
+          : selectedLeads;
 
-      const recipients = buildTemplateRecipients(selectedTemplate, baseMappedVars);
+      const freshMappedVars = mapRecipientsToTemplateVars(source, selectedTemplate, {
+        filterByTemplateVars: false,
+      });
 
-      if (!recipients.length) {
-        logInvalidRecipientsDebug(baseMappedVars);
-        return;
-      }
+      const recipients = buildTemplateRecipients(selectedTemplate, freshMappedVars);
+
+      if (!recipients.length) return;
 
       try {
         setIsSubmitting(true);
@@ -252,35 +112,14 @@ export function useDispatchTemplateController() {
       }
     },
     [
-      activeDispatchBatch,
       selectedTemplate,
-      templateMapVars,
       handleSubmit,
       isSubmitting,
-      logInvalidRecipientsDebug,
       modoPage,
       selectedLeads,
+      selectedClientes,
     ],
   );
-
-  useEffect(() => {
-    if (!activeDispatchBatch?.id) return;
-    if (isDispatchBatchFinished(activeDispatchBatch.status)) return;
-
-    const { id: batchId } = activeDispatchBatch;
-
-    void fetchDispatchBatchStatus(batchId);
-
-    const intervalId = window.setInterval(() => {
-      void fetchDispatchBatchStatus(batchId, false);
-    }, DISPATCH_BATCH_POLL_INTERVAL_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, [activeDispatchBatch?.id, activeDispatchBatch?.status, fetchDispatchBatchStatus]);
-
-  const isSending =
-    isSubmitting ||
-    Boolean(activeDispatchBatch && !isDispatchBatchFinished(activeDispatchBatch.status));
 
   return {
     selectedClientes,
@@ -293,7 +132,7 @@ export function useDispatchTemplateController() {
     modoPage,
     setModoPage,
     sendTemplate,
-    isSending,
+    isSending: isSubmitting,
     activeDispatchBatch,
     clearActiveDispatchBatch,
   };

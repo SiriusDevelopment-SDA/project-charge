@@ -1,18 +1,17 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "react-toastify";
 import { campaignSchema } from "../../../schemas/campaign.schema";
 import type { Category, Cliente, mappedVars, Template } from "../../../types";
 import { CampaignService } from "../../../services/campaign/campaign.service";
-import { ClientContext } from "../../../context/contextClients";
+import { useClient } from "../../useCliente";
+import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import {
   areOnlyAttendantFieldsMissing,
   getIncompleteTemplateRecipients,
-  getStoredAuthMode,
-  getStoredAttendantName,
-  mapRecipientsToTemplateVars,
   templateRequiresAttendantName,
-} from "../../../mappers/templateVars.mapper";
+} from "../../../validators/template.validator";
+import { AppStorage } from "../../../services/storage/storage.service";
 import { validarSelecaoCliente } from "../../../utils/validation";
 import { getErrorMessage } from "../../../utils/error";
 
@@ -47,7 +46,7 @@ export function useCampaignFormController() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [recurring, setRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { fetchInvoices } = useContext(ClientContext);
+  const { fetchInvoices } = useClient();
 
   const toCampaignDateIso = useCallback((date: Date) => {
     const safeDate = new Date(date);
@@ -129,7 +128,7 @@ export function useCampaignFormController() {
         return { success: false };
       }
 
-      const attendantName = getStoredAttendantName();
+      const attendantName = AppStorage.getAttendantName();
       const requiresAttendant = templateRequiresAttendantName(selectedTemplate);
       if (requiresAttendant && !attendantName) {
         toast.warning("Informe o nome do atendente para usar este template.");
@@ -296,7 +295,7 @@ export function useCampaignFormController() {
 
     if (incompleteRecipients.length) {
       if (
-        getStoredAuthMode() === "embed" &&
+        AppStorage.getAuthMode() === "embed" &&
         areOnlyAttendantFieldsMissing(incompleteRecipients)
       ) {
         return {

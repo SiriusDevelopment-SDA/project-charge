@@ -2,13 +2,14 @@ import "primereact/resources/themes/lara-dark-indigo/theme.css";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 import "primeflex/primeflex.css";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAccountParam } from "../../hooks/useAccountParam";
 import { DynamicModal, MyButton, PageContainer, TitlePage } from "../../componente/Index";
 import Table from "../../componente/table/tableHistory";
 import { useHistorico } from "../../hooks/useHistorico";
 import { useLatestDispatchReportController } from "../../hooks/controller/history/useLatestDispatchReportController";
-import { Api } from "../../services/api";
+import { useBatchStatusQuery } from "../../hooks/queries/useLatestDispatchReportQuery";
 import type { DispatchBatchStatus } from "../../types";
 import S from "./Styles/historico.module.css";
 
@@ -42,13 +43,13 @@ export function HistoricoDisparoPage() {
   const { histories } = useHistorico();
   const navigate = useNavigate();
   const location = useLocation();
-  const [batchSummary, setBatchSummary] = useState<DispatchBatchStatus | null>(null);
   const searchParams = new URLSearchParams(location.search);
   const isCampaignHistory = searchParams.get("scope") === "campaigns";
   const isDispatchHistory = searchParams.get("scope") === "manual";
   const liveReportScope = isCampaignHistory ? "campaigns" : isDispatchHistory ? "manual" : null;
-  const account = searchParams.get("account");
+  const account = useAccountParam();
   const batchId = searchParams.get("batchId");
+  const { data: batchSummary } = useBatchStatusQuery(account, batchId);
   const {
     isLatestReportOpen,
     isLatestReportLoading,
@@ -90,52 +91,6 @@ export function HistoricoDisparoPage() {
       },
     );
   }, [latestDispatchReport?.records]);
-
-  useEffect(() => {
-    if (!account || !batchId) {
-      setBatchSummary(null);
-      return;
-    }
-
-    let cancelled = false;
-    let intervalId: number | undefined;
-
-    const fetchBatchSummary = async () => {
-      try {
-        const response = await Api.post<DispatchBatchStatus>("/templates/batches/status", {
-          account,
-          batchId,
-        });
-
-        if (!cancelled) {
-          setBatchSummary(response.data);
-          if (
-            response.data.status === "completed" ||
-            response.data.status === "partial" ||
-            response.data.status === "failed"
-          ) {
-            if (intervalId) {
-              window.clearInterval(intervalId);
-            }
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setBatchSummary(null);
-        }
-      }
-    };
-
-    void fetchBatchSummary();
-    intervalId = window.setInterval(() => {
-      void fetchBatchSummary();
-    }, 1000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [account, batchId]);
 
   const pageTitle = useMemo(() => {
     if (batchId) {

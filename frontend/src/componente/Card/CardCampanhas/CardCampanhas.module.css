@@ -326,6 +326,10 @@
   border-radius: 5px;
 }
 
+.modalDropdown {
+  width: 100%;
+}
+
 .dateInputButton {
   display: flex;
   justify-content: space-between;

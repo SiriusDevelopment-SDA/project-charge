@@ -33,17 +33,7 @@
 }
 
 .dateSelector {
-  background-color: rgba(212, 175, 55, 0.15);
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  color: #d4af37;
-  transition: all 0.3s ease;
+  min-width: 210px;
 }
 
 .chartArea {

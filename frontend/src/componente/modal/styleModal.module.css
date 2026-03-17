@@ -21,7 +21,7 @@
 .modalContainer {
   position: relative;
   z-index: 1;
-  width: 360px;
+  /* width: 360px; */
   max-width: 500px;
   max-height: calc(100dvh - 32px);
   padding: 24px;
@@ -33,7 +33,7 @@
 }
 
 .modal-default{
-  max-width: 500px;
+  max-width: 700px;
 }
 
 .modal-wide{
