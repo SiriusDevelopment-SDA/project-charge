@@ -4,6 +4,9 @@ import { Repository } from 'typeorm';
 
 import { Overdue } from '../invoices/entities/Overdue';
 import { Client } from '../clients/entities.ts/clients';
+import { TemplateDispatchBatch } from '../templates/entities/template-dispatch-batch.entity';
+import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
+import { Campaign } from '../campaigns/entities/campanhas.entity';
 
 @Injectable()
 export class AppServiceGraphics {
@@ -14,6 +17,15 @@ export class AppServiceGraphics {
 
     @InjectRepository(Client)
     private readonly clientRepo: Repository<Client>,
+
+    @InjectRepository(TemplateDispatchBatch)
+    private readonly dispatchBatchRepo: Repository<TemplateDispatchBatch>,
+
+    @InjectRepository(RelatoryDispatchTemplate)
+    private readonly relatoryRepo: Repository<RelatoryDispatchTemplate>,
+
+    @InjectRepository(Campaign)
+    private readonly campaignRepo: Repository<Campaign>,
   ) { }
 
   async getCharges(companyId: string) {
@@ -87,6 +99,117 @@ export class AppServiceGraphics {
       months
     };
 
+  }
+
+  async getMonthlyDispatches(companyId: string) {
+    const currentYear = new Date().getFullYear();
+
+    const results = await this.dispatchBatchRepo
+      .createQueryBuilder('batch')
+      .select('EXTRACT(MONTH FROM batch.createdAt)', 'month')
+      .addSelect('SUM(batch.totalRecipients)', 'total')
+      .where('batch.company = :companyId', { companyId })
+      .andWhere('EXTRACT(YEAR FROM batch.createdAt) = :year', { year: currentYear })
+      .groupBy('EXTRACT(MONTH FROM batch.createdAt)')
+      .orderBy('EXTRACT(MONTH FROM batch.createdAt)', 'ASC')
+      .getRawMany();
+
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    const monthsMap = new Map(
+      monthNames.map((name, index) => [index + 1, { month: name, value: 0 }])
+    );
+
+    results.forEach(row => {
+      const monthNum = parseInt(row.month);
+      const entry = monthsMap.get(monthNum);
+      if (entry) {
+        entry.value = parseInt(row.total) || 0;
+      }
+    });
+
+    return Array.from(monthsMap.values());
+  }
+
+  async getMonthlyReturnRate(companyId: string) {
+    const currentYear = new Date().getFullYear();
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    const disparos = await this.relatoryRepo
+      .createQueryBuilder('r')
+      .select('EXTRACT(MONTH FROM r.createdAt)', 'month')
+      .addSelect('COUNT(r.id)', 'total')
+      .where('r.company = :companyId', { companyId })
+      .andWhere('EXTRACT(YEAR FROM r.createdAt) = :year', { year: currentYear })
+      .groupBy('EXTRACT(MONTH FROM r.createdAt)')
+      .getRawMany();
+
+    const retornos = await this.relatoryRepo
+      .createQueryBuilder('r')
+      .select('EXTRACT(MONTH FROM r.createdAt)', 'month')
+      .addSelect('COUNT(r.id)', 'total')
+      .where('r.company = :companyId', { companyId })
+      .andWhere('r.response = true')
+      .andWhere('EXTRACT(YEAR FROM r.createdAt) = :year', { year: currentYear })
+      .groupBy('EXTRACT(MONTH FROM r.createdAt)')
+      .getRawMany();
+
+    const monthsMap = new Map(
+      monthNames.map((name, i) => [i + 1, { month: name, disparo: 0, retorno: 0 }])
+    );
+
+    disparos.forEach(row => {
+      const entry = monthsMap.get(parseInt(row.month));
+      if (entry) entry.disparo = parseInt(row.total) || 0;
+    });
+
+    retornos.forEach(row => {
+      const entry = monthsMap.get(parseInt(row.month));
+      if (entry) entry.retorno = parseInt(row.total) || 0;
+    });
+
+    return Array.from(monthsMap.values());
+  }
+
+  async getCampaignsStats(companyId: string) {
+    const campaigns = await this.campaignRepo.find({
+      where: { company: { id: companyId } },
+      relations: ['clients'],
+      order: { createdAt: 'DESC' },
+      take: 10,
+    });
+
+    const stats = await Promise.all(
+      campaigns.map(async (campaign, index) => {
+        const totalClients = campaign.clients?.length ?? 0;
+
+        const [totalDispatched, totalResponded] = await Promise.all([
+          this.relatoryRepo.count({
+            where: { campaign: { id: campaign.id } },
+          }),
+          this.relatoryRepo.count({
+            where: { campaign: { id: campaign.id }, response: true },
+          }),
+        ]);
+
+        const usage = totalClients > 0
+          ? Math.min(Math.round((totalDispatched / totalClients) * 100), 100)
+          : 0;
+
+        const response = totalDispatched > 0
+          ? Math.round((totalResponded / totalDispatched) * 100)
+          : 0;
+
+        return {
+          id: String(index + 1).padStart(2, '0'),
+          name: campaign.name,
+          usage,
+          response,
+        };
+      }),
+    );
+
+    return stats;
   }
 
   // 🔧 Normaliza CPF/CNPJ
