@@ -13,4 +13,19 @@ export class GraphicsController{
     async getCharges(@Param('companyId') companyId: string){
         return await this.graphicsService.getCharges(companyId);
     }
+
+    @Post('dispatches/:companyId')
+    async getMonthlyDispatches(@Param('companyId') companyId: string){
+        return await this.graphicsService.getMonthlyDispatches(companyId);
+    }
+
+    @Post('return-rate/:companyId')
+    async getMonthlyReturnRate(@Param('companyId') companyId: string){
+        return await this.graphicsService.getMonthlyReturnRate(companyId);
+    }
+
+    @Post('campaigns/:companyId')
+    async getCampaignsStats(@Param('companyId') companyId: string){
+        return await this.graphicsService.getCampaignsStats(companyId);
+    }
 }
