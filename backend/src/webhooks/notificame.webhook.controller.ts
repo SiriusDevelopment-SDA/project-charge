@@ -66,7 +66,7 @@ export class NotificaMeWebhookController {
     const newStatus = STATUS_CODE_MAP[rawCode];
     if (!newStatus) {
       this.logger.warn(
-        `[Webhook] Status desconhecido: "${rawCode}" — messageId: ${messageId}`,
+        `[Webhook] Status desconhecido: "${rawCode}" - messageId: ${messageId}`,
       );
       return { received: true };
     }
@@ -92,7 +92,7 @@ export class NotificaMeWebhookController {
     });
 
     this.logger.log(
-      `[Webhook] Mensagem ${messageId.slice(0, 8)} → ${rawCode} (relatorio ${relatory.id.slice(0, 8)})`,
+      `[Webhook] Mensagem ${messageId.slice(0, 8)} -> ${rawCode} (relatorio ${relatory.id.slice(0, 8)})`,
     );
 
     return { received: true };
@@ -100,20 +100,34 @@ export class NotificaMeWebhookController {
 
   private async handleIncomingMessage(body: NotificaMeWebhookPayload) {
     const rawFrom = String(body.from ?? '').replace(/\D/g, '');
+    const channelContextIds = this.extractChannelContextIds(body);
 
     if (!rawFrom) {
       this.logger.warn('[Webhook] MESSAGE sem campo "from", ignorando');
       return { received: true };
     }
 
-    const relatory = await this.relatoryRepository.findOne({
-      where: { number: rawFrom, response: false },
-      order: { date_dispatch: 'DESC' },
-    });
+    if (channelContextIds.length === 0) {
+      this.logger.warn(
+        `[Webhook] MESSAGE de ${rawFrom} sem contexto de canal/subscription, ignorando para evitar match cruzado entre empresas`,
+      );
+      return { received: true };
+    }
+
+    const relatory = await this.relatoryRepository
+      .createQueryBuilder('relatory')
+      .innerJoin('relatory.company', 'company')
+      .where('relatory.number = :number', { number: rawFrom })
+      .andWhere('relatory.response = false')
+      .andWhere('company.canalId_notificameHub IN (:...channelContextIds)', {
+        channelContextIds,
+      })
+      .orderBy('relatory.date_dispatch', 'DESC')
+      .getOne();
 
     if (!relatory) {
       this.logger.verbose(
-        `[Webhook] MESSAGE de ${rawFrom} — nenhum relatorio pendente de resposta`,
+        `[Webhook] MESSAGE de ${rawFrom} - nenhum relatorio pendente de resposta para os canais ${channelContextIds.join(', ')}`,
       );
       return { received: true };
     }
@@ -124,9 +138,17 @@ export class NotificaMeWebhookController {
     });
 
     this.logger.log(
-      `[Webhook] Resposta recebida de ${rawFrom} — relatorio ${relatory.id.slice(0, 8)} marcado como respondido`,
+      `[Webhook] Resposta recebida de ${rawFrom} - relatorio ${relatory.id.slice(0, 8)} marcado como respondido`,
     );
 
     return { received: true };
+  }
+
+  private extractChannelContextIds(body: NotificaMeWebhookPayload): string[] {
+    const identifiers = [body.channel, body.subscriptionId]
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean);
+
+    return [...new Set(identifiers)];
   }
 }

@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { DateTime } from 'luxon';
+import { Repository } from 'typeorm';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { MessageQueueService } from './message-queue.service';
 import type { MessageQueuePayload } from './entities/message-queue.entity';
@@ -24,18 +25,17 @@ export class CampaignScheduler {
   @Cron('* * * * *')
   async checkAndDispatchCampaigns(): Promise<void> {
     const now = new Date();
-    const today = this.toDateOnly(now);
 
     const campaigns = await this.campaignRepository.find({
       where: {
         isEnabled: true,
         status: 'queue',
-        startDate: LessThanOrEqual(new Date(`${today}T23:59:59`)),
-        endDate: MoreThanOrEqual(new Date(`${today}T00:00:00`)),
       },
       relations: ['company', 'template'],
       select: {
         id: true,
+        startDate: true,
+        endDate: true,
         dispatchTime: true,
         timezone: true,
         recurring: true,
@@ -47,6 +47,10 @@ export class CampaignScheduler {
     });
 
     for (const campaign of campaigns) {
+      if (!this.isCampaignActiveOnDate(campaign, now)) {
+        continue;
+      }
+
       if (this.shouldDispatchNow(campaign, now)) {
         await this.enqueueCampaign(campaign, now);
       }
@@ -55,21 +59,19 @@ export class CampaignScheduler {
 
   private shouldDispatchNow(campaign: Campaign, now: Date): boolean {
     const [hour, minute] = campaign.dispatchTime.split(':').map(Number);
-
-    // Convert current time to campaign timezone
-    const nowInTz = new Date(
-      now.toLocaleString('en-US', { timeZone: campaign.timezone }),
-    );
-
-    const currentHour = nowInTz.getHours();
-    const currentMinute = nowInTz.getMinutes();
+    const nowInTz = this.toDateTimeInZone(now, campaign.timezone);
+    const currentHour = nowInTz.hour;
+    const currentMinute = nowInTz.minute;
 
     if (currentHour !== hour || currentMinute !== minute) return false;
 
     // Avoid re-dispatching if already sent today
     if (campaign.lastDispatchedAt) {
-      const lastDate = this.toDateOnly(campaign.lastDispatchedAt);
-      const todayStr = this.toDateOnly(now);
+      const lastDate = this.toDateOnly(
+        campaign.lastDispatchedAt,
+        campaign.timezone,
+      );
+      const todayStr = this.toDateOnly(now, campaign.timezone);
       if (lastDate === todayStr) return false;
     }
 
@@ -128,7 +130,29 @@ export class CampaignScheduler {
     return parameters.length ? [{ type: 'BODY', parameters }] : [];
   }
 
-  private toDateOnly(date: Date): string {
-    return date.toISOString().split('T')[0];
+  private isCampaignActiveOnDate(campaign: Campaign, now: Date): boolean {
+    const todayInTimezone = this.toDateOnly(now, campaign.timezone);
+    const startDate = this.toDateOnly(campaign.startDate, campaign.timezone);
+    const endDate = this.toDateOnly(campaign.endDate, campaign.timezone);
+
+    return todayInTimezone >= startDate && todayInTimezone <= endDate;
+  }
+
+  private toDateOnly(date: Date, timeZone: string): string {
+    return this.toDateTimeInZone(date, timeZone).toFormat('yyyy-LL-dd');
+  }
+
+  private toDateTimeInZone(date: Date, timeZone: string): DateTime {
+    const zonedDate = DateTime.fromJSDate(date, { zone: timeZone });
+
+    if (zonedDate.isValid) {
+      return zonedDate;
+    }
+
+    this.logger.warn(
+      `Timezone invalida "${timeZone}" na campanha. Aplicando UTC como fallback.`,
+    );
+
+    return DateTime.fromJSDate(date, { zone: 'UTC' });
   }
 }
