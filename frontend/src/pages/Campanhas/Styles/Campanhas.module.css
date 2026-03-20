@@ -168,6 +168,12 @@
   position: relative;
   display: flex;
   align-items: center;
+  
+  svg{
+    width: 40px;
+    height: auto;
+    border-radius: 7px;
+  }
 }
 /* =========================
    ÍCONE DE FILTRO
@@ -185,7 +191,11 @@
 
 /* Ícone ativo (categoria selecionada) */
 .activeFilter {
+  background: rgba(245, 208, 51, 0.14);
+  border-color: rgba(245, 208, 51, 0.78);
   color: #f5d033;
+  padding: 2px;
+  
 }
 
 /* =========================

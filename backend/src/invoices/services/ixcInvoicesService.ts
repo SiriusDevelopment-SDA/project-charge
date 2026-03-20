@@ -118,6 +118,7 @@ export class IXCInvoicesService {
   }
 
   async getPixByInvoice(data: ReqPixInvoice) {
+    
 
     try {
       const empresa = await this.companyRepository.findOne({ where: { id: data.companyId } });
@@ -135,9 +136,14 @@ export class IXCInvoicesService {
         body: JSON.stringify({ id_areceber: data.invoiceId }),
       });
       const boletoData = await response.json();
+      const dadosPix = boletoData.pix?.dadosPix ?? {};
+      const pixCode = (dadosPix.pixCopiaECola && dadosPix.status === "ATIVA")
+        ? dadosPix.pixCopiaECola
+        : boletoData.pix?.qrCode?.qrcode ?? "";
+
       return {
         status: boletoData.type,
-        pix: (boletoData.pix.dadosPix.pixCopiaECola && boletoData.pix.dadosPix.status === "ATIVA") ? boletoData.pix.dadosPix.pixCopiaECola : boletoData.pix.qrCode.qrcode
+        pix: pixCode,
       };
     } catch (err: any) {
       throw new BadRequestException(
@@ -176,10 +182,6 @@ export class IXCInvoicesService {
             )
           }
         });
-
-        console.log('CLIENTE:', cliente.name);
-        console.log('DOC NORMALIZADO:', normalized);
-        console.log('INVOICES ENCONTRADAS:', invoices.length);
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);

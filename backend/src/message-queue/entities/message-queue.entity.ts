@@ -21,7 +21,7 @@ export type MessageQueuePayload = {
     type: string;
     parameters?: Array<Record<string, unknown>>;
     sub_type?: string;
-    index?: string;
+    index?: number;
     [key: string]: unknown;
   }>;
 };

@@ -64,7 +64,7 @@ export class Templates {
     type: 'jsonb',
     default: () => "'[]'",
   })
-  components!: Record<string, any>[];
+  components!: Record<string, any>[] | { components?: Record<string, any>[] } | string;
 
   @Column({ default: true })
   isEnabled!: boolean;

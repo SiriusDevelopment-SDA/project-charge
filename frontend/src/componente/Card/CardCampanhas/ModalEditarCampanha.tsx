@@ -8,6 +8,7 @@ import Style from "./CardCampanhas.module.css";
 type Props = {
   open: boolean;
   onClose: () => void;
+  onSave: () => Promise<{ success: boolean }>;
   form: UseFormReturn<CampaignFormValues>;
   onOpenCalendarDisparo: () => void;
   onOpenCalendarFinalizacao: () => void;
@@ -20,13 +21,14 @@ type RecurrenceOption = {
 };
 
 const RECURRENCE_OPTIONS: RecurrenceOption[] = [
-  { id: "false", name: "Disparo Unico" },
-  { id: "true", name: "Disparo Continuo" },
+  { id: "false", name: "Disparo único" },
+  { id: "true", name: "Disparo contínuo" },
 ];
 
 export function ModalEditarCampanha({
   open,
   onClose,
+  onSave,
   form,
   onOpenCalendarDisparo,
   onOpenCalendarFinalizacao,
@@ -38,26 +40,36 @@ export function ModalEditarCampanha({
 
   const {
     control,
+    register,
     watch,
     handleSubmit,
     formState: { errors },
   } = form;
   const isRecurring = watch("isRecurring");
+  const dispatchDate = watch("dispatchDate");
+  const endDate = watch("endDate");
+  const dispatchTime = watch("dispatchTime");
 
   return (
     <div className={Style.modalOverlay}>
       <div className={Style.modal}>
         <h3>Editar dados da campanha</h3>
 
-        <label>Tipo</label>
+        <input type="hidden" {...register("dispatchDate")} />
+        <input type="hidden" {...register("endDate")} />
+        <input type="hidden" {...register("dispatchTime")} />
+
+        <label>Tipo de disparo</label>
         <Controller
           control={control}
           name="isRecurring"
           render={({ field }) => (
             <Dropdown<RecurrenceOption>
               className={Style.modalDropdown}
-              label="Tipo"
+              label="Tipo de disparo"
               options={RECURRENCE_OPTIONS}
+              showFloatingLabel={false}
+              searchable={false}
               value={
                 RECURRENCE_OPTIONS.find(
                   (option) => option.id === String(Boolean(field.value)),
@@ -74,13 +86,13 @@ export function ModalEditarCampanha({
           )}
         />
 
-        <label>Data de Disparo</label>
+        <label>Data de disparo</label>
         <button
           type="button"
           className={Style.dateInputButton}
           onClick={onOpenCalendarDisparo}
         >
-          <span>{watch("dispatchDate") || "Selecione a data"}</span>
+          <span>{dispatchDate || "Selecione a data"}</span>
           <Calendar size={18} />
         </button>
         {errors.dispatchDate && (
@@ -89,13 +101,13 @@ export function ModalEditarCampanha({
 
         {isRecurring && (
           <>
-            <label>Data de Finalizacao</label>
+            <label>Data de finalização</label>
             <button
               type="button"
               className={Style.dateInputButton}
               onClick={onOpenCalendarFinalizacao}
             >
-              <span>{watch("endDate") || "Selecione a data"}</span>
+              <span>{endDate || "Selecione a data"}</span>
               <Calendar size={18} />
             </button>
             {errors.endDate && (
@@ -104,13 +116,13 @@ export function ModalEditarCampanha({
           </>
         )}
 
-        <label>Horario</label>
+        <label>Horário</label>
         <button
           type="button"
           className={Style.dateInputButton}
           onClick={onOpenTimePicker}
         >
-          <span>{watch("dispatchTime") || "Selecione o horario"}</span>
+          <span>{dispatchTime || "Selecione o horário"}</span>
           <Clock size={18} />
         </button>
         {errors.dispatchTime && (
@@ -121,7 +133,12 @@ export function ModalEditarCampanha({
           <button type="button" onClick={onClose}>
             Cancelar
           </button>
-          <button type="button" onClick={handleSubmit(() => onClose())}>
+          <button
+            type="button"
+            onClick={handleSubmit(async () => {
+              await onSave();
+            })}
+          >
             Salvar
           </button>
         </div>

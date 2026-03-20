@@ -13,6 +13,8 @@ export type CodePixStatus = 'success' | 'error';
 export interface CodePix {
   status: CodePixStatus;
   pix: string;
+  pix_key?: string;
+  pix_key_type?: string;
 }
 
 export interface Invoice {

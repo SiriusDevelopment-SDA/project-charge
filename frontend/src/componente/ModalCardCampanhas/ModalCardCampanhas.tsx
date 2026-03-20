@@ -59,6 +59,7 @@ export default function ModalCardCampanhas({
                         dispatchTime={campaign.dispatchTime}
                         startDate={campaign.startDate}
                         endDate={campaign.endDate}
+                        recurring={campaign.recurring}
                         key={campaign.id}
                       />
                     </TemplateBalloonCard>

@@ -9,11 +9,29 @@ import {
 } from "../../componente/Index.ts";
 import Style from "./Styles/Campanhas.module.css";
 import { useCampaign } from "../../hooks/useCampaign.ts";
-import type { CampaignData, Category } from "../../types/champaignApiTypes.ts";
+import { useCampaignMetricsQuery } from "../../hooks/queries/useCampaignsQuery.ts";
+import type { CampaignData, CampaignMetrics, Category } from "../../types/champaignApiTypes.ts";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useRef } from "react";
 import { useCampaignListController } from "../../hooks/controller/campaigns/useCampaignListController.ts";
 import { isCampaignActive } from "../../utils/campaign.ts";
+
+const DEFAULT_FILTERED_METRICS: CampaignMetrics = {
+  totalCampaigns: 0,
+  activeCampaigns: 0,
+  dispatchesToday: 0,
+  totalDispatch: 0,
+  totalDispatchSuccess: 0,
+  totalDispatchToday: 0,
+  totalDispatchSuccessToday: 0,
+  totalDispatch24h: 0,
+  totalDispatchSuccess24h: 0,
+  deliveryRateTotal: 0,
+  deliveryRateToday: 0,
+  deliveryRate24h: 0,
+  nextDispatchTime: null,
+  nextDispatchLabel: "Sem disparos agendados",
+};
 
 export function Campanhas() {
   const navigate = useNavigate();
@@ -24,15 +42,13 @@ export function Campanhas() {
   const {
     campaigns,
     categories,
-    metrics,
     loading,
     deleteCampaign,
     updateCampaignStatus,
   } = useCampaign();
-  const activeCampaignsCount = campaigns.filter((campaign) => isCampaignActive(campaign)).length;
-  const totalCampaignsCount = campaigns.length;
 
   const {
+    filteredCampaigns,
     searchName,
     categoryFilter,
     page,
@@ -44,6 +60,14 @@ export function Campanhas() {
     selectCategory,
     toggleDropdown,
   } = useCampaignListController({ campaigns, categories });
+  const { data: metrics = DEFAULT_FILTERED_METRICS } = useCampaignMetricsQuery({
+    search: searchName,
+    category: categoryFilter,
+  });
+  const activeCampaignsCount = filteredCampaigns.filter((campaign) =>
+    isCampaignActive(campaign),
+  ).length;
+  const totalCampaignsCount = filteredCampaigns.length;
 
   const confirmDelete = async (campaign: CampaignData) => {
     if (!campaign) return;
@@ -95,7 +119,6 @@ export function Campanhas() {
               <div
                 ref={filterIconRef}
                 className={Style.FilterWrapper}
-                tabIndex={0}
                 onBlur={(event) => {
                   const next = event.relatedTarget as Node | null;
                   if (!next || !filterIconRef.current?.contains(next)) {
@@ -104,6 +127,7 @@ export function Campanhas() {
                     }
                   }
                 }}
+                tabIndex={0}
               >
                 <FilterAltOutlinedIcon
                   className={`${Style.iconFilterDropdownTemplate} ${
@@ -171,7 +195,7 @@ export function Campanhas() {
 
             <div className={Style.dualMetricCol}>
               <span>ENTREGAS</span>
-              <strong>{formatPercent(metrics.deliveryRateTotal)}</strong>
+              <strong>{formatPercent(metrics.deliveryRateToday)}</strong>
             </div>
             
           </div>

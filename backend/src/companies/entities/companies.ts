@@ -81,6 +81,10 @@ import { Agent } from '../../agents/entities/agent.entity';
     acess_token_agentbot_chatwoot!: string;
 
     @IsString()
+    @Column({ nullable: true })
+    cnpj!: string;
+
+    @IsString()
     @Column()
     downtime!: string;
 

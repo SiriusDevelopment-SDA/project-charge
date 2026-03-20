@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "react-toastify";
 import { campaignSchema } from "../../../schemas/campaign.schema";
 import type { Category, Cliente, mappedVars, Template } from "../../../types";
+import type { RecurringType } from "../../../types/champaignApiTypes";
 import { CampaignService } from "../../../services/campaign/campaign.service";
 import { useClient } from "../../useCliente";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
+import { buildTemplateRecipient } from "../../../mappers/templateRecipient.builder";
 import {
   areOnlyAttendantFieldsMissing,
   getIncompleteTemplateRecipients,
@@ -36,6 +38,18 @@ type CampaignCreateResponse = {
   warnings?: CampaignCreateWarning[];
 };
 
+function toValidityStart(month: string): string {
+  const d = new Date(month + "-01T12:00:00");
+  return d.toISOString();
+}
+
+function toValidityEnd(month: string): string {
+  const [year, m] = month.split("-").map(Number);
+  const lastDay = new Date(year, m, 0);
+  lastDay.setHours(12, 0, 0, 0);
+  return lastDay.toISOString();
+}
+
 export function useCampaignFormController() {
   const [selectedClients, setSelectedClients] = useState<Cliente[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template>();
@@ -44,9 +58,14 @@ export function useCampaignFormController() {
   const [dispatchTime, setdispatchTime] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category>();
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [recurring, setRecurring] = useState(false);
+  const [recurringType, setRecurringType] = useState<RecurringType>("single");
+  const [selectedDays, setSelectedDays] = useState<Date[]>([]);
+  const [validityStartMonth, setValidityStartMonth] = useState("");
+  const [validityEndMonth, setValidityEndMonth] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { fetchInvoices } = useClient();
+  const fetchInvoicesRef = useRef(fetchInvoices);
+  fetchInvoicesRef.current = fetchInvoices;
 
   const toCampaignDateIso = useCallback((date: Date) => {
     const safeDate = new Date(date);
@@ -54,13 +73,27 @@ export function useCampaignFormController() {
     return safeDate.toISOString();
   }, []);
 
+  const mergeFetchedInvoices = useCallback(
+    (baseClients: Cliente[], fetchedClients: Cliente[]) => {
+      const fetchedById = new Map(
+        fetchedClients.map((client) => [client.id, client]),
+      );
+
+      return baseClients.map((client) => fetchedById.get(client.id) ?? client);
+    },
+    [],
+  );
+
   const resetForm = useCallback(() => {
     setName("");
     setdispatchTime("");
     setSelectedTemplate(undefined);
     setSelectedCategory(undefined);
     setDateRange(undefined);
-    setRecurring(false);
+    setRecurringType("single");
+    setSelectedDays([]);
+    setValidityStartMonth("");
+    setValidityEndMonth("");
     setSelectedClients([]);
     setTemplateMapsVars([]);
   }, []);
@@ -85,23 +118,14 @@ export function useCampaignFormController() {
               (client) => !client.invoices || client.invoices.status === "error",
             );
 
-            source = await fetchInvoices(needInvoices);
+            const fetchedClients = await fetchInvoicesRef.current(needInvoices);
+            source = mergeFetchedInvoices(selectedClients, fetchedClients);
           }
         }
 
         const validClients = source.filter((client) =>
           validarSelecaoCliente(client, selectedTemplate),
         );
-
-        if (validClients.length !== source.length) {
-          const sourceIds = source.map((client) => client.id).sort().join(",");
-          const validIds = validClients.map((client) => client.id).sort().join(",");
-
-          if (sourceIds !== validIds) {
-            setSelectedClients(validClients);
-            return;
-          }
-        }
 
         const mapped = mapRecipientsToTemplateVars(validClients, selectedTemplate, {
           filterByTemplateVars: true,
@@ -116,7 +140,11 @@ export function useCampaignFormController() {
     };
 
     void mapVars();
-  }, [selectedTemplate, selectedClients, fetchInvoices]);
+  }, [selectedTemplate, selectedClients, mergeFetchedInvoices]);
+
+  const getRecurringDays = useCallback((): number[] => {
+    return [...new Set(selectedDays.map((d) => d.getDate()))].sort((a, b) => a - b);
+  }, [selectedDays]);
 
   const createCampaign = useCallback(async (): Promise<{ success: boolean }> => {
     if (isSubmitting) return { success: false };
@@ -124,7 +152,11 @@ export function useCampaignFormController() {
     try {
       setIsSubmitting(true);
 
-      if (!selectedClients.length || !dateRange?.from || !selectedTemplate || !selectedCategory) {
+      if (!selectedClients.length || !selectedTemplate || !selectedCategory) {
+        return { success: false };
+      }
+
+      if (recurringType !== "monthly_days" && !dateRange?.from) {
         return { success: false };
       }
 
@@ -143,33 +175,47 @@ export function useCampaignFormController() {
         );
 
         if (needInvoices.length) {
-          source = await fetchInvoices(needInvoices);
+          const fetchedClients = await fetchInvoices(needInvoices);
+          source = mergeFetchedInvoices(selectedClients, fetchedClients);
           setSelectedClients(source);
         }
       }
 
       const mappedVarsForSubmit = mapRecipientsToTemplateVars(source, selectedTemplate, {
-        filterByTemplateVars: true,
-      }) as Array<Record<string, unknown>>;
+        filterByTemplateVars: false,
+      });
 
       const templateMapVarsForSubmit = mappedVarsForSubmit
-        .map((item) => ({
-          clientId: String(item.clientId ?? "").trim(),
-          cnpj_cpf: String(item.cnpj_cpf ?? "").trim(),
-          whatsapp: String(item.whatsapp ?? "").trim(),
-          nome_cliente: item.nome_cliente,
-          nome_atendente: item.nome_atendente || attendantName || "",
-          data_vencimento_fatura: item.data_vencimento_fatura,
-          nome_empresa: item.nome_empresa,
-          numero_contrato: item.numero_contrato,
-          valor_fatura: item.valor_fatura,
-          code_pix: item.code_pix,
-          linha_digitavel_boleto: item.linha_digitavel_boleto,
-          link_boleto_pdf: item.link_boleto_pdf,
-          mensagem: item.mensagem,
-        }))
+        .map((item) => {
+          const recipient = buildTemplateRecipient(selectedTemplate, item);
+          if (!recipient) return null;
+
+          return {
+            clientId: String(item.clientId ?? "").trim(),
+            cnpj_cpf: String(item.cnpj_cpf ?? "").trim(),
+            whatsapp: String(item.whatsapp ?? "").trim(),
+            nome_cliente: item.nome_cliente,
+            nome_atendente: item.nome_atendente || attendantName || "",
+            data_vencimento_fatura: item.data_vencimento_fatura,
+            nome_empresa: item.nome_empresa,
+            numero_contrato: item.numero_contrato,
+            valor_fatura: item.valor_fatura,
+            code_pix: item.code_pix,
+            linha_digitavel_boleto: item.linha_digitavel_boleto,
+            link_boleto_pdf: item.link_boleto_pdf,
+            mensagem: item.mensagem,
+            order_reference_id: item.order_reference_id,
+            order_item_name: item.order_item_name,
+            order_item_description: item.order_item_description,
+            order_pix_merchant_name: item.order_pix_merchant_name,
+            order_pix_key: item.order_pix_key,
+            order_pix_key_type: item.order_pix_key_type,
+            components: recipient.components,
+          };
+        })
         .filter(
-          (item) =>
+          (item): item is NonNullable<typeof item> =>
+            item !== null &&
             item.clientId.length > 0 &&
             item.cnpj_cpf.length > 0 &&
             item.whatsapp.length > 0,
@@ -180,16 +226,28 @@ export function useCampaignFormController() {
         return { success: false };
       }
 
+      const startDate =
+        recurringType === "monthly_days"
+          ? toValidityStart(validityStartMonth)
+          : toCampaignDateIso(dateRange!.from!);
+
+      const endDate =
+        recurringType === "monthly_days"
+          ? toValidityEnd(validityEndMonth)
+          : toCampaignDateIso(dateRange!.to ?? dateRange!.from!);
+
       const payload = {
         name,
         company: selectedTemplate.company.id,
         templateId: selectedTemplate.id,
         categoryId: selectedCategory.id,
-        startDate: toCampaignDateIso(dateRange.from),
-        endDate: toCampaignDateIso(dateRange.to ?? dateRange.from),
+        startDate,
+        endDate,
         dispatchTime,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        recurring,
+        recurring: recurringType !== "single",
+        recurringType,
+        recurringDays: recurringType === "monthly_days" ? getRecurringDays() : undefined,
         clients: templateMapVarsForSubmit.map((item) => item.clientId),
         templateMapVars: templateMapVarsForSubmit,
       };
@@ -199,15 +257,17 @@ export function useCampaignFormController() {
       const createData = data as CampaignCreateResponse;
 
       if (status === 201) {
-        const [hour, minute] = dispatchTime.split(":").map(Number);
-        const dispatchDate = new Date(payload.startDate);
-        dispatchDate.setHours(hour, minute, 0, 0);
-
-        const now = new Date();
         const message =
-          dispatchDate > now
-            ? `Campanha ${createData.campaign.name} criada e encaminhada para a fila de disparo!`
-            : `Campanha ${createData.campaign.name} criada com sucesso!`;
+          recurringType === "monthly_days"
+            ? `Campanha ${createData.campaign.name} criada com sucesso!`
+            : (() => {
+                const [hour, minute] = dispatchTime.split(":").map(Number);
+                const dispatchDate = new Date(payload.startDate);
+                dispatchDate.setHours(hour, minute, 0, 0);
+                return dispatchDate > new Date()
+                  ? `Campanha ${createData.campaign.name} criada e encaminhada para a fila de disparo!`
+                  : `Campanha ${createData.campaign.name} criada com sucesso!`;
+              })();
 
         const warnings = Array.isArray(createData.warnings) ? createData.warnings : [];
         warnings.forEach((item) => {
@@ -232,14 +292,18 @@ export function useCampaignFormController() {
     dateRange,
     dispatchTime,
     fetchInvoices,
+    getRecurringDays,
     isSubmitting,
+    mergeFetchedInvoices,
     name,
-    recurring,
+    recurringType,
     resetForm,
     selectedCategory,
     selectedClients,
     selectedTemplate,
     toCampaignDateIso,
+    validityEndMonth,
+    validityStartMonth,
   ]);
 
   const validateForm = useCallback((): ValidationResult => {
@@ -250,15 +314,35 @@ export function useCampaignFormController() {
       };
     }
 
+    const recurringDays =
+      recurringType === "monthly_days" ? getRecurringDays() : undefined;
+
+    const startDateForValidation =
+      recurringType === "monthly_days"
+        ? validityStartMonth
+          ? new Date(validityStartMonth + "-01T12:00:00")
+          : undefined
+        : dateRange?.from;
+
+    const endDateForValidation =
+      recurringType === "monthly_days"
+        ? validityEndMonth
+          ? new Date(toValidityEnd(validityEndMonth))
+          : undefined
+        : recurringType === "range"
+          ? dateRange?.to
+          : dateRange?.from;
+
     const parsed = campaignSchema.safeParse({
       name: name ?? "",
       templateId: selectedTemplate?.id ?? "",
       categoryId: selectedCategory?.id ?? "",
-      startDate: dateRange?.from,
-      endDate: recurring ? dateRange?.to : dateRange?.from,
+      recurringType,
+      startDate: startDateForValidation,
+      endDate: endDateForValidation,
+      recurringDays,
       dispatchTime: dispatchTime ?? "",
       clientIds: selectedClients.map((client) => client.id),
-      recurring,
     });
 
     if (!parsed.success) {
@@ -340,12 +424,15 @@ export function useCampaignFormController() {
   }, [
     dateRange,
     dispatchTime,
+    getRecurringDays,
     name,
-    recurring,
+    recurringType,
     selectedCategory,
     selectedClients,
     selectedTemplate,
     templateMapVars,
+    validityEndMonth,
+    validityStartMonth,
   ]);
 
   const handleSubmit = useCallback(
@@ -382,8 +469,14 @@ export function useCampaignFormController() {
       setSelectedCategory,
       dateRange,
       setDateRange,
-      recurring,
-      setRecurring,
+      recurringType,
+      setRecurringType,
+      selectedDays,
+      setSelectedDays,
+      validityStartMonth,
+      setValidityStartMonth,
+      validityEndMonth,
+      setValidityEndMonth,
       isSubmitting,
       templateMapVars,
       createCampaign,
@@ -400,12 +493,15 @@ export function useCampaignFormController() {
       handleSubmit,
       isSubmitting,
       name,
-      recurring,
+      recurringType,
       resetForm,
       selectedCategory,
       selectedClients,
+      selectedDays,
       selectedTemplate,
       templateMapVars,
+      validityEndMonth,
+      validityStartMonth,
       validateForm,
     ],
   );

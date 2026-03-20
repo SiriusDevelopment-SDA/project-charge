@@ -81,11 +81,11 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
     template.company?.name?.trim() ||
     "";
   const pixCode =
-    invoice?.code_pix?.pix ??
-    recipient.code_pix ??
-    recipient.codigo_qr ??
-    recipient.codigo_qr_code ??
-    recipient.codigo_pix ??
+    (invoice?.code_pix?.status === "success" ? invoice.code_pix.pix : undefined) ||
+    recipient.code_pix ||
+    recipient.codigo_qr ||
+    recipient.codigo_qr_code ||
+    recipient.codigo_pix ||
     "";
 
   const EXCLUDED_KEYS = ["id", "name", "cnpj_cpf", "whatsapp", "inputSource", "company", "invoices"];
@@ -97,7 +97,6 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
 
   const numeroContrato = invoice?.contract_id ?? recipient.numero_contrato ?? "";
   const valorFatura = invoice?.invoice_amount ?? recipient.valor_fatura ?? "";
-
   return {
     ...customFields,
     nome_cliente: toLower(recipient.name ?? recipient.nome_cliente),
@@ -118,8 +117,8 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
     order_item_name: recipient.order_item_name ?? "Fatura",
     order_item_description: recipient.order_item_description ?? "",
     order_pix_merchant_name: recipient.order_pix_merchant_name ?? companyName ?? "",
-    order_pix_key: recipient.order_pix_key ?? pixCode ?? "",
-    order_pix_key_type: recipient.order_pix_key_type ?? "CNPJ",
+    order_pix_key: recipient.order_pix_key ?? AppStorage.getCompanyCnpj(),
+    order_pix_key_type: recipient.order_pix_key_type ?? (AppStorage.getCompanyCnpj() ? "CNPJ" : ""),
   };
 }
 

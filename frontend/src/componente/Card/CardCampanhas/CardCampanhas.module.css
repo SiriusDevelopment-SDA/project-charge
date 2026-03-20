@@ -301,14 +301,17 @@
   color: #ffd700;
   margin-top: 0;
   margin-bottom: 24px;
+  font-size: 1.85rem;
 }
 
 .modal label {
   display: block;
   margin-top: 16px;
   margin-bottom: 8px;
-  font-size: 0.8rem;
-  color: #c09802;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #e0b736;
   text-transform: uppercase;
 }
 
@@ -328,6 +331,49 @@
 
 .modalDropdown {
   width: 100%;
+  --dropdown-border: rgba(224, 183, 54, 0.62);
+  --dropdown-border-active: #f5d033;
+  --dropdown-shadow-active:
+    0 0 0 1px rgba(245, 208, 51, 0.24),
+    0 12px 28px rgba(0, 0, 0, 0.24);
+  --dropdown-control-bg:
+    linear-gradient(180deg, rgba(36, 31, 19, 0.96) 0%, rgba(29, 24, 14, 0.99) 100%);
+  --dropdown-value: #f6edd0;
+  --dropdown-arrow: #f2dd94;
+  --dropdown-menu-border: rgba(245, 208, 51, 0.38);
+  --dropdown-menu-bg:
+    linear-gradient(180deg, rgba(53, 44, 22, 0.99) 0%, rgba(38, 31, 16, 0.99) 100%);
+  --dropdown-menu-shadow:
+    0 18px 34px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(245, 208, 51, 0.12);
+  --dropdown-header-bg: rgba(61, 48, 20, 0.98);
+  --dropdown-header-border: rgba(245, 208, 51, 0.16);
+  --dropdown-search-bg: rgba(24, 19, 10, 0.92);
+  --dropdown-search-border: rgba(245, 208, 51, 0.3);
+  --dropdown-search-focus: #f5d033;
+  --dropdown-search-shadow: 0 0 0 1px rgba(245, 208, 51, 0.18);
+  --dropdown-search-placeholder: rgba(255, 245, 205, 0.42);
+  --dropdown-filter-border: rgba(245, 208, 51, 0.32);
+  --dropdown-filter-bg: rgba(38, 31, 16, 0.98);
+  --dropdown-filter-color: #f6edd0;
+  --dropdown-filter-active-bg: rgba(245, 208, 51, 0.18);
+  --dropdown-filter-active-border: rgba(245, 208, 51, 0.72);
+  --dropdown-filter-active-color: #fff6cf;
+  --dropdown-filter-menu-border: rgba(245, 208, 51, 0.3);
+  --dropdown-filter-menu-bg:
+    linear-gradient(180deg, rgba(68, 54, 24, 0.99) 0%, rgba(44, 35, 17, 0.99) 100%);
+  --dropdown-filter-menu-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.38),
+    0 0 18px rgba(245, 208, 51, 0.14);
+  --dropdown-filter-item-active-bg: rgba(245, 208, 51, 0.22);
+  --dropdown-filter-item-active-color: #fff3bc;
+  --dropdown-scrollbar: rgba(245, 208, 51, 0.38);
+  --dropdown-option: #f6edd0;
+  --dropdown-option-hover-bg: rgba(245, 208, 51, 0.14);
+  --dropdown-option-selected-bg: rgba(245, 208, 51, 0.22);
+  --dropdown-option-selected-color: #fff6cf;
+  --dropdown-option-check: #f5d033;
+  --dropdown-no-results: rgba(255, 245, 205, 0.6);
 }
 
 .dateInputButton {
@@ -340,6 +386,28 @@
 
 .dateInputButton span {
   flex: 1;
+}
+
+.timeModalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.timeModalApplyButton {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  background: #c09802;
+  color: #1a1a1a;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 12px 18px;
+}
+
+.timeModalApplyButton:hover {
+  background: #d8ad36;
 }
 
 .modalActions {

@@ -43,8 +43,17 @@ export class CampaignsController {
   @Get('metrics')
   @ApiOperation({ summary: 'Retorna métricas de campanhas por account' })
   @ApiQuery({ name: 'account', required: true, type: String })
-  getMetrics(@Query('account') account: string) {
-    return this.campaignsService.getMetricsByAccount(account);
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'category', required: false, type: String })
+  getMetrics(
+    @Query('account') account: string,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.campaignsService.getMetricsByAccount(account, {
+      search,
+      category,
+    });
   }
 
   @Get('collections/metrics')

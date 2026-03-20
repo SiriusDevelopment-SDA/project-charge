@@ -41,6 +41,7 @@ import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
 import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
+import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
     TypeOrmModule.forFeature([Service]),
     TypeOrmModule.forFeature([Overdue]),
     TypeOrmModule.forFeature([Agent]),
+    TypeOrmModule.forFeature([DispatchBatch]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',

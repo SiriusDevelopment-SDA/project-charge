@@ -3,6 +3,11 @@ import { queryKeys } from "../../lib/queryKeys";
 import { CampaignService } from "../../services/campaign/campaign.service";
 import { useAccountParam } from "../useAccountParam";
 
+type CampaignMetricsFilters = {
+  search?: string;
+  category?: string | null;
+};
+
 export function useCampaignsQuery() {
   const account = useAccountParam();
 
@@ -14,14 +19,19 @@ export function useCampaignsQuery() {
   });
 }
 
-export function useCampaignMetricsQuery() {
+export function useCampaignMetricsQuery(filters: CampaignMetricsFilters = {}) {
   const account = useAccountParam();
+  const normalizedFilters = {
+    search: filters.search?.trim() || undefined,
+    category: filters.category?.trim() || undefined,
+  };
 
   return useQuery({
-    queryKey: queryKeys.campaigns.metrics(account ?? ""),
-    queryFn: () => CampaignService.metrics(account),
+    queryKey: queryKeys.campaigns.metrics(account ?? "", normalizedFilters),
+    queryFn: () => CampaignService.metrics(account, normalizedFilters),
     refetchInterval: 60_000,
     enabled: Boolean(account),
+    placeholderData: (previousData) => previousData,
   });
 }
 

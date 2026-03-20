@@ -145,7 +145,7 @@ export class AuthService {
 
     const company = await this.companyRepository.findOne({
       where: { id: payload.sub, account_chatwoot: String(payload.account) },
-      select: { id: true, name: true, account_chatwoot: true },
+      select: { id: true, name: true, account_chatwoot: true, cnpj: true },
     });
 
     if (!company) {
@@ -158,6 +158,7 @@ export class AuthService {
         id: company.id,
         name: company.name,
         account: company.account_chatwoot,
+        cnpj: company.cnpj ?? '',
       },
       agent: payload.agentId
         ? {

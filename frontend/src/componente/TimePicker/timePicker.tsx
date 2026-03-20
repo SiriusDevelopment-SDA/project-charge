@@ -30,6 +30,7 @@ export function MyTimePicker({ selected, onSelect }: MyTimePickerProps) {
             <div className="time-scroll">
               {hours.map((currentHour) => (
                 <button
+                  type="button"
                   key={currentHour}
                   className={`time-option ${currentHour === hour ? "selected" : ""}`}
                   onClick={() => handleHourChange(currentHour)}
@@ -45,6 +46,7 @@ export function MyTimePicker({ selected, onSelect }: MyTimePickerProps) {
             <div className="time-scroll">
               {minutes.map((currentMinute) => (
                 <button
+                  type="button"
                   key={currentMinute}
                   className={`time-option ${currentMinute === minute ? "selected" : ""}`}
                   onClick={() => handleMinuteChange(currentMinute)}

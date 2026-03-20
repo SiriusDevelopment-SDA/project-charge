@@ -2,18 +2,63 @@
   position: relative;
   width: 100%;
   user-select: none;
+  --dropdown-border: rgba(255, 204, 0, 0.38);
+  --dropdown-border-active: rgba(245, 208, 51, 0.9);
+  --dropdown-shadow-active:
+    0 0 0 1px rgba(245, 208, 51, 0.22),
+    0 10px 22px rgba(0, 0, 0, 0.18);
+  --dropdown-control-bg:
+    linear-gradient(180deg, rgba(33, 33, 33, 0.96) 0%, rgba(25, 25, 25, 0.98) 100%);
+  --dropdown-label: rgba(255, 255, 255, 0.72);
+  --dropdown-label-active: #f5d033;
+  --dropdown-label-active-bg: #1a1a1a;
+  --dropdown-value: rgba(255, 255, 255, 0.94);
+  --dropdown-arrow: rgba(255, 255, 255, 0.82);
+  --dropdown-menu-border: rgba(245, 208, 51, 0.28);
+  --dropdown-menu-bg:
+    linear-gradient(180deg, rgba(26, 26, 26, 0.99) 0%, rgba(18, 18, 18, 0.99) 100%);
+  --dropdown-menu-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(245, 208, 51, 0.08);
+  --dropdown-header-bg: rgba(30, 30, 30, 0.98);
+  --dropdown-header-border: rgba(245, 208, 51, 0.14);
+  --dropdown-search-bg: rgba(17, 17, 17, 0.88);
+  --dropdown-search-border: rgba(245, 208, 51, 0.36);
+  --dropdown-search-focus: #f5d033;
+  --dropdown-search-shadow: 0 0 0 1px rgba(245, 208, 51, 0.2);
+  --dropdown-search-placeholder: rgba(255, 255, 255, 0.45);
+  --dropdown-filter-border: rgba(245, 208, 51, 0.36);
+  --dropdown-filter-bg: rgba(42, 42, 42, 0.96);
+  --dropdown-filter-color: rgba(255, 255, 255, 0.9);
+  --dropdown-filter-active-bg: rgba(245, 208, 51, 0.14);
+  --dropdown-filter-active-border: rgba(245, 208, 51, 0.78);
+  --dropdown-filter-active-color: #fff5c5;
+  --dropdown-filter-menu-border: rgba(245, 208, 51, 0.26);
+  --dropdown-filter-menu-bg:
+    linear-gradient(180deg, rgba(54, 54, 54, 0.99) 0%, rgba(40, 40, 40, 0.99) 100%);
+  --dropdown-filter-menu-shadow:
+    0 16px 30px rgba(0, 0, 0, 0.36),
+    0 0 18px rgba(245, 208, 51, 0.18);
+  --dropdown-filter-item-active-bg: rgba(245, 208, 51, 0.24);
+  --dropdown-filter-item-active-color: #fff4bf;
+  --dropdown-scrollbar: rgba(245, 208, 51, 0.32);
+  --dropdown-option: rgba(255, 255, 255, 0.95);
+  --dropdown-option-hover-bg: rgba(245, 208, 51, 0.12);
+  --dropdown-option-selected-bg: rgba(245, 208, 51, 0.18);
+  --dropdown-option-selected-color: #fff5cd;
+  --dropdown-option-check: #f5d033;
+  --dropdown-no-results: rgba(255, 255, 255, 0.62);
 }
 
 .control {
   min-height: 54px;
-  border: 1px solid rgba(255, 204, 0, 0.38);
+  border: 1px solid var(--dropdown-border);
   border-radius: 12px;
   padding: 18px 14px 12px;
   display: flex;
   align-items: center;
   gap: 10px;
-  background:
-    linear-gradient(180deg, rgba(33, 33, 33, 0.96) 0%, rgba(25, 25, 25, 0.98) 100%);
+  background: var(--dropdown-control-bg);
   cursor: pointer;
   position: relative;
   transition:
@@ -23,14 +68,17 @@
   outline: none;
 }
 
+.controlNoLabel {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
 .control:hover,
 .control:focus-visible,
 .control:focus-within,
 .activeBorder {
-  border-color: rgba(245, 208, 51, 0.9);
-  box-shadow:
-    0 0 0 1px rgba(245, 208, 51, 0.22),
-    0 10px 22px rgba(0, 0, 0, 0.18);
+  border-color: var(--dropdown-border-active);
+  box-shadow: var(--dropdown-shadow-active);
 }
 
 .label {
@@ -40,7 +88,7 @@
   transform: translateY(-50%);
   font-size: 13px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--dropdown-label);
   pointer-events: none;
   transition: 0.2s ease;
 }
@@ -49,8 +97,8 @@
   top: -9px;
   font-size: 11px;
   letter-spacing: 0.03em;
-  color: #f5d033;
-  background: #1a1a1a;
+  color: var(--dropdown-label-active);
+  background: var(--dropdown-label-active-bg);
   padding: 0 6px;
 }
 
@@ -63,7 +111,7 @@
 }
 
 .value {
-  color: rgba(255, 255, 255, 0.94);
+  color: var(--dropdown-value);
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
@@ -127,7 +175,7 @@
 
 .arrow {
   display: inline-flex;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--dropdown-arrow);
   transition: transform 0.2s ease;
 }
 
@@ -140,12 +188,9 @@
   top: calc(100% + 8px);
   width: 100%;
   border-radius: 16px;
-  border: 1px solid rgba(245, 208, 51, 0.28);
-  background:
-    linear-gradient(180deg, rgba(26, 26, 26, 0.99) 0%, rgba(18, 18, 18, 0.99) 100%);
-  box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(245, 208, 51, 0.08);
+  border: 1px solid var(--dropdown-menu-border);
+  background: var(--dropdown-menu-bg);
+  box-shadow: var(--dropdown-menu-shadow);
   z-index: 60;
   overflow: visible;
 }
@@ -161,8 +206,8 @@
   align-items: center;
   gap: 10px;
   padding: 12px;
-  border-bottom: 1px solid rgba(245, 208, 51, 0.14);
-  background: rgba(30, 30, 30, 0.98);
+  border-bottom: 1px solid var(--dropdown-header-border);
+  background: var(--dropdown-header-bg);
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
 }
@@ -170,8 +215,8 @@
 .searchInput {
   width: 100%;
   min-width: 0;
-  background: rgba(17, 17, 17, 0.88);
-  border: 1px solid rgba(245, 208, 51, 0.36);
+  background: var(--dropdown-search-bg);
+  border: 1px solid var(--dropdown-search-border);
   border-radius: 10px;
   padding: 11px 13px;
   color: #fff;
@@ -183,12 +228,12 @@
 }
 
 .searchInput:focus {
-  border-color: #f5d033;
-  box-shadow: 0 0 0 1px rgba(245, 208, 51, 0.2);
+  border-color: var(--dropdown-search-focus);
+  box-shadow: var(--dropdown-search-shadow);
 }
 
 .searchInput::placeholder {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--dropdown-search-placeholder);
 }
 
 .filterWrapper {
@@ -199,10 +244,10 @@
 .filterButton {
   width: 42px;
   height: 42px;
-  border: 1px solid rgba(245, 208, 51, 0.36);
+  border: 1px solid var(--dropdown-filter-border);
   border-radius: 10px;
-  background: rgba(42, 42, 42, 0.96);
-  color: rgba(255, 255, 255, 0.9);
+  background: var(--dropdown-filter-bg);
+  color: var(--dropdown-filter-color);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -215,15 +260,15 @@
 
 .filterButton:hover,
 .filterButton:focus-visible {
-  border-color: rgba(245, 208, 51, 0.9);
+  border-color: var(--dropdown-border-active);
   box-shadow: 0 0 0 1px rgba(245, 208, 51, 0.18);
   outline: none;
 }
 
 .filterButtonActive {
-  background: rgba(245, 208, 51, 0.14);
-  border-color: rgba(245, 208, 51, 0.78);
-  color: #fff5c5;
+  background: var(--dropdown-filter-active-bg);
+  border-color: var(--dropdown-filter-active-border);
+  color: var(--dropdown-filter-active-color);
 }
 
 .filterMenu {
@@ -236,12 +281,9 @@
   flex-direction: column;
   gap: 6px;
   border-radius: 14px;
-  border: 1px solid rgba(245, 208, 51, 0.26);
-  background:
-    linear-gradient(180deg, rgba(54, 54, 54, 0.99) 0%, rgba(40, 40, 40, 0.99) 100%);
-  box-shadow:
-    0 16px 30px rgba(0, 0, 0, 0.36),
-    0 0 18px rgba(245, 208, 51, 0.18);
+  border: 1px solid var(--dropdown-filter-menu-border);
+  background: var(--dropdown-filter-menu-bg);
+  box-shadow: var(--dropdown-filter-menu-shadow);
   z-index: 3;
 }
 
@@ -264,8 +306,8 @@
 }
 
 .filterMenuItemActive {
-  background: rgba(245, 208, 51, 0.24);
-  color: #fff4bf;
+  background: var(--dropdown-filter-item-active-bg);
+  color: var(--dropdown-filter-item-active-color);
 }
 
 .optionsScroller {
@@ -280,7 +322,7 @@
 
 .optionsScroller::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(245, 208, 51, 0.32);
+  background: var(--dropdown-scrollbar);
 }
 
 .virtualContainer {
@@ -301,7 +343,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--dropdown-option);
   cursor: pointer;
   font-size: 14px;
   transition:
@@ -311,12 +353,12 @@
 
 .option:hover,
 .optionHighlighted {
-  background: rgba(245, 208, 51, 0.12);
+  background: var(--dropdown-option-hover-bg);
 }
 
 .optionSelected {
-  background: rgba(245, 208, 51, 0.18);
-  color: #fff5cd;
+  background: var(--dropdown-option-selected-bg);
+  color: var(--dropdown-option-selected-color);
 }
 
 .optionLabel {
@@ -328,7 +370,7 @@
 }
 
 .optionCheck {
-  color: #f5d033;
+  color: var(--dropdown-option-check);
   flex-shrink: 0;
 }
 
@@ -341,6 +383,6 @@
 .noResults {
   padding: 18px 14px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--dropdown-no-results);
   font-size: 13px;
 }

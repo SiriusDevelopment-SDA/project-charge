@@ -31,6 +31,7 @@ type MeResponse = {
     id: string;
     name: string;
     account: string;
+    cnpj: string;
   };
   agent?: {
     id: string;

@@ -45,6 +45,12 @@ export class Campaign {
   @Column({ default: false })
   recurring!: boolean;
 
+  @Column({ type: 'varchar', default: 'single', nullable: true })
+  recurringType!: 'single' | 'range' | 'monthly_days';
+
+  @Column({ type: 'jsonb', nullable: true })
+  recurringDays?: number[] | null;
+
   @ManyToMany(() => Client, (client) => client.campaigns)
   @JoinTable({
     name: 'campaign_clients',
@@ -66,7 +72,7 @@ export class Campaign {
   @Column({ type: 'jsonb', nullable: true })
   templateMapVars!: TemplateMapVar[];
 
-  @Column({ type: 'varchar', default: 'pending' })
+  @Column({ type: 'varchar', default: 'queue' })
   status!: 'queue' | 'pending' | 'running' | 'finished';
 
   @Column({ default: true })

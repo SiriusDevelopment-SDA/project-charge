@@ -38,7 +38,8 @@ export class MessageQueueWorker implements OnModuleInit {
     private readonly relatoryRepository: Repository<RelatoryDispatchTemplate>,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    await this.messageQueueService.reconcileCampaignStatuses();
     this.logger.log('MessageQueueWorker inicializado — intervalo: 1s');
   }
 
@@ -125,10 +126,10 @@ export class MessageQueueWorker implements OnModuleInit {
         message_send_ttl_seconds: 3600,
       };
 
-      this.logger.verbose(
-        `[Job ${job.id.slice(0, 8)}] Enviando para NotificaMe → number: ${job.payload.number}, template: ${template.name}, language: ${template.language}, components: ${JSON.stringify(safeComponents)}`,
+      this.logger.log(
+        `[Job ${job.id.slice(0, 8)}] Payload NotificaMe → ${JSON.stringify(requestBody)}`,
       );
-
+      console.log("payload", requestBody)
       const response = await fetch(
         `${this.baseUrl}/channels/whatsapp/messages`,
         {

@@ -44,6 +44,8 @@ export function useCreateCampaignPageController() {
     setOpenDropdown((prev) => (prev === type ? null : type));
   }, []);
 
+  const closeDropdown = useCallback(() => setOpenDropdown(null), []);
+
   const previewDetails = useMemo(
     () => [
       { label: "Template", value: form.selectedTemplate?.name ?? "--" },
@@ -160,6 +162,7 @@ export function useCreateCampaignPageController() {
     setAttendantName,
     handleClientSearch: setQuery,
     toggleDropdown,
+    closeDropdown,
     handleBackToCampaigns,
     handleUploadClientsSpreadsheet,
     handleOpenPreview,

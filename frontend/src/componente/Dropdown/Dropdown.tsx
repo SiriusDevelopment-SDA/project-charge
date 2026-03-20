@@ -16,6 +16,7 @@ import { useDropdownController } from "../../hooks/components/useDropdownControl
 
 export type DropdownProps<T> = {
   label: string;
+  showFloatingLabel?: boolean;
   typeCategory?: boolean;
   options: T[];
   value?: T | null;
@@ -59,6 +60,7 @@ export function Dropdown<
   onChange,
   className,
   typeCategory,
+  showFloatingLabel = true,
   searchable = true,
   searchValue,
   searchPlaceholder = "Pesquisar...",
@@ -382,7 +384,9 @@ export function Dropdown<
     >
       <div
         ref={controlRef}
-        className={`${S.control} ${open ? S.activeBorder : ""}`}
+        className={`${S.control} ${open ? S.activeBorder : ""} ${
+          !showFloatingLabel ? S.controlNoLabel : ""
+        }`}
         role="combobox"
         tabIndex={0}
         aria-expanded={open}
@@ -406,9 +410,11 @@ export function Dropdown<
           openMenu();
         }}
       >
-        <span className={`${S.label} ${open || hasValue ? S.active : ""}`}>
-          {label}
-        </span>
+        {showFloatingLabel && (
+          <span className={`${S.label} ${open || hasValue ? S.active : ""}`}>
+            {label}
+          </span>
+        )}
 
         <div className={S.valueContainer}>
           {multiple ? (

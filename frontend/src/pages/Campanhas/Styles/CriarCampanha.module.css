@@ -106,3 +106,76 @@
 .createCampaign__selectedClientsDropdown{
     margin-top: 10px;
 }
+
+/* =========================
+   TIPO DE RECORRÊNCIA
+========================= */
+.recurringTypeSelector {
+    display: flex;
+    gap: 8px;
+}
+
+.recurringTypeBtn {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid rgba(212, 166, 0, 0.3);
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.recurringTypeBtn:hover {
+    border-color: rgba(212, 166, 0, 0.6);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.recurringTypeBtnActive {
+    border-color: rgba(212, 166, 0, 0.85);
+    background: rgba(212, 166, 0, 0.12);
+    color: #ffd700;
+}
+
+/* =========================
+   VIGÊNCIA (monthly_days)
+========================= */
+.validityMonths {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.validityMonths span {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.validityMonths input[type="month"] {
+    padding: 7px 10px;
+    border: 1px solid rgba(212, 166, 0, 0.35);
+    border-radius: 6px;
+    background: rgba(10, 10, 10, 0.8);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+}
+
+.validityMonths input[type="month"]:focus {
+    border-color: rgba(212, 166, 0, 0.8);
+}
+
+.selectedDaysPreview {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.55);
+    min-height: 20px;
+}
+
+.selectedDaysPreview span {
+    color: #ffd700;
+    font-weight: 500;
+}

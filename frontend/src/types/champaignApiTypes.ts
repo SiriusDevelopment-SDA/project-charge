@@ -1,6 +1,8 @@
 
 export type CampaignStatus = "queue" | "pending" | "running" | "finished";
 
+export type RecurringType = "single" | "range" | "monthly_days";
+
 export type CampaignData = {
   id: string;
   name: string;
@@ -10,6 +12,8 @@ export type CampaignData = {
   dispatchTime: string;
   timezone: string;
   recurring: boolean;
+  recurringType?: RecurringType;
+  recurringDays?: number[];
   createdAt: string;
   updatedAt?: string;
   isEnabled?: boolean;
@@ -25,9 +29,12 @@ export type CampaignMetrics = {
   dispatchesToday: number;
   totalDispatch: number;
   totalDispatchSuccess: number;
+  totalDispatchToday: number;
+  totalDispatchSuccessToday: number;
   totalDispatch24h: number;
   totalDispatchSuccess24h: number;
   deliveryRateTotal: number;
+  deliveryRateToday: number;
   deliveryRate24h: number;
   nextDispatchTime: string | null;
   nextDispatchLabel: string;

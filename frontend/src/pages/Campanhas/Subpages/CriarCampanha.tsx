@@ -11,7 +11,6 @@ import {
   MyButton,
   MyCalendar,
   PageContainer,
-  SwitchLabels,
   TitlePage,
   UploadButton,
 } from "../../../componente/Index";
@@ -19,6 +18,12 @@ import {
   useCreateCampaignPageController,
 } from "../../../hooks/controller/campaigns/useCreateCampaignPageController";
 import Style from "../Styles/CriarCampanha.module.css";
+
+const RECURRING_TYPE_LABELS = {
+  single: "Único",
+  range: "Recorrente",
+  monthly_days: "Dias do mês",
+} as const;
 
 export function CriarCampanha() {
   const {
@@ -41,6 +46,7 @@ export function CriarCampanha() {
     setAttendantName,
     handleClientSearch,
     toggleDropdown,
+    closeDropdown,
     handleBackToCampaigns,
     handleUploadClientsSpreadsheet,
     handleOpenPreview,
@@ -48,6 +54,10 @@ export function CriarCampanha() {
     handleCloseAttendantModal,
     handleConfirmAttendant,
   } = useCreateCampaignPageController();
+
+  const selectedDayNumbers = [...new Set(form.selectedDays.map((d) => d.getDate()))].sort(
+    (a, b) => a - b,
+  );
 
   return (
     <PageContainer className={Style.createCampaign}>
@@ -75,7 +85,13 @@ export function CriarCampanha() {
         <div className={Style.createCampaign__grid}>
           <section className={Style.grid_left}>
             <div className={Style.createCampaign__calendar}>
-              {form.recurring ? (
+              {form.recurringType === "monthly_days" ? (
+                <MyCalendar
+                  mode="multiple"
+                  selectedMultiple={form.selectedDays}
+                  onSelectMultiple={(dates) => form.setSelectedDays(dates ?? [])}
+                />
+              ) : form.recurringType === "range" ? (
                 <MyCalendar
                   mode="range"
                   selected={form.dateRange}
@@ -91,6 +107,33 @@ export function CriarCampanha() {
                 />
               )}
             </div>
+
+            {form.recurringType === "monthly_days" && (
+              <>
+                <div className={Style.selectedDaysPreview}>
+                  {selectedDayNumbers.length > 0 ? (
+                    <>Dias selecionados: <span>{selectedDayNumbers.join(", ")}</span></>
+                  ) : (
+                    "Clique nos dias do mês que deseja disparar"
+                  )}
+                </div>
+
+                <div className={Style.validityMonths}>
+                  <span>Vigência de</span>
+                  <input
+                    type="month"
+                    value={form.validityStartMonth}
+                    onChange={(e) => form.setValidityStartMonth(e.target.value)}
+                  />
+                  <span>até</span>
+                  <input
+                    type="month"
+                    value={form.validityEndMonth}
+                    onChange={(e) => form.setValidityEndMonth(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
 
             <DownloadModeloButton
               templateSelecionado={form.selectedTemplate}
@@ -126,13 +169,22 @@ export function CriarCampanha() {
                 </BaseCard>
               </div>
 
-              <SwitchLabels
-                checked={form.recurring}
-                onChange={(value) => {
-                  form.setRecurring(value);
-                  form.setDateRange(undefined);
-                }}
-              />
+              <div className={Style.recurringTypeSelector}>
+                {(["single", "range", "monthly_days"] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`${Style.recurringTypeBtn} ${form.recurringType === type ? Style.recurringTypeBtnActive : ""}`}
+                    onClick={() => {
+                      form.setRecurringType(type);
+                      form.setDateRange(undefined);
+                      form.setSelectedDays([]);
+                    }}
+                  >
+                    {RECURRING_TYPE_LABELS[type]}
+                  </button>
+                ))}
+              </div>
 
               <Dropdown<Template>
                 label="Selecione um template"
@@ -141,7 +193,7 @@ export function CriarCampanha() {
                 onChange={(value) => form.setSelectedTemplate(value as Template)}
                 open={openDropdown === "template"}
                 onOpen={() => toggleDropdown("template")}
-                onClose={() => toggleDropdown(null)}
+                onClose={closeDropdown}
                 searchValue={searchTemplateName}
                 searchPlaceholder="Buscar template pelo nome"
                 onSearchTermChange={setSearchTemplateName}
@@ -157,7 +209,8 @@ export function CriarCampanha() {
                 onChange={(value) => form.setSelectedCategory(value as Category)}
                 open={openDropdown === "category"}
                 onOpen={() => toggleDropdown("category")}
-                onClose={() => toggleDropdown(null)}
+                onClose={closeDropdown}
+                searchable={false}
               />
             </div>
 
@@ -169,7 +222,7 @@ export function CriarCampanha() {
               onChange={(value) => form.setSelectedClients(value as Cliente[])}
               open={openDropdown === "client"}
               onOpen={() => toggleDropdown("client")}
-              onClose={() => toggleDropdown(null)}
+              onClose={closeDropdown}
               multiple
               searchable
               onSearchTermChange={handleClientSearch}

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DateTime } from 'luxon';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { MessageQueueService } from './message-queue.service';
 import type { MessageQueuePayload } from './entities/message-queue.entity';
@@ -29,7 +29,7 @@ export class CampaignScheduler {
     const campaigns = await this.campaignRepository.find({
       where: {
         isEnabled: true,
-        status: 'queue',
+        status: In(['queue', 'pending']),
       },
       relations: ['company', 'template'],
       select: {
@@ -58,12 +58,9 @@ export class CampaignScheduler {
   }
 
   private shouldDispatchNow(campaign: Campaign, now: Date): boolean {
-    const [hour, minute] = campaign.dispatchTime.split(':').map(Number);
     const nowInTz = this.toDateTimeInZone(now, campaign.timezone);
-    const currentHour = nowInTz.hour;
-    const currentMinute = nowInTz.minute;
-
-    if (currentHour !== hour || currentMinute !== minute) return false;
+    const scheduledAt = this.getScheduledDispatchDateTime(campaign, now);
+    if (!scheduledAt || nowInTz.toMillis() < scheduledAt.toMillis()) return false;
 
     // Avoid re-dispatching if already sent today
     if (campaign.lastDispatchedAt) {
@@ -76,6 +73,31 @@ export class CampaignScheduler {
     }
 
     return true;
+  }
+
+  private getScheduledDispatchDateTime(
+    campaign: Campaign,
+    now: Date,
+  ): DateTime | null {
+    const [parsedHour, parsedMinute] = String(campaign.dispatchTime ?? '00:00')
+      .split(':')
+      .map(Number);
+    const hour = Number.isFinite(parsedHour) ? parsedHour : 0;
+    const minute = Number.isFinite(parsedMinute) ? parsedMinute : 0;
+
+    const baseDate = campaign.recurring ? now : campaign.startDate;
+    const baseInZone = this.toDateTimeInZone(baseDate, campaign.timezone);
+
+    if (!baseInZone.isValid) {
+      return null;
+    }
+
+    return baseInZone.set({
+      hour,
+      minute,
+      second: 0,
+      millisecond: 0,
+    });
   }
 
   private async enqueueCampaign(campaign: Campaign, now: Date): Promise<void> {
@@ -119,8 +141,8 @@ export class CampaignScheduler {
   private buildComponents(vars: Record<string, unknown>): MessageQueuePayload['components'] {
     // Extract text parameters from template vars into WhatsApp component format.
     // The actual component structure was saved in templateMapVars by the frontend.
-    const components = vars['components'];
-    if (Array.isArray(components)) return components as MessageQueuePayload['components'];
+    const components = this.normalizeStoredComponents(vars['components']);
+    if (components.length) return components;
 
     // Fallback: build a simple BODY component with non-empty string values
     const parameters = Object.entries(vars)
@@ -130,12 +152,47 @@ export class CampaignScheduler {
     return parameters.length ? [{ type: 'BODY', parameters }] : [];
   }
 
+  private normalizeStoredComponents(
+    components: unknown,
+  ): MessageQueuePayload['components'] {
+    if (Array.isArray(components)) {
+      return components as MessageQueuePayload['components'];
+    }
+
+    if (
+      components &&
+      typeof components === 'object' &&
+      Array.isArray((components as { components?: unknown }).components)
+    ) {
+      return (components as { components: MessageQueuePayload['components'] })
+        .components;
+    }
+
+    if (typeof components === 'string') {
+      try {
+        return this.normalizeStoredComponents(JSON.parse(components));
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  }
+
   private isCampaignActiveOnDate(campaign: Campaign, now: Date): boolean {
     const todayInTimezone = this.toDateOnly(now, campaign.timezone);
     const startDate = this.toDateOnly(campaign.startDate, campaign.timezone);
     const endDate = this.toDateOnly(campaign.endDate, campaign.timezone);
 
-    return todayInTimezone >= startDate && todayInTimezone <= endDate;
+    const withinRange = todayInTimezone >= startDate && todayInTimezone <= endDate;
+    if (!withinRange) return false;
+
+    if (campaign.recurringType === 'monthly_days') {
+      const dayOfMonth = this.toDateTimeInZone(now, campaign.timezone).day;
+      return (campaign.recurringDays ?? []).includes(dayOfMonth);
+    }
+
+    return true;
   }
 
   private toDateOnly(date: Date, timeZone: string): string {

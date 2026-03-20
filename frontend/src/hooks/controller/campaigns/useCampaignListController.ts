@@ -57,6 +57,7 @@ export function useCampaignListController({ campaigns, categories }: Params) {
 
   return {
     categories,
+    filteredCampaigns,
     searchName,
     categoryFilter,
     page: safePage,

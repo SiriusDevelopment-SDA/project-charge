@@ -85,6 +85,7 @@ export function AccountLayout() {
         if (!isMounted) return;
 
         setAccount(result.company.account);
+        AppStorage.setCompanyCnpj(result.company.cnpj ?? '');
         if (result.agent?.name) {
           AppStorage.setAgentName(result.agent.name);
           AppStorage.setAuthMode("agent");

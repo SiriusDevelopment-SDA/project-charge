@@ -1,16 +1,17 @@
-﻿
+
 import { z } from "zod";
 
 export const campaignSchema = z
   .object({
     name: z.string().min(1, "Nome da campanha é obrigatório!"),
     templateId: z.string().min(1, "Template é obrigatório!"),
-    categoryId: z.string().min(1, "Categoria Ãé obrigatória!"),
-    startDate: z.coerce.date({ message: "Escolha um dia na agenda." }),
+    categoryId: z.string().min(1, "Categoria é obrigatória!"),
+    recurringType: z.enum(["single", "range", "monthly_days"]),
+    startDate: z.coerce.date({ message: "Escolha um dia na agenda." }).optional(),
     endDate: z.coerce
       .date({ message: "Escolha um dia para finalizar a campanha!" })
       .optional(),
-    recurring: z.boolean(),
+    recurringDays: z.array(z.number()).optional(),
     dispatchTime: z
       .string()
       .regex(/^([0-1]\d|2[0-3]):([0-5]\d)$/, "Horário inválido"),
@@ -20,10 +21,57 @@ export const campaignSchema = z
     const now = new Date();
     now.setSeconds(0, 0);
 
-    // Data inicial nÃ£o pode ser no passado
+    if (data.recurringType === "monthly_days") {
+      if (!data.recurringDays || data.recurringDays.length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["recurringDays"],
+          message: "Selecione pelo menos um dia do mês para o disparo.",
+        });
+        return;
+      }
+
+      if (!data.startDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["startDate"],
+          message: "Selecione o mês de início da vigência.",
+        });
+        return;
+      }
+
+      if (!data.endDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "Selecione o mês de término da vigência.",
+        });
+        return;
+      }
+
+      if (data.endDate < data.startDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "O mês de término deve ser igual ou maior que o mês de início.",
+        });
+      }
+
+      return;
+    }
+
+    // single e range: startDate obrigatória
+    if (!data.startDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["startDate"],
+        message: "Escolha um dia na agenda.",
+      });
+      return;
+    }
+
     const today = new Date(now);
     today.setHours(0, 0, 0, 0);
-
     const startDay = new Date(data.startDate);
     startDay.setHours(0, 0, 0, 0);
 
@@ -35,8 +83,7 @@ export const campaignSchema = z
       });
     }
 
-    // ValidaÃ§Ãµes para campanha recorrente
-    if (data.recurring) {
+    if (data.recurringType === "range") {
       if (!data.endDate) {
         ctx.addIssue({
           code: "custom",
@@ -52,7 +99,7 @@ export const campaignSchema = z
       }
     }
 
-    // Horario de disparo deve ser >= 59 minutos a frente
+    // Horario de disparo deve ser >= 59 minutos a frente (single e range)
     const [hour, minute] = data.dispatchTime.split(":").map(Number);
     const dispatchDate = new Date(data.startDate);
     dispatchDate.setHours(hour, minute, 0, 0);
@@ -68,7 +115,7 @@ export const campaignSchema = z
   });
 
 // ---------------------------------------------------------------------------
-// Schema: ediÃ§Ã£o de campanha (formulÃ¡rio inline do card)
+// Schema: edição de campanha (formulário inline do card)
 // ---------------------------------------------------------------------------
 export const campaignFormSchema = z
   .object({
@@ -99,7 +146,7 @@ export const campaignFormSchema = z
 export type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 
 // ---------------------------------------------------------------------------
-// Schema: variÃ¡veis de template
+// Schema: variáveis de template
 // ---------------------------------------------------------------------------
 export const mapVarsSchema = z.object({
   nome_cliente: z.string().min(1, "Nome do cliente é obrigatório"),

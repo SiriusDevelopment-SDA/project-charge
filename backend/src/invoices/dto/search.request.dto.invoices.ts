@@ -28,6 +28,12 @@ class CodePixDto {
 
   @ApiProperty()
   pix!: string;
+
+  @ApiProperty({ required: false })
+  pix_key?: string;
+
+  @ApiProperty({ required: false })
+  pix_key_type?: string;
 }
 export class InvoiceMapResultDto {
 

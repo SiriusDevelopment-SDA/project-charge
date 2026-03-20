@@ -61,6 +61,7 @@ import type {
   CampaignMetrics,
   CollectionsMetrics,
   Category,
+  RecurringType,
 } from "./champaignApiTypes"
 type DropdownType = "template" | "category" | "client" | null;
 export type 
@@ -75,6 +76,7 @@ export type
   CampaignData,
   CampaignMetrics,
   CollectionsMetrics,
+  RecurringType,
   Service,
   MyInputProps, 
   PaginationProps, 
