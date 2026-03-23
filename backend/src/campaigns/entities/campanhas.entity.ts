@@ -49,7 +49,7 @@ export class Campaign {
   recurringType!: 'single' | 'range' | 'monthly_days';
 
   @Column({ type: 'jsonb', nullable: true })
-  recurringDays?: number[] | null;
+  recurringDays?: Array<number | string> | null;
 
   @ManyToMany(() => Client, (client) => client.campaigns)
   @JoinTable({

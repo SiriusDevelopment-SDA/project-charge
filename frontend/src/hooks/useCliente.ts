@@ -1,9 +1,12 @@
 import { useCallback, useState } from "react";
 import { useClientsQuery, useServicesQuery } from "./queries/useClientsQuery";
 import { useFetchInvoicesMutation } from "./mutations/useClientsMutations";
+import { toast } from "react-toastify";
 import { useDebounce } from "./useDebounce";
-import type { Cliente, IClientsContext } from "../types";
+import type { Cliente, IClientsContext, InvoiceRuleFilter } from "../types";
 import { useGlobalLoading } from "./useGlobalLoading";
+import { ClientService } from "../services/client/client.service";
+import { getErrorMessage } from "../utils/error";
 
 export function useClient(): IClientsContext {
   const [query, setQueryState] = useState("");
@@ -66,6 +69,58 @@ export function useClient(): IClientsContext {
     [clients],
   );
 
+  const consultClientsByInvoiceRule = useCallback(
+    async ({
+      companyId,
+      filter,
+    }: {
+      companyId: string;
+      filter: InvoiceRuleFilter;
+    }): Promise<Cliente[]> => {
+      if (!companyId) {
+        return [];
+      }
+
+      const loadingId = showLoading("Consultando clientes pela regua de cobranca...");
+
+      try {
+        const response = await ClientService.searchInvoices({
+          companyId,
+          filter,
+        });
+
+        const { data: providers, errors, status, message } = response.data;
+
+        if (status === "success") toast.success(message);
+        if (status === "partial") toast.warning(message);
+        if (status === "error") toast.error(message);
+
+        errors?.forEach((error) => {
+          toast.warning(`Cliente do documento: ${error.document} ${error.reason}`);
+        });
+
+        const selectedClients = providers.map((provider) => ({
+          id: provider.clientData.id,
+          clientId: provider.clientData.clientId,
+          cnpj_cpf: provider.clientData.cnpj_cpf,
+          name: provider.clientData.name,
+          whatsapp: provider.clientData.whatsapp,
+          email: provider.clientData.email ?? undefined,
+          company: provider.clientData.company,
+          invoices: provider.invoices,
+        }));
+
+        return [...new Map(selectedClients.map((client) => [client.id, client])).values()];
+      } catch (error) {
+        toast.error(getErrorMessage(error, "Erro ao consultar clientes pela regua."));
+        return [];
+      } finally {
+        hideLoading(loadingId);
+      }
+    },
+    [hideLoading, showLoading],
+  );
+
   return {
     clients,
     services,
@@ -76,6 +131,7 @@ export function useClient(): IClientsContext {
     setGroupInvoices: () => {},
     setGroupServices,
     fetchInvoices,
+    consultClientsByInvoiceRule,
     fetchServices,
   };
 }

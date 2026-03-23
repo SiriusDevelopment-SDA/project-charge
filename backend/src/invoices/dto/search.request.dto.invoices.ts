@@ -1,4 +1,14 @@
-import { IsArray, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  Matches,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -11,16 +21,99 @@ export class CnpjCpfDto {
   cnpj_cpf!: string;
 }
 
+export class InvoiceSearchFilterDto {
+  @ApiProperty({
+    example: 'greater_or_equal',
+    enum: ['greater_than', 'less_than', 'greater_or_equal', 'less_or_equal'],
+    description: 'Operador da régua de cobrança',
+  })
+  @IsString()
+  @IsIn(['greater_than', 'less_than', 'greater_or_equal', 'less_or_equal'])
+  operator!: 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal';
+
+  @ApiProperty({
+    example: 5,
+    description: 'Quantidade de dias usada na régua de cobrança',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  days!: number;
+
+  @ApiProperty({
+    example: '2026-04-15',
+    description: 'Data de referencia da regua no formato YYYY-MM-DD',
+  })
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  referenceDate!: string;
+}
+
 export class SearchRequestInvoicesDto {
   @ApiProperty({
     description: 'Lista de documentos (CPF/CNPJ)',
     type: () => CnpjCpfDto,
     isArray: true,
+    required: false,
   })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CnpjCpfDto)
-  documents!: CnpjCpfDto[];
+  documents?: CnpjCpfDto[];
+
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Empresa usada para consultar clientes pela régua de cobrança',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  companyId?: string;
+
+  @ApiProperty({
+    type: () => InvoiceSearchFilterDto,
+    required: false,
+    description: 'Filtro opcional para montar o grid_param da consulta no IXC',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InvoiceSearchFilterDto)
+  filter?: InvoiceSearchFilterDto;
+}
+
+class InvoiceClientCompanyDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  account!: string;
+}
+
+export class InvoiceClientDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  clientId!: string;
+
+  @ApiProperty()
+  cnpj_cpf!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  whatsapp!: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  email?: string | null;
+
+  @ApiProperty({ type: InvoiceClientCompanyDto })
+  company!: InvoiceClientCompanyDto;
 }
 class CodePixDto {
   @ApiProperty()
@@ -86,6 +179,8 @@ class InvoiceErrorDto {
 }
 
 export class ResultInvoicesDto {
+  @ApiProperty({ type: InvoiceClientDto })
+  clientData!: InvoiceClientDto;
 
   @ApiProperty()
   client!: string;

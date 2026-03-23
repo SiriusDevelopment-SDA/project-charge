@@ -39,6 +39,8 @@ export class CampaignScheduler {
         dispatchTime: true,
         timezone: true,
         recurring: true,
+        recurringType: true,
+        recurringDays: true,
         lastDispatchedAt: true,
         templateMapVars: true,
         company: { id: true },
@@ -188,11 +190,37 @@ export class CampaignScheduler {
     if (!withinRange) return false;
 
     if (campaign.recurringType === 'monthly_days') {
-      const dayOfMonth = this.toDateTimeInZone(now, campaign.timezone).day;
-      return (campaign.recurringDays ?? []).includes(dayOfMonth);
+      return this.matchesRecurringSelection(campaign, now);
     }
 
     return true;
+  }
+
+  private matchesRecurringSelection(campaign: Campaign, now: Date): boolean {
+    const todayInTimezone = this.toDateOnly(now, campaign.timezone);
+    const dayOfMonth = this.toDateTimeInZone(now, campaign.timezone).day;
+
+    return (campaign.recurringDays ?? []).some((value) => {
+      if (typeof value === 'number') {
+        return value === dayOfMonth;
+      }
+
+      if (typeof value !== 'string') {
+        return false;
+      }
+
+      const normalizedValue = value.trim();
+      if (!normalizedValue) {
+        return false;
+      }
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+        return normalizedValue === todayInTimezone;
+      }
+
+      const parsedDay = Number(normalizedValue);
+      return Number.isInteger(parsedDay) && parsedDay === dayOfMonth;
+    });
   }
 
   private toDateOnly(date: Date, timeZone: string): string {

@@ -1,9 +1,18 @@
 import { Api } from "../api";
 import type {
+  InvoiceRuleFilter,
   InvoiceBatchResponse,
   responseClients,
   Service,
 } from "../../types";
+
+type SearchInvoicesPayload =
+  | string[]
+  | {
+      documents?: string[];
+      companyId?: string;
+      filter?: InvoiceRuleFilter;
+    };
 
 export class ClientService {
   static async searchClients(params: {
@@ -17,9 +26,24 @@ export class ClientService {
     return Api.post<responseClients>("/clients/search", params);
   }
 
-  static async searchInvoices(documents: string[]) {
+  static async searchInvoices(payload: SearchInvoicesPayload) {
+    const request = Array.isArray(payload)
+      ? {
+          documents: payload.map((cnpj_cpf) => ({ cnpj_cpf })),
+        }
+      : {
+          documents: (payload.documents ?? []).map((cnpj_cpf) => ({ cnpj_cpf })),
+          companyId: payload.companyId,
+          filter: payload.filter,
+        };
+
+    console.log("[ClientService.searchInvoices] payload enviado ao backend", {
+      endpoint: "/invoices/search",
+      body: request,
+    });
+
     return Api.post<InvoiceBatchResponse>("/invoices/search", {
-      documents: documents.map((cnpj_cpf) => ({ cnpj_cpf })),
+      ...request,
     });
   }
 

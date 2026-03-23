@@ -13,7 +13,7 @@ export type CampaignData = {
   timezone: string;
   recurring: boolean;
   recurringType?: RecurringType;
-  recurringDays?: number[];
+  recurringDays?: Array<number | string>;
   createdAt: string;
   updatedAt?: string;
   isEnabled?: boolean;

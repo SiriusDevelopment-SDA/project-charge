@@ -68,10 +68,10 @@ export class CreateCampaignDto {
   @IsString()
   recurringType?: 'single' | 'range' | 'monthly_days';
 
-  @ApiProperty({ example: [10, 15, 25], required: false })
+  @ApiProperty({ example: ['2026-04-30', '2026-05-15'], required: false, type: [String] })
   @IsOptional()
   @IsArray()
-  recurringDays?: number[];
+  recurringDays?: Array<number | string>;
 
   @ApiProperty({ type: [String], example: ['client-id-1', 'client-id-2'] })
   @IsArray()

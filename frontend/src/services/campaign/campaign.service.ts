@@ -1,6 +1,6 @@
 import { Api } from "../api";
 import type { CampaignData, CampaignMetrics, Category, CollectionsMetrics } from "../../types";
-import type { CampaignUpdate } from "../../types/champaignApiTypes";
+import type { CampaignUpdate, RecurringType } from "../../types/champaignApiTypes";
 
 type CampaignCreatePayload = {
   name: string;
@@ -12,6 +12,8 @@ type CampaignCreatePayload = {
   dispatchTime: string;
   timezone: string;
   recurring: boolean;
+  recurringType?: RecurringType;
+  recurringDays?: Array<number | string>;
   clients: string[];
   templateMapVars: Record<string, unknown>[];
 };

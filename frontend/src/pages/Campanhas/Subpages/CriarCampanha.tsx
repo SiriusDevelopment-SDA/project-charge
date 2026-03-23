@@ -1,4 +1,4 @@
-import type { Category, Cliente, Template } from "../../../types";
+import type { Category, Cliente, InvoiceRuleOperator, Template } from "../../../types";
 import {
   AttendantNameModalContent,
   BaseCard,
@@ -14,15 +14,19 @@ import {
   TitlePage,
   UploadButton,
 } from "../../../componente/Index";
-import {
-  useCreateCampaignPageController,
-} from "../../../hooks/controller/campaigns/useCreateCampaignPageController";
+import { useCreateCampaignPageController } from "../../../hooks/controller/campaigns/useCreateCampaignPageController";
 import Style from "../Styles/CriarCampanha.module.css";
 
+const calendarDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
 const RECURRING_TYPE_LABELS = {
-  single: "Único",
+  single: "Unico",
   range: "Recorrente",
-  monthly_days: "Dias do mês",
+  monthly_days: "Dias do mes",
 } as const;
 
 export function CriarCampanha() {
@@ -49,15 +53,21 @@ export function CriarCampanha() {
     closeDropdown,
     handleBackToCampaigns,
     handleUploadClientsSpreadsheet,
+    handleConsultClientsByInvoiceRule,
+    isConsultingInvoiceRule,
+    invoiceRuleLabels,
     handleOpenPreview,
     handleConfirmPreview,
     handleCloseAttendantModal,
     handleConfirmAttendant,
   } = useCreateCampaignPageController();
 
-  const selectedDayNumbers = [...new Set(form.selectedDays.map((d) => d.getDate()))].sort(
-    (a, b) => a - b,
-  );
+  const isRuleMode = form.recurringType === "monthly_days";
+  const selectedDayLabels = form.selectedDays.map((date) => calendarDateFormatter.format(date));
+  const selectedClientNames = form.selectedClients
+    .slice(0, 5)
+    .map((client) => client.name)
+    .join(", ");
 
   return (
     <PageContainer className={Style.createCampaign}>
@@ -76,20 +86,23 @@ export function CriarCampanha() {
       <div className={Style.createCampaign__form}>
         <h3>Dados da Campanha</h3>
 
+        {!isRuleMode && (
         <InputFields
           label="Nome da Campanha"
           value={form.name}
           onChange={(e) => form.setName(e.target.value)}
         />
+        )}
 
         <div className={Style.createCampaign__grid}>
           <section className={Style.grid_left}>
+            <span>Selecione uma data para efetuar o disparo</span>
             <div className={Style.createCampaign__calendar}>
               {form.recurringType === "monthly_days" ? (
                 <MyCalendar
-                  mode="multiple"
-                  selectedMultiple={form.selectedDays}
-                  onSelectMultiple={(dates) => form.setSelectedDays(dates ?? [])}
+                  mode="single"
+                  selectedSingle={form.selectedDays[0]}
+                  onSelectSingle={(date) => form.setSelectedDays(date ? [date] : [])}
                 />
               ) : form.recurringType === "range" ? (
                 <MyCalendar
@@ -109,64 +122,107 @@ export function CriarCampanha() {
             </div>
 
             {form.recurringType === "monthly_days" && (
-              <>
-                <div className={Style.selectedDaysPreview}>
-                  {selectedDayNumbers.length > 0 ? (
-                    <>Dias selecionados: <span>{selectedDayNumbers.join(", ")}</span></>
-                  ) : (
-                    "Clique nos dias do mês que deseja disparar"
-                  )}
-                </div>
-
-                <div className={Style.validityMonths}>
-                  <span>Vigência de</span>
-                  <input
-                    type="month"
-                    value={form.validityStartMonth}
-                    onChange={(e) => form.setValidityStartMonth(e.target.value)}
-                  />
-                  <span>até</span>
-                  <input
-                    type="month"
-                    value={form.validityEndMonth}
-                    onChange={(e) => form.setValidityEndMonth(e.target.value)}
-                  />
-                </div>
-              </>
+              <div className={Style.selectedDaysPreview}>
+                {selectedDayLabels.length > 0 ? (
+                  <>Data selecionada: <span>{selectedDayLabels[0]}</span></>
+                ) : (
+                  "Clique na data em que deseja disparar"
+                )}
+              </div>
             )}
 
-            <DownloadModeloButton
-              templateSelecionado={form.selectedTemplate}
-              modo="clientes"
-              className={Style.btn_dawnload}
-            />
+            {/* {!isRuleMode && (
+              <>
+                <DownloadModeloButton
+                  templateSelecionado={form.selectedTemplate}
+                  modo="clientes"
+                  className={Style.btn_dawnload}
+                />
 
-            <UploadButton
-              onUpload={handleUploadClientsSpreadsheet}
-              className={Style.btn_upload}
-            />
+                <UploadButton
+                  onUpload={handleUploadClientsSpreadsheet}
+                  className={Style.btn_upload}
+                />
+              </>
+            )} */}
           </section>
 
           <section className={Style.grid_right}>
             <div className={Style.createCampaign__schedule}>
               <div className={Style.createCampaign__scheduleTime}>
-                <div>
+              <div>
                   <span>Horario de disparo</span>
                   <InputFields
                     type="time"
                     value={form.dispatchTime}
                     onChange={(e) => form.setdispatchTime(e.target.value)}
                     required
-                  />
+                    />
                 </div>
 
-                <BaseCard classname={Style.createCampaign__metricsCard}>
-                  <Metricas
-                    chave="Clientes selecionados"
-                    valor={String(form.selectedClients?.length ?? 0)}
-                    classname={Style.createCampaign__metricsContent}
-                  />
-                </BaseCard>
+                 {isRuleMode &&(
+                   <div className={Style.invoiceRulePanel}>
+                    <div className={Style.invoiceRuleHeader}>
+                      <span>Regua de cobranca</span>
+                      <small>
+                        A data escolhida no calendario sera usada como referencia da regua ao consultar as faturas no IXC.
+                      </small>
+                    </div>
+ 
+                   <div className={Style.invoiceRuleRow}>
+                     <label className={Style.invoiceRuleField}>
+                       <span>Filtro</span>
+                       <select
+                         className={Style.invoiceRuleSelect}
+                         value={form.invoiceRuleOperator}
+                         onChange={(e) =>
+                           form.setInvoiceRuleOperator(e.target.value as InvoiceRuleOperator)
+                         }
+                       >
+                         {Object.entries(invoiceRuleLabels).map(([value, label]) => (
+                           <option key={value} value={value}>
+                             {label}
+                           </option>
+                         ))}
+                       </select>
+                     </label>
+ 
+                     <div className={Style.invoiceRuleField}>
+                       <InputFields
+                         label="Quantidade de dias"
+                         value={form.invoiceRuleDays}
+                         onChange={(e) => form.setInvoiceRuleDays(e.target.value)}
+                         onlyNumbers
+                       />
+                     </div>
+ 
+                     <MyButton
+                       text={isConsultingInvoiceRule ? "Consultando..." : "Consultar faturas"}
+                       variant="secondary"
+                       className={Style.invoiceRuleButton}
+                       onClick={handleConsultClientsByInvoiceRule}
+                       disabled={isConsultingInvoiceRule}
+                     />
+                   </div>
+ 
+                   <div className={Style.invoiceRuleSummary}>
+                     {form.hasConsultedInvoiceRule
+                       ? `${form.selectedClients.length} cliente(s) selecionado(s) automaticamente pela regua.`
+                       : "A consulta vai carregar automaticamente os clientes com faturas dentro da regra."}
+                   </div>
+ 
+                   {selectedClientNames && (
+                     <div className={Style.invoiceRuleClientsPreview}>
+                       Clientes encontrados: <span>{selectedClientNames}</span>
+                       {form.selectedClients.length > 5
+                         ? ` e mais ${form.selectedClients.length - 5}.`
+                         : "."}
+                     </div>
+                   )}
+                 </div>
+                 )}
+                
+               
               </div>
 
               <div className={Style.recurringTypeSelector}>
@@ -179,6 +235,7 @@ export function CriarCampanha() {
                       form.setRecurringType(type);
                       form.setDateRange(undefined);
                       form.setSelectedDays([]);
+                      form.setSelectedClients([]);
                     }}
                   >
                     {RECURRING_TYPE_LABELS[type]}
@@ -186,54 +243,76 @@ export function CriarCampanha() {
                 ))}
               </div>
 
-              <Dropdown<Template>
-                label="Selecione um template"
-                options={filteredTemplates ?? templates ?? []}
-                value={form.selectedTemplate}
-                onChange={(value) => form.setSelectedTemplate(value as Template)}
-                open={openDropdown === "template"}
-                onOpen={() => toggleDropdown("template")}
-                onClose={closeDropdown}
-                searchValue={searchTemplateName}
-                searchPlaceholder="Buscar template pelo nome"
-                onSearchTermChange={setSearchTemplateName}
-                filterOptions={templateCategories}
-                filterValue={categoryTemplateFilter}
-                onFilterChange={setCategoryTemplateFilter}
-              />
+              <section className={Style.containerDropdown}>
+                <Dropdown<Template>
+                  label="Selecione um template"
+                  options={filteredTemplates ?? templates ?? []}
+                  value={form.selectedTemplate}
+                  onChange={(value) => form.setSelectedTemplate(value as Template)}
+                  open={openDropdown === "template"}
+                  onOpen={() => toggleDropdown("template")}
+                  onClose={closeDropdown}
+                  searchValue={searchTemplateName}
+                  searchPlaceholder="Buscar template pelo nome"
+                  onSearchTermChange={setSearchTemplateName}
+                  filterOptions={templateCategories}
+                  filterValue={categoryTemplateFilter}
+                  onFilterChange={setCategoryTemplateFilter}
+                />
 
-              <Dropdown<Category>
-                label="Selecione uma categoria"
-                options={categories ?? []}
-                value={form.selectedCategory}
-                onChange={(value) => form.setSelectedCategory(value as Category)}
-                open={openDropdown === "category"}
-                onOpen={() => toggleDropdown("category")}
-                onClose={closeDropdown}
-                searchable={false}
-              />
+                <Dropdown<Category>
+                  label="Selecione uma categoria"
+                  options={categories ?? []}
+                  value={form.selectedCategory}
+                  onChange={(value) => form.setSelectedCategory(value as Category)}
+                  open={openDropdown === "category"}
+                  onOpen={() => toggleDropdown("category")}
+                  onClose={closeDropdown}
+                  searchable={false}
+                />
+              </section>
+              
+              {isRuleMode && (
+                <section className={Style.containerDropdown}>
+                   <InputFields
+                    label="Nome da Campanha"
+                    value={form.name}
+                    onChange={(e) => form.setName(e.target.value)}
+                  />
+                  <MyButton
+                    text="Prosseguir"
+                    variant="btn-enviar"
+                    onClick={handleOpenPreview}
+                    className={Style.btn_dispatch}
+                  />
+                </section>
+              )}
             </div>
+            
+            {!isRuleMode && (
+              <Dropdown<Cliente>
+                label="Selecionar Clientes"
+                className={Style.createCampaign__selectedClientsDropdown}
+                options={clients}
+                selected={form.selectedClients}
+                onChange={(value) => form.setSelectedClients(value as Cliente[])}
+                open={openDropdown === "client"}
+                onOpen={() => toggleDropdown("client")}
+                onClose={closeDropdown}
+                multiple
+                searchable
+                onSearchTermChange={handleClientSearch}
+              />
+            )}
 
-            <Dropdown<Cliente>
-              label="Selecionar Clientes"
-              className={Style.createCampaign__selectedClientsDropdown}
-              options={clients}
-              selected={form.selectedClients}
-              onChange={(value) => form.setSelectedClients(value as Cliente[])}
-              open={openDropdown === "client"}
-              onOpen={() => toggleDropdown("client")}
-              onClose={closeDropdown}
-              multiple
-              searchable
-              onSearchTermChange={handleClientSearch}
+           {!isRuleMode && (
+             <MyButton
+             text="Prosseguir"
+             variant="btn-enviar"
+             onClick={handleOpenPreview}
+             className={Style.btn_dispatch}
             />
-
-            <MyButton
-              text="Prosseguir"
-              variant="btn-enviar"
-              onClick={handleOpenPreview}
-              className={Style.btn_dispatch}
-            />
+           )}
           </section>
         </div>
       </div>

@@ -13,6 +13,20 @@ import { processarDocumentos } from "../../../utils/validation";
 import { templateRequiresAttendantName } from "../../../validators/template.validator";
 import { AppStorage } from "../../../services/storage/storage.service";
 
+const INVOICE_RULE_LABELS = {
+  greater_than: "Maior que",
+  less_than: "Menor que",
+  greater_or_equal: "Maior ou igual a",
+  less_or_equal: "Menor ou igual a",
+} as const;
+
+function toCalendarDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function formatPreviewDate(value?: Date) {
   if (!value) return "--";
   return value.toLocaleDateString("pt-BR");
@@ -24,8 +38,9 @@ export function useCreateCampaignPageController() {
   const [openDropdown, setOpenDropdown] = useState<DropdownType>(null);
   const [openAttendantModal, setOpenAttendantModal] = useState(false);
   const [attendantName, setAttendantName] = useState(AppStorage.getAttendantName());
+  const [isConsultingInvoiceRule, setIsConsultingInvoiceRule] = useState(false);
 
-  const { clients, setQuery } = useClient();
+  const { clients, setQuery, consultClientsByInvoiceRule } = useClient();
   const {
     templates,
     filteredTemplates,
@@ -46,17 +61,43 @@ export function useCreateCampaignPageController() {
 
   const closeDropdown = useCallback(() => setOpenDropdown(null), []);
 
+  const previewStartDate =
+    form.recurringType === "monthly_days"
+      ? form.selectedDays[0]
+      : form.dateRange?.from;
+
+  const previewEndDate =
+    form.recurringType === "monthly_days"
+      ? form.selectedDays[form.selectedDays.length - 1] ?? form.selectedDays[0]
+      : form.dateRange?.to ?? form.dateRange?.from;
+
   const previewDetails = useMemo(
     () => [
       { label: "Template", value: form.selectedTemplate?.name ?? "--" },
       { label: "Categoria", value: form.selectedCategory?.name ?? "--" },
-      { label: "Inicio", value: formatPreviewDate(form.dateRange?.from) },
+      { label: "Inicio", value: formatPreviewDate(previewStartDate) },
       {
         label: "Fim",
-        value: formatPreviewDate(form.dateRange?.to ?? form.dateRange?.from),
+        value: formatPreviewDate(previewEndDate),
       },
       { label: "Horario", value: form.dispatchTime || "--:--" },
-      { label: "Recorrencia", value: form.recurring ? "Recorrente" : "Unica" },
+      {
+        label: "Recorrencia",
+        value:
+          form.recurringType === "single"
+            ? "Unica"
+            : form.recurringType === "range"
+              ? "Recorrente"
+              : "Dias do mes",
+      },
+      ...(form.recurringType === "monthly_days"
+        ? [
+            {
+              label: "Regua",
+              value: `${INVOICE_RULE_LABELS[form.invoiceRuleOperator]} ${form.invoiceRuleDays} dia(s)`,
+            },
+          ]
+        : []),
       {
         label: "Time zone",
         value: Intl.DateTimeFormat().resolvedOptions().timeZone || "--",
@@ -64,13 +105,16 @@ export function useCreateCampaignPageController() {
       { label: "Clientes", value: String(form.selectedClients.length) },
     ],
     [
-      form.dateRange?.from,
-      form.dateRange?.to,
       form.dispatchTime,
-      form.recurring,
+      form.invoiceRuleDays,
+      form.invoiceRuleOperator,
+      form.recurringType,
       form.selectedCategory?.name,
       form.selectedClients.length,
+      form.selectedDays,
       form.selectedTemplate?.name,
+      previewEndDate,
+      previewStartDate,
     ],
   );
 
@@ -91,6 +135,53 @@ export function useCreateCampaignPageController() {
     },
     [account, clients, form.setSelectedClients, setQuery],
   );
+
+  const handleConsultClientsByInvoiceRule = useCallback(async () => {
+    if (form.recurringType !== "monthly_days") {
+      return;
+    }
+
+    const selectedDispatchDate = form.selectedDays[0];
+    if (!selectedDispatchDate) {
+      toast.warning("Selecione a data de disparo antes de consultar as faturas.");
+      return;
+    }
+
+    if (!form.selectedTemplate?.company?.id) {
+      toast.warning("Selecione um template antes de consultar as faturas.");
+      return;
+    }
+
+    const days = Number(form.invoiceRuleDays);
+    if (!Number.isInteger(days) || days < 1) {
+      toast.warning("Informe uma quantidade de dias valida para a regua de cobranca.");
+      return;
+    }
+
+    setIsConsultingInvoiceRule(true);
+
+    try {
+      const clientsFromRule = await consultClientsByInvoiceRule({
+        companyId: form.selectedTemplate.company.id,
+        filter: {
+          operator: form.invoiceRuleOperator,
+          days,
+          referenceDate: toCalendarDateKey(selectedDispatchDate),
+        },
+      });
+
+      form.setSelectedClientsFromInvoiceRule(clientsFromRule);
+    } finally {
+      setIsConsultingInvoiceRule(false);
+    }
+  }, [
+    consultClientsByInvoiceRule,
+    form,
+    form.invoiceRuleDays,
+    form.invoiceRuleOperator,
+    form.recurringType,
+    form.selectedTemplate,
+  ]);
 
   const submitCampaign = useCallback(async () => {
     const result = await form.createCampaign();
@@ -165,6 +256,9 @@ export function useCreateCampaignPageController() {
     closeDropdown,
     handleBackToCampaigns,
     handleUploadClientsSpreadsheet,
+    handleConsultClientsByInvoiceRule,
+    isConsultingInvoiceRule,
+    invoiceRuleLabels: INVOICE_RULE_LABELS,
     handleOpenPreview,
     handleConfirmPreview,
     handleCloseAttendantModal,
