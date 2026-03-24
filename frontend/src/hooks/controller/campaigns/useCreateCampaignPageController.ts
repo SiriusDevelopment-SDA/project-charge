@@ -14,10 +14,10 @@ import { templateRequiresAttendantName } from "../../../validators/template.vali
 import { AppStorage } from "../../../services/storage/storage.service";
 
 const INVOICE_RULE_LABELS = {
-  greater_than: "Maior que",
-  less_than: "Menor que",
-  greater_or_equal: "Maior ou igual a",
-  less_or_equal: "Menor ou igual a",
+  greater_than: "Depois do vencimento",
+  less_than: "Antes do vencimento",
+  greater_or_equal: "Depois do vencimento",
+  less_or_equal: "No dia do vencimento",
 } as const;
 
 function toCalendarDateKey(date: Date) {
@@ -27,9 +27,44 @@ function toCalendarDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function getCalendarDateKeysInRange(from: Date, to?: Date) {
+  const endDate = to ?? from;
+  const current = new Date(from);
+  current.setHours(12, 0, 0, 0);
+
+  const normalizedEnd = new Date(endDate);
+  normalizedEnd.setHours(12, 0, 0, 0);
+
+  const dates: string[] = [];
+
+  while (current.getTime() <= normalizedEnd.getTime()) {
+    dates.push(toCalendarDateKey(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
 function formatPreviewDate(value?: Date) {
   if (!value) return "--";
   return value.toLocaleDateString("pt-BR");
+}
+
+function formatInvoiceRulePreview(
+  operator: keyof typeof INVOICE_RULE_LABELS,
+  daysFrom: string,
+  daysTo: string,
+) {
+  if (operator === "less_or_equal") {
+    return "No dia do vencimento";
+  }
+
+  const numericFrom = Math.max(0, Number(daysFrom) || 0);
+  const numericTo = Math.max(0, Number(daysTo) || 0);
+  const start = Math.min(numericFrom, numericTo);
+  const end = Math.max(numericFrom, numericTo);
+
+  return `${INVOICE_RULE_LABELS[operator]} de ${start} a ${end} dia(s)`;
 }
 
 export function useCreateCampaignPageController() {
@@ -90,11 +125,15 @@ export function useCreateCampaignPageController() {
               ? "Recorrente"
               : "Dias do mes",
       },
-      ...(form.recurringType === "monthly_days"
+      ...(form.recurringType !== "single"
         ? [
             {
               label: "Regua",
-              value: `${INVOICE_RULE_LABELS[form.invoiceRuleOperator]} ${form.invoiceRuleDays} dia(s)`,
+              value: formatInvoiceRulePreview(
+                form.invoiceRuleOperator,
+                form.invoiceRuleDaysFrom,
+                form.invoiceRuleDaysTo,
+              ),
             },
           ]
         : []),
@@ -106,7 +145,8 @@ export function useCreateCampaignPageController() {
     ],
     [
       form.dispatchTime,
-      form.invoiceRuleDays,
+      form.invoiceRuleDaysFrom,
+      form.invoiceRuleDaysTo,
       form.invoiceRuleOperator,
       form.recurringType,
       form.selectedCategory?.name,
@@ -137,13 +177,7 @@ export function useCreateCampaignPageController() {
   );
 
   const handleConsultClientsByInvoiceRule = useCallback(async () => {
-    if (form.recurringType !== "monthly_days") {
-      return;
-    }
-
-    const selectedDispatchDate = form.selectedDays[0];
-    if (!selectedDispatchDate) {
-      toast.warning("Selecione a data de disparo antes de consultar as faturas.");
+    if (form.recurringType === "single") {
       return;
     }
 
@@ -152,32 +186,59 @@ export function useCreateCampaignPageController() {
       return;
     }
 
-    const days = Number(form.invoiceRuleDays);
-    if (!Number.isInteger(days) || days < 1) {
-      toast.warning("Informe uma quantidade de dias valida para a regua de cobranca.");
+    const rawDaysFrom = Number(form.invoiceRuleDaysFrom);
+    const rawDaysTo = Number(form.invoiceRuleDaysTo);
+    const isSameDayRule = form.invoiceRuleOperator === "less_or_equal";
+    const daysFrom = isSameDayRule ? 0 : rawDaysFrom;
+    const daysTo = isSameDayRule ? 0 : rawDaysTo;
+
+    if (
+      !Number.isInteger(daysFrom) ||
+      !Number.isInteger(daysTo) ||
+      daysFrom < 0 ||
+      daysTo < 0 ||
+      daysFrom > daysTo
+    ) {
+      toast.warning("Informe um intervalo valido de dias para a regua de cobranca.");
+      return;
+    }
+
+    const referenceDates =
+      form.recurringType === "monthly_days"
+        ? form.selectedDays.map((date) => toCalendarDateKey(date))
+        : form.dateRange?.from
+          ? getCalendarDateKeysInRange(form.dateRange.from, form.dateRange.to)
+          : [];
+
+    if (!referenceDates.length) {
+      toast.warning("Selecione a data de disparo antes de consultar as faturas.");
       return;
     }
 
     setIsConsultingInvoiceRule(true);
 
     try {
-      const clientsFromRule = await consultClientsByInvoiceRule({
+      const { clientsByDispatchDate } = await consultClientsByInvoiceRule({
         companyId: form.selectedTemplate.company.id,
         filter: {
           operator: form.invoiceRuleOperator,
-          days,
-          referenceDate: toCalendarDateKey(selectedDispatchDate),
+          days: daysTo,
+          daysFrom,
+          daysTo,
+          referenceDate: referenceDates[0],
+          referenceDates,
         },
       });
 
-      form.setSelectedClientsFromInvoiceRule(clientsFromRule);
+      form.setSelectedClientsFromInvoiceRule(clientsByDispatchDate);
     } finally {
       setIsConsultingInvoiceRule(false);
     }
   }, [
     consultClientsByInvoiceRule,
     form,
-    form.invoiceRuleDays,
+    form.invoiceRuleDaysFrom,
+    form.invoiceRuleDaysTo,
     form.invoiceRuleOperator,
     form.recurringType,
     form.selectedTemplate,

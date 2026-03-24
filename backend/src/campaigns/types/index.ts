@@ -6,6 +6,10 @@ export class TemplateMapVar {
 
   @IsOptional()
   @IsString()
+  dispatchDate?: string;
+
+  @IsOptional()
+  @IsString()
   nome_cliente?: string;
   
   @IsOptional()

@@ -22,6 +22,11 @@ import {
   ResultInvoicesDto,
   SearchRequestInvoicesDto,
 } from '../dto/search.request.dto.invoices';
+import {
+  filterInvoicesByDueDates,
+  getInvoiceRuleDueDatesMap,
+  getInvoiceRuleReferenceDates,
+} from '../utils/invoice-rule';
 
 @ApiTags('Invoices')
 @Controller('invoices')
@@ -70,7 +75,7 @@ export class InvoicesController {
         if (!cliente) {
           errors.push({
             document: doc,
-            reason: 'Cliente nÃ£o encontrado',
+            reason: 'Cliente não encontrado',
           });
           continue;
         }
@@ -116,72 +121,82 @@ export class InvoicesController {
     });
 
     if (!clients.length) {
-      throw new NotFoundException('Nenhum cliente encontrado para a empresa informada.');
+      throw new NotFoundException(
+        'Nenhum cliente encontrado para a empresa informada.',
+      );
     }
 
-    if (clients[0]?.company?.erp !== 'IXC') {
+    if (!['IXC', 'SGP'].includes(clients[0]?.company?.erp)) {
       throw new BadRequestException(
-        'Consulta por rÃ©gua de cobranÃ§a disponÃ­vel apenas para empresas IXC.',
+        'Filtro de régua de cobrança disponível apenas para empresas IXC e SGP.',
       );
     }
 
-    const localClientsByClientId = new Map<string, Client[]>();
-    clients.forEach((client) => {
-      const clientId = String(client.clientId ?? '').trim();
-      if (!clientId) {
-        return;
-      }
-
-      const current = localClientsByClientId.get(clientId) ?? [];
-      current.push(client);
-      localClientsByClientId.set(clientId, current);
-    });
-
-    const invoicesByClientId = await this.ixcService.searchInvoicesByRule(
-      companyId,
-      filter,
-    );
-    const resultados: ResultInvoicesDto[] = [];
-    const unmatchedClientIds: string[] = [];
-
-    invoicesByClientId.forEach(({ clientId, invoices }) => {
-      const matchingClients = localClientsByClientId.get(clientId) ?? [];
-
-      if (!matchingClients.length) {
-        unmatchedClientIds.push(clientId);
-        return;
-      }
-
-      matchingClients.forEach((cliente) => {
-        const normalizedDocument = String(cliente.cnpj_cpf ?? '').replace(/\D/g, '');
-        resultados.push(this.mapResult(cliente, normalizedDocument, invoices));
-      });
-    });
-
-    if (unmatchedClientIds.length) {
-      console.warn(
-        '[InvoicesController.searchInvoicesByCompanyRule] clientes do IXC sem correspondencia local',
-        {
-          companyId,
-          total: unmatchedClientIds.length,
-          clientIds: unmatchedClientIds.slice(0, 20),
-        },
+    const dispatchDates = getInvoiceRuleReferenceDates(filter);
+    if (!dispatchDates.length) {
+      throw new BadRequestException(
+        'A régua de cobrança precisa receber ao menos uma data de referência.',
       );
+    }
+
+    const dueDatesByDispatchDate = getInvoiceRuleDueDatesMap(filter);
+    const resultados: ResultInvoicesDto[] = [];
+    const errors: { document: string; reason: string }[] = [];
+
+    for (const cliente of clients) {
+      try {
+        const normalizedDocument = String(cliente.cnpj_cpf ?? '').replace(/\D/g, '');
+        const invoices = await this.fetchInvoicesByClient(cliente, filter);
+
+        if (!Array.isArray(invoices.list) || invoices.list.length === 0) {
+          continue;
+        }
+
+        dispatchDates.forEach((dispatchDate) => {
+          const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
+          const filteredInvoices = filterInvoicesByDueDates(
+            invoices.list,
+            dueDates,
+          );
+
+          if (!filteredInvoices.length) {
+            return;
+          }
+
+          resultados.push(
+            this.mapResult(
+              cliente,
+              normalizedDocument,
+              {
+                ...invoices,
+                list: filteredInvoices,
+              },
+              dispatchDate,
+            ),
+          );
+        });
+      } catch {
+        errors.push({
+          document: String(cliente.cnpj_cpf ?? ''),
+          reason: 'Erro inesperado ao processar o cliente pela régua',
+        });
+      }
     }
 
     const uniqueResults = [
-      ...new Map(resultados.map((item) => [item.clientData.id, item])).values(),
+      ...new Map(
+        resultados.map((item) => [
+          `${item.dispatchDate ?? 'all'}:${item.clientData.id}`,
+          item,
+        ]),
+      ).values(),
     ];
-    const emptyMessage =
-      invoicesByClientId.length > 0 && uniqueResults.length === 0
-        ? 'O IXC retornou faturas, mas nenhum id_cliente foi encontrado na base local.'
-        : 'Nenhum cliente encontrado para os filtros informados.';
 
     return this.buildBatchResponse(
       uniqueResults,
-      [],
-      'Clientes encontrados pela rÃ©gua de cobranÃ§a.',
-      emptyMessage,
+      errors,
+      'Clientes encontrados pela régua de cobrança.',
+      'Nenhum cliente encontrado para os filtros informados.',
     );
   }
 
@@ -196,23 +211,17 @@ export class InvoicesController {
       case 'HUBSOFT':
         if (filter) {
           throw new BadRequestException(
-            'Filtro de rÃ©gua de cobranÃ§a disponÃ­vel apenas para empresas IXC.',
+            'Filtro de régua de cobrança indisponível para empresas HUBSOFT.',
           );
         }
 
         return this.hubsoftService.getInvoices(cliente);
 
       case 'SGP':
-        if (filter) {
-          throw new BadRequestException(
-            'Filtro de rÃ©gua de cobranÃ§a disponÃ­vel apenas para empresas IXC.',
-          );
-        }
-
-        return this.sgpService.getInvoices(cliente);
+        return this.sgpService.getInvoices(cliente, filter);
 
       default:
-        throw new BadRequestException(`ERP nÃ£o suportado: ${cliente.company.erp}`);
+        throw new BadRequestException(`ERP não suportado: ${cliente.company.erp}`);
     }
   }
 
@@ -220,6 +229,7 @@ export class InvoicesController {
     cliente: Client,
     normalizedDocument: string,
     invoices: InvoicesResponseDto,
+    dispatchDate?: string,
   ): ResultInvoicesDto {
     return {
       clientData: {
@@ -238,6 +248,7 @@ export class InvoicesController {
       client: cliente.name,
       document: normalizedDocument,
       erp: cliente.company.erp,
+      dispatchDate: dispatchDate ?? null,
       invoices,
     };
   }
@@ -265,7 +276,7 @@ export class InvoicesController {
       message = emptySuccessMessage;
     } else {
       status = 'error';
-      message = 'Nenhum cliente pÃ´de ser processado.';
+      message = 'Nenhum cliente pôde ser processado.';
     }
 
     return {

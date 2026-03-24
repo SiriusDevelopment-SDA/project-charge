@@ -104,16 +104,24 @@ export class CampaignScheduler {
 
   private async enqueueCampaign(campaign: Campaign, now: Date): Promise<void> {
     try {
-      const recipients: MessageQueuePayload[] = (
-        campaign.templateMapVars ?? []
-      ).map((v) => ({
+      const scopedTemplateMapVars = this.getTemplateMapVarsForDispatchDate(
+        campaign,
+        now,
+      );
+      const recipients: MessageQueuePayload[] = scopedTemplateMapVars.map((v) => ({
         number: String(v.whatsapp ?? ''),
         name: String(v.nome_cliente ?? ''),
         components: this.buildComponents(v),
       }));
 
       if (recipients.length === 0) {
-        this.logger.warn(`Campaign ${campaign.id} has no recipients, skipping`);
+        this.logger.warn(
+          `Campaign ${campaign.id} has no recipients for ${this.toDateOnly(now, campaign.timezone)}, skipping`,
+        );
+        await this.campaignRepository.update(campaign.id, {
+          lastDispatchedAt: now,
+          status: campaign.recurring ? 'queue' : 'finished',
+        });
         return;
       }
 
@@ -140,6 +148,26 @@ export class CampaignScheduler {
     }
   }
 
+  private getTemplateMapVarsForDispatchDate(
+    campaign: Campaign,
+    now: Date,
+  ): Record<string, unknown>[] {
+    const templateMapVars = campaign.templateMapVars ?? [];
+    const hasScopedRecipients = templateMapVars.some((vars) =>
+      typeof vars?.dispatchDate === 'string' && String(vars.dispatchDate).trim(),
+    );
+
+    if (!hasScopedRecipients) {
+      return templateMapVars;
+    }
+
+    const currentDispatchDate = this.toDateOnly(now, campaign.timezone);
+
+    return templateMapVars.filter(
+      (vars) => String(vars?.dispatchDate ?? '').trim() === currentDispatchDate,
+    );
+  }
+
   private buildComponents(vars: Record<string, unknown>): MessageQueuePayload['components'] {
     // Extract text parameters from template vars into WhatsApp component format.
     // The actual component structure was saved in templateMapVars by the frontend.
@@ -148,7 +176,7 @@ export class CampaignScheduler {
 
     // Fallback: build a simple BODY component with non-empty string values
     const parameters = Object.entries(vars)
-      .filter(([k, v]) => !['clientId', 'cnpj_cpf', 'whatsapp', 'nome_cliente'].includes(k) && typeof v === 'string' && v)
+      .filter(([k, v]) => !['clientId', 'dispatchDate', 'cnpj_cpf', 'whatsapp', 'nome_cliente'].includes(k) && typeof v === 'string' && v)
       .map(([, v]) => ({ type: 'text', text: String(v) }));
 
     return parameters.length ? [{ type: 'BODY', parameters }] : [];

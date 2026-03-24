@@ -72,7 +72,6 @@
    GRID DOS CONTEUDOS
 ========================= */
 .createCampaign__grid {
-    padding: 0px 0px 30px 0px;
     display: flex;
     justify-content: space-between;
     gap: 50px;
@@ -96,12 +95,26 @@
     gap: 15px;
     height: 100%;
 }
+.grid_left{
+    flex: 0 0 390px;
+    max-width: 390px;
+    min-width: 320px;
+}
 .grid_right{
     width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
 }
 .createCampaign__scheduleTime {
     display: flex;
     justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.createCampaign__scheduleTimeField {
+    flex: 0 0 145px;
+    min-width: 145px;
 }
 .createCampaign__selectedClientsDropdown{
     margin-top: 10px;
@@ -109,17 +122,25 @@
 .containerDropdown{
     display: flex;
     gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.containerDropdown > * {
+    flex: 1 1 280px;
+    min-width: 0;
 }
 .invoiceRulePanel {
-    padding: 18px;
+    padding: 14px;
     border: 1px solid rgba(212, 166, 0, 0.28);
     border-radius: 10px;
     background: linear-gradient(180deg, rgba(18, 16, 8, 0.88) 0%, rgba(10, 10, 10, 0.88) 100%);
     box-shadow: inset 0 0 0 1px rgba(212, 166, 0, 0.08);
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    width: 85%;
+    gap: 10px;
+    flex: 1 1 560px;
+    min-width: 320px;
+    max-width: 100%;
 }
 
 .invoiceRuleHeader {
@@ -136,21 +157,206 @@
 
 .invoiceRuleHeader small {
     color: rgba(255, 255, 255, 0.58);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.invoiceRuleTopRow {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.invoiceRuleSlider {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 2px 0;
+    flex: 1 1 280px;
+    min-width: 220px;
+}
+
+.invoiceRulePresets {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.invoiceRulePresetHint {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px dashed rgba(212, 166, 0, 0.24);
+    background: rgba(212, 166, 0, 0.04);
+    color: rgba(255, 255, 255, 0.58);
     font-size: 12px;
+    text-align: center;
+}
+
+.invoiceRulePresetCard {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 26px;
+    min-width: 100px;
+    /* padding: 10px 12px; */
+    border-radius: 8px;
+    border: 1px solid rgba(212, 166, 0, 0.28);
+    background: rgba(212, 166, 0, 0.05);
+    color: rgba(255, 255, 255, 0.82);
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+    text-align: center;
+}
+
+.invoiceRulePresetCard:hover {
+    border-color: rgba(212, 166, 0, 0.58);
+    background: rgba(212, 166, 0, 0.09);
+    transform: translateY(-1px);
+}
+
+.invoiceRulePresetCard strong {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.invoiceRulePresetCard small {
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 11px;
+}
+
+.invoiceRulePresetCardActive {
+    border-color: rgba(212, 166, 0, 0.85);
+    background: rgba(212, 166, 0, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(212, 166, 0, 0.18);
+}
+
+.invoiceRuleTrack {
+    position: relative;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.invoiceRuleTrackLine {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(212, 166, 0, 0.25);
+    border-radius: 2px;
+}
+
+.invoiceRuleThumb {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #D4A600;
+    box-shadow: 0 0 12px rgba(212, 166, 0, 0.65);
+    transform: translateX(-50%);
+    transition: left 0.2s ease;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.invoiceRuleTickDot {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(212, 166, 0, 0.4);
+    transform: translateX(-50%);
+    z-index: 1;
+    cursor: pointer;
+}
+
+.invoiceRuleSliderLabels {
+    display: flex;
+    justify-content: space-between;
+}
+
+.sliderLabel {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+}
+
+.sliderLabel:hover {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.sliderLabelActive {
+    color: #D4A600;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: 600;
+    user-select: none;
 }
 
 .invoiceRuleRow {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.invoiceRuleManualSection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 2px;
+}
+
+.invoiceRuleManualHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.invoiceRuleManualHeader::before,
+.invoiceRuleManualHeader::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(212, 166, 0, 0.2);
+}
+
+.invoiceRuleManualHeader span {
+    white-space: nowrap;
+}
+
+.invoiceRuleManualFields {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) minmax(180px, 220px) auto;
-    gap: 12px;
-    align-items: end;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+
+.invoiceRuleManualDivider {
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 20px;
+    line-height: 1;
 }
 
 .invoiceRuleField {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    flex: 1 1 220px;
     min-width: 0;
+}
+
+.invoiceRuleFieldDisabled {
+    opacity: 0.35;
+    pointer-events: none;
 }
 
 .invoiceRuleField span {
@@ -158,35 +364,131 @@
     font-size: 12px;
     font-weight: 500;
 }
+.titleHeader{
+    display: flex;
+    justify-content: space-between;
+    gap: 50px;
 
-.invoiceRuleSelect {
-    width: 100%;
-    height: 46px;
-    padding: 0 14px;
-    border: 1px solid rgba(212, 166, 0, 0.35);
-    border-radius: 8px;
-    background: rgba(10, 10, 10, 0.85);
-    color: #fff;
-    outline: none;
+    small{
+        display: flex;
+        flex-direction: column;
+    }
 }
-
-.invoiceRuleSelect:focus {
-    border-color: rgba(212, 166, 0, 0.85);
-}
-
 .invoiceRuleButton {
-    min-width: 170px;
-    height: 46px;
+    min-width: 150px;
+    height: 40px;
+    flex: 0 0 auto;
+}
+
+.invoiceRuleActionRow {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+}
+
+.invoiceRuleRangeSlider {
+    position: relative;
+    height: 26px;
+}
+
+.invoiceRuleRangeTrackBase,
+.invoiceRuleRangeTrackActive {
+    position: absolute;
+    top: 16px;
+    height: 3px;
+    border-radius: 999px;
+}
+
+.invoiceRuleRangeTrackBase {
+    left: 0;
+    right: 0;
+    background: rgba(212, 166, 0, 0.2);
+}
+
+.invoiceRuleRangeTrackActive {
+    background: linear-gradient(90deg, rgba(212, 166, 0, 0.65) 0%, rgba(250, 204, 21, 0.95) 100%);
+    box-shadow: 0 0 10px rgba(212, 166, 0, 0.26);
+}
+
+.invoiceRuleRangeInput {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 26px;
+    margin: 0;
+    cursor: pointer;
+    background: transparent;
+    pointer-events: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.invoiceRuleRangeInput::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #D4A600;
+    border: 0;
+    box-shadow: 0 0 12px rgba(212, 166, 0, 0.55);
+    pointer-events: auto;
+    -webkit-appearance: none;
+}
+
+.invoiceRuleRangeInput::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #D4A600;
+    border: 0;
+    box-shadow: 0 0 12px rgba(212, 166, 0, 0.55);
+    pointer-events: auto;
+}
+
+.invoiceRuleRangeInput::-webkit-slider-runnable-track {
+    background: transparent;
+    height: 4px;
+}
+
+.invoiceRuleRangeInput::-moz-range-track {
+    background: transparent;
+    height: 4px;
+}
+
+.invoiceRuleRangeValues,
+.invoiceRuleRangeScale {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.invoiceRuleRangeValues span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 74px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(212, 166, 0, 0.35);
+    background: rgba(212, 166, 0, 0.08);
+    color: #ffd700;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.invoiceRuleRangeScale {
+    color: rgba(255, 255, 255, 0.38);
+    font-size: 10px;
 }
 
 .invoiceRuleSummary {
     color: rgba(255, 255, 255, 0.68);
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .invoiceRuleClientsPreview {
     color: rgba(255, 255, 255, 0.56);
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .invoiceRuleClientsPreview span {
@@ -201,7 +503,12 @@
     display: flex;
     gap: 8px;
 }
-
+.containerBotton{
+    display: flex;
+    gap: 20px;
+    flex-direction: column;
+    margin-top: 5px
+}
 .recurringTypeBtn {
     flex: 1;
     padding: 8px 12px;
@@ -229,19 +536,107 @@
    VIGÊNCIA (monthly_days)
 ========================= */
 .selectedDaysPreview {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 100%;
+    max-width: 390px;
+    width: 170px;
+    padding: 4px;
+    border: 1px solid rgba(212, 166, 0, 0.2);
+    border-radius: 10px;
+    background: rgba(16, 14, 8, 0.65);
+}
+
+.selectedDaysPreviewHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.selectedDaysPreviewCount {
+    color: #ffff;
+    font-size: 16px;
+    /* font-weight: 600; */
+    margin-left: 5px;
+}
+
+.selectedDaysPreviewHint {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 11px;
+}
+
+.selectedDaysPreviewList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 92px;
+    overflow-y: auto;
+    padding-right: 4px;
+    align-content: flex-start;
+}
+
+.selectedDaysPreviewChip {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(212, 166, 0, 0.28);
+    background: rgba(212, 166, 0, 0.08);
+    color: #ffd700;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.timeContainer{
+    display: flex;
+    gap: 20px;
+    text-align: center;
+    align-items: flex-end;
+    max-width: 330px;
+}
+.containerDataSelect{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+}
+.selectedDaysPreviewEmpty {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.55);
     min-height: 20px;
 }
 
-.selectedDaysPreview span {
-    color: #ffd700;
-    font-weight: 500;
+.campaignActionsRow {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.campaignNameField {
+    flex: 1 1 320px;
+    min-width: 260px;
+}
+
+.campaignActionButton {
+    min-width: 160px;
+    flex: 0 0 auto;
 }
 
 @media (max-width: 1180px) {
     .createCampaign__grid {
         flex-direction: column;
+    }
+
+    .grid_left {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        flex: 1 1 auto;
     }
 
     .createCampaign__scheduleTime {
@@ -255,10 +650,58 @@
     }
 
     .invoiceRuleRow {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .invoiceRuleTopRow {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .invoiceRulePresets {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .invoiceRuleManualFields {
         grid-template-columns: 1fr;
+    }
+
+    .invoiceRuleManualDivider {
+        display: none;
+    }
+
+    .invoiceRulePanel {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .selectedDaysPreview {
+        max-width: 100%;
+    }
+
+    .invoiceRuleField,
+    .invoiceRuleButton,
+    .campaignNameField,
+    .campaignActionButton,
+    .createCampaign__scheduleTimeField {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        flex: 1 1 100%;
     }
 
     .invoiceRuleButton {
         width: 100%;
+    }
+
+    .invoiceRuleActionRow {
+        justify-content: stretch;
+    }
+}
+
+@media (max-width: 720px) {
+    .invoiceRulePresets {
+        grid-template-columns: 1fr;
     }
 }

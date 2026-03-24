@@ -3,7 +3,12 @@ import { useClientsQuery, useServicesQuery } from "./queries/useClientsQuery";
 import { useFetchInvoicesMutation } from "./mutations/useClientsMutations";
 import { toast } from "react-toastify";
 import { useDebounce } from "./useDebounce";
-import type { Cliente, IClientsContext, InvoiceRuleFilter } from "../types";
+import type {
+  Cliente,
+  IClientsContext,
+  InvoiceRuleClientsByDate,
+  InvoiceRuleFilter,
+} from "../types";
 import { useGlobalLoading } from "./useGlobalLoading";
 import { ClientService } from "../services/client/client.service";
 import { getErrorMessage } from "../utils/error";
@@ -76,9 +81,9 @@ export function useClient(): IClientsContext {
     }: {
       companyId: string;
       filter: InvoiceRuleFilter;
-    }): Promise<Cliente[]> => {
+    }) => {
       if (!companyId) {
-        return [];
+        return { clients: [], clientsByDispatchDate: {} };
       }
 
       const loadingId = showLoading("Consultando clientes pela regua de cobranca...");
@@ -99,21 +104,45 @@ export function useClient(): IClientsContext {
           toast.warning(`Cliente do documento: ${error.document} ${error.reason}`);
         });
 
-        const selectedClients = providers.map((provider) => ({
-          id: provider.clientData.id,
-          clientId: provider.clientData.clientId,
-          cnpj_cpf: provider.clientData.cnpj_cpf,
-          name: provider.clientData.name,
-          whatsapp: provider.clientData.whatsapp,
-          email: provider.clientData.email ?? undefined,
-          company: provider.clientData.company,
-          invoices: provider.invoices,
-        }));
+        const clientsByDispatchDate: InvoiceRuleClientsByDate = {};
+        const uniqueClients = new Map<string, Cliente>();
+        const clientsByDateAndId = new Map<string, Cliente>();
 
-        return [...new Map(selectedClients.map((client) => [client.id, client])).values()];
+        providers.forEach((provider) => {
+          const mappedClient = {
+            id: provider.clientData.id,
+            clientId: provider.clientData.clientId,
+            cnpj_cpf: provider.clientData.cnpj_cpf,
+            name: provider.clientData.name,
+            whatsapp: provider.clientData.whatsapp,
+            email: provider.clientData.email ?? undefined,
+            company: provider.clientData.company,
+            invoices: provider.invoices,
+          };
+
+          const dispatchDate = provider.dispatchDate ?? filter.referenceDate;
+          if (dispatchDate) {
+            const scopedKey = `${dispatchDate}:${mappedClient.id}`;
+            clientsByDateAndId.set(scopedKey, mappedClient);
+          }
+
+          uniqueClients.set(mappedClient.id, mappedClient);
+        });
+
+        clientsByDateAndId.forEach((client, scopedKey) => {
+          const [dispatchDate] = scopedKey.split(":");
+          const current = clientsByDispatchDate[dispatchDate] ?? [];
+          current.push(client);
+          clientsByDispatchDate[dispatchDate] = current;
+        });
+
+        return {
+          clients: [...uniqueClients.values()],
+          clientsByDispatchDate,
+        };
       } catch (error) {
         toast.error(getErrorMessage(error, "Erro ao consultar clientes pela regua."));
-        return [];
+        return { clients: [], clientsByDispatchDate: {} };
       } finally {
         hideLoading(loadingId);
       }

@@ -33,6 +33,14 @@ export type Cliente = {
     services?: Service[];
     company?: company;
   }
+
+  export type InvoiceRuleClientsByDate = Record<string, Cliente[]>;
+
+  export type InvoiceRuleConsultResult = {
+    clients: Cliente[];
+    clientsByDispatchDate: InvoiceRuleClientsByDate;
+  };
+
   export type responseClients = {
     data: Cliente[];
     limit: number;
@@ -54,6 +62,6 @@ export type Cliente = {
     consultClientsByInvoiceRule: (params: {
       companyId: string;
       filter: InvoiceRuleFilter;
-    }) => Promise<Cliente[]>;
+    }) => Promise<InvoiceRuleConsultResult>;
     fetchServices: (companyId?: string) => Promise<void>;
   }

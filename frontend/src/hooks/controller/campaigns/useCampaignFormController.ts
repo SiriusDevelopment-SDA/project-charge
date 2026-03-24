@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "react-toastify";
 import { campaignSchema } from "../../../schemas/campaign.schema";
-import type { Category, Cliente, mappedVars, Template } from "../../../types";
+import type {
+  Category,
+  Cliente,
+  InvoiceRuleClientsByDate,
+  mappedVars,
+  Template,
+} from "../../../types";
 import type { RecurringType } from "../../../types/champaignApiTypes";
 import type { InvoiceRuleOperator } from "../../../types/invoiceApiTypes";
 import { CampaignService } from "../../../services/campaign/campaign.service";
@@ -63,6 +69,16 @@ function getUniqueSortedSelectedDays(dates: Date[]): Date[] {
   return [...uniqueDates.values()].sort((a, b) => a.getTime() - b.getTime());
 }
 
+function getUniqueClientsFromInvoiceRuleSelections(
+  selections: InvoiceRuleClientsByDate,
+): Cliente[] {
+  return [...new Map(
+    Object.values(selections)
+      .flat()
+      .map((client) => [client.id, client]),
+  ).values()];
+}
+
 export function useCampaignFormController() {
   const [selectedClients, setSelectedClientsState] = useState<Cliente[]>([]);
   const [selectedTemplate, setSelectedTemplateState] = useState<Template>();
@@ -70,12 +86,15 @@ export function useCampaignFormController() {
   const [name, setName] = useState("");
   const [dispatchTime, setdispatchTime] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category>();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRangeState] = useState<DateRange | undefined>(undefined);
   const [recurringType, setRecurringType] = useState<RecurringType>("single");
   const [selectedDays, setSelectedDaysState] = useState<Date[]>([]);
+  const [invoiceRuleClientsByDate, setInvoiceRuleClientsByDate] =
+    useState<InvoiceRuleClientsByDate>({});
   const [invoiceRuleOperatorState, setInvoiceRuleOperatorState] =
-    useState<InvoiceRuleOperator>("greater_or_equal");
-  const [invoiceRuleDaysState, setInvoiceRuleDaysState] = useState("5");
+    useState<InvoiceRuleOperator>("less_than");
+  const [invoiceRuleDaysFromState, setInvoiceRuleDaysFromState] = useState("0");
+  const [invoiceRuleDaysToState, setInvoiceRuleDaysToState] = useState("30");
   const [hasConsultedInvoiceRule, setHasConsultedInvoiceRule] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { fetchInvoices } = useClient();
@@ -83,12 +102,14 @@ export function useCampaignFormController() {
   fetchInvoicesRef.current = fetchInvoices;
 
   const resetInvoiceRuleConsultation = useCallback(() => {
+    setInvoiceRuleClientsByDate({});
     setSelectedClientsState([]);
     setTemplateMapsVars([]);
     setHasConsultedInvoiceRule(false);
   }, []);
 
   const setSelectedClients = useCallback((clients: Cliente[]) => {
+    setInvoiceRuleClientsByDate({});
     setSelectedClientsState(clients);
     setHasConsultedInvoiceRule(false);
   }, []);
@@ -96,28 +117,47 @@ export function useCampaignFormController() {
   const setSelectedTemplate = useCallback((template?: Template) => {
     setSelectedTemplateState(template);
 
-    if (recurringType === "monthly_days") {
+    if (recurringType !== "single") {
       resetInvoiceRuleConsultation();
     }
   }, [recurringType, resetInvoiceRuleConsultation]);
 
-  const setSelectedClientsFromInvoiceRule = useCallback((clients: Cliente[]) => {
-    setSelectedClientsState(clients);
-    setHasConsultedInvoiceRule(true);
-  }, []);
+  const setSelectedClientsFromInvoiceRule = useCallback(
+    (clientsByDate: InvoiceRuleClientsByDate) => {
+      setInvoiceRuleClientsByDate(clientsByDate);
+      setSelectedClientsState(
+        getUniqueClientsFromInvoiceRuleSelections(clientsByDate),
+      );
+      setHasConsultedInvoiceRule(true);
+    },
+    [],
+  );
 
   const setSelectedDays = useCallback((dates: Date[]) => {
-    setSelectedDaysState(getUniqueSortedSelectedDays(dates));
+    setSelectedDaysState(getUniqueSortedSelectedDays(dates).slice(0, 1));
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
+
+  const setDateRange = useCallback((value: DateRange | undefined) => {
+    setDateRangeState(value);
+
+    if (recurringType === "range") {
+      resetInvoiceRuleConsultation();
+    }
+  }, [recurringType, resetInvoiceRuleConsultation]);
 
   const setInvoiceRuleOperator = useCallback((value: InvoiceRuleOperator) => {
     setInvoiceRuleOperatorState(value);
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
-  const setInvoiceRuleDays = useCallback((value: string) => {
-    setInvoiceRuleDaysState(value);
+  const setInvoiceRuleDaysFrom = useCallback((value: string) => {
+    setInvoiceRuleDaysFromState(value);
+    resetInvoiceRuleConsultation();
+  }, [resetInvoiceRuleConsultation]);
+
+  const setInvoiceRuleDaysTo = useCallback((value: string) => {
+    setInvoiceRuleDaysToState(value);
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
@@ -138,16 +178,37 @@ export function useCampaignFormController() {
     [],
   );
 
+  const buildMappedVarsFromInvoiceRuleSelections = useCallback(
+    (template: Template, filterByTemplateVars: boolean) => {
+      return Object.entries(invoiceRuleClientsByDate).flatMap(
+        ([dispatchDate, clients]) => {
+          const validClients = clients.filter((client) =>
+            validarSelecaoCliente(client, template),
+          );
+
+          return mapRecipientsToTemplateVars(validClients, template, {
+            filterByTemplateVars,
+          }).map((item) => ({
+            ...item,
+            dispatchDate,
+          }));
+        },
+      );
+    },
+    [invoiceRuleClientsByDate],
+  );
+
   const resetForm = useCallback(() => {
     setName("");
     setdispatchTime("");
     setSelectedTemplateState(undefined);
     setSelectedCategory(undefined);
-    setDateRange(undefined);
+    setDateRangeState(undefined);
     setRecurringType("single");
     setSelectedDaysState([]);
-    setInvoiceRuleOperatorState("greater_or_equal");
-    setInvoiceRuleDaysState("5");
+    setInvoiceRuleOperatorState("less_than");
+    setInvoiceRuleDaysFromState("0");
+    setInvoiceRuleDaysToState("30");
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
@@ -156,6 +217,13 @@ export function useCampaignFormController() {
       try {
         if (!selectedTemplate || selectedClients.length === 0) {
           setTemplateMapsVars([]);
+          return;
+        }
+
+        if (recurringType !== "single" && Object.keys(invoiceRuleClientsByDate).length) {
+          setTemplateMapsVars(
+            buildMappedVarsFromInvoiceRuleSelections(selectedTemplate, true),
+          );
           return;
         }
 
@@ -193,7 +261,14 @@ export function useCampaignFormController() {
     };
 
     void mapVars();
-  }, [selectedTemplate, selectedClients, mergeFetchedInvoices]);
+  }, [
+    buildMappedVarsFromInvoiceRuleSelections,
+    invoiceRuleClientsByDate,
+    mergeFetchedInvoices,
+    recurringType,
+    selectedClients,
+    selectedTemplate,
+  ]);
 
   const getRecurringDays = useCallback((): string[] => {
     return selectedDays.map((date) => toCalendarDateKey(date));
@@ -235,9 +310,17 @@ export function useCampaignFormController() {
         return { success: false };
       }
 
-      let source = selectedClients;
+      const usesInvoiceRule = recurringType !== "single";
 
-      if (selectedTemplate.category.toLowerCase().includes("cobr")) {
+      let source = selectedClients;
+      let mappedVarsForSubmit: mappedVars[] = [];
+
+      if (usesInvoiceRule) {
+        mappedVarsForSubmit = buildMappedVarsFromInvoiceRuleSelections(
+          selectedTemplate,
+          false,
+        );
+      } else if (selectedTemplate.category.toLowerCase().includes("cobr")) {
         const needInvoices = selectedClients.filter(
           (client) => !client.invoices || client.invoices.status === "error",
         );
@@ -247,11 +330,15 @@ export function useCampaignFormController() {
           source = mergeFetchedInvoices(selectedClients, fetchedClients);
           setSelectedClientsState(source);
         }
-      }
 
-      const mappedVarsForSubmit = mapRecipientsToTemplateVars(source, selectedTemplate, {
-        filterByTemplateVars: false,
-      });
+        mappedVarsForSubmit = mapRecipientsToTemplateVars(source, selectedTemplate, {
+          filterByTemplateVars: false,
+        });
+      } else {
+        mappedVarsForSubmit = mapRecipientsToTemplateVars(source, selectedTemplate, {
+          filterByTemplateVars: false,
+        });
+      }
 
       const templateMapVarsForSubmit = mappedVarsForSubmit
         .map((item) => {
@@ -260,6 +347,7 @@ export function useCampaignFormController() {
 
           return {
             clientId: String(item.clientId ?? "").trim(),
+            dispatchDate: item.dispatchDate,
             cnpj_cpf: String(item.cnpj_cpf ?? "").trim(),
             whatsapp: String(item.whatsapp ?? "").trim(),
             nome_cliente: item.nome_cliente,
@@ -317,7 +405,7 @@ export function useCampaignFormController() {
         recurring: recurringType !== "single",
         recurringType,
         recurringDays: recurringType === "monthly_days" ? getRecurringDays() : undefined,
-        clients: templateMapVarsForSubmit.map((item) => item.clientId),
+        clients: [...new Set(templateMapVarsForSubmit.map((item) => item.clientId))],
         templateMapVars: templateMapVarsForSubmit,
       };
 
@@ -358,6 +446,7 @@ export function useCampaignFormController() {
       setIsSubmitting(false);
     }
   }, [
+    buildMappedVarsFromInvoiceRuleSelections,
     dateRange,
     dispatchTime,
     fetchInvoices,
@@ -376,7 +465,9 @@ export function useCampaignFormController() {
   ]);
 
   const validateForm = useCallback((): ValidationResult => {
-    if (recurringType === "monthly_days" && !hasConsultedInvoiceRule) {
+    const usesInvoiceRule = recurringType !== "single";
+
+    if (usesInvoiceRule && !hasConsultedInvoiceRule) {
       return {
         success: false,
         error: {
@@ -392,9 +483,9 @@ export function useCampaignFormController() {
           issues: [
             {
               message:
-                recurringType !== "monthly_days"
-                  ? "Selecione ao menos um cliente"
-                  : "Nenhum cliente foi encontrado para a regua de cobranca informada.",
+                usesInvoiceRule
+                  ? "Nenhum cliente foi encontrado para a regua de cobranca informada."
+                  : "Selecione ao menos um cliente",
             },
           ],
         },
@@ -440,13 +531,15 @@ export function useCampaignFormController() {
     }
 
     const effectiveMapVars =
-      templateMapVars.length && selectedTemplate
-        ? templateMapVars
-        : selectedTemplate
-          ? mapRecipientsToTemplateVars(selectedClients, selectedTemplate, {
-              filterByTemplateVars: true,
-            })
-          : [];
+      usesInvoiceRule && selectedTemplate
+        ? buildMappedVarsFromInvoiceRuleSelections(selectedTemplate, true)
+        : templateMapVars.length && selectedTemplate
+          ? templateMapVars
+          : selectedTemplate
+            ? mapRecipientsToTemplateVars(selectedClients, selectedTemplate, {
+                filterByTemplateVars: true,
+              })
+            : [];
 
     if (!selectedTemplate || !effectiveMapVars.length) {
       return {
@@ -487,7 +580,12 @@ export function useCampaignFormController() {
 
       const invalidNames = incompleteRecipients
         .slice(0, 3)
-        .map((recipient) => selectedClients[recipient.index]?.name || `Cliente ${recipient.index + 1}`);
+        .map(
+          (recipient) =>
+            effectiveMapVars[recipient.index]?.nome_cliente ||
+            selectedClients[recipient.index]?.name ||
+            `Cliente ${recipient.index + 1}`,
+        );
 
       return {
         success: false,
@@ -509,6 +607,7 @@ export function useCampaignFormController() {
   }, [
     dateRange,
     dispatchTime,
+    buildMappedVarsFromInvoiceRuleSelections,
     getMonthlyDateRange,
     getRecurringDays,
     hasConsultedInvoiceRule,
@@ -561,8 +660,10 @@ export function useCampaignFormController() {
       setSelectedDays,
       invoiceRuleOperator: invoiceRuleOperatorState,
       setInvoiceRuleOperator,
-      invoiceRuleDays: invoiceRuleDaysState,
-      setInvoiceRuleDays,
+      invoiceRuleDaysFrom: invoiceRuleDaysFromState,
+      setInvoiceRuleDaysFrom,
+      invoiceRuleDaysTo: invoiceRuleDaysToState,
+      setInvoiceRuleDaysTo,
       hasConsultedInvoiceRule,
       isSubmitting,
       templateMapVars,
@@ -580,7 +681,8 @@ export function useCampaignFormController() {
       dispatchTime,
       handleSubmit,
       hasConsultedInvoiceRule,
-      invoiceRuleDaysState,
+      invoiceRuleDaysFromState,
+      invoiceRuleDaysToState,
       invoiceRuleOperatorState,
       isSubmitting,
       name,
@@ -589,7 +691,8 @@ export function useCampaignFormController() {
       selectedCategory,
       selectedClients,
       selectedDays,
-      setInvoiceRuleDays,
+      setInvoiceRuleDaysFrom,
+      setInvoiceRuleDaysTo,
       setInvoiceRuleOperator,
       setSelectedTemplate,
       setSelectedDays,

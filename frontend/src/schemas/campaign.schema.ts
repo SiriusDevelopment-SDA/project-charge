@@ -32,15 +32,6 @@ export const campaignSchema = z
         return;
       }
 
-      if (data.recurringDays.length > 1) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["recurringDays"],
-          message: "Selecione apenas uma data para o disparo.",
-        });
-        return;
-      }
-
       if (!data.startDate || !data.endDate) {
         ctx.addIssue({
           code: "custom",

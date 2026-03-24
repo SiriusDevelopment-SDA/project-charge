@@ -18,8 +18,11 @@ export type InvoiceRuleOperator =
 
 export interface InvoiceRuleFilter {
   operator: InvoiceRuleOperator;
-  days: number;
+  days?: number;
+  daysFrom: number;
+  daysTo: number;
   referenceDate: string;
+  referenceDates?: string[];
 }
 
 export interface CodePix {
@@ -67,6 +70,7 @@ export interface ResultInvoices {
   client: string;
   document: string;
   erp: string;
+  dispatchDate?: string | null;
   invoices: InvoicesResponse;
 }
 

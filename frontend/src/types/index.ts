@@ -1,5 +1,7 @@
 import type { 
   Cliente, 
+  InvoiceRuleClientsByDate,
+  InvoiceRuleConsultResult,
   IClientsContext, 
   responseClients,
   Service
@@ -69,6 +71,8 @@ import type {
 type DropdownType = "template" | "category" | "client" | null;
 export type 
 { Cliente,
+  InvoiceRuleClientsByDate,
+  InvoiceRuleConsultResult,
   DropdownType, 
   responseClients,
   responseHistorico,
