@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type SetStateAction } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Funnel } from "lucide-react";
 import { toast } from "react-toastify";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -14,7 +14,6 @@ import {
   TitlePage,
 } from "../../componente/Index";
 import { Pagination } from "../../componente/global/Pagination/Pagination";
-import RangeSlider from "../../componente/Slider/RangeSlider";
 import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import { TemplateBalloonCard } from "../../componente/TemplateCard/TemplateCard";
@@ -23,22 +22,65 @@ import { useClient, useTemplate } from "../../hooks";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 import { useFilterTemplates } from "../../hooks/components/useFilterTemplates.Controller";
 
-import { calcularDividaCliente, maiorAtrasoCliente } from "../../utils/filtrosClientesVencidos";
-import { validarSelecaoCliente } from "../../utils/validation";
-import type { Cliente, Service, Template } from "../../types";
+import { calcularDiasRelativosHoje } from "../../utils/filtrosClientesVencidos";
+import type { Cliente, Template } from "../../types";
 
 import Style from "./Styles/ClientesVencidos.module.css";
 
-const MIN_INPUT_PLACEHOLDER = "R$ Valor minimo da divida";
+type DropdownOption = { id: string; name: string };
+type TipoDiasOperador = "gt" | "lt" | "eq" | "gte" | "lte";
+
+const TIPO_DIAS_OPTIONS: Array<{ id: TipoDiasOperador; name: string }> = [
+  { id: "gt", name: "Maior que" },
+  { id: "lt", name: "Menor que" },
+  { id: "eq", name: "Igual" },
+  { id: "gte", name: "Maior que ou igual a" },
+  { id: "lte", name: "Menor que ou igual a" },
+];
+
+const STATUS_CONTRATO_OPTIONS: DropdownOption[] = [
+  { id: "Inativo", name: "Inativo" },
+  { id: "Novo", name: "Novo" },
+  { id: "Ativo", name: "Ativo" },
+  { id: "Suspenso", name: "Suspenso" },
+  { id: "Cancelado", name: "Cancelado" },
+  { id: "Ativo V. Reduzida", name: "Ativo V. Reduzida" },
+  { id: "Inviabilidade Tecnica", name: "Inviabilidade Tecnica" },
+];
+
+function compararDias(valorCliente: number, valorFiltro: number, operador: TipoDiasOperador): boolean {
+  const diasParaVencer = valorCliente > 0 ? valorCliente : null;
+  const diasVencidos = valorCliente < 0 ? Math.abs(valorCliente) : null;
+
+  switch (operador) {
+    case "gt":
+      return diasParaVencer !== null && diasParaVencer > valorFiltro;
+    case "lt":
+      return diasVencidos !== null && diasVencidos < valorFiltro;
+    case "eq":
+      return (
+        diasParaVencer === valorFiltro ||
+        diasVencidos === valorFiltro ||
+        (valorCliente === 0 && valorFiltro === 0)
+      );
+    case "gte":
+      return diasParaVencer !== null && diasParaVencer >= valorFiltro;
+    case "lte":
+      return diasVencidos !== null && diasVencidos <= valorFiltro;
+    default:
+      return true;
+  }
+}
 
 export function ClientesVencidos() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [varOpen, setVarOpen] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<"clientes" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"status" | "tipoDias" | null>(null);
   const [clientesMarcados, setClientesMarcados] = useState<string[]>([]);
-  const [overrideClientes, setOverrideClientes] = useState<Cliente[]>([]);
+  const [clientesResultadoConsulta, setClientesResultadoConsulta] = useState<Cliente[]>([]);
+  const [consultaRealizada, setConsultaRealizada] = useState(false);
+  const [consultando, setConsultando] = useState(false);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
   const [openTemplateModal, setOpenTemplateModal] = useState(false);
@@ -46,17 +88,13 @@ export function ClientesVencidos() {
   const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
 
   const [templateSelecionado, setTemplateSelecionado] = useState<Template | null>(null);
-  const [diasRegua, setDiasRegua] = useState(0);
-  const [valorMinimoDivida, setValorMinimaDivivda] = useState("");
-
-  const [selectedPlans, setSelectedPlans] = useState<
-    { id: string; name: string; id_servico?: string }[]
-  >([]);
+  const [statusContrato, setStatusContrato] = useState<DropdownOption | null>(null);
+  const [tipoDias, setTipoDias] = useState<{ id: TipoDiasOperador; name: string } | null>(null);
+  const [dias, setDias] = useState("");
 
   const {
     selectedClientes,
     setSelectedClientes,
-    selectedTemplate,
     setSelectedTemplate,
     modoPage,
   } = useDispatchTemplate();
@@ -64,65 +102,58 @@ export function ClientesVencidos() {
   const { paginatedTemplates, setModalPage, totalModalPages, itemsPerPage, modalPage } =
     useFilterTemplates();
 
-  const { clients, services = [], setGroupInvoices, setQuery } = useClient();
+  const { clients, setGroupInvoices, setGroupServices, fetchInvoices } = useClient();
   const { page, setPage, templates } = useTemplate();
 
   useEffect(() => {
     setGroupInvoices(true);
-  }, [setGroupInvoices]);
+    setGroupServices(true);
+  }, [setGroupInvoices, setGroupServices]);
 
-  const valorMinimoNumero = useMemo(() => {
-    if (!valorMinimoDivida) return 0;
-    const normalized = valorMinimoDivida.replace(",", ".");
-    const numero = Number(normalized);
-    return Number.isFinite(numero) ? numero : 0;
-  }, [valorMinimoDivida]);
+  const diasNumero = useMemo(() => {
+    if (!dias.trim()) return null;
+    const numero = Number(dias);
+    if (!Number.isFinite(numero) || numero < 0) return null;
+    return numero;
+  }, [dias]);
 
-  const clientesFiltrados = useMemo(() => {
-    let filtered = clients.filter((client) => {
-      if (!client.invoices || client.invoices.list.length === 0) return false;
-
-      const atraso = maiorAtrasoCliente(client.invoices.list);
-      if (atraso <= 0) return false;
-
-      if (diasRegua > 0 && atraso < diasRegua) return false;
-
-      if (valorMinimoNumero > 0) {
-        const divida = calcularDividaCliente(client.invoices.list);
-        if (Math.round(divida * 100) < Math.round(valorMinimoNumero * 100)) return false;
+  const clientesFiltradosPorStatus = useMemo(() => {
+    const filtered = clients.filter((client) => {
+      if (statusContrato) {
+        const hasMatchingStatus = Boolean(
+          client.services?.some(
+            (service) =>
+              String(service.status ?? "").trim().toLowerCase() === statusContrato.id.toLowerCase()
+          )
+        );
+        if (!hasMatchingStatus) return false;
       }
 
       return true;
     });
 
-    if (selectedPlans.length > 0) {
-      filtered = filtered.filter(
-        (client) =>
-          client.services &&
-          client.services.some((service) => selectedPlans.some((plan) => plan.id === service.id))
-      );
-    }
-
     return filtered;
-  }, [clients, diasRegua, selectedPlans, valorMinimoNumero]);
+  }, [clients, statusContrato]);
 
-  const filtrosAtivos = diasRegua > 0 || valorMinimoNumero > 0 || selectedPlans.length > 0;
+  function aplicarFiltroDias(clientesComFaturas: Cliente[]) {
+    return clientesComFaturas.filter((client) => {
+      if (!client.invoices || client.invoices.list.length === 0) return false;
 
-  const availableClientes =
-    overrideClientes.length > 0 ? overrideClientes : filtrosAtivos ? clientesFiltrados : [];
+      if (tipoDias && diasNumero !== null) {
+        const possuiFaturaCompativel = client.invoices.list.some((invoice) => {
+          if (!invoice.invoice_due_date) return false;
+          const diasRelativos = calcularDiasRelativosHoje(invoice.invoice_due_date);
+          return compararDias(diasRelativos, diasNumero, tipoDias.id);
+        });
 
-  useEffect(() => {
-    if (!filtrosAtivos) {
-      setSelectedClientes([]);
-      setClientesMarcados([]);
-      setOverrideClientes([]);
-    }
+        if (!possuiFaturaCompativel) return false;
+      }
 
-    if (filtrosAtivos && overrideClientes.length) {
-      setOverrideClientes([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diasRegua, valorMinimoNumero, selectedPlans]);
+      return true;
+    });
+  }
+
+  const availableClientes = consultaRealizada ? clientesResultadoConsulta : [];
 
   useEffect(() => {
     if (selectedClientes.length === 0) return;
@@ -157,6 +188,55 @@ export function ClientesVencidos() {
     toast.success("Todos os clientes foram selecionados!");
   }
 
+  async function handleConsultar() {
+    if (tipoDias && diasNumero === null) {
+      toast.warning("Informe um valor valido para Dias.");
+      return;
+    }
+
+    if (!tipoDias && dias.trim()) {
+      toast.warning("Selecione o Tipo dias para aplicar o filtro.");
+      return;
+    }
+
+    if (!clientesFiltradosPorStatus.length) {
+      setClientesResultadoConsulta([]);
+      setConsultaRealizada(true);
+      setSelectedClientes([]);
+      setClientesMarcados([]);
+      toast.info("Nenhum cliente encontrado com os filtros informados.");
+      return;
+    }
+
+    setConsultando(true);
+    try {
+      const clientesComFaturas = await fetchInvoices(clientesFiltradosPorStatus);
+      const resultado = aplicarFiltroDias(clientesComFaturas);
+
+      setClientesResultadoConsulta(resultado);
+      setConsultaRealizada(true);
+      setSelectedClientes([]);
+      setClientesMarcados([]);
+
+      if (!resultado.length) {
+        toast.info("Nenhum cliente encontrado com os filtros informados.");
+      }
+    } finally {
+      setConsultando(false);
+    }
+  }
+
+  function handleLimparFiltros() {
+    setStatusContrato(null);
+    setTipoDias(null);
+    setDias("");
+    setOpenDropdown(null);
+    setConsultaRealizada(false);
+    setClientesResultadoConsulta([]);
+    setClientesMarcados([]);
+    setSelectedClientes([]);
+  }
+
   function handleProsseguir() {
     setOpenProsseguirModal(true);
   }
@@ -177,59 +257,49 @@ export function ClientesVencidos() {
               </h2>
 
               <div className={Style.filtersGrid}>
-                <RangeSlider
-                  value={diasRegua}
-                  onChange={(value: SetStateAction<number>) => {
-                    setDiasRegua(value);
-                  }}
+                <Dropdown<DropdownOption>
+                  className={Style.FiltroStatusContrato}
+                  label="Status do contrato"
+                  options={STATUS_CONTRATO_OPTIONS}
+                  value={statusContrato}
+                  onChange={(value) => setStatusContrato(value as DropdownOption)}
+                  open={openDropdown === "status"}
+                  onOpen={() => setOpenDropdown("status")}
+                  onClose={() => setOpenDropdown(null)}
+                  searchable={false}
+                />
+
+                <Dropdown<{ id: TipoDiasOperador; name: string }>
+                  className={Style.FiltroTipoDias}
+                  label="Tipo dias:*"
+                  options={TIPO_DIAS_OPTIONS}
+                  value={tipoDias}
+                  onChange={(value) => setTipoDias(value as { id: TipoDiasOperador; name: string })}
+                  open={openDropdown === "tipoDias"}
+                  onOpen={() => setOpenDropdown("tipoDias")}
+                  onClose={() => setOpenDropdown(null)}
+                  searchable={false}
                 />
 
                 <InputFields
-                  className={Style.InputDividas}
+                  className={Style.InputDias}
                   type="text"
-                  placeholder={MIN_INPUT_PLACEHOLDER}
-                  value={valorMinimoDivida}
-                  onChange={(event) => setValorMinimaDivivda(event.target.value)}
+                  label="Dias:*"
+                  onlyNumbers
+                  value={dias}
+                  onChange={(event) => setDias(event.target.value)}
                 />
 
-                <Dropdown
-                  className={Style.DropdownPlanos}
-                  label="Planos por Clientes"
-                  options={services.map((service: Service) => ({
-                    id: service.id,
-                    name: service.name,
-                  }))}
-                  multiple
-                  selected={selectedPlans}
-                  open={varOpen}
-                  onOpen={() => setVarOpen(true)}
-                  onClose={() => setVarOpen(false)}
-                  onChange={(selected) => {
-                    setSelectedPlans(selected as { id: string; name: string }[]);
-                  }}
-                />
-
-                <Dropdown<Cliente>
-                  className={Style.FiltroClientes}
-                  label="Buscar clientes no ERP"
-                  options={clients}
-                  multiple
-                  selected={selectedClientes}
-                  summaryOnMultiple
-                  onChange={(value) => {
-                    const clientesValidos = (value as Cliente[]).filter((cliente) =>
-                      validarSelecaoCliente(cliente, selectedTemplate ?? undefined)
-                    );
-                    setOverrideClientes(clientesValidos);
-                    setSelectedClientes(clientesValidos);
-                    setClientesMarcados(clientesValidos.map((c) => c.id));
-                  }}
-                  open={openDropdown === "clientes"}
-                  onOpen={() => setOpenDropdown("clientes")}
-                  onClose={() => setOpenDropdown(null)}
-                  searchable
-                  onSearchTermChange={(term) => setQuery(term)}
-                />
+                <div className={Style.ConsultaActions}>
+                  <MyButton
+                    type="button"
+                    variant="btn-norm"
+                    text={consultando ? "Consultando..." : "Consultar"}
+                    onClick={() => void handleConsultar()}
+                    disabled={consultando}
+                  />
+                  <MyButton type="button" variant="secondary" text="Limpar filtros" onClick={handleLimparFiltros} />
+                </div>
               </div>
             </div>
           </div>
@@ -253,7 +323,11 @@ export function ClientesVencidos() {
 
         <div className={Style.Cards}>
           {!availableClientes.length ? (
-            <span className={Style.empty}>Nenhum cliente selecionado</span>
+            <span className={Style.empty}>
+              {consultaRealizada
+                ? "Nenhum cliente encontrado"
+                : "Use os filtros e clique em Consultar"}
+            </span>
           ) : (
             availableClientes.map((cliente) => (
               <ClientesCard

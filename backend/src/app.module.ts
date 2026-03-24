@@ -28,6 +28,7 @@ import { AppServiceServices } from './services/app.service.services';
 import { Service } from './services/entities/services';
 import { AppServiceGraphics } from './graphics/app.service.graphics';
 import { GraphicsController } from './graphics/app.controller.graphics';
+import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
 import { Overdue } from './invoices/entities/Overdue';
 import { TemplateVarsValidator } from './validations';
 import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
@@ -56,6 +57,7 @@ import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
     TypeOrmModule.forFeature([Category]),
     TypeOrmModule.forFeature([Service]),
     TypeOrmModule.forFeature([Overdue]),
+    TypeOrmModule.forFeature([DispatchBatch]),
     TypeOrmModule.forFeature([Agent]),
     JwtModule.register({
       global: true,

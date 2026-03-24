@@ -1,4 +1,61 @@
+.Container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.Title {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
 .Slider {
     color: white !important;
     width: 50%;
+}
+
+.LabelsRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+.LabelLeft {
+    color: #ff8a65;
+    font-weight: 500;
+}
+
+.Arrow {
+    color: #aaa;
+}
+
+.LabelRight {
+    color: #4fc3f7;
+    font-weight: 500;
+}
+
+.LabelInactive {
+    color: #888;
+    font-style: italic;
+}
+
+.ResetBtn {
+    margin-left: auto;
+    background: none;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #aaa;
+    cursor: pointer;
+    padding: 2px 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.ResetBtn:hover {
+    border-color: #fff;
+    color: #fff;
 }
