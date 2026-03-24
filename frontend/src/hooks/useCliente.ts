@@ -10,6 +10,7 @@ export function useClient(): IClientsContext {
   const [limit, setLimit] = useState(10);
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC");
   const [groupServices, setGroupServices] = useState(false);
+  const [groupInvoices, setGroupInvoices] = useState(false);
   const [servicesCompanyId, setServicesCompanyId] = useState<string | undefined>(undefined);
 
   const debouncedQuery = useDebounce(query, 350);
@@ -20,6 +21,7 @@ export function useClient(): IClientsContext {
     limit,
     order,
     groupServices,
+    groupInvoices,
   });
 
   const { data: services = [] } = useServicesQuery(servicesCompanyId);
@@ -59,7 +61,7 @@ export function useClient(): IClientsContext {
     setPage,
     setLimit,
     setOrder,
-    setGroupInvoices: () => {},
+    setGroupInvoices,
     setGroupServices,
     fetchInvoices,
     fetchServices,

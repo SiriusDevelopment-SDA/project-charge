@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 
 import { Overdue } from '../invoices/entities/Overdue';
 import { Client } from '../clients/entities.ts/clients';
-import { TemplateDispatchBatch } from '../templates/entities/template-dispatch-batch.entity';
+import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 
@@ -18,8 +18,8 @@ export class AppServiceGraphics {
     @InjectRepository(Client)
     private readonly clientRepo: Repository<Client>,
 
-    @InjectRepository(TemplateDispatchBatch)
-    private readonly dispatchBatchRepo: Repository<TemplateDispatchBatch>,
+    @InjectRepository(DispatchBatch)
+    private readonly dispatchBatchRepo: Repository<DispatchBatch>,
 
     @InjectRepository(RelatoryDispatchTemplate)
     private readonly relatoryRepo: Repository<RelatoryDispatchTemplate>,

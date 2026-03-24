@@ -102,14 +102,27 @@
 ========================= */
 .filtersGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 20px;
+  align-items: end;
 }
 
-.InputDividas,
-.DropdownPlanos,
-.FiltroClientes {
+.FiltroStatusContrato,
+.FiltroTipoDias,
+.InputDias,
+.ConsultaActions {
   width: 100%;
+}
+
+.ConsultaActions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.ConsultaActions button {
+  min-width: 180px;
 }
 
 .cardMetricas{
@@ -159,6 +172,13 @@
   padding: 12px 0;
 }
 
+.empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 18px 0;
+}
+
 /* =========================
    RESPONSIVIDADE
 ========================= */
@@ -174,16 +194,28 @@
 
 @media (max-width: 768px) {
   .filtersGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 
   .submenuActions {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .ConsultaActions {
+    justify-content: stretch;
+  }
+
+  .ConsultaActions button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
+  .filtersGrid {
+    grid-template-columns: 1fr;
+  }
+
   .Cards {
     grid-template-columns: 1fr;
   }
