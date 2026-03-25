@@ -151,51 +151,69 @@ export class IXCInvoicesService {
     const authorizationHeader = `Basic ${Buffer.from(company.autorization).toString('base64')}`;
     const url = `https://${company.url}/webservice/v1/fn_areceber`;
 
-    const content = {
-      qtype: 'fn_areceber.id',
-      query: '0',
-      oper: '>',
-      page: '1',
-      rp: '1000',
-      sortname: 'fn_areceber.data_vencimento',
-      sortorder: 'asc',
-      grid_param: JSON.stringify([
-        { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
-        { TB: 'fn_areceber.status', OP: 'L', P: 'A' },
-        { TB: 'fn_areceber.data_vencimento', OP: 'BE', P: startDate, P2: endDate },
-      ]),
-    };
+    const gridParam = JSON.stringify([
+      { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
+      { TB: 'fn_areceber.status', OP: 'L', P: 'A' },
+      { TB: 'fn_areceber.data_vencimento', OP: 'BE', P: startDate, P2: endDate },
+    ]);
+
+    const PAGE_SIZE = 1000;
+    const invoicesByClientId = new Map<string, ResponseFnAReceber[]>();
+    let page = 1;
+    let totalFetched = 0;
+    let totalAvailable = Infinity;
 
     console.log(`[IXCInvoicesService] getInvoicesByDateWindowBatch url=${url} janela=${startDate}~${endDate}`);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: authorizationHeader,
-        'Content-Type': 'application/json',
-        ixcsoft: 'listar',
-      },
-      body: JSON.stringify(content),
-    });
+    while (totalFetched < totalAvailable) {
+      const content = {
+        qtype: 'fn_areceber.id',
+        query: '0',
+        oper: '>',
+        page: String(page),
+        rp: String(PAGE_SIZE),
+        sortname: 'fn_areceber.data_vencimento',
+        sortorder: 'asc',
+        grid_param: gridParam,
+      };
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new BadRequestException(`Erro no ERP (IXC): ${response.status} -> ${err}`);
-    }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: authorizationHeader,
+          'Content-Type': 'application/json',
+          ixcsoft: 'listar',
+        },
+        body: JSON.stringify(content),
+      });
 
-    const data = await response.json();
-    console.log(`[IXCInvoicesService] total faturas na janela: ${data.total ?? 0}`);
+      if (!response.ok) {
+        const err = await response.text();
+        throw new BadRequestException(`Erro no ERP (IXC): ${response.status} -> ${err}`);
+      }
 
-    const invoicesByClientId = new Map<string, ResponseFnAReceber[]>();
+      const data = await response.json();
 
-    if (Array.isArray(data.registros)) {
-      for (const invoice of data.registros as ResponseFnAReceber[]) {
+      if (page === 1) {
+        totalAvailable = Number(data.total ?? 0);
+        console.log(`[IXCInvoicesService] total faturas na janela: ${totalAvailable}`);
+      }
+
+      const registros: ResponseFnAReceber[] = Array.isArray(data.registros) ? data.registros : [];
+
+      if (!registros.length) break;
+
+      for (const invoice of registros) {
         const clientId = String(invoice.id_cliente);
         if (!invoicesByClientId.has(clientId)) {
           invoicesByClientId.set(clientId, []);
         }
         invoicesByClientId.get(clientId)!.push(invoice);
       }
+
+      totalFetched += registros.length;
+      console.log(`[IXCInvoicesService] página ${page}: ${registros.length} faturas (${totalFetched}/${totalAvailable})`);
+      page++;
     }
 
     return invoicesByClientId;
