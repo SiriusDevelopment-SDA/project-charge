@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Raw, Repository } from 'typeorm';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Client } from '../../clients/entities.ts/clients';
+import { Company } from '../../companies/entities/companies';
 import { IXCInvoicesService } from '../services/ixcInvoicesService';
 import { HubsoftInvoicesService } from '../services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../services/sgpInvoicesService';
@@ -20,6 +21,7 @@ import {
   InvoiceMapResultDto,
   InvoiceSearchFilterDto,
   InvoicesResponseDto,
+  PixBatchRequestDto,
   ResultInvoicesDto,
   SearchRequestInvoicesDto,
 } from '../dto/search.request.dto.invoices';
@@ -35,6 +37,8 @@ export class InvoicesController {
   constructor(
     @InjectRepository(Client)
     private readonly clientRepo: Repository<Client>,
+    @InjectRepository(Company)
+    private readonly companyRepo: Repository<Company>,
     private readonly ixcService: IXCInvoicesService,
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
@@ -93,6 +97,49 @@ export class InvoicesController {
     }
 
     return this.buildBatchResponse(resultados, errors);
+  }
+
+  @Post('pix/batch')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Busca codigos PIX por lista de invoice IDs (IXC)' })
+  @ApiBody({ type: PixBatchRequestDto })
+  async getPixBatch(@Body() data: PixBatchRequestDto) {
+    const empresa = await this.companyRepo.findOne({
+      where: { id: data.companyId },
+    });
+
+    if (!empresa) {
+      throw new NotFoundException(`Empresa ${data.companyId} nao encontrada`);
+    }
+
+    const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
+    const ixcUrl = `https://${empresa.url}/webservice/v1/get_pix`;
+
+    const results = await Promise.all(
+      data.invoiceIds.map(async (invoiceId) => {
+        try {
+          const response = await fetch(ixcUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: authorizationHeader,
+              'Content-Type': 'application/json',
+              ixcsoft: 'listar',
+            },
+            body: JSON.stringify({ id_areceber: invoiceId }),
+          });
+          const boletoData = await response.json();
+          const dadosPix = boletoData.pix?.dadosPix ?? {};
+          const pixCode = (dadosPix.pixCopiaECola && dadosPix.status === 'ATIVA')
+            ? dadosPix.pixCopiaECola
+            : boletoData.pix?.qrCode?.qrcode ?? '';
+          return { invoiceId, status: pixCode ? 'success' : 'error', pix: pixCode };
+        } catch {
+          return { invoiceId, status: 'error', pix: '' };
+        }
+      }),
+    );
+
+    return { results };
   }
 
   @Post('overdue/:companyId')

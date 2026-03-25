@@ -41,6 +41,7 @@ import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
 import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
+import { ClientsSyncCron } from './clients/clients-sync.cron';
 import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
 
 @Module({
@@ -95,6 +96,7 @@ import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
     ChatwootService,
     RedisService,
     RelatoryResolverCron,
+    ClientsSyncCron,
   ],
   exports: [AppServiceTemplate, AppServiceClient],
 })

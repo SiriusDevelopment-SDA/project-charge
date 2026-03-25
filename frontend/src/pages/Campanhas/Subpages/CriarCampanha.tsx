@@ -23,6 +23,8 @@ const calendarDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   year: "numeric",
 });
 
+const calendarWeekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
+
 const RECURRING_TYPE_LABELS = {
   single: "Unico",
   range: "Recorrente",
@@ -133,6 +135,26 @@ export function CriarCampanha() {
   const rangeEndPercent = (normalizedInvoiceRuleEnd / INVOICE_RULE_MAX_DAYS) * 100;
   const isSameDayRule = currentSlider === 1;
 
+  const sliderContextLabel =
+    currentSlider === 1
+      ? 'Disparo no mesmo dia que a fatura vence'
+      : currentSlider === 0
+        ? normalizedInvoiceRuleStart === normalizedInvoiceRuleEnd
+          ? `Disparo ${normalizedInvoiceRuleEnd} dia${normalizedInvoiceRuleEnd !== 1 ? 's' : ''} antes da fatura vencer`
+          : `Disparo entre ${normalizedInvoiceRuleStart} e ${normalizedInvoiceRuleEnd} dias antes da fatura vencer`
+        : normalizedInvoiceRuleStart === normalizedInvoiceRuleEnd
+          ? `Disparo ${normalizedInvoiceRuleEnd} dia${normalizedInvoiceRuleEnd !== 1 ? 's' : ''} após a fatura vencer`
+          : `Disparo entre ${normalizedInvoiceRuleStart} e ${normalizedInvoiceRuleEnd} dias após a fatura vencer`;
+
+  const formatInvoiceRuleRangeValue = (value: number) => {
+    if (currentSlider === 1) {
+      return "no dia do vencimento";
+    }
+
+    const suffix = currentSlider === 0 ? "a vencer" : "vencido";
+    return `${value} dia${value !== 1 ? "s" : ""} ${suffix}`;
+  };
+
   const handleSliderPosition = (index: number) => {
     if (index === 0) {
       form.setInvoiceRuleOperator('less_than');
@@ -176,26 +198,38 @@ export function CriarCampanha() {
   };
 
   const selectedClientNames = form.selectedClients
-    .slice(0, 5)
+    .slice(0, 3)
     .map((client) => client.name)
     .join(", ");
 
   return (
     <PageContainer className={Style.createCampaign}>
-      <div className={Style.createCampaign__header}>
+      {!usesInvoiceRule ? (
+         <TitlePage
+         title="Criar Campanha"
+         subtitle="Configure audiência, agendamento e mensagem da campanha"
+        >
+        <MyButton
+          text="Voltar para campanhas"
+          variant="secondary"
+          onClick={handleBackToCampaigns}
+          />
+        </TitlePage>
+      ): (
+        <div className={Style.createCampaign__header}>
         <TitlePage
-          title="Criar Campanha"
-          subtitle="Configure audiência, agendamento e mensagem da campanha"
+            title="Criar Campanha"
+            subtitle="Configure audiência, agendamento e mensagem da campanha"
         />
         <MyButton
           text="Voltar para campanhas"
           variant="secondary"
           onClick={handleBackToCampaigns}
-        />
+          />
       </div>
-
-      <div className={Style.createCampaign__form}>
-        <h3>Dados da Campanha</h3>
+      )}
+     
+      <div className={usesInvoiceRule ? Style.createCampaign__form : Style.createCampaign__form_dispatch_unique}>
 
         <div className={Style.createCampaign__grid}>
           <section className={Style.grid_left}>
@@ -228,29 +262,47 @@ export function CriarCampanha() {
             </div>
 
             {isMonthlyDays && (
-              selectedDayLabels.length > 0 ? (
-                <div className={Style.selectedDaysSection}>
-                  <div className={Style.selectedDaysSectionHeader}>
-                    <span className={Style.selectedDaysPreviewCount}>
-                      {selectedDayLabels.length} data{selectedDayLabels.length > 1 ? "s" : ""} selecionada{selectedDayLabels.length > 1 ? "s" : ""}
+              form.selectedDays.length > 0 ? (
+                <div className={Style.dispatchDaysTableWrapper}>
+                  <div className={Style.dispatchDaysTableHeader}>
+                    <span className={Style.dispatchDaysTableTitle}>
+                      {form.selectedDays.length} data{form.selectedDays.length > 1 ? "s" : ""} selecionada{form.selectedDays.length > 1 ? "s" : ""}
                     </span>
                     {Number(form.invoiceRuleDaysTo) > 0 && (
-                      <small className={Style.selectedDaysPreviewHint}>
-                        Intervalo minimo: {Math.max(invoiceRuleDaysTo - invoiceRuleDaysFrom + 1, 1)} dias entre disparos
-                      </small>
+                      <span className={Style.dispatchDaysTableCount}>
+                        intervalo mín: {Math.max(invoiceRuleDaysTo - invoiceRuleDaysFrom + 1, 1)} dias
+                      </span>
                     )}
                   </div>
-                  <div className={Style.selectedDaysPreviewList}>
-                    {selectedDayLabels.slice(0, 3).map((label) => (
-                      <span key={label} className={Style.selectedDaysPreviewChip}>
-                        {label}
-                      </span>
-                    ))}
-                    {selectedDayLabels.length > 3 && (
-                      <span className={Style.selectedDaysPreviewChipMore}>
-                        +{selectedDayLabels.length - 3} mais
-                      </span>
-                    )}
+                  <div className={Style.dispatchDaysTableScroll}>
+                    <table className={Style.dispatchDaysTable}>
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Data</th>
+                          <th>Dia</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {form.selectedDays.map((date, i) => (
+                          <tr key={date.getTime()}>
+                            <td>{i + 1}</td>
+                            <td className={Style.dispatchDaysTableDate}>{calendarDateFormatter.format(date)}</td>
+                            <td className={Style.dispatchDaysTableWeekday}>{calendarWeekdayFormatter.format(date)}</td>
+                            <td className={Style.dispatchDaysTableRemove}>
+                              <button
+                                type="button"
+                                className={Style.dispatchDaysTableRemoveBtn}
+                                onClick={() => form.setSelectedDays(form.selectedDays.filter((d) => d.getTime() !== date.getTime()))}
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               ) : (
@@ -320,6 +372,7 @@ export function CriarCampanha() {
                                 </span>
                               ))}
                             </div>
+                            <p className={Style.invoiceRuleSliderContext}>{sliderContextLabel}</p>
                           </div>
 
                         </div>
@@ -378,47 +431,49 @@ export function CriarCampanha() {
                        </div>
                      </div> */}
 
-                      <div className={Style.invoiceRuleRangeSlider}>
-                        <div className={Style.invoiceRuleRangeTrackBase} />
-                        <div
-                          className={Style.invoiceRuleRangeTrackActive}
-                          style={{
-                            left: `${rangeStartPercent}%`,
-                            width: `${Math.max(rangeEndPercent - rangeStartPercent, 0)}%`,
-                          }}
-                        />
-                        <input
-                          type="range"
-                          min={0}
-                          max={INVOICE_RULE_MAX_DAYS}
-                          step={1}
-                          value={normalizedInvoiceRuleStart}
-                          disabled={isSameDayRule}
-                          className={Style.invoiceRuleRangeInput}
-                          onChange={(e) => handleInvoiceRuleRangeStartChange(Number(e.target.value))}
-                        />
-                        <input
-                          type="range"
-                          min={0}
-                          max={INVOICE_RULE_MAX_DAYS}
-                          step={1}
-                          value={normalizedInvoiceRuleEnd}
-                          disabled={isSameDayRule}
-                          className={Style.invoiceRuleRangeInput}
-                          onChange={(e) => handleInvoiceRuleRangeEndChange(Number(e.target.value))}
-                        />
-                      </div>
+                      {!isSameDayRule && (
+                        <>
+                          <div className={Style.invoiceRuleRangeSlider}>
+                            <div className={Style.invoiceRuleRangeTrackBase} />
+                            <div
+                              className={Style.invoiceRuleRangeTrackActive}
+                              style={{
+                                left: `${rangeStartPercent}%`,
+                                width: `${Math.max(rangeEndPercent - rangeStartPercent, 0)}%`,
+                              }}
+                            />
+                            <input
+                              type="range"
+                              min={0}
+                              max={INVOICE_RULE_MAX_DAYS}
+                              step={1}
+                              value={normalizedInvoiceRuleStart}
+                              className={Style.invoiceRuleRangeInput}
+                              onChange={(e) => handleInvoiceRuleRangeStartChange(Number(e.target.value))}
+                            />
+                            <input
+                              type="range"
+                              min={0}
+                              max={INVOICE_RULE_MAX_DAYS}
+                              step={1}
+                              value={normalizedInvoiceRuleEnd}
+                              className={Style.invoiceRuleRangeInput}
+                              onChange={(e) => handleInvoiceRuleRangeEndChange(Number(e.target.value))}
+                            />
+                          </div>
 
-                      <div className={Style.invoiceRuleRangeValues}>
-                        <span>{normalizedInvoiceRuleStart} dias</span>
-                        <span>{normalizedInvoiceRuleEnd} dias</span>
-                      </div>
+                          <div className={Style.invoiceRuleRangeValues}>
+                            <span>{formatInvoiceRuleRangeValue(normalizedInvoiceRuleStart)}</span>
+                            <span>{formatInvoiceRuleRangeValue(normalizedInvoiceRuleEnd)}</span>
+                          </div>
 
-                      <div className={Style.invoiceRuleRangeScale}>
-                        {[0, 90, 180, 270, 360].map((value) => (
-                          <span key={value}>{value}</span>
-                        ))}
-                      </div>
+                          <div className={Style.invoiceRuleRangeScale}>
+                            {[0, 90, 180, 270, 360].map((value) => (
+                              <span key={value}>{value}</span>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className={Style.invoiceRuleSummaryContainer}>
@@ -442,8 +497,8 @@ export function CriarCampanha() {
                     {selectedClientNames && (
                       <div className={Style.invoiceRuleClientsPreview}>
                         Clientes encontrados: <span>{selectedClientNames}</span>
-                        {form.selectedClients.length > 5
-                          ? ` e mais ${form.selectedClients.length - 5}.`
+                        {form.selectedClients.length > 3
+                          ? ` e mais ${form.selectedClients.length - 3}.`
                           : "."}
                       </div>
                     )}

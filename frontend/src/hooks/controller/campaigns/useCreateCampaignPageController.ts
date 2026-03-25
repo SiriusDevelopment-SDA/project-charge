@@ -240,8 +240,13 @@ export function useCreateCampaignPageController() {
       return;
     }
 
-    if (!form.selectedTemplate?.company?.id) {
-      toast.warning("Selecione um template antes de consultar as faturas.");
+    const companyId =
+      form.selectedTemplate?.company?.id ??
+      templates?.[0]?.company?.id ??
+      clients?.[0]?.company?.id;
+
+    if (!companyId) {
+      toast.warning("Nao foi possivel identificar a empresa. Tente novamente.");
       return;
     }
 
@@ -288,18 +293,14 @@ export function useCreateCampaignPageController() {
       daysTo,
       referenceDate: referenceDates[0],
       referenceDates,
+      recurringType: form.recurringType,
     };
-
-    console.log("[consultarFaturas] companyId:", form.selectedTemplate.company.id);
-    console.log("[consultarFaturas] filter enviado:", filterPayload);
-    console.log("[consultarFaturas] referenceDates brutas (antes filtro úteis):", rawReferenceDates);
-    console.log("[consultarFaturas] referenceDates após filtro dias úteis:", referenceDates);
 
     setIsConsultingInvoiceRule(true);
 
     try {
       const result = await consultClientsByInvoiceRule({
-        companyId: form.selectedTemplate.company.id,
+        companyId: companyId!,
         filter: filterPayload,
       });
 
@@ -311,6 +312,7 @@ export function useCreateCampaignPageController() {
       setIsConsultingInvoiceRule(false);
     }
   }, [
+    clients,
     consultClientsByInvoiceRule,
     form,
     form.invoiceRuleDaysFrom,
@@ -319,6 +321,7 @@ export function useCreateCampaignPageController() {
     form.recurringType,
     form.selectedTemplate,
     holidays,
+    templates,
   ]);
 
   const submitCampaign = useCallback(async () => {

@@ -109,9 +109,15 @@ export class MessageQueueWorker implements OnModuleInit {
         ? job.payload.components
         : [];
 
+      const normalizedNumber = (() => {
+        const digits = job.payload.number.replace(/\D/g, '');
+        if (digits.startsWith('55') && digits.length >= 12) return digits;
+        return `55${digits}`;
+      })();
+
       const requestBody = {
         from: template.company.canalId_notificameHub,
-        to: job.payload.number,
+        to: normalizedNumber,
         contents: [
           {
             type: 'template',

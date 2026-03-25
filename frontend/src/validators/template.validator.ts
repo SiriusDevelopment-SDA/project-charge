@@ -6,16 +6,46 @@ import {
   getOrderedTemplateVariableKeys,
 } from "../mappers/templateVars.mapper";
 
-function hasOrderDetailsButton(template: Template): boolean {
-  let components: Array<Record<string, unknown>> = [];
+function normalizeTemplateComponents(template: Template): Array<Record<string, unknown>> {
+  const { components } = template;
 
-  if (Array.isArray(template.components)) {
-    components = template.components as Array<Record<string, unknown>>;
-  } else if (typeof template.components === "string") {
-    try { components = JSON.parse(template.components); } catch { return false; }
-  } else if (template.components && typeof template.components === "object" && Array.isArray((template.components as any).components)) {
-    components = (template.components as any).components;
+  if (Array.isArray(components)) {
+    return components as Array<Record<string, unknown>>;
   }
+
+  if (typeof components === "string") {
+    try {
+      const parsed = JSON.parse(components) as Template["components"];
+
+      if (Array.isArray(parsed)) {
+        return parsed as Array<Record<string, unknown>>;
+      }
+
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        Array.isArray((parsed as { components?: unknown }).components)
+      ) {
+        return (parsed as { components: Array<Record<string, unknown>> }).components;
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  if (
+    components &&
+    typeof components === "object" &&
+    Array.isArray((components as { components?: unknown }).components)
+  ) {
+    return (components as { components: Array<Record<string, unknown>> }).components;
+  }
+
+  return [];
+}
+
+function hasOrderDetailsButton(template: Template): boolean {
+  const components = normalizeTemplateComponents(template);
 
   return components.some((c) => {
     const type = String(c?.type ?? "").toUpperCase();

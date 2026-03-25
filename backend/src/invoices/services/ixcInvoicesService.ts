@@ -268,7 +268,6 @@ export class IXCInvoicesService {
 
       const resultados: ResultInvoicesOverdueDto[] = [];
       const overdueToSave: Overdue[] = [];
-      const now = new Date();
 
       for (const cliente of clients) {
         const normalized = cliente.cnpj_cpf.replace(/\D/g, '');
@@ -340,4 +339,70 @@ export class IXCInvoicesService {
       return [];
     }
   }
+
+  async fetchClientsFromIXC(company: Company): Promise<IXCClientRecord[]> {
+    const authorizationHeader = `Basic ${Buffer.from(company.autorization).toString('base64')}`;
+    const url = `https://${company.url}/webservice/v1/cliente`;
+    const allClients: IXCClientRecord[] = [];
+    let page = 1;
+    const rp = 1000;
+
+    while (true) {
+      const body = {
+        qtype: 'cliente.ativo',
+        query: 'S',
+        oper: '=',
+        page: String(page),
+        rp: String(rp),
+        sortname: 'cliente.id',
+        sortorder: 'asc',
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: authorizationHeader,
+          'Content-Type': 'application/json',
+          ixcsoft: 'listar',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`IXC clientes erro ${response.status}: ${errText.slice(0, 300)}`);
+      }
+
+      const rawText = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`IXC clientes retornou conteúdo inválido: ${rawText.slice(0, 300)}`);
+      }
+
+      const registros: IXCClientRecord[] = data.registros ?? [];
+
+      allClients.push(...registros);
+
+      if (registros.length < rp) break;
+      page++;
+    }
+
+    return allClients;
+  }
+}
+
+export interface IXCClientRecord {
+  id: string;
+  razao: string;
+  cnpj_cpf: string;
+  fone_celular?: string;
+  telefone_celular?: string;
+  whatsapp?: string;
+  email?: string;
+  endereco?: string;
+  numero?: string;
+  cidade_descricao?: string;
+  cep?: string;
 }

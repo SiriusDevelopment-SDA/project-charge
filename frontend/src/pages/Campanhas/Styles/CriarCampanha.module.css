@@ -2,7 +2,7 @@
    CONTAINER PÁGINA
 ========================= */
 .createCampaign {
-  min-height: calc(100vh - 14vh);
+  min-height: calc(100vh - 13vh);
   overflow-y: auto;
 }
 /* =========================
@@ -12,6 +12,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: 85px;
 }
 /* =========================
    CONTAINER CONTEUDO
@@ -29,16 +30,25 @@
     0 0 10px rgba(212, 166, 0, 0.24),
     0 0 20px rgba(212, 166, 0, 0.14);
 
-  h3 {
-    display: flex;
-    justify-content: center;
-    padding: 0 0 15px;
-  }
+  width: 100%;
+  height: auto;
+}
+.createCampaign__form_dispatch_unique {
+  padding: 40px 20px;
+  border: 1px solid rgba(212, 166, 0, 0.42);
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 10, 0.94) 0%,
+    rgba(18, 15, 7, 0.94) 100%
+  );
+  border-radius: 5px;
+  box-shadow:
+    0 0 10px rgba(212, 166, 0, 0.24),
+    0 0 20px rgba(212, 166, 0, 0.14);
 
   width: 100%;
   height: auto;
 }
-
 /* =========================
    CARDBASE
 ========================= */
@@ -97,7 +107,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 .grid_left,
 .grid_right {
@@ -127,10 +137,8 @@
   flex: 0 0 145px;
   min-width: 145px;
 }
-.createCampaign__selectedClientsDropdown {
-  margin-top: 10px;
-}
 .containerDropdown {
+  margin-top: 19px;
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
@@ -319,6 +327,14 @@
   cursor: pointer;
   font-weight: 600;
   user-select: none;
+}
+
+.invoiceRuleSliderContext {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  font-style: italic;
 }
 
 .invoiceRuleRow {
@@ -542,7 +558,7 @@
 }
 .containerBotton {
   display: flex;
-  gap: 20px;
+  gap: 5px;
   flex-direction: column;
   margin-top: 5px;
 }
@@ -645,6 +661,128 @@
   font-size: 13px;
   color: rgba(255, 255, 255, 0.55);
   min-height: 20px;
+}
+
+/* =========================
+   TABELA DE DIAS DE DISPARO
+========================= */
+.dispatchDaysTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.dispatchDaysTable thead tr {
+  border-bottom: 1px solid rgba(212, 166, 0, 0.25);
+}
+
+.dispatchDaysTable thead th {
+  padding: 6px 8px;
+  text-align: left;
+  color: rgba(212, 166, 0, 0.75);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dispatchDaysTable thead th:first-child {
+  text-align: center;
+  width: 28px;
+}
+
+.dispatchDaysTable thead th:last-child {
+  text-align: center;
+  width: 28px;
+}
+
+.dispatchDaysTable tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s;
+}
+
+.dispatchDaysTable tbody tr:last-child {
+  border-bottom: none;
+}
+
+.dispatchDaysTable tbody tr:hover {
+  background: rgba(212, 166, 0, 0.05);
+}
+
+.dispatchDaysTable td {
+  padding: 6px 8px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.dispatchDaysTable td:first-child {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 11px;
+  width: 28px;
+}
+
+.dispatchDaysTableDate {
+  color: #ffd700;
+  font-weight: 500;
+}
+
+.dispatchDaysTableWeekday {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+}
+
+.dispatchDaysTableRemove {
+  text-align: center;
+  width: 28px;
+}
+
+.dispatchDaysTableRemoveBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.dispatchDaysTableRemoveBtn:hover {
+  color: rgba(255, 80, 80, 0.8);
+  background: rgba(255, 80, 80, 0.08);
+}
+
+.dispatchDaysTableWrapper {
+  width: 85%;
+  border: 1px solid rgba(212, 166, 0, 0.2);
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.6);
+  overflow: hidden;
+}
+
+.dispatchDaysTableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(212, 166, 0, 0.15);
+}
+
+.dispatchDaysTableTitle {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dispatchDaysTableCount {
+  color: rgba(212, 166, 0, 0.8);
+  font-size: 12px;
+}
+
+.dispatchDaysTableScroll {
+  max-height: 155px;
+  overflow-y: auto;
 }
 
 .selectedDaysSection {

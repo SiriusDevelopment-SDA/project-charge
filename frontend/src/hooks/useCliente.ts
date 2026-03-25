@@ -120,21 +120,41 @@ export function useClient(): IClientsContext {
             invoices: provider.invoices,
           };
 
+          const clientKey = mappedClient.id || mappedClient.cnpj_cpf;
+          if (!clientKey) return;
+
           const dispatchDate = provider.dispatchDate ?? filter.referenceDate;
           if (dispatchDate) {
-            const scopedKey = `${dispatchDate}:${mappedClient.id}`;
+            const scopedKey = `${dispatchDate}::${clientKey}`;
             clientsByDateAndId.set(scopedKey, mappedClient);
           }
 
-          uniqueClients.set(mappedClient.id, mappedClient);
+          uniqueClients.set(clientKey, mappedClient);
         });
 
         clientsByDateAndId.forEach((client, scopedKey) => {
-          const [dispatchDate] = scopedKey.split(":");
+          const [dispatchDate] = scopedKey.split("::");
           const current = clientsByDispatchDate[dispatchDate] ?? [];
           current.push(client);
           clientsByDispatchDate[dispatchDate] = current;
         });
+
+        // No mode "range", deduplicate: each client appears only on the earliest dispatch date
+        if (filter.recurringType === 'range') {
+          const seenClientKeys = new Set<string>();
+          const sortedDates = Object.keys(clientsByDispatchDate).sort();
+          for (const date of sortedDates) {
+            clientsByDispatchDate[date] = clientsByDispatchDate[date].filter((client) => {
+              const key = client.id || client.cnpj_cpf;
+              if (!key || seenClientKeys.has(key)) return false;
+              seenClientKeys.add(key);
+              return true;
+            });
+            if (clientsByDispatchDate[date].length === 0) {
+              delete clientsByDispatchDate[date];
+            }
+          }
+        }
 
         return {
           clients: [...uniqueClients.values()],

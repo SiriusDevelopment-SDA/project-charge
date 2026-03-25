@@ -88,7 +88,7 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
     recipient.codigo_pix ||
     "";
 
-  const EXCLUDED_KEYS = ["id", "name", "cnpj_cpf", "whatsapp", "inputSource", "company", "invoices"];
+  const EXCLUDED_KEYS = ["id", "clientId", "name", "cnpj_cpf", "whatsapp", "inputSource", "company", "invoices"];
   const customFields = Object.fromEntries(
     Object.entries(recipient)
       .filter(([key, value]) => typeof value === "string" && !EXCLUDED_KEYS.includes(key))

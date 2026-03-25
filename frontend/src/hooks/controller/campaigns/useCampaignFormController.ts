@@ -12,6 +12,7 @@ import type {
 import type { RecurringType } from "../../../types/champaignApiTypes";
 import type { InvoiceRuleOperator } from "../../../types/invoiceApiTypes";
 import { CampaignService } from "../../../services/campaign/campaign.service";
+import { ClientService } from "../../../services/client/client.service";
 import { useClient } from "../../useCliente";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import { buildTemplateRecipient } from "../../../mappers/templateRecipient.builder";
@@ -157,16 +158,22 @@ export function useCampaignFormController() {
 
   const setInvoiceRuleOperator = useCallback((value: InvoiceRuleOperator) => {
     setInvoiceRuleOperatorState(value);
+    setSelectedDaysState([]);
+    setDateRangeState(undefined);
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
   const setInvoiceRuleDaysFrom = useCallback((value: string) => {
     setInvoiceRuleDaysFromState(value);
+    setSelectedDaysState([]);
+    setDateRangeState(undefined);
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
   const setInvoiceRuleDaysTo = useCallback((value: string) => {
     setInvoiceRuleDaysToState(value);
+    setSelectedDaysState([]);
+    setDateRangeState(undefined);
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
@@ -188,8 +195,9 @@ export function useCampaignFormController() {
   );
 
   const buildMappedVarsFromInvoiceRuleSelections = useCallback(
-    (template: Template, filterByTemplateVars: boolean) => {
-      return Object.entries(invoiceRuleClientsByDate).flatMap(
+    (template: Template, filterByTemplateVars: boolean, overrideClientsByDate?: InvoiceRuleClientsByDate) => {
+      const source = overrideClientsByDate ?? invoiceRuleClientsByDate;
+      return Object.entries(source).flatMap(
         ([dispatchDate, clients]) => {
           const validClients = clients.filter((client) =>
             validarSelecaoCliente(client, template),
@@ -329,24 +337,63 @@ export function useCampaignFormController() {
       let mappedVarsForSubmit: mappedVars[] = [];
 
       if (usesInvoiceRule) {
+        let clientsByDateWithPix = invoiceRuleClientsByDate;
+
         if (templateRequiresPix(selectedTemplate)) {
-          const needInvoices = selectedClients.filter(
-            (client) => !client.invoices || client.invoices.status === "error",
-          );
-          if (needInvoices.length) {
-            const fetchedClients = await fetchInvoices(needInvoices);
-            const enriched = mergeFetchedInvoices(selectedClients, fetchedClients);
-            const enrichedById = new Map(enriched.map((c) => [c.id, c]));
-            Object.keys(invoiceRuleClientsByDate).forEach((date) => {
-              invoiceRuleClientsByDate[date] = invoiceRuleClientsByDate[date].map(
-                (c) => enrichedById.get(c.id) ?? c,
+          const companyId = selectedTemplate.company.id;
+          const allClients = Object.values(invoiceRuleClientsByDate).flat();
+          const invoiceIdsToFetch = [
+            ...new Set(
+              allClients
+                .map((c) => c.invoices?.list?.[0])
+                .filter((inv): inv is NonNullable<typeof inv> =>
+                  !!inv && inv.code_pix?.status !== "success" && !!inv.invoice_id,
+                )
+                .map((inv) => inv.invoice_id!),
+            ),
+          ];
+
+          if (invoiceIdsToFetch.length && companyId) {
+            try {
+              const response = await ClientService.fetchPixCodes(companyId, invoiceIdsToFetch);
+              const pixById = new Map(
+                response.data.results
+                  .filter((r) => r.pix)
+                  .map((r) => [r.invoiceId, r]),
               );
-            });
+
+              if (pixById.size > 0) {
+                const updated: InvoiceRuleClientsByDate = {};
+                Object.entries(invoiceRuleClientsByDate).forEach(([date, clients]) => {
+                  updated[date] = clients.map((client) => {
+                    const invoice = client.invoices?.list?.[0];
+                    if (!invoice?.invoice_id) return client;
+                    const fetchedPix = pixById.get(invoice.invoice_id);
+                    if (!fetchedPix) return client;
+                    return {
+                      ...client,
+                      invoices: {
+                        ...client.invoices!,
+                        list: [
+                          { ...invoice, code_pix: { status: fetchedPix.status, pix: fetchedPix.pix } },
+                          ...(client.invoices?.list ?? []).slice(1),
+                        ],
+                      },
+                    };
+                  });
+                });
+                clientsByDateWithPix = updated;
+              }
+            } catch {
+              toast.warning("Não foi possível buscar códigos PIX. Clientes sem PIX serão excluídos da campanha.");
+            }
           }
         }
+
         mappedVarsForSubmit = buildMappedVarsFromInvoiceRuleSelections(
           selectedTemplate,
           false,
+          clientsByDateWithPix,
         );
       } else if (selectedTemplate.category.toLowerCase().includes("cobr")) {
         const needInvoices = selectedClients.filter(

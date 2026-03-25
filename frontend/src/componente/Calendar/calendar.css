@@ -6,10 +6,17 @@
 }
 
 .calendar-card {
-  padding: 10px;
+  padding: 12px;
   border-radius: 10px;
-  border: dashed 3px #facc15;
-  background-color: black;
+  border: 1px solid rgba(212, 166, 0, 0.35);
+  background: linear-gradient(
+    180deg,
+    rgba(14, 12, 5, 0.96) 0%,
+    rgba(10, 10, 10, 0.96) 100%
+  );
+  box-shadow:
+    0 0 12px rgba(212, 166, 0, 0.1),
+    inset 0 0 0 1px rgba(212, 166, 0, 0.06);
 }
 
 .rdp {

@@ -255,6 +255,18 @@ export class InvoiceBatchResponseDto {
   errors?: InvoiceErrorDto[];
 }
 
+export class PixBatchRequestDto {
+  @ApiProperty({ example: 'uuid-da-empresa' })
+  @IsUUID()
+  companyId!: string;
+
+  @ApiProperty({ example: ['12345', '67890'] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  invoiceIds!: string[];
+}
+
 export class InvoiceBatchPartialDto {
   @ApiProperty({ enum: ['partial'], example: 'partial' })
   status!: 'partial';

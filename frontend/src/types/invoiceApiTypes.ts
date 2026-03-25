@@ -23,6 +23,7 @@ export interface InvoiceRuleFilter {
   daysTo: number;
   referenceDate: string;
   referenceDates?: string[];
+  recurringType?: 'range' | 'monthly_days' | 'single';
 }
 
 export interface CodePix {

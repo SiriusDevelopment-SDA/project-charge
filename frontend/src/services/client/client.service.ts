@@ -34,7 +34,9 @@ export class ClientService {
       : {
           documents: (payload.documents ?? []).map((cnpj_cpf) => ({ cnpj_cpf })),
           companyId: payload.companyId,
-          filter: payload.filter,
+          filter: payload.filter
+            ? (({ recurringType: _, ...rest }) => rest)(payload.filter)
+            : undefined,
         };
 
     console.log("[ClientService.searchInvoices] payload enviado ao backend", {
@@ -44,7 +46,15 @@ export class ClientService {
 
     return Api.post<InvoiceBatchResponse>("/invoices/search", {
       ...request,
-    });
+    }, { timeout: 120000 });
+  }
+
+  static async fetchPixCodes(companyId: string, invoiceIds: string[]) {
+    return Api.post<{ results: Array<{ invoiceId: string; status: string; pix: string }> }>(
+      "/invoices/pix/batch",
+      { companyId, invoiceIds },
+      { timeout: 60000 },
+    );
   }
 
   static async listServices(companyId: string) {

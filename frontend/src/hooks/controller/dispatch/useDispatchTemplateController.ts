@@ -61,12 +61,16 @@ export function useDispatchTemplateController() {
         to,
       };
 
-      const orderDetailsRecipients = to.filter((recipient) =>
-        recipient.components.some(
+      const orderDetailsRecipients = to.filter((recipient) => {
+        if (!Array.isArray(recipient.components)) {
+          console.error('[dispatch-debug] recipient.components nao e array:', recipient);
+          return false;
+        }
+        return recipient.components.some(
           (component) =>
             component.type === "BUTTON" && component.sub_type === "ORDER_DETAILS",
-        ),
-      );
+        );
+      });
 
       console.groupCollapsed("[dispatch-debug] payload /templates/send");
       console.log("templateId", templateId);
