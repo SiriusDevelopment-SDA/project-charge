@@ -6,6 +6,7 @@ import { In, Repository } from 'typeorm';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { MessageQueueService } from './message-queue.service';
 import type { MessageQueuePayload } from './entities/message-queue.entity';
+import { isBusinessDay } from '../common/utils/business-day.util';
 
 @Injectable()
 export class CampaignScheduler {
@@ -216,6 +217,16 @@ export class CampaignScheduler {
 
     const withinRange = todayInTimezone >= startDate && todayInTimezone <= endDate;
     if (!withinRange) return false;
+
+    // Não disparar em fins de semana nem feriados nacionais
+    const nowInTz = this.toDateTimeInZone(now, campaign.timezone);
+    const localDate = new Date(nowInTz.year, nowInTz.month - 1, nowInTz.day);
+    if (!isBusinessDay(localDate)) {
+      this.logger.debug(
+        `Campaign ${campaign.id} skipped: ${todayInTimezone} is a weekend or national holiday.`,
+      );
+      return false;
+    }
 
     if (campaign.recurringType === 'monthly_days') {
       return this.matchesRecurringSelection(campaign, now);

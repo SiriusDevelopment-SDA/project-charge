@@ -23,3 +23,18 @@
   height: 0;
   text-align: center;
 }
+
+/* Fins de semana e feriados desabilitados: remove o highlight do range e aplica visual "apagado" */
+.rdp .rdp-day[data-disabled] .rdp-day_button {
+  background-color: transparent !important;
+  color: rgba(255, 255, 255, 0.25) !important;
+  text-decoration: line-through;
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Quando está no meio do range mas é desabilitado: mantém fundo levíssimo para preservar a linha do range */
+.rdp .rdp-range_middle[data-disabled] .rdp-day_button,
+.rdp .rdp-day[data-range-middle][data-disabled] .rdp-day_button {
+  background-color: rgba(250, 204, 21, 0.06) !important;
+}

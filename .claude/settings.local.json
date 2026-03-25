@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find 'd:\\\\Documetos\\\\nova api sistema cobrança\\\\project-charge' -type f -name *ixc* -o -name *IXC*)"
+    ]
+  }
+}

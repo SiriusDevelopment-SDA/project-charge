@@ -12,6 +12,8 @@ import { handleUploadPlanilha } from "../../../utils/hendleUploadSpreadSheat";
 import { processarDocumentos } from "../../../utils/validation";
 import { templateRequiresAttendantName } from "../../../validators/template.validator";
 import { AppStorage } from "../../../services/storage/storage.service";
+import { useHolidays } from "../../useHolidays";
+import { filterBusinessDays, isWeekend, isHoliday } from "../../../utils/businessDay";
 
 const INVOICE_RULE_LABELS = {
   greater_than: "Depois do vencimento",
@@ -25,6 +27,27 @@ function toCalendarDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function getMonthlyDispatchDateKeys(from: Date, to: Date, dayOfMonth: number): string[] {
+  const dates: string[] = [];
+  const fromNorm = new Date(from); fromNorm.setHours(12, 0, 0, 0);
+  const toNorm = new Date(to); toNorm.setHours(12, 0, 0, 0);
+
+  const cursor = new Date(fromNorm.getFullYear(), fromNorm.getMonth(), 1);
+
+  while (cursor <= toNorm) {
+    const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+    if (dayOfMonth <= daysInMonth) {
+      const candidate = new Date(cursor.getFullYear(), cursor.getMonth(), dayOfMonth, 12, 0, 0);
+      if (candidate >= fromNorm && candidate <= toNorm) {
+        dates.push(toCalendarDateKey(candidate));
+      }
+    }
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return dates;
 }
 
 function getCalendarDateKeysInRange(from: Date, to?: Date) {
@@ -74,6 +97,19 @@ export function useCreateCampaignPageController() {
   const [openAttendantModal, setOpenAttendantModal] = useState(false);
   const [attendantName, setAttendantName] = useState(AppStorage.getAttendantName());
   const [isConsultingInvoiceRule, setIsConsultingInvoiceRule] = useState(false);
+  const holidays = useHolidays();
+
+  const isNonBusinessDay = useCallback(
+    (date: Date) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      if (d < today) return true;
+      return isWeekend(date) || isHoliday(date, holidays);
+    },
+    [holidays],
+  );
 
   const { clients, setQuery, consultClientsByInvoiceRule } = useClient();
   const {
@@ -89,6 +125,29 @@ export function useCreateCampaignPageController() {
   const form = useCampaignFormController();
   const modal = useCampaignEditController();
   const account = useAccountParam();
+
+  const isDateBlockedForMonthlyDays = useCallback(
+    (date: Date) => {
+      if (isNonBusinessDay(date)) return true;
+
+      const dateKey = toCalendarDateKey(date);
+      const isAlreadySelected = form.selectedDays.some(
+        (s) => toCalendarDateKey(s) === dateKey,
+      );
+      if (isAlreadySelected) return false;
+
+      const daysFrom = Math.max(Number(form.invoiceRuleDaysFrom) || 0, 0);
+      const daysTo = Math.max(Number(form.invoiceRuleDaysTo) || 0, 0);
+      const minInterval = Math.max(daysTo - daysFrom + 1, 1);
+
+      return form.selectedDays.some((selected) => {
+        const diffDays =
+          Math.abs(date.getTime() - selected.getTime()) / (1000 * 60 * 60 * 24);
+        return diffDays < minInterval;
+      });
+    },
+    [isNonBusinessDay, form.selectedDays, form.invoiceRuleDaysTo],
+  );
 
   const toggleDropdown = useCallback((type: DropdownType) => {
     setOpenDropdown((prev) => (prev === type ? null : type));
@@ -203,34 +262,51 @@ export function useCreateCampaignPageController() {
       return;
     }
 
-    const referenceDates =
+    const rawReferenceDates =
       form.recurringType === "monthly_days"
         ? form.selectedDays.map((date) => toCalendarDateKey(date))
         : form.dateRange?.from
           ? getCalendarDateKeysInRange(form.dateRange.from, form.dateRange.to)
           : [];
 
+    const referenceDates = filterBusinessDays(rawReferenceDates, holidays);
+
     if (!referenceDates.length) {
-      toast.warning("Selecione a data de disparo antes de consultar as faturas.");
+      const hasRawDates = rawReferenceDates.length > 0;
+      toast.warning(
+        hasRawDates
+          ? "Nenhum dia útil encontrado no período selecionado. O período contém apenas fins de semana e feriados."
+          : "Selecione a data de disparo antes de consultar as faturas.",
+      );
       return;
     }
+
+    const filterPayload = {
+      operator: form.invoiceRuleOperator,
+      days: daysTo,
+      daysFrom,
+      daysTo,
+      referenceDate: referenceDates[0],
+      referenceDates,
+    };
+
+    console.log("[consultarFaturas] companyId:", form.selectedTemplate.company.id);
+    console.log("[consultarFaturas] filter enviado:", filterPayload);
+    console.log("[consultarFaturas] referenceDates brutas (antes filtro úteis):", rawReferenceDates);
+    console.log("[consultarFaturas] referenceDates após filtro dias úteis:", referenceDates);
 
     setIsConsultingInvoiceRule(true);
 
     try {
-      const { clientsByDispatchDate } = await consultClientsByInvoiceRule({
+      const result = await consultClientsByInvoiceRule({
         companyId: form.selectedTemplate.company.id,
-        filter: {
-          operator: form.invoiceRuleOperator,
-          days: daysTo,
-          daysFrom,
-          daysTo,
-          referenceDate: referenceDates[0],
-          referenceDates,
-        },
+        filter: filterPayload,
       });
 
-      form.setSelectedClientsFromInvoiceRule(clientsByDispatchDate);
+      console.log("[consultarFaturas] resultado:", result);
+      console.log("[consultarFaturas] clientsByDispatchDate:", result.clientsByDispatchDate);
+
+      form.setSelectedClientsFromInvoiceRule(result.clientsByDispatchDate);
     } finally {
       setIsConsultingInvoiceRule(false);
     }
@@ -242,6 +318,7 @@ export function useCreateCampaignPageController() {
     form.invoiceRuleOperator,
     form.recurringType,
     form.selectedTemplate,
+    holidays,
   ]);
 
   const submitCampaign = useCallback(async () => {
@@ -301,6 +378,8 @@ export function useCreateCampaignPageController() {
     openDropdown,
     openAttendantModal,
     attendantName,
+    isNonBusinessDay,
+    isDateBlockedForMonthlyDays,
     previewDetails,
     previewMessage: String(
       form.templateMapVars?.[0]?.mensagem ??

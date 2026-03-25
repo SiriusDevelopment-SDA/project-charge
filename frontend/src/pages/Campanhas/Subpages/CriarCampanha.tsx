@@ -3,7 +3,7 @@ import {
   AttendantNameModalContent,
   BaseCard,
   DispatchPreviewContent,
-  DownloadModeloButton,
+  // DownloadModeloButton,
   Dropdown,
   DynamicModal,
   InputFields,
@@ -12,7 +12,7 @@ import {
   MyCalendar,
   PageContainer,
   TitlePage,
-  UploadButton,
+  // UploadButton,
 } from "../../../componente/Index";
 import { useCreateCampaignPageController } from "../../../hooks/controller/campaigns/useCreateCampaignPageController";
 import Style from "../Styles/CriarCampanha.module.css";
@@ -94,6 +94,8 @@ export function CriarCampanha() {
     openDropdown,
     openAttendantModal,
     attendantName,
+    isNonBusinessDay,
+    isDateBlockedForMonthlyDays,
     previewDetails,
     previewMessage,
     searchTemplateName,
@@ -117,7 +119,6 @@ export function CriarCampanha() {
   const usesInvoiceRule = form.recurringType !== "single";
   const isMonthlyDays = form.recurringType === "monthly_days";
   const selectedDayLabels = form.selectedDays.map((date) => calendarDateFormatter.format(date));
-
   const getSliderPosition = (operator: InvoiceRuleOperator): number => {
     if (operator === 'greater_than' || operator === 'greater_or_equal') return 2;
     if (operator === 'less_or_equal') return 1;
@@ -131,12 +132,6 @@ export function CriarCampanha() {
   const rangeStartPercent = (normalizedInvoiceRuleStart / INVOICE_RULE_MAX_DAYS) * 100;
   const rangeEndPercent = (normalizedInvoiceRuleEnd / INVOICE_RULE_MAX_DAYS) * 100;
   const isSameDayRule = currentSlider === 1;
-  const visibleInvoiceRulePresets = INVOICE_RULE_PRESETS.filter((preset) => {
-    if (isSameDayRule) return false;
-    return currentSlider === 0
-      ? preset.operator === "less_than"
-      : preset.operator === "greater_than";
-  });
 
   const handleSliderPosition = (index: number) => {
     if (index === 0) {
@@ -208,15 +203,17 @@ export function CriarCampanha() {
             <div className={Style.createCampaign__calendar}>
               {isMonthlyDays ? (
                 <MyCalendar
-                  mode="single"
-                  selectedSingle={form.selectedDays[0]}
-                  onSelectSingle={(date) => form.setSelectedDays(date ? [date] : [])}
+                  mode="multiple"
+                  selectedMultiple={form.selectedDays}
+                  onSelectMultiple={(dates) => form.setSelectedDays(dates ?? [])}
+                  disabledDays={isDateBlockedForMonthlyDays}
                 />
               ) : form.recurringType === "range" ? (
                 <MyCalendar
                   mode="range"
                   selected={form.dateRange}
                   onSelect={form.setDateRange}
+                  disabledDays={isNonBusinessDay}
                 />
               ) : (
                 <MyCalendar
@@ -225,48 +222,43 @@ export function CriarCampanha() {
                   onSelectSingle={(date) =>
                     form.setDateRange(date ? { from: date, to: date } : undefined)
                   }
+                  disabledDays={isNonBusinessDay}
                 />
               )}
             </div>
 
-            <section className={Style.timeContainer}>
-              <div className={Style.createCampaign__scheduleTimeField}>
-                    <span>Horario de disparo</span>
-                    <InputFields
-                      type="time"
-                      value={form.dispatchTime}
-                      onChange={(e) => form.setdispatchTime(e.target.value)}
-                      required
-                      />
-              </div>
-              {isMonthlyDays && (
-                selectedDayLabels.length > 0 ? (
-                 <div className={Style.containerDataSelect}>
-                  <span className={Style.selectedDaysPreviewCount}>Data selecionada</span>
-                  <div className={Style.selectedDaysPreview}>
-                    
-                    <div className={Style.selectedDaysPreviewHeader}>
-                     
-                      {selectedDayLabels.length > 6 && (
-                        <small className={Style.selectedDaysPreviewHint}>Role para ver todas</small>
-                      )}
-                    </div>
-                    <div className={Style.selectedDaysPreviewList}>
-                      {selectedDayLabels.map((label) => (
-                        <span key={label} className={Style.selectedDaysPreviewChip}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
+            {isMonthlyDays && (
+              selectedDayLabels.length > 0 ? (
+                <div className={Style.selectedDaysSection}>
+                  <div className={Style.selectedDaysSectionHeader}>
+                    <span className={Style.selectedDaysPreviewCount}>
+                      {selectedDayLabels.length} data{selectedDayLabels.length > 1 ? "s" : ""} selecionada{selectedDayLabels.length > 1 ? "s" : ""}
+                    </span>
+                    {Number(form.invoiceRuleDaysTo) > 0 && (
+                      <small className={Style.selectedDaysPreviewHint}>
+                        Intervalo minimo: {Math.max(invoiceRuleDaysTo - invoiceRuleDaysFrom + 1, 1)} dias entre disparos
+                      </small>
+                    )}
                   </div>
-                 </div>
-                ) : (
-                  <div className={Style.selectedDaysPreviewEmpty}>
-                    Clique nas datas em que deseja disparar
+                  <div className={Style.selectedDaysPreviewList}>
+                    {selectedDayLabels.slice(0, 3).map((label) => (
+                      <span key={label} className={Style.selectedDaysPreviewChip}>
+                        {label}
+                      </span>
+                    ))}
+                    {selectedDayLabels.length > 3 && (
+                      <span className={Style.selectedDaysPreviewChipMore}>
+                        +{selectedDayLabels.length - 3} mais
+                      </span>
+                    )}
                   </div>
-                )
-              )}
-            </section>
+                </div>
+              ) : (
+                <div className={Style.selectedDaysPreviewEmpty}>
+                  Clique nas datas em que deseja disparar
+                </div>
+              )
+            )}
 
             {/* {!isRuleMode && (
               <>
@@ -287,14 +279,14 @@ export function CriarCampanha() {
           <section className={Style.grid_right}>
             <div className={Style.createCampaign__schedule}>
               <div className={Style.createCampaign__scheduleTime}>
-              
 
-                 {usesInvoiceRule &&(
-                   <div className={Style.invoiceRulePanel}>
-                   <div className={Style.invoiceRuleHeader}>
+
+                {usesInvoiceRule && (
+                  <div className={Style.invoiceRulePanel}>
+                    <div className={Style.invoiceRuleHeader}>
                       <section className={Style.titleHeader}>
                         <small>
-                         <span>Regua de cobranca</span>
+                          <span>Regua de cobranca</span>
                           {isMonthlyDays
                             ? "As datas escolhidas no calendário serão usadas como referência da regua ao consultar as faturas no ERP."
                             : "Cada dia dentro do período recorrente será usado como referência da regua ao consultar as faturas no ERP."}
@@ -324,57 +316,47 @@ export function CriarCampanha() {
                                   className={currentSlider === i ? Style.sliderLabelActive : Style.sliderLabel}
                                   onClick={() => handleSliderPosition(i)}
                                 >
-                                {label}
+                                  {label}
                                 </span>
                               ))}
                             </div>
                           </div>
 
-                          {/* <div className={Style.invoiceRuleActionRow}>
-                            <MyButton
-                              text={isConsultingInvoiceRule ? "Consultando..." : "Consultar faturas"}
-                              variant="secondary"
-                              className={Style.invoiceRuleButton}
-                              onClick={handleConsultClientsByInvoiceRule}
-                              disabled={isConsultingInvoiceRule}
-                            />
-                          </div> */}
                         </div>
                       </section>
                     </div>
- 
-                   {visibleInvoiceRulePresets.length > 0 ? (
-                     <div className={Style.invoiceRulePresets}>
-                       {visibleInvoiceRulePresets.map((preset) => {
-                         const isActive =
-                           form.invoiceRuleOperator === preset.operator &&
-                           normalizedInvoiceRuleStart === preset.daysFrom &&
-                           normalizedInvoiceRuleEnd === preset.daysTo;
 
-                         return (
-                           <button
-                             key={preset.id}
-                             type="button"
-                             className={`${Style.invoiceRulePresetCard} ${isActive ? Style.invoiceRulePresetCardActive : ""}`}
-                             onClick={() => handleInvoiceRulePreset(preset)}
-                           >
-                             <strong>{preset.title}</strong>
-                             <small>{preset.subtitle}</small>
-                           </button>
-                         );
-                       })}
-                     </div>
-                   ) : (
-                     <div className={Style.invoiceRulePresetHint}>
-                       No dia do vencimento nao ha intervalos predefinidos.
-                     </div>
-                   )}
+                    <div className={Style.invoiceRulePresets}>
+                      {INVOICE_RULE_PRESETS.map((preset) => {
+                        const isActive =
+                          form.invoiceRuleOperator === preset.operator &&
+                          normalizedInvoiceRuleStart === preset.daysFrom &&
+                          normalizedInvoiceRuleEnd === preset.daysTo;
+                        const isDisabled =
+                          isSameDayRule ||
+                          (currentSlider === 0 && preset.operator !== "less_than") ||
+                          (currentSlider === 2 && preset.operator !== "greater_than");
 
-                   <div className={`${Style.invoiceRuleManualSection} ${isSameDayRule ? Style.invoiceRuleFieldDisabled : ""}`}>
-                     <div className={Style.invoiceRuleManualHeader}>
-                       <span>Ou defina manualmente</span>
-                     </div>
-                     {/* <div className={Style.invoiceRuleManualFields}>
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            disabled={isDisabled}
+                            className={`${Style.invoiceRulePresetCard} ${isActive ? Style.invoiceRulePresetCardActive : ""} ${isDisabled ? Style.invoiceRulePresetCardDisabled : ""}`}
+                            onClick={() => !isDisabled && handleInvoiceRulePreset(preset)}
+                          >
+                            <strong>{preset.title}</strong>
+                            <small>{preset.subtitle}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className={`${Style.invoiceRuleManualSection} ${isSameDayRule ? Style.invoiceRuleFieldDisabled : ""}`}>
+                      <div className={Style.invoiceRuleManualHeader}>
+                        <span>Ou defina manualmente</span>
+                      </div>
+                      {/* <div className={Style.invoiceRuleManualFields}>
                        <div className={Style.invoiceRuleField}>
                          <InputFields
                            label="De (dias)"
@@ -396,161 +378,180 @@ export function CriarCampanha() {
                        </div>
                      </div> */}
 
-                     <div className={Style.invoiceRuleRangeSlider}>
-                       <div className={Style.invoiceRuleRangeTrackBase} />
-                       <div
-                         className={Style.invoiceRuleRangeTrackActive}
-                         style={{
-                           left: `${rangeStartPercent}%`,
-                           width: `${Math.max(rangeEndPercent - rangeStartPercent, 0)}%`,
-                         }}
-                       />
-                       <input
-                         type="range"
-                         min={0}
-                         max={INVOICE_RULE_MAX_DAYS}
-                         step={1}
-                         value={normalizedInvoiceRuleStart}
-                         disabled={isSameDayRule}
-                         className={Style.invoiceRuleRangeInput}
-                         onChange={(e) => handleInvoiceRuleRangeStartChange(Number(e.target.value))}
-                       />
-                       <input
-                         type="range"
-                         min={0}
-                         max={INVOICE_RULE_MAX_DAYS}
-                         step={1}
-                         value={normalizedInvoiceRuleEnd}
-                         disabled={isSameDayRule}
-                         className={Style.invoiceRuleRangeInput}
-                         onChange={(e) => handleInvoiceRuleRangeEndChange(Number(e.target.value))}
-                       />
-                     </div>
+                      <div className={Style.invoiceRuleRangeSlider}>
+                        <div className={Style.invoiceRuleRangeTrackBase} />
+                        <div
+                          className={Style.invoiceRuleRangeTrackActive}
+                          style={{
+                            left: `${rangeStartPercent}%`,
+                            width: `${Math.max(rangeEndPercent - rangeStartPercent, 0)}%`,
+                          }}
+                        />
+                        <input
+                          type="range"
+                          min={0}
+                          max={INVOICE_RULE_MAX_DAYS}
+                          step={1}
+                          value={normalizedInvoiceRuleStart}
+                          disabled={isSameDayRule}
+                          className={Style.invoiceRuleRangeInput}
+                          onChange={(e) => handleInvoiceRuleRangeStartChange(Number(e.target.value))}
+                        />
+                        <input
+                          type="range"
+                          min={0}
+                          max={INVOICE_RULE_MAX_DAYS}
+                          step={1}
+                          value={normalizedInvoiceRuleEnd}
+                          disabled={isSameDayRule}
+                          className={Style.invoiceRuleRangeInput}
+                          onChange={(e) => handleInvoiceRuleRangeEndChange(Number(e.target.value))}
+                        />
+                      </div>
 
-                     <div className={Style.invoiceRuleRangeValues}>
-                       <span>{normalizedInvoiceRuleStart} dias</span>
-                       <span>{normalizedInvoiceRuleEnd} dias</span>
-                     </div>
+                      <div className={Style.invoiceRuleRangeValues}>
+                        <span>{normalizedInvoiceRuleStart} dias</span>
+                        <span>{normalizedInvoiceRuleEnd} dias</span>
+                      </div>
 
-                     <div className={Style.invoiceRuleRangeScale}>
-                       {[0, 90, 180, 270, 360].map((value) => (
-                         <span key={value}>{value}</span>
-                       ))}
-                     </div>
-                   </div>
+                      <div className={Style.invoiceRuleRangeScale}>
+                        {[0, 90, 180, 270, 360].map((value) => (
+                          <span key={value}>{value}</span>
+                        ))}
+                      </div>
+                    </div>
 
-                   <div className={Style.invoiceRuleSummary}>
-                     {form.hasConsultedInvoiceRule
-                       ? `${form.selectedClients.length} cliente(s) selecionado(s) automaticamente pela regua.`
-                       : isSameDayRule
-                         ? "A consulta vai carregar automaticamente os clientes com faturas no dia exato do vencimento."
-                         : "A consulta vai carregar automaticamente os clientes com faturas dentro do intervalo informado."}
-                   </div>
- 
-                   {selectedClientNames && (
-                     <div className={Style.invoiceRuleClientsPreview}>
-                       Clientes encontrados: <span>{selectedClientNames}</span>
-                       {form.selectedClients.length > 5
-                         ? ` e mais ${form.selectedClients.length - 5}.`
-                         : "."}
-                     </div>
-                   )}
-                 </div>
-                 )}
-                {!usesInvoiceRule &&(
-                  <BaseCard classname={Style.createCampaign__metricsCard}>
-                  <Metricas
-                    chave="Clientes selecionados"
-                    valor={String(form.selectedClients?.length ?? 0)}
-                    classname={Style.createCampaign__metricsContent}
-                  />
-                </BaseCard>
+                    <div className={Style.invoiceRuleSummaryContainer}>
+                      <div className={Style.invoiceRuleSummary}>
+                        {form.hasConsultedInvoiceRule
+                          ? `${form.selectedClients.length} cliente(s) selecionado(s) automaticamente pela regua.`
+                          : isSameDayRule
+                            ? "A consulta vai carregar automaticamente os clientes com faturas no dia exato do vencimento."
+                            : "A consulta vai carregar automaticamente os clientes com faturas dentro do intervalo informado."}
+                      </div>
+                      <div className={Style.invoiceRuleActionRow}>
+                        <MyButton
+                          text={isConsultingInvoiceRule ? "Consultando..." : "Consultar faturas"}
+                          variant="secondary"
+                          className={Style.invoiceRuleButton}
+                          onClick={handleConsultClientsByInvoiceRule}
+                          disabled={isConsultingInvoiceRule}
+                        />
+                      </div>
+                    </div>
+                    {selectedClientNames && (
+                      <div className={Style.invoiceRuleClientsPreview}>
+                        Clientes encontrados: <span>{selectedClientNames}</span>
+                        {form.selectedClients.length > 5
+                          ? ` e mais ${form.selectedClients.length - 5}.`
+                          : "."}
+                      </div>
+                    )}
+                  </div>
                 )}
-              </div>
-
-             <div className={Style.containerBotton}>
-             <div className={Style.recurringTypeSelector}>
-                {(["single", "range", "monthly_days"] as const).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    className={`${Style.recurringTypeBtn} ${form.recurringType === type ? Style.recurringTypeBtnActive : ""}`}
-                    onClick={() => {
-                      form.setRecurringType(type);
-                      form.setDateRange(undefined);
-                      form.setSelectedDays([]);
-                      form.setSelectedClients([]);
-                    }}
-                  >
-                    {RECURRING_TYPE_LABELS[type]}
-                  </button>
-                ))}
-              </div>
-              
-              
-              <section className={Style.containerDropdown}>
-                <Dropdown<Template>
-                  label="Selecione um template"
-                  options={filteredTemplates ?? templates ?? []}
-                  value={form.selectedTemplate}
-                  onChange={(value) => form.setSelectedTemplate(value as Template)}
-                  open={openDropdown === "template"}
-                  onOpen={() => toggleDropdown("template")}
-                  onClose={closeDropdown}
-                  searchValue={searchTemplateName}
-                  searchPlaceholder="Buscar template pelo nome"
-                  onSearchTermChange={setSearchTemplateName}
-                  filterOptions={templateCategories}
-                  filterValue={categoryTemplateFilter}
-                  onFilterChange={setCategoryTemplateFilter}
-                />
-
-                <Dropdown<Category>
-                  label="Selecione uma categoria"
-                  options={categories ?? []}
-                  value={form.selectedCategory}
-                  onChange={(value) => form.setSelectedCategory(value as Category)}
-                  open={openDropdown === "category"}
-                  onOpen={() => toggleDropdown("category")}
-                  onClose={closeDropdown}
-                  searchable={false}
-                />
-                
                 {!usesInvoiceRule && (
-                  <Dropdown<Cliente>
-                    label="Selecionar Clientes"
-                    className={Style.createCampaign__selectedClientsDropdown}
-                    options={clients}
-                    selected={form.selectedClients}
-                    onChange={(value) => form.setSelectedClients(value as Cliente[])}
-                    open={openDropdown === "client"}
-                onOpen={() => toggleDropdown("client")}
-                onClose={closeDropdown}
-                multiple
-                summaryOnMultiple
-                searchable
-                onSearchTermChange={handleClientSearch}
-              />
+                  <BaseCard classname={Style.createCampaign__metricsCard}>
+                    <Metricas
+                      chave="Clientes selecionados"
+                      valor={String(form.selectedClients?.length ?? 0)}
+                      classname={Style.createCampaign__metricsContent}
+                    />
+                  </BaseCard>
                 )}
-              </section>
-              <section className={Style.campaignActionsRow}>
-                <div className={Style.campaignNameField}>
-                  <InputFields
-                    label="Nome da Campanha"
-                    value={form.name}
-                    onChange={(e) => form.setName(e.target.value)}
-                  />
+              </div>
+
+              <div className={Style.containerBotton}>
+                <div className={Style.recurringTypeSelector}>
+                  {(["single", "range", "monthly_days"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`${Style.recurringTypeBtn} ${form.recurringType === type ? Style.recurringTypeBtnActive : ""}`}
+                      onClick={() => {
+                        form.setRecurringType(type);
+                        form.setDateRange(undefined);
+                        form.setSelectedDays([]);
+                        form.setSelectedClients([]);
+                      }}
+                    >
+                      {RECURRING_TYPE_LABELS[type]}
+                    </button>
+                  ))}
                 </div>
-                <MyButton
-                  text="Prosseguir"
-                  variant="btn-enviar"
-                  onClick={handleOpenPreview}
-                  className={`${Style.btn_dispatch} ${Style.campaignActionButton}`}
-                />
-              </section>
-             </div>
+
+
+                <section className={Style.containerDropdown}>
+                  <Dropdown<Template>
+                    label="Selecione um template"
+                    options={filteredTemplates ?? templates ?? []}
+                    value={form.selectedTemplate}
+                    onChange={(value) => form.setSelectedTemplate(value as Template)}
+                    open={openDropdown === "template"}
+                    onOpen={() => toggleDropdown("template")}
+                    onClose={closeDropdown}
+                    searchValue={searchTemplateName}
+                    searchPlaceholder="Buscar template pelo nome"
+                    onSearchTermChange={setSearchTemplateName}
+                    filterOptions={templateCategories}
+                    filterValue={categoryTemplateFilter}
+                    onFilterChange={setCategoryTemplateFilter}
+                  />
+
+                  <Dropdown<Category>
+                    label="Selecione uma categoria"
+                    options={categories ?? []}
+                    value={form.selectedCategory}
+                    onChange={(value) => form.setSelectedCategory(value as Category)}
+                    open={openDropdown === "category"}
+                    onOpen={() => toggleDropdown("category")}
+                    onClose={closeDropdown}
+                    searchable={false}
+                  />
+
+                  {!usesInvoiceRule && (
+                    <Dropdown<Cliente>
+                      label="Selecionar Clientes"
+                      className={Style.createCampaign__selectedClientsDropdown}
+                      options={clients}
+                      selected={form.selectedClients}
+                      onChange={(value) => form.setSelectedClients(value as Cliente[])}
+                      open={openDropdown === "client"}
+                      onOpen={() => toggleDropdown("client")}
+                      onClose={closeDropdown}
+                      multiple
+                      summaryOnMultiple
+                      searchable
+                      onSearchTermChange={handleClientSearch}
+                    />
+                  )}
+                </section>
+                <section className={Style.campaignActionsRow}>
+                  <div className={Style.campaignNameField}>
+                    <InputFields
+                      label="Nome da Campanha"
+                      value={form.name}
+                      onChange={(e) => form.setName(e.target.value)}
+                    />
+                  </div>
+                  <div className={Style.createCampaign__scheduleTimeField}>
+                    <span>Horario de disparo</span>
+                    <InputFields
+                      type="time"
+                      value={form.dispatchTime}
+                      onChange={(e) => form.setdispatchTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <MyButton
+                    text="Prosseguir"
+                    variant="btn-enviar"
+                    onClick={handleOpenPreview}
+                    className={`${Style.btn_dispatch} ${Style.campaignActionButton}`}
+                  />
+                </section>
+              </div>
             </div>
-        
+
           </section>
         </div>
       </div>

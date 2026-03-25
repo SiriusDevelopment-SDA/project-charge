@@ -17,6 +17,7 @@ import { SGPInvoicesService } from '../services/sgpInvoicesService';
 import {
   InvoiceBatchPartialDto,
   InvoiceBatchResponseDto,
+  InvoiceMapResultDto,
   InvoiceSearchFilterDto,
   InvoicesResponseDto,
   ResultInvoicesDto,
@@ -45,6 +46,7 @@ export class InvoicesController {
   @ApiBody({ type: SearchRequestInvoicesDto })
   @ApiOkResponse({ type: InvoiceBatchPartialDto })
   async getInvoices(@Body() data: SearchRequestInvoicesDto) {
+    console.log('[POST /invoices/search] body recebido:', JSON.stringify(data));
     const documents = (data.documents ?? []).map((item) => item.cnpj_cpf);
 
     if (!documents.length && !data.companyId) {
@@ -120,11 +122,17 @@ export class InvoicesController {
       relations: ['company'],
     });
 
+    console.log(`[searchInvoicesByCompanyRule] companyId: ${companyId}`);
+    console.log(`[searchInvoicesByCompanyRule] filter recebido:`, JSON.stringify(filter));
+    console.log(`[searchInvoicesByCompanyRule] total clientes encontrados: ${clients.length}`);
+
     if (!clients.length) {
       throw new NotFoundException(
         'Nenhum cliente encontrado para a empresa informada.',
       );
     }
+
+    console.log(`[searchInvoicesByCompanyRule] ERP da empresa: ${clients[0]?.company?.erp}`);
 
     if (!['IXC', 'SGP'].includes(clients[0]?.company?.erp)) {
       throw new BadRequestException(
@@ -133,6 +141,8 @@ export class InvoicesController {
     }
 
     const dispatchDates = getInvoiceRuleReferenceDates(filter);
+    console.log(`[searchInvoicesByCompanyRule] dispatchDates calculadas:`, dispatchDates);
+
     if (!dispatchDates.length) {
       throw new BadRequestException(
         'A régua de cobrança precisa receber ao menos uma data de referência.',
@@ -140,46 +150,94 @@ export class InvoicesController {
     }
 
     const dueDatesByDispatchDate = getInvoiceRuleDueDatesMap(filter);
+    console.log(`[searchInvoicesByCompanyRule] dueDates por dispatchDate:`);
+    dueDatesByDispatchDate.forEach((dates, key) => {
+      console.log(`  ${key} → [${dates.slice(0, 3).join(', ')}... (${dates.length} datas)]`);
+    });
+
     const resultados: ResultInvoicesDto[] = [];
     const errors: { document: string; reason: string }[] = [];
+    const company = clients[0].company;
 
-    for (const cliente of clients) {
-      try {
+    if (company.erp === 'IXC') {
+      const allDueDates = [...dueDatesByDispatchDate.values()].flat();
+      const sortedDates = [...new Set(allDueDates)].sort((a, b) => a.localeCompare(b));
+      const windowStart = sortedDates[0];
+      const windowEnd = sortedDates[sortedDates.length - 1];
+
+      const invoicesByClientId = await this.ixcService.getInvoicesByDateWindowBatch(
+        company,
+        windowStart,
+        windowEnd,
+      );
+
+      const clientByIxcId = new Map(
+        clients.map((c) => [String(c.clientId), c]),
+      );
+
+      invoicesByClientId.forEach((rawInvoices, ixcClientId) => {
+        const cliente = clientByIxcId.get(ixcClientId);
+        if (!cliente) return;
+
         const normalizedDocument = String(cliente.cnpj_cpf ?? '').replace(/\D/g, '');
-        const invoices = await this.fetchInvoicesByClient(cliente, filter);
+        const invoiceList: InvoiceMapResultDto[] = rawInvoices.map((t) => {
+          const contractId =
+            t.id_contrato && t.id_contrato !== '' && t.id_contrato !== '0'
+              ? t.id_contrato
+              : t.id_contrato_principal && t.id_contrato_principal !== '' && t.id_contrato_principal !== '0'
+              ? t.id_contrato_principal
+              : t.id_contrato_avulso ?? null;
 
-        if (!Array.isArray(invoices.list) || invoices.list.length === 0) {
-          continue;
-        }
+          return {
+            invoice_id: String(t.id),
+            contract_id: String(contractId),
+            invoice_due_date: t.data_vencimento,
+            invoice_amount: String(t.valor_aberto ?? t.valor),
+            invoice_status: 'A Receber',
+            ticket_digitable_line: null,
+            ticket_pdf_link: null,
+            code_pix: { status: 'error', pix: '' },
+          } as InvoiceMapResultDto;
+        });
 
         dispatchDates.forEach((dispatchDate) => {
           const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
-          const filteredInvoices = filterInvoicesByDueDates(
-            invoices.list,
-            dueDates,
-          );
+          const filteredInvoices = filterInvoicesByDueDates(invoiceList, dueDates);
 
-          if (!filteredInvoices.length) {
-            return;
-          }
+          console.log(`[searchInvoicesByCompanyRule] ${cliente.name} | ${dispatchDate} | filtradas: ${filteredInvoices.length}`);
+
+          if (!filteredInvoices.length) return;
 
           resultados.push(
             this.mapResult(
               cliente,
               normalizedDocument,
-              {
-                ...invoices,
-                list: filteredInvoices,
-              },
+              { status: 'success', message: 'ok', list: filteredInvoices },
               dispatchDate,
             ),
           );
         });
-      } catch {
-        errors.push({
-          document: String(cliente.cnpj_cpf ?? ''),
-          reason: 'Erro inesperado ao processar o cliente pela régua',
-        });
+      });
+    } else {
+      for (const cliente of clients) {
+        try {
+          const normalizedDocument = String(cliente.cnpj_cpf ?? '').replace(/\D/g, '');
+          const invoices = await this.fetchInvoicesByClient(cliente, filter);
+
+          if (!Array.isArray(invoices.list) || invoices.list.length === 0) continue;
+
+          dispatchDates.forEach((dispatchDate) => {
+            const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
+            const filteredInvoices = filterInvoicesByDueDates(invoices.list, dueDates);
+            if (!filteredInvoices.length) return;
+            resultados.push(
+              this.mapResult(cliente, normalizedDocument, { ...invoices, list: filteredInvoices }, dispatchDate),
+            );
+          });
+        } catch (err) {
+          console.error(`[searchInvoicesByCompanyRule] erro no cliente ${cliente.cnpj_cpf}:`, err);
+          errors.push({ document: String(cliente.cnpj_cpf ?? ''), reason: 'Erro inesperado ao processar o cliente pela régua' });
+        }
       }
     }
 

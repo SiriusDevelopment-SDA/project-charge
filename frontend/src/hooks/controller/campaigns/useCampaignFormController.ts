@@ -19,6 +19,7 @@ import {
   areOnlyAttendantFieldsMissing,
   getIncompleteTemplateRecipients,
   templateRequiresAttendantName,
+  templateRequiresPix,
 } from "../../../validators/template.validator";
 import { AppStorage } from "../../../services/storage/storage.service";
 import { validarSelecaoCliente } from "../../../utils/validation";
@@ -96,6 +97,7 @@ export function useCampaignFormController() {
   const [invoiceRuleDaysFromState, setInvoiceRuleDaysFromState] = useState("0");
   const [invoiceRuleDaysToState, setInvoiceRuleDaysToState] = useState("30");
   const [hasConsultedInvoiceRule, setHasConsultedInvoiceRule] = useState(false);
+  const [monthlyDayOfMonth, setMonthlyDayOfMonthState] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { fetchInvoices } = useClient();
   const fetchInvoicesRef = useRef(fetchInvoices);
@@ -134,7 +136,14 @@ export function useCampaignFormController() {
   );
 
   const setSelectedDays = useCallback((dates: Date[]) => {
-    setSelectedDaysState(getUniqueSortedSelectedDays(dates).slice(0, 1));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const futureDates = dates.filter((d) => {
+      const normalized = new Date(d);
+      normalized.setHours(0, 0, 0, 0);
+      return normalized >= today;
+    });
+    setSelectedDaysState(getUniqueSortedSelectedDays(futureDates));
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
@@ -209,6 +218,7 @@ export function useCampaignFormController() {
     setInvoiceRuleOperatorState("less_than");
     setInvoiceRuleDaysFromState("0");
     setInvoiceRuleDaysToState("30");
+    setMonthlyDayOfMonthState(null);
     resetInvoiceRuleConsultation();
   }, [resetInvoiceRuleConsultation]);
 
@@ -270,15 +280,18 @@ export function useCampaignFormController() {
     selectedTemplate,
   ]);
 
+  const setMonthlyDayOfMonth = useCallback((day: number | null) => {
+    const clamped = day === null ? null : Math.min(28, Math.max(1, day));
+    setMonthlyDayOfMonthState(clamped);
+    resetInvoiceRuleConsultation();
+  }, [resetInvoiceRuleConsultation]);
+
   const getRecurringDays = useCallback((): string[] => {
     return selectedDays.map((date) => toCalendarDateKey(date));
   }, [selectedDays]);
 
   const getMonthlyDateRange = useCallback(() => {
-    if (!selectedDays.length) {
-      return undefined;
-    }
-
+    if (!selectedDays.length) return undefined;
     return {
       start: selectedDays[0],
       end: selectedDays[selectedDays.length - 1],
@@ -316,6 +329,21 @@ export function useCampaignFormController() {
       let mappedVarsForSubmit: mappedVars[] = [];
 
       if (usesInvoiceRule) {
+        if (templateRequiresPix(selectedTemplate)) {
+          const needInvoices = selectedClients.filter(
+            (client) => !client.invoices || client.invoices.status === "error",
+          );
+          if (needInvoices.length) {
+            const fetchedClients = await fetchInvoices(needInvoices);
+            const enriched = mergeFetchedInvoices(selectedClients, fetchedClients);
+            const enrichedById = new Map(enriched.map((c) => [c.id, c]));
+            Object.keys(invoiceRuleClientsByDate).forEach((date) => {
+              invoiceRuleClientsByDate[date] = invoiceRuleClientsByDate[date].map(
+                (c) => enrichedById.get(c.id) ?? c,
+              );
+            });
+          }
+        }
         mappedVarsForSubmit = buildMappedVarsFromInvoiceRuleSelections(
           selectedTemplate,
           false,
@@ -498,9 +526,7 @@ export function useCampaignFormController() {
     const monthlyDateRange = getMonthlyDateRange();
 
     const startDateForValidation =
-      recurringType === "monthly_days"
-        ? monthlyDateRange?.start
-        : dateRange?.from;
+      recurringType === "monthly_days" ? monthlyDateRange?.start : dateRange?.from;
 
     const endDateForValidation =
       recurringType === "monthly_days"
@@ -658,6 +684,8 @@ export function useCampaignFormController() {
       setRecurringType,
       selectedDays,
       setSelectedDays,
+      monthlyDayOfMonth,
+      setMonthlyDayOfMonth,
       invoiceRuleOperator: invoiceRuleOperatorState,
       setInvoiceRuleOperator,
       invoiceRuleDaysFrom: invoiceRuleDaysFromState,
@@ -685,6 +713,7 @@ export function useCampaignFormController() {
       invoiceRuleDaysToState,
       invoiceRuleOperatorState,
       isSubmitting,
+      monthlyDayOfMonth,
       name,
       recurringType,
       resetForm,
@@ -694,6 +723,7 @@ export function useCampaignFormController() {
       setInvoiceRuleDaysFrom,
       setInvoiceRuleDaysTo,
       setInvoiceRuleOperator,
+      setMonthlyDayOfMonth,
       setSelectedTemplate,
       setSelectedDays,
       setSelectedClientsFromInvoiceRule,

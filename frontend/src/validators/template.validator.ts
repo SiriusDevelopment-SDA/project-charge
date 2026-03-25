@@ -6,6 +6,37 @@ import {
   getOrderedTemplateVariableKeys,
 } from "../mappers/templateVars.mapper";
 
+function hasOrderDetailsButton(template: Template): boolean {
+  let components: Array<Record<string, unknown>> = [];
+
+  if (Array.isArray(template.components)) {
+    components = template.components as Array<Record<string, unknown>>;
+  } else if (typeof template.components === "string") {
+    try { components = JSON.parse(template.components); } catch { return false; }
+  } else if (template.components && typeof template.components === "object" && Array.isArray((template.components as any).components)) {
+    components = (template.components as any).components;
+  }
+
+  return components.some((c) => {
+    const type = String(c?.type ?? "").toUpperCase();
+    if (type === "BUTTON" || type === "BUTTONS") {
+      const buttons: Array<Record<string, unknown>> = Array.isArray(c?.buttons)
+        ? (c.buttons as Array<Record<string, unknown>>)
+        : c?.sub_type ? [{ type: c.sub_type }] : [];
+      return buttons.some((b) =>
+        String(b?.type ?? b?.sub_type ?? "").toUpperCase() === "ORDER_DETAILS",
+      );
+    }
+    return false;
+  });
+}
+
+export function templateRequiresPix(template: Template): boolean {
+  const vars = normalizeTemplateVars(template.variables);
+  const hasPixVar = Object.values(vars).some((v) => String(v) === "code_pix");
+  return hasPixVar || hasOrderDetailsButton(template);
+}
+
 export function templateRequiresAttendantName(template: Template): boolean {
   const vars = normalizeTemplateVars(template.variables);
   return Object.values(vars).some((v) => String(v) === "nome_atendente");

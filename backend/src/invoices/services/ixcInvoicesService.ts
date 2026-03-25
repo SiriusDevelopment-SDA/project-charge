@@ -41,8 +41,8 @@ export class IXCInvoicesService {
           ? {
               TB: 'fn_areceber.data_vencimento',
               OP: 'BE',
-              P: invoiceRuleWindow.endDate,
-              P2: invoiceRuleWindow.startDate,
+              P: invoiceRuleWindow.startDate,
+              P2: invoiceRuleWindow.endDate,
             }
           : {
               TB: 'fn_areceber.data_vencimento',
@@ -69,6 +69,7 @@ export class IXCInvoicesService {
         const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
         const url = `https://${empresa.url}/webservice/v1/fn_areceber`;
       
+        console.log(`[IXCInvoicesService] requisição para ${url}`, JSON.stringify(content));
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -87,8 +88,13 @@ export class IXCInvoicesService {
         }
       
         const data = await response.json()
+        console.log(`[IXCInvoicesService] resposta IXC para cliente ${cliente.name}:`, JSON.stringify({ type: data.type, total: data.total, registros: data.registros?.length ?? 0 }));
+        if (data.registros?.length) {
+          console.log(`[IXCInvoicesService] datas de vencimento brutas do IXC:`, data.registros.map((r: any) => r.data_vencimento));
+        }
+
         let map: InvoiceMapResultDto[] = []
-        
+
         if (data.registros) {
           map = await Promise.all(
             data.registros.map(async (t: ResponseFnAReceber): Promise<InvoiceMapResultDto> => {
@@ -135,6 +141,64 @@ export class IXCInvoicesService {
           message: data?.message ?? (data.page ? "Dados consultados com sucesso" : "Falha ao consultar dados!"),
           list: map,
         });
+  }
+
+  async getInvoicesByDateWindowBatch(
+    company: Company,
+    startDate: string,
+    endDate: string,
+  ): Promise<Map<string, ResponseFnAReceber[]>> {
+    const authorizationHeader = `Basic ${Buffer.from(company.autorization).toString('base64')}`;
+    const url = `https://${company.url}/webservice/v1/fn_areceber`;
+
+    const content = {
+      qtype: 'fn_areceber.id',
+      query: '0',
+      oper: '>',
+      page: '1',
+      rp: '1000',
+      sortname: 'fn_areceber.data_vencimento',
+      sortorder: 'asc',
+      grid_param: JSON.stringify([
+        { TB: 'fn_areceber.liberado', OP: '=', P: 'S' },
+        { TB: 'fn_areceber.status', OP: 'L', P: 'A' },
+        { TB: 'fn_areceber.data_vencimento', OP: 'BE', P: startDate, P2: endDate },
+      ]),
+    };
+
+    console.log(`[IXCInvoicesService] getInvoicesByDateWindowBatch url=${url} janela=${startDate}~${endDate}`);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: authorizationHeader,
+        'Content-Type': 'application/json',
+        ixcsoft: 'listar',
+      },
+      body: JSON.stringify(content),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new BadRequestException(`Erro no ERP (IXC): ${response.status} -> ${err}`);
+    }
+
+    const data = await response.json();
+    console.log(`[IXCInvoicesService] total faturas na janela: ${data.total ?? 0}`);
+
+    const invoicesByClientId = new Map<string, ResponseFnAReceber[]>();
+
+    if (Array.isArray(data.registros)) {
+      for (const invoice of data.registros as ResponseFnAReceber[]) {
+        const clientId = String(invoice.id_cliente);
+        if (!invoicesByClientId.has(clientId)) {
+          invoicesByClientId.set(clientId, []);
+        }
+        invoicesByClientId.get(clientId)!.push(invoice);
+      }
+    }
+
+    return invoicesByClientId;
   }
 
   async getPixByInvoice(data: ReqPixInvoice) {

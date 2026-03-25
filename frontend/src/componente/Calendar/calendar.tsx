@@ -12,9 +12,20 @@ type MyCalendarProps = {
     onSelectSingle?: (date: Date | undefined) => void;
     selectedMultiple?: Date[];
     onSelectMultiple?: (dates: Date[] | undefined) => void;
+    /** Função que retorna true para dias que devem ser desabilitados (fins de semana, feriados) */
+    disabledDays?: (date: Date) => boolean;
 };
 
-export function MyCalendar({ selected, onSelect, mode = "range", selectedSingle, onSelectSingle, selectedMultiple, onSelectMultiple }: MyCalendarProps) {
+export function MyCalendar({
+    selected,
+    onSelect,
+    mode = "range",
+    selectedSingle,
+    onSelectSingle,
+    selectedMultiple,
+    onSelectMultiple,
+    disabledDays,
+}: MyCalendarProps) {
     return (
         <div className="calendar-container">
             <div className="calendar-card">
@@ -27,6 +38,7 @@ export function MyCalendar({ selected, onSelect, mode = "range", selectedSingle,
                         onSelect={onSelectSingle}
                         captionLayout="dropdown"
                         showOutsideDays
+                        disabled={disabledDays}
                     />
                 ) : mode === "multiple" ? (
                     <DayPicker
@@ -37,6 +49,7 @@ export function MyCalendar({ selected, onSelect, mode = "range", selectedSingle,
                         onSelect={onSelectMultiple}
                         captionLayout="dropdown"
                         showOutsideDays
+                        disabled={disabledDays}
                     />
                 ) : (
                     <DayPicker
@@ -47,6 +60,7 @@ export function MyCalendar({ selected, onSelect, mode = "range", selectedSingle,
                         onSelect={onSelect}
                         captionLayout="dropdown"
                         showOutsideDays
+                        disabled={disabledDays}
                     />
                 )}
             </div>
