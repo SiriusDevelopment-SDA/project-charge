@@ -265,27 +265,57 @@ export class InvoicesController {
           );
         });
       });
+    } else if (company.erp === 'SGP') {
+      const allDueDates = [...dueDatesByDispatchDate.values()].flat();
+      const sortedDates = [...new Set(allDueDates)].sort((a, b) => a.localeCompare(b));
+      const windowStart = sortedDates[0];
+      const windowEnd = sortedDates[sortedDates.length - 1];
+
+      const invoicesByCpf = await this.sgpService.getInvoicesByDateWindowBatch(
+        company,
+        windowStart,
+        windowEnd,
+      );
+
+      const clientByCpf = new Map(
+        clients.map((c) => [String(c.cnpj_cpf ?? '').replace(/\D/g, ''), c]),
+      );
+
+      invoicesByCpf.forEach((rawInvoices, cpf) => {
+        const cliente = clientByCpf.get(cpf);
+        if (!cliente) return;
+
+        const invoiceList: InvoiceMapResultDto[] = rawInvoices.map((t) => ({
+          invoice_id: String(t.id),
+          contract_id: String(t.clienteContrato ?? ''),
+          invoice_due_date: t.dataVencimento ?? '',
+          invoice_amount: String(t.valorCorrigido ?? t.valor ?? ''),
+          invoice_status: 'A Receber',
+          ticket_digitable_line: t.linhaDigitavel || t.codigoBarras || null,
+          ticket_pdf_link: t.link || null,
+          code_pix: { status: t.codigoPix ? 'success' : 'error', pix: t.codigoPix ?? '' },
+        } as InvoiceMapResultDto));
+
+        dispatchDates.forEach((dispatchDate) => {
+          const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
+          const filteredInvoices = filterInvoicesByDueDates(invoiceList, dueDates);
+
+          console.log(`[searchInvoicesByCompanyRule] SGP ${cliente.name} | ${dispatchDate} | filtradas: ${filteredInvoices.length}`);
+
+          if (!filteredInvoices.length) return;
+
+          resultados.push(
+            this.mapResult(
+              cliente,
+              cpf,
+              { status: 'success', message: 'ok', list: filteredInvoices },
+              dispatchDate,
+            ),
+          );
+        });
+      });
     } else {
-      for (const cliente of clients) {
-        try {
-          const normalizedDocument = String(cliente.cnpj_cpf ?? '').replace(/\D/g, '');
-          const invoices = await this.fetchInvoicesByClient(cliente, filter);
-
-          if (!Array.isArray(invoices.list) || invoices.list.length === 0) continue;
-
-          dispatchDates.forEach((dispatchDate) => {
-            const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
-            const filteredInvoices = filterInvoicesByDueDates(invoices.list, dueDates);
-            if (!filteredInvoices.length) return;
-            resultados.push(
-              this.mapResult(cliente, normalizedDocument, { ...invoices, list: filteredInvoices }, dispatchDate),
-            );
-          });
-        } catch (err) {
-          console.error(`[searchInvoicesByCompanyRule] erro no cliente ${cliente.cnpj_cpf}:`, err);
-          errors.push({ document: String(cliente.cnpj_cpf ?? ''), reason: 'Erro inesperado ao processar o cliente pela régua' });
-        }
-      }
+      throw new BadRequestException('Filtro de régua de cobrança disponível apenas para empresas IXC e SGP.');
     }
 
     const uniqueResults = [

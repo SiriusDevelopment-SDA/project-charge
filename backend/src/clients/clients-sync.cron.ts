@@ -1,10 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeepPartial, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
 import { Client } from './entities.ts/clients';
 import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
+import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
+
+const CHUNK_SIZE = 500;
+
+function toChunks<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
+  return result;
+}
+
+function getLastSync(company: Company): Date | undefined {
+  const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
+  return config.lastClientSyncAt ? new Date(config.lastClientSyncAt) : undefined;
+}
 
 @Injectable()
 export class ClientsSyncCron {
@@ -18,6 +32,7 @@ export class ClientsSyncCron {
     private readonly clientRepository: Repository<Client>,
 
     private readonly ixcService: IXCInvoicesService,
+    private readonly sgpService: SGPInvoicesService,
   ) {}
 
   // Roda todo dia às 3h da manhã
@@ -25,85 +40,139 @@ export class ClientsSyncCron {
   async syncClientsFromERP(): Promise<void> {
     this.logger.log('[ClientsSync] Iniciando sincronização de clientes do ERP');
 
-    const companies = await this.companyRepository.find({
+    let totalSynced = 0;
+    let totalSkipped = 0;
+
+    // --- IXC ---
+    const ixcCompanies = await this.companyRepository.find({
       where: { active: true, erp: 'IXC' },
     });
 
-    if (!companies.length) {
+    if (!ixcCompanies.length) {
       this.logger.verbose('[ClientsSync] Nenhuma empresa IXC ativa encontrada');
-      return;
     }
 
-    let totalCreated = 0;
-    let totalUpdated = 0;
-    let totalSkipped = 0;
-
-    for (const company of companies) {
+    for (const company of ixcCompanies) {
       try {
-        this.logger.log(`[ClientsSync] Buscando clientes da empresa: ${company.name}`);
+        const since = getLastSync(company);
+        this.logger.log(
+          `[ClientsSync] IXC ${company.name} — ${since ? `incremental desde ${since.toISOString()}` : 'carga completa'}`,
+        );
 
-        const ixcClients = await this.ixcService.fetchClientsFromIXC(company);
+        const ixcClients = await this.ixcService.fetchClientsFromIXC(company, since);
 
         this.logger.log(`[ClientsSync] ${ixcClients.length} clientes encontrados no IXC para ${company.name}`);
 
-        for (const ixcClient of ixcClients) {
-          if (ixcClients.indexOf(ixcClient) === 0) {
-            this.logger.debug(`[ClientsSync] Sample fields: ${JSON.stringify(Object.keys(ixcClient as any))}`);
-            this.logger.debug(`[ClientsSync] Sample values: cnpj_cpf=${ixcClient.cnpj_cpf} fone_celular=${(ixcClient as any).fone_celular} telefone_celular=${(ixcClient as any).telefone_celular} whatsapp=${(ixcClient as any).whatsapp}`);
-          }
+        const seen = new Set<string>();
+        const toUpsert: DeepPartial<Client>[] = [];
 
-          const cnpj_cpf = ixcClient.cnpj_cpf?.replace(/\D/g, '');
-          const whatsapp = (
-            ixcClient.whatsapp ||
-            ixcClient.telefone_celular ||
-            ixcClient.fone_celular
-          )?.replace(/\D/g, '');
+        for (const c of ixcClients) {
+          const cnpj_cpf = c.cnpj_cpf?.replace(/\D/g, '');
+          const whatsapp = (c.whatsapp || c.telefone_celular || c.fone_celular)?.replace(/\D/g, '');
 
-          if (!cnpj_cpf || !whatsapp) {
-            totalSkipped++;
-            continue;
-          }
+          if (!cnpj_cpf || !whatsapp) { totalSkipped++; continue; }
+          if (seen.has(cnpj_cpf)) { totalSkipped++; continue; }
+          seen.add(cnpj_cpf);
 
-          const existing = await this.clientRepository.findOne({
-            where: { cnpj_cpf },
+          toUpsert.push({
+            cnpj_cpf,
+            name: c.razao,
+            clientId: c.id,
+            whatsapp,
+            ...(c.email && { email: c.email }),
+            ...(c.endereco && { street: c.endereco }),
+            ...(c.numero && { numberHouse: c.numero }),
+            ...(c.cidade_descricao && { city: c.cidade_descricao }),
+            ...(c.cep && { zipCode: c.cep.replace(/\D/g, '').slice(0, 9) }),
+            company: { id: company.id },
           });
-
-          if (existing) {
-            await this.clientRepository.update(existing.id, {
-              name: ixcClient.razao,
-              clientId: ixcClient.id,
-              whatsapp,
-              email: ixcClient.email ?? existing.email,
-              street: ixcClient.endereco ?? existing.street,
-              numberHouse: ixcClient.numero ?? existing.numberHouse,
-              city: ixcClient.cidade_descricao ?? existing.city,
-              zipCode: ixcClient.cep?.replace(/\D/g, '').slice(0, 9) ?? existing.zipCode,
-            });
-            totalUpdated++;
-          } else {
-            const newClient = this.clientRepository.create({
-              cnpj_cpf,
-              name: ixcClient.razao,
-              clientId: ixcClient.id,
-              whatsapp,
-              email: ixcClient.email,
-              street: ixcClient.endereco,
-              numberHouse: ixcClient.numero,
-              city: ixcClient.cidade_descricao,
-              zipCode: ixcClient.cep?.replace(/\D/g, '').slice(0, 9),
-              company,
-            });
-            await this.clientRepository.save(newClient);
-            totalCreated++;
-          }
         }
+
+        for (const chunk of toChunks(toUpsert, CHUNK_SIZE)) {
+          await this.clientRepository.upsert(chunk, ['cnpj_cpf']);
+        }
+
+        totalSynced += toUpsert.length;
+        this.logger.log(`[ClientsSync] IXC ${company.name}: ${toUpsert.length} sincronizados`);
+
+        await this.saveLastSync(company);
       } catch (error) {
-        this.logger.error(`[ClientsSync] Erro ao sincronizar empresa ${company.name}: ${error}`);
+        this.logger.error(`[ClientsSync] Erro ao sincronizar empresa IXC ${company.name}: ${error}`);
+      }
+    }
+
+    // --- SGP ---
+    const sgpCompanies = await this.companyRepository.find({
+      where: { active: true, erp: 'SGP' },
+    });
+
+    if (!sgpCompanies.length) {
+      this.logger.verbose('[ClientsSync] Nenhuma empresa SGP ativa encontrada');
+    }
+
+    for (const company of sgpCompanies) {
+      try {
+        const since = getLastSync(company);
+        this.logger.log(
+          `[ClientsSync] SGP ${company.name} — ${since ? `incremental desde ${since.toISOString()}` : 'carga completa'}`,
+        );
+
+        const sgpClients = await this.sgpService.fetchClientsFromSGP(company, since);
+
+        this.logger.log(`[ClientsSync] ${sgpClients.length} clientes encontrados no SGP para ${company.name}`);
+
+        const seen = new Set<string>();
+        const toUpsert: DeepPartial<Client>[] = [];
+
+        for (const c of sgpClients) {
+          const cnpj_cpf = c.cpfcnpj?.replace(/\D/g, '');
+          const phone = c.whatsapp || c.celular || c.fone
+            || c.contatos?.celulares?.[0]
+            || c.contatos?.telefones?.[0];
+          const whatsapp = phone?.replace(/\D/g, '');
+
+          if (!cnpj_cpf || !whatsapp) { totalSkipped++; continue; }
+          if (seen.has(cnpj_cpf)) { totalSkipped++; continue; }
+          seen.add(cnpj_cpf);
+
+          const email = c.email || c.contatos?.emails?.[0];
+          toUpsert.push({
+            cnpj_cpf,
+            name: c.nome,
+            clientId: String(c.id),
+            whatsapp,
+            ...(email && { email }),
+            ...(c.endereco?.logradouro && { street: c.endereco.logradouro }),
+            ...(c.endereco?.numero != null && { numberHouse: String(c.endereco.numero) }),
+            ...(c.endereco?.cidade && { city: c.endereco.cidade }),
+            ...(c.endereco?.cep && { zipCode: c.endereco.cep.replace(/\D/g, '').slice(0, 9) }),
+            company: { id: company.id },
+          });
+        }
+
+        for (const chunk of toChunks(toUpsert, CHUNK_SIZE)) {
+          await this.clientRepository.upsert(chunk, ['cnpj_cpf']);
+        }
+
+        totalSynced += toUpsert.length;
+        this.logger.log(`[ClientsSync] SGP ${company.name}: ${toUpsert.length} sincronizados`);
+
+        await this.saveLastSync(company);
+      } catch (error: any) {
+        const cause = error?.cause ? ` | causa: ${error.cause}` : '';
+        this.logger.error(`[ClientsSync] Erro ao sincronizar empresa SGP ${company.name}: ${error}${cause}`);
       }
     }
 
     this.logger.log(
-      `[ClientsSync] Sincronização concluída — criados: ${totalCreated}, atualizados: ${totalUpdated}, ignorados (sem CPF/WhatsApp): ${totalSkipped}`,
+      `[ClientsSync] Sincronização concluída — sincronizados: ${totalSynced}, ignorados (sem CPF/WhatsApp): ${totalSkipped}`,
     );
+  }
+
+  private async saveLastSync(company: Company): Promise<void> {
+    const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
+    await this.companyRepository.update(company.id, {
+      config: { ...config, lastClientSyncAt: new Date().toISOString() },
+    });
   }
 }

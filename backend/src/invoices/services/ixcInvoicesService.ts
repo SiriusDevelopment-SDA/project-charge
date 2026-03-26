@@ -340,15 +340,18 @@ export class IXCInvoicesService {
     }
   }
 
-  async fetchClientsFromIXC(company: Company): Promise<IXCClientRecord[]> {
+  async fetchClientsFromIXC(company: Company, since?: Date): Promise<IXCClientRecord[]> {
     const authorizationHeader = `Basic ${Buffer.from(company.autorization).toString('base64')}`;
     const url = `https://${company.url}/webservice/v1/cliente`;
     const allClients: IXCClientRecord[] = [];
     let page = 1;
     const rp = 1000;
 
+    const toIXCDate = (d: Date) =>
+      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
     while (true) {
-      const body = {
+      const body: any = {
         qtype: 'cliente.ativo',
         query: 'S',
         oper: '=',
@@ -357,6 +360,15 @@ export class IXCInvoicesService {
         sortname: 'cliente.id',
         sortorder: 'asc',
       };
+
+      if (since) {
+        body.grid_param = JSON.stringify([{
+          TB: 'cliente.data_cadastro',
+          OP: 'BE',
+          P: toIXCDate(since),
+          P2: toIXCDate(new Date()),
+        }]);
+      }
 
       const response = await fetch(url, {
         method: 'POST',

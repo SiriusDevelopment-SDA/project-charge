@@ -119,11 +119,8 @@ export function useCampaignFormController() {
 
   const setSelectedTemplate = useCallback((template?: Template) => {
     setSelectedTemplateState(template);
-
-    if (recurringType !== "single") {
-      resetInvoiceRuleConsultation();
-    }
-  }, [recurringType, resetInvoiceRuleConsultation]);
+    setTemplateMapsVars([]);
+  }, []);
 
   const setSelectedClientsFromInvoiceRule = useCallback(
     (clientsByDate: InvoiceRuleClientsByDate) => {

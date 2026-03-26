@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException
 } from '@nestjs/common';
+import { Company } from '../../companies/entities/companies';
 import { Client } from '../../clients/entities.ts/clients';
 import { formatarDataBR } from '../../utils';
 import { InvoiceMapResultDto, InvoiceOverdueDto, InvoicesOverdueResponseDto, InvoicesResponseDto, ResultInvoicesOverdueDto } from '../dto/search.request.dto.invoices';
@@ -187,4 +188,161 @@ export class SGPInvoicesService {
       return [];
     }
   }
+
+  async getInvoicesByDateWindowBatch(
+    company: Company,
+    startDate: string,
+    endDate: string,
+  ): Promise<Map<string, SGPTitleRecord[]>> {
+    const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
+    const username = config.username;
+    const password = config.password;
+    if (!username || !password) throw new Error('Credenciais da SGP não configuradas (username/password)');
+    if (!company.url) throw new Error('URL da SGP não configurada');
+
+    const auth = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+    const url = `https://${company.url}/api/ura/titulos`;
+    const limit = 250;
+    const invoicesByCpf = new Map<string, SGPTitleRecord[]>();
+
+    console.log(`[SGPInvoicesService] getInvoicesByDateWindowBatch url=${url} janela=${startDate}~${endDate}`);
+
+    const fetchPage = async (offset: number): Promise<{ titulos: SGPTitleRecord[]; total?: number }> => {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'abertos',
+          data_vencimento_inicio: startDate,
+          data_vencimento_fim: endDate,
+          offset,
+          limit,
+        }),
+        signal: AbortSignal.timeout(300_000),
+      });
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`SGP titulos erro ${response.status}: ${err.slice(0, 300)}`);
+      }
+      const data = await response.json();
+      return {
+        titulos: Array.isArray(data?.titulos) ? data.titulos : [],
+        total: data?.paginacao?.total,
+      };
+    };
+
+    const first = await fetchPage(0);
+    const total: number = first.total ?? 0;
+    const allTitulos: SGPTitleRecord[] = [...first.titulos];
+
+    console.log(`[SGPInvoicesService] total faturas na janela: ${total}`);
+
+    if (total > limit) {
+      const offsets: number[] = [];
+      for (let offset = limit; offset < total; offset += limit) offsets.push(offset);
+
+      for (let i = 0; i < offsets.length; i += 20) {
+        const batch = offsets.slice(i, i + 20);
+        const results = await Promise.all(batch.map(fetchPage));
+        results.forEach(r => allTitulos.push(...r.titulos));
+        console.log(`[SGPInvoicesService] faturas carregadas: ${allTitulos.length}/${total}`);
+      }
+    }
+
+    for (const titulo of allTitulos) {
+      const cpf = String(titulo.clienteCpfcnpj ?? '').replace(/\D/g, '');
+      if (!cpf) continue;
+      if (!invoicesByCpf.has(cpf)) invoicesByCpf.set(cpf, []);
+      invoicesByCpf.get(cpf)!.push(titulo);
+    }
+
+    return invoicesByCpf;
+  }
+
+  async fetchClientsFromSGP(company: Company, since?: Date): Promise<SGPClientRecord[]> {
+    const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
+    const username = config.username;
+    const password = config.password;
+    if (!username || !password) throw new Error('Credenciais da SGP não configuradas (username/password)');
+    if (!company.url) throw new Error('URL da SGP não configurada');
+
+    const auth = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+    const url = `https://${company.url}/api/ura/clientes`;
+    const limit = 50;
+
+    const fetchPage = async (offset: number): Promise<{ clientes: SGPClientRecord[]; total: number }> => {
+      const body: Record<string, string | number> = { offset, limit, omitir_titulos: 'sim' };
+      if (since) body['data_cadastro_inicio'] = since.toISOString().split('T')[0];
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(300_000),
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`SGP clientes erro ${response.status}: ${errText.slice(0, 300)}`);
+      }
+      const data = await response.json();
+      const paginacao = data?.[0]?.paginacao ?? data?.paginacao;
+      const clientes: SGPClientRecord[] = data?.[0]?.clientes ?? data?.clientes ?? [];
+      return { clientes, total: paginacao?.total ?? clientes.length };
+    };
+
+    // 1ª página para descobrir o total
+    const first = await fetchPage(0);
+    const total = first.total;
+    const allClients: SGPClientRecord[] = [...first.clientes];
+
+    if (total > limit) {
+      const offsets: number[] = [];
+      for (let offset = limit; offset < total; offset += limit) offsets.push(offset);
+
+      // todas as páginas restantes em paralelo (lotes de 10 para não sobrecarregar o servidor)
+      for (let i = 0; i < offsets.length; i += 20) {
+        const batch = offsets.slice(i, i + 20);
+        const results = await Promise.all(batch.map(fetchPage));
+        results.forEach(r => allClients.push(...r.clientes));
+      }
+    }
+
+    return allClients;
+  }
+}
+
+export interface SGPTitleRecord {
+  id: number;
+  clienteNome?: string;
+  clienteCpfcnpj?: string;
+  clienteContrato?: string | number;
+  dataVencimento?: string;
+  valor?: number;
+  valorCorrigido?: number;
+  codigoBarras?: string;
+  linhaDigitavel?: string;
+  codigoPix?: string;
+  link?: string;
+  link_cobranca?: string;
+}
+
+export interface SGPClientRecord {
+  id: number;
+  nome: string;
+  cpfcnpj?: string;
+  celular?: string;
+  fone?: string;
+  whatsapp?: string;
+  email?: string;
+  contatos?: {
+    celulares?: string[];
+    telefones?: string[];
+    emails?: string[];
+    outros?: string[];
+  };
+  endereco?: {
+    logradouro?: string;
+    numero?: number;
+    cidade?: string;
+    cep?: string;
+  };
 }
