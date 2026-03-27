@@ -2,12 +2,14 @@ import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateAgentDto, EmbedLoginDto, LoginAgentDto } from './dto/auth.dto';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Public } from './decorators/public.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @ApiOperation({ summary: 'Login por email e senha (agente)' })
   @ApiBody({ type: LoginAgentDto })
@@ -15,6 +17,7 @@ export class AuthController {
     return this.authService.loginAgent(dto);
   }
 
+  @Public()
   @Post('embed-login')
   @ApiOperation({ summary: 'Login embed por account e token' })
   @ApiBody({ type: EmbedLoginDto })
@@ -29,6 +32,7 @@ export class AuthController {
     return this.authService.createAgent(dto);
   }
 
+  @Public()
   @Get('me')
   @ApiOperation({ summary: 'Retorna empresa/agente do token atual' })
   me(@Headers('authorization') authorization?: string) {

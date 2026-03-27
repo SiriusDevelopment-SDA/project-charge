@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MessageQueueModule } from './message-queue/message-queue.module';
 import { DatabaseModule } from './database/database.module';
@@ -97,6 +99,7 @@ import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
     RedisService,
     RelatoryResolverCron,
     ClientsSyncCron,
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
   exports: [AppServiceTemplate, AppServiceClient],
 })

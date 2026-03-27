@@ -2,6 +2,16 @@ import type { Cliente, Template, mappedVars } from "../types";
 import { compilarTemplate } from "../utils/validation";
 import { AppStorage } from "../services/storage/storage.service";
 
+function formatDueDate(date?: string): string {
+  if (!date) return "";
+  // YYYY-MM-DD → DD/MM/YYYY
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split("-");
+    return `${day}/${month}/${year}`;
+  }
+  return date;
+}
+
 export type Recipient = {
   id?: string;
   name?: string;
@@ -103,7 +113,7 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
     whatsapp: recipient.whatsapp ?? "",
     cnpj_cpf: recipient.cnpj_cpf ?? "",
     nome_atendente: toLower(attendantName),
-    data_vencimento_fatura: invoice?.invoice_due_date ?? recipient.data_vencimento_fatura ?? "",
+    data_vencimento_fatura: formatDueDate(invoice?.invoice_due_date ?? recipient.data_vencimento_fatura),
     nome_empresa: toLower(companyName),
     numero_contrato: numeroContrato,
     valor_fatura: valorFatura,

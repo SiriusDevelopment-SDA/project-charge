@@ -41,6 +41,7 @@ export function AccountLayout() {
           AppStorage.setAccessToken(result.accessToken);
           AppStorage.setAccount(result.company.account);
           AppStorage.setCompanyName(result.company.name);
+          AppStorage.setCompanyActive(result.company.active);
           AppStorage.setEmbedSignature(embedSignature);
           AppStorage.setAuthMode("embed");
           AppStorage.clearOnLogin();
@@ -86,6 +87,7 @@ export function AccountLayout() {
 
         setAccount(result.company.account);
         AppStorage.setCompanyCnpj(result.company.cnpj ?? '');
+        AppStorage.setCompanyActive(result.company.active);
         if (result.agent?.name) {
           AppStorage.setAgentName(result.agent.name);
           AppStorage.setAuthMode("agent");

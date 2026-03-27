@@ -20,6 +20,9 @@ import { ResponseFnAReceber } from '../types/ixcTypes';
 import { Invoice } from '../entities/invoices';
 import { Overdue } from '../entities/Overdue';
 import { getInvoiceRuleQueryWindow } from '../utils/invoice-rule';
+import { RedisService } from '../../redis/redis.service';
+
+const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 
 @Injectable()
 export class IXCInvoicesService {
@@ -28,6 +31,7 @@ export class IXCInvoicesService {
     @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(Overdue) private readonly overdueRepository: Repository<Overdue>,
     @InjectRepository(Client) private readonly clientRepository: Repository<Client>,
+    private readonly redisService: RedisService,
   ) { }
 
   async getInvoices(
@@ -69,7 +73,6 @@ export class IXCInvoicesService {
         const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
         const url = `https://${empresa.url}/webservice/v1/fn_areceber`;
       
-        console.log(`[IXCInvoicesService] requisição para ${url}`, JSON.stringify(content));
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -88,10 +91,6 @@ export class IXCInvoicesService {
         }
       
         const data = await response.json()
-        console.log(`[IXCInvoicesService] resposta IXC para cliente ${cliente.name}:`, JSON.stringify({ type: data.type, total: data.total, registros: data.registros?.length ?? 0 }));
-        if (data.registros?.length) {
-          console.log(`[IXCInvoicesService] datas de vencimento brutas do IXC:`, data.registros.map((r: any) => r.data_vencimento));
-        }
 
         let map: InvoiceMapResultDto[] = []
 
@@ -148,6 +147,12 @@ export class IXCInvoicesService {
     startDate: string,
     endDate: string,
   ): Promise<Map<string, ResponseFnAReceber[]>> {
+    const cacheKey = `ixc:invoice-batch:${company.id}:${startDate}:${endDate}`;
+    const cached = await this.redisService.get<[string, ResponseFnAReceber[]][]>(cacheKey);
+    if (cached) {
+      return new Map(cached);
+    }
+
     const authorizationHeader = `Basic ${Buffer.from(company.autorization).toString('base64')}`;
     const url = `https://${company.url}/webservice/v1/fn_areceber`;
 
@@ -163,7 +168,6 @@ export class IXCInvoicesService {
     let totalFetched = 0;
     let totalAvailable = Infinity;
 
-    console.log(`[IXCInvoicesService] getInvoicesByDateWindowBatch url=${url} janela=${startDate}~${endDate}`);
 
     while (totalFetched < totalAvailable) {
       const content = {
@@ -196,7 +200,6 @@ export class IXCInvoicesService {
 
       if (page === 1) {
         totalAvailable = Number(data.total ?? 0);
-        console.log(`[IXCInvoicesService] total faturas na janela: ${totalAvailable}`);
       }
 
       const registros: ResponseFnAReceber[] = Array.isArray(data.registros) ? data.registros : [];
@@ -212,9 +215,10 @@ export class IXCInvoicesService {
       }
 
       totalFetched += registros.length;
-      console.log(`[IXCInvoicesService] página ${page}: ${registros.length} faturas (${totalFetched}/${totalAvailable})`);
       page++;
     }
+
+    await this.redisService.set(cacheKey, [...invoicesByClientId.entries()], INVOICE_BATCH_CACHE_TTL);
 
     return invoicesByClientId;
   }
@@ -334,7 +338,7 @@ export class IXCInvoicesService {
       return resultados;
 
     } catch (error) {
-      console.error('[getInvoicesOverdue]', error);
+      console.error('[IXCInvoicesService][getInvoicesOverdue]', error);
 
       return [];
     }

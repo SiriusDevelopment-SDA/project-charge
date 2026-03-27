@@ -12,6 +12,7 @@ import { Login } from "../pages/Login/Login";
 import { ChatwootPage } from "../pages/Chatwoot/Chatwoot";
 import { DashboardProvider } from "../context/contextDashboard";
 import { NotFoundPage } from "../pages/NotFound/NotFound";
+import { BlockedRoute } from "./BlockedRoute";
 
 export function AppRoutes() {
   return (
@@ -21,17 +22,19 @@ export function AppRoutes() {
       {/* ROTA RAIZ (recebe account e distribui) */}
       <Route path="/" element={<AccountLayout />}>
 
-        {/* página inicial */}
+        {/* rotas públicas — acessíveis mesmo com empresa inativa */}
         <Route index element={<EfetuarDisparo />} />
-
-        <Route path="templates" element={<Templates />} />
         <Route path="historico" element={<HistoricoDisparoPage />} />
-        <Route path="clientesVencidos" element={<ClientesVencidos/>} />
-        <Route path="createTemplate" element={<CreateTemplate />} />
         <Route path="campanhas" element={<Campanhas />} />
         <Route path="createCampanha" element={<CriarCampanha />} />
-        <Route path="dashboard" element={<DashboardProvider><Dashboard /></DashboardProvider>} />
-        <Route path="chat" element={<ChatwootPage />} />
+
+        {/* rotas bloqueadas quando a empresa está inativa */}
+        <Route path="templates" element={<BlockedRoute><Templates /></BlockedRoute>} />
+        <Route path="clientesVencidos" element={<BlockedRoute><ClientesVencidos /></BlockedRoute>} />
+        <Route path="createTemplate" element={<BlockedRoute><CreateTemplate /></BlockedRoute>} />
+        <Route path="dashboard" element={<BlockedRoute><DashboardProvider><Dashboard /></DashboardProvider></BlockedRoute>} />
+        <Route path="chat" element={<BlockedRoute><ChatwootPage /></BlockedRoute>} />
+
         <Route path="*" element={<NotFoundPage />} />
 
       </Route>

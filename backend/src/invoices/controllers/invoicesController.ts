@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   HttpCode,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -34,6 +35,8 @@ import {
 @ApiTags('Invoices')
 @Controller('invoices')
 export class InvoicesController {
+  private readonly logger = new Logger(InvoicesController.name);
+
   constructor(
     @InjectRepository(Client)
     private readonly clientRepo: Repository<Client>,
@@ -50,7 +53,6 @@ export class InvoicesController {
   @ApiBody({ type: SearchRequestInvoicesDto })
   @ApiOkResponse({ type: InvoiceBatchPartialDto })
   async getInvoices(@Body() data: SearchRequestInvoicesDto) {
-    console.log('[POST /invoices/search] body recebido:', JSON.stringify(data));
     const documents = (data.documents ?? []).map((item) => item.cnpj_cpf);
 
     if (!documents.length && !data.companyId) {
@@ -169,9 +171,7 @@ export class InvoicesController {
       relations: ['company'],
     });
 
-    console.log(`[searchInvoicesByCompanyRule] companyId: ${companyId}`);
-    console.log(`[searchInvoicesByCompanyRule] filter recebido:`, JSON.stringify(filter));
-    console.log(`[searchInvoicesByCompanyRule] total clientes encontrados: ${clients.length}`);
+    this.logger.log(`[InvoiceRule] company=${companyId} erp=${clients[0]?.company?.erp} clientes=${clients.length} operator=${filter.operator} daysFrom=${filter.daysFrom ?? 0} daysTo=${filter.daysTo ?? filter.days ?? 0}`);
 
     if (!clients.length) {
       throw new NotFoundException(
@@ -179,7 +179,6 @@ export class InvoicesController {
       );
     }
 
-    console.log(`[searchInvoicesByCompanyRule] ERP da empresa: ${clients[0]?.company?.erp}`);
 
     if (!['IXC', 'SGP'].includes(clients[0]?.company?.erp)) {
       throw new BadRequestException(
@@ -188,7 +187,7 @@ export class InvoicesController {
     }
 
     const dispatchDates = getInvoiceRuleReferenceDates(filter);
-    console.log(`[searchInvoicesByCompanyRule] dispatchDates calculadas:`, dispatchDates);
+
 
     if (!dispatchDates.length) {
       throw new BadRequestException(
@@ -197,9 +196,9 @@ export class InvoicesController {
     }
 
     const dueDatesByDispatchDate = getInvoiceRuleDueDatesMap(filter);
-    console.log(`[searchInvoicesByCompanyRule] dueDates por dispatchDate:`);
     dueDatesByDispatchDate.forEach((dates, key) => {
-      console.log(`  ${key} → [${dates.slice(0, 3).join(', ')}... (${dates.length} datas)]`);
+      const sorted = [...dates].sort((a, b) => a.localeCompare(b));
+      console.log(`[searchInvoicesByCompanyRule] disparo ${key} → janela de vencimento: ${sorted[0]} ~ ${sorted[sorted.length - 1]} (${dates.length} dias)`);
     });
 
     const resultados: ResultInvoicesDto[] = [];
@@ -251,8 +250,7 @@ export class InvoicesController {
           const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
           const filteredInvoices = filterInvoicesByDueDates(invoiceList, dueDates);
 
-          console.log(`[searchInvoicesByCompanyRule] ${cliente.name} | ${dispatchDate} | filtradas: ${filteredInvoices.length}`);
-
+    
           if (!filteredInvoices.length) return;
 
           resultados.push(
@@ -300,7 +298,6 @@ export class InvoicesController {
           const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
           const filteredInvoices = filterInvoicesByDueDates(invoiceList, dueDates);
 
-          console.log(`[searchInvoicesByCompanyRule] SGP ${cliente.name} | ${dispatchDate} | filtradas: ${filteredInvoices.length}`);
 
           if (!filteredInvoices.length) return;
 

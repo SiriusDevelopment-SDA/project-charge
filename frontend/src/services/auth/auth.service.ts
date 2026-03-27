@@ -18,6 +18,7 @@ type LoginResponse = {
     id: string;
     name: string;
     account: string;
+    active: boolean;
   };
   agent?: {
     id: string;
@@ -32,6 +33,7 @@ type MeResponse = {
     name: string;
     account: string;
     cnpj: string;
+    active: boolean;
   };
   agent?: {
     id: string;

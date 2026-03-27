@@ -34,7 +34,7 @@ export function useClient(): IClientsContext {
   const { data: services = [] } = useServicesQuery(servicesCompanyId);
 
   const fetchInvoicesMutation = useFetchInvoicesMutation();
-  const { showLoading, hideLoading } = useGlobalLoading();
+  const { showLoading, hideLoading, updateProgress } = useGlobalLoading();
 
   const setQuery = useCallback((value: string) => {
     setQueryState(value);
@@ -87,6 +87,13 @@ export function useClient(): IClientsContext {
       }
 
       const loadingId = showLoading("Consultando clientes pela regua de cobranca...");
+
+      let simulatedProgress = 0;
+      updateProgress(loadingId, 0);
+      const progressInterval = setInterval(() => {
+        simulatedProgress = Math.min(88, simulatedProgress + 1);
+        updateProgress(loadingId, simulatedProgress);
+      }, 700);
 
       try {
         const response = await ClientService.searchInvoices({
@@ -164,10 +171,12 @@ export function useClient(): IClientsContext {
         toast.error(getErrorMessage(error, "Erro ao consultar clientes pela regua."));
         return { clients: [], clientsByDispatchDate: {} };
       } finally {
-        hideLoading(loadingId);
+        clearInterval(progressInterval);
+        updateProgress(loadingId, 100);
+        setTimeout(() => hideLoading(loadingId), 300);
       }
     },
-    [hideLoading, showLoading],
+    [hideLoading, showLoading, updateProgress],
   );
 
   return {

@@ -44,7 +44,7 @@ export default <TypeOrmModuleAsyncOptions>{
         MessageQueue,
         DispatchBatch,
       ],
-      synchronize: true,
+      synchronize: configService.get('NODE_ENV') !== 'production',
     };
   },
 };

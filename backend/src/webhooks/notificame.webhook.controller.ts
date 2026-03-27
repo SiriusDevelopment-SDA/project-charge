@@ -2,6 +2,7 @@ import { Body, Controller, Logger, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
+import { Public } from '../auth/decorators/public.decorator';
 
 type NotificaMeMessageStatus = {
   timestamp?: string;
@@ -42,6 +43,7 @@ export class NotificaMeWebhookController {
     private readonly relatoryRepository: Repository<RelatoryDispatchTemplate>,
   ) {}
 
+  @Public()
   @Post('notificame')
   async handleNotificaMeEvent(@Body() body: NotificaMeWebhookPayload) {
     this.logger.log(`[Webhook] Payload recebido: ${JSON.stringify(body)}`);

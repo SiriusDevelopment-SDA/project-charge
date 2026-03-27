@@ -43,6 +43,7 @@ export class AuthService {
           id: true,
           name: true,
           account_chatwoot: true,
+          active: true,
         },
       },
     });
@@ -60,6 +61,7 @@ export class AuthService {
       agent.company.id,
       agent.company.name,
       agent.company.account_chatwoot,
+      agent.company.active,
       {
         agentId: agent.id,
         agentName: agent.name ?? agent.email,
@@ -77,6 +79,7 @@ export class AuthService {
         name: true,
         account_chatwoot: true,
         token_system_coraxy: true,
+        active: true,
       },
     });
 
@@ -84,7 +87,7 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais de embed invalidas');
     }
 
-    return this.buildAuthResponse(company.id, company.name, company.account_chatwoot);
+    return this.buildAuthResponse(company.id, company.name, company.account_chatwoot, company.active);
   }
 
   async createAgent(dto: CreateAgentDto) {
@@ -145,7 +148,7 @@ export class AuthService {
 
     const company = await this.companyRepository.findOne({
       where: { id: payload.sub, account_chatwoot: String(payload.account) },
-      select: { id: true, name: true, account_chatwoot: true, cnpj: true },
+      select: { id: true, name: true, account_chatwoot: true, cnpj: true, active: true },
     });
 
     if (!company) {
@@ -159,6 +162,7 @@ export class AuthService {
         name: company.name,
         account: company.account_chatwoot,
         cnpj: company.cnpj ?? '',
+        active: company.active,
       },
       agent: payload.agentId
         ? {
@@ -173,6 +177,7 @@ export class AuthService {
     companyId: string,
     companyName: string,
     companyAccount: string,
+    companyActive: boolean,
     agent?: { agentId?: string; agentName?: string },
   ) {
     const payload: JwtPayload = {
@@ -192,6 +197,7 @@ export class AuthService {
         id: companyId,
         name: companyName,
         account: companyAccount,
+        active: companyActive,
       },
       agent: agent?.agentId
         ? {

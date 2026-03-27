@@ -12,6 +12,9 @@ import { Raw, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Overdue } from '../entities/Overdue';
 import { getInvoiceRuleQueryWindow } from '../utils/invoice-rule';
+import { RedisService } from '../../redis/redis.service';
+
+const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 
 @Injectable()
 export class SGPInvoicesService {
@@ -19,6 +22,7 @@ export class SGPInvoicesService {
   clientRepository: any;
   constructor(
       @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
+      private readonly redisService: RedisService,
     ) { }
   
   async getInvoices(
@@ -112,7 +116,6 @@ export class SGPInvoicesService {
 
       const resultados: ResultInvoicesOverdueDto[] = [];
       const overdueToSave: Overdue[] = [];
-      const now = new Date();
 
       for (const cliente of clients) {
         const normalized = cliente.cnpj_cpf.replace(/\D/g, '');
@@ -129,9 +132,6 @@ export class SGPInvoicesService {
           }
         });
 
-        console.log('CLIENTE:', cliente.name);
-        console.log('DOC NORMALIZADO:', normalized);
-        console.log('INVOICES ENCONTRADAS:', invoices.length);
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -183,7 +183,7 @@ export class SGPInvoicesService {
       return resultados;
 
     } catch (error) {
-      console.error('[getInvoicesOverdue]', error);
+      console.error('[SGPInvoicesService][getInvoicesOverdue]', error);
 
       return [];
     }
@@ -194,6 +194,12 @@ export class SGPInvoicesService {
     startDate: string,
     endDate: string,
   ): Promise<Map<string, SGPTitleRecord[]>> {
+    const cacheKey = `sgp:invoice-batch:${company.id}:${startDate}:${endDate}`;
+    const cached = await this.redisService.get<[string, SGPTitleRecord[]][]>(cacheKey);
+    if (cached) {
+      return new Map(cached);
+    }
+
     const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
     const username = config.username;
     const password = config.password;
@@ -205,7 +211,6 @@ export class SGPInvoicesService {
     const limit = 250;
     const invoicesByCpf = new Map<string, SGPTitleRecord[]>();
 
-    console.log(`[SGPInvoicesService] getInvoicesByDateWindowBatch url=${url} janela=${startDate}~${endDate}`);
 
     const fetchPage = async (offset: number): Promise<{ titulos: SGPTitleRecord[]; total?: number }> => {
       const response = await fetch(url, {
@@ -218,7 +223,7 @@ export class SGPInvoicesService {
           offset,
           limit,
         }),
-        signal: AbortSignal.timeout(300_000),
+        signal: AbortSignal.timeout(45_000),
       });
       if (!response.ok) {
         const err = await response.text();
@@ -235,7 +240,6 @@ export class SGPInvoicesService {
     const total: number = first.total ?? 0;
     const allTitulos: SGPTitleRecord[] = [...first.titulos];
 
-    console.log(`[SGPInvoicesService] total faturas na janela: ${total}`);
 
     if (total > limit) {
       const offsets: number[] = [];
@@ -245,7 +249,6 @@ export class SGPInvoicesService {
         const batch = offsets.slice(i, i + 20);
         const results = await Promise.all(batch.map(fetchPage));
         results.forEach(r => allTitulos.push(...r.titulos));
-        console.log(`[SGPInvoicesService] faturas carregadas: ${allTitulos.length}/${total}`);
       }
     }
 
@@ -255,6 +258,8 @@ export class SGPInvoicesService {
       if (!invoicesByCpf.has(cpf)) invoicesByCpf.set(cpf, []);
       invoicesByCpf.get(cpf)!.push(titulo);
     }
+
+    await this.redisService.set(cacheKey, [...invoicesByCpf.entries()], INVOICE_BATCH_CACHE_TTL);
 
     return invoicesByCpf;
   }
@@ -268,20 +273,26 @@ export class SGPInvoicesService {
 
     const auth = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
     const url = `https://${company.url}/api/ura/clientes`;
-    const limit = 50;
+    const limit = 250;
 
     const fetchPage = async (offset: number): Promise<{ clientes: SGPClientRecord[]; total: number }> => {
       const body: Record<string, string | number> = { offset, limit, omitir_titulos: 'sim' };
       if (since) body['data_cadastro_inicio'] = since.toISOString().split('T')[0];
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(300_000),
-      });
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: auth, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(45_000),
+        });
+      } catch (err: any) {
+        const cause = err?.cause ? ` | causa: ${err.cause}` : '';
+        throw new Error(`SGP clientes — falha de rede ao acessar ${url}${cause}`);
+      }
       if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`SGP clientes erro ${response.status}: ${errText.slice(0, 300)}`);
+        throw new Error(`SGP clientes erro ${response.status} em ${url}: ${errText.slice(0, 300)}`);
       }
       const data = await response.json();
       const paginacao = data?.[0]?.paginacao ?? data?.paginacao;

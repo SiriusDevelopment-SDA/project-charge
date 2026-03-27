@@ -12,13 +12,16 @@ import Style from "./GlobalLoading.module.css";
 type LoadingEntry = {
   id: number;
   message: string;
+  progress: number | null;
 };
 
 export type GlobalLoadingContextValue = {
   showLoading: (message?: string) => number;
   hideLoading: (id: number) => void;
+  updateProgress: (id: number, progress: number) => void;
   isLoading: boolean;
   message: string;
+  progress: number | null;
 };
 
 const DEFAULT_LOADING_MESSAGE = "Buscando dados, aguarde...";
@@ -38,6 +41,7 @@ export function GlobalLoadingProvider({ children }: { children: ReactNode }) {
       {
         id,
         message: message?.trim() || DEFAULT_LOADING_MESSAGE,
+        progress: null,
       },
     ]);
 
@@ -48,16 +52,26 @@ export function GlobalLoadingProvider({ children }: { children: ReactNode }) {
     setEntries((current) => current.filter((entry) => entry.id !== id));
   }, []);
 
+  const updateProgress = useCallback((id: number, progress: number) => {
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.id === id ? { ...entry, progress: Math.min(100, Math.max(0, progress)) } : entry,
+      ),
+    );
+  }, []);
+
   const activeEntry = entries[entries.length - 1] ?? null;
 
   const value = useMemo(
     () => ({
       showLoading,
       hideLoading,
+      updateProgress,
       isLoading: entries.length > 0,
       message: activeEntry?.message ?? DEFAULT_LOADING_MESSAGE,
+      progress: activeEntry?.progress ?? null,
     }),
-    [activeEntry?.message, entries.length, hideLoading, showLoading],
+    [activeEntry?.message, activeEntry?.progress, entries.length, hideLoading, showLoading, updateProgress],
   );
 
   return (
@@ -72,6 +86,15 @@ export function GlobalLoadingProvider({ children }: { children: ReactNode }) {
             <div className={Style.content}>
               <span className={Style.title}>Carregando</span>
               <span className={Style.message}>{value.message}</span>
+              {value.progress !== null && (
+                <div className={Style.progressTrack}>
+                  <div
+                    className={Style.progressFill}
+                    style={{ width: `${value.progress}%` }}
+                  />
+                  <span className={Style.progressLabel}>{value.progress}%</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

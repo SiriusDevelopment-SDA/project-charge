@@ -135,7 +135,6 @@ export class MessageQueueWorker implements OnModuleInit {
       this.logger.log(
         `[Job ${job.id.slice(0, 8)}] Payload NotificaMe → ${JSON.stringify(requestBody)}`,
       );
-      console.log("payload", requestBody)
       const response = await fetch(
         `${this.baseUrl}/channels/whatsapp/messages`,
         {
