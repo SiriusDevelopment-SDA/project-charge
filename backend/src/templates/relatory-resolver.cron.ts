@@ -26,8 +26,8 @@ export class RelatoryResolverCron {
     private readonly sgpService: SGPInvoicesService,
   ) {}
 
-  // Roda a cada 2 horas
-  @Cron('0 0 */2 * * *')
+  // Roda a cada 2 horas (horário de Brasília)
+  @Cron('0 0 */2 * * *', { timeZone: 'America/Sao_Paulo' })
   async resolveRelatories(): Promise<void> {
     this.logger.log('[RelatoryResolver] Iniciando verificação de relatórios pendentes');
 

@@ -194,7 +194,7 @@ export function useDispatchPageController() {
       );
       if (value.length <= dispatch.selectedClientes.length) {
         const clientesValidos = hydratedClients.filter((cliente) =>
-          validarSelecaoCliente(cliente, dispatch.selectedTemplate!),
+          validarSelecaoCliente(cliente, dispatch.selectedTemplate ?? undefined),
         );
 
         dispatch.setSelectedClientes(clientesValidos);
@@ -204,7 +204,7 @@ export function useDispatchPageController() {
       if (dispatch.selectedTemplate.category === "Cobrança") {
         if (removedClients.length > 0) {
           const clientesValidos = hydratedClients.filter((cliente) =>
-            validarSelecaoCliente(cliente, dispatch.selectedTemplate!),
+            validarSelecaoCliente(cliente, dispatch.selectedTemplate ?? undefined),
           );
 
           dispatch.setSelectedClientes(clientesValidos);
@@ -226,7 +226,7 @@ export function useDispatchPageController() {
       }
 
       const clientesValidos = hydratedClients.filter((cliente) =>
-        validarSelecaoCliente(cliente, dispatch.selectedTemplate!),
+        validarSelecaoCliente(cliente, dispatch.selectedTemplate ?? undefined),
       );
 
       dispatch.setSelectedClientes(clientesValidos);
@@ -324,12 +324,21 @@ export function useDispatchPageController() {
       }
     }
 
-    // Compute fresh here so AppStorage reads reflect the latest attendant name,
-    // avoiding repeated modal prompts when the name was already confirmed.
     const freshSource =
       dispatch.modoPage === "clientes"
         ? hydratedSelectedClients
         : dispatch.selectedLeads;
+
+    // Validação: sem AppStorage, para detectar campos realmente ausentes no recipient
+    const freshMappedVarsForValidation =
+      freshSource.length
+        ? mapRecipientsToTemplateVars(freshSource, dispatch.selectedTemplate, {
+            filterByTemplateVars: false,
+            skipStorage: true,
+          })
+        : [];
+
+    // Preview: com AppStorage, para exibir valores já confirmados anteriormente
     const freshMappedVars =
       freshSource.length
         ? mapRecipientsToTemplateVars(freshSource, dispatch.selectedTemplate, {
@@ -339,7 +348,7 @@ export function useDispatchPageController() {
 
     const incompleteRecipients = getIncompleteTemplateRecipients(
       dispatch.selectedTemplate,
-      freshMappedVars,
+      freshMappedVarsForValidation,
     );
 
     if (incompleteRecipients.length) {

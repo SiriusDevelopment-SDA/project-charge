@@ -215,7 +215,7 @@ export default function EfetuarDisparo() {
               {isFinishedBatch
                 ? dispatch.activeDispatchBatch.errorMessage ||
                   "Lote finalizado. Consulte o historico para detalhes."
-                : `Processamento em segundo plano. Estimativa inicial: ${dispatch.activeDispatchBatch.estimatedDurationSeconds}s.`}
+                : `Processamento em segundo plano.${dispatch.activeDispatchBatch.estimatedDurationSeconds != null ? ` Estimativa inicial: ${dispatch.activeDispatchBatch.estimatedDurationSeconds}s.` : ""}`}
             </p>
           </section>
         )}

@@ -35,8 +35,8 @@ export class ClientsSyncCron {
     private readonly sgpService: SGPInvoicesService,
   ) {}
 
-  // Roda todo dia às 3h da manhã
-  @Cron('0 0 3 * * *')
+  // Roda todo dia às 3h da manhã (horário de Brasília)
+  @Cron('0 0 3 * * *', { timeZone: 'America/Sao_Paulo' })
   async syncClientsFromERP(): Promise<void> {
     this.logger.log('[ClientsSync] Iniciando sincronização de clientes do ERP');
 

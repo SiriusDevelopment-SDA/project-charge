@@ -82,12 +82,18 @@ export function getOrderedTemplateVariableKeys(template: Template) {
   );
 }
 
-export function buildTemplateVars(recipient: Recipient, template: Template): mappedVars {
+export function buildTemplateVars(
+  recipient: Recipient,
+  template: Template,
+  options?: { skipStorage?: boolean },
+): mappedVars {
+  const skipStorage = options?.skipStorage ?? false;
   const invoice = getInvoice(recipient);
-  const attendantName = recipient.nome_atendente ?? AppStorage.getAttendantName();
+  const attendantName =
+    recipient.nome_atendente ?? (skipStorage ? "" : AppStorage.getAttendantName());
   const companyName =
     recipient.company?.name?.trim() ||
-    AppStorage.getDispatchCompanyName() ||
+    (skipStorage ? "" : AppStorage.getDispatchCompanyName()) ||
     template.company?.name?.trim() ||
     "";
   const pixCode =
@@ -149,13 +155,13 @@ export function pickTemplateVars(
 export function mapRecipientsToTemplateVars(
   recipients: Recipient[],
   template: Template,
-  options?: { filterByTemplateVars?: boolean }
+  options?: { filterByTemplateVars?: boolean; skipStorage?: boolean }
 ): mappedVars[] {
   const templateVars = normalizeTemplateVars(template.variables);
   const filterByTemplateVars = options?.filterByTemplateVars ?? true;
 
   return recipients.map((recipient) => {
-    const allVars = buildTemplateVars(recipient, template);
+    const allVars = buildTemplateVars(recipient, template, { skipStorage: options?.skipStorage });
     const varsForMessage = filterByTemplateVars
       ? pickTemplateVars(templateVars, allVars)
       : (allVars as Record<string, string>);

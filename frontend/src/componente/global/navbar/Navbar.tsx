@@ -3,9 +3,11 @@ import logo from "../../../assets/icons/coraxy.svg";
 import { NavLink } from "react-router-dom";
 import styles from "./StyleNavbar.module.css";
 import { useLocation } from "react-router-dom";
+import { AppStorage } from "../../../services/storage/storage.service";
 
 export function Navbar() {
   const location = useLocation();
+  const isEmbed = AppStorage.getAuthMode() === "embed";
   const currentSearchParams = new URLSearchParams(location.search);
   const scope = currentSearchParams.get("scope");
   currentSearchParams.delete("scope");
@@ -60,12 +62,14 @@ export function Navbar() {
           Templates
         </NavLink>
 
-        <NavLink
-          to={`/chat${search}`}
-          className={({ isActive }) => (isActive ? styles.active : "")}
-        >
-          Chat
-        </NavLink>
+        {!isEmbed && (
+          <NavLink
+            to={`/chat${search}`}
+            className={({ isActive }) => (isActive ? styles.active : "")}
+          >
+            Chat
+          </NavLink>
+        )}
 
         <NavLink
           to={`/${search}`}

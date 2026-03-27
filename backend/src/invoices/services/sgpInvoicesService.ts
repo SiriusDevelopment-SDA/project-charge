@@ -24,6 +24,23 @@ export class SGPInvoicesService {
       @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
       private readonly redisService: RedisService,
     ) { }
+
+  private async sleep(ms: number) {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isRetryableNetworkError(err: unknown) {
+    const anyErr = err as any;
+    const name = anyErr?.name;
+    const message = String(anyErr?.message ?? "");
+    return (
+      name === "TimeoutError" ||
+      name === "AbortError" ||
+      message.toLowerCase().includes("timeout") ||
+      message.toLowerCase().includes("aborted") ||
+      message.toLowerCase().includes("fetch failed")
+    );
+  }
   
   async getInvoices(
     cliente: Client,
@@ -273,22 +290,39 @@ export class SGPInvoicesService {
 
     const auth = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
     const url = `https://${company.url}/api/ura/clientes`;
-    const limit = 250;
+    const limit = 100;
+    const timeoutMs = Number(config?.timeoutMs ?? 90_000);
+    const maxRetries = Number(config?.retries ?? 3);
+    const concurrency = Number(config?.clientsConcurrency ?? 5);
 
     const fetchPage = async (offset: number): Promise<{ clientes: SGPClientRecord[]; total: number }> => {
       const body: Record<string, string | number> = { offset, limit, omitir_titulos: 'sim' };
       if (since) body['data_cadastro_inicio'] = since.toISOString().split('T')[0];
-      let response: Response;
-      try {
-        response = await fetch(url, {
-          method: 'POST',
-          headers: { Authorization: auth, 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(45_000),
-        });
-      } catch (err: any) {
-        const cause = err?.cause ? ` | causa: ${err.cause}` : '';
-        throw new Error(`SGP clientes — falha de rede ao acessar ${url}${cause}`);
+      let response: Response | undefined;
+      let lastErr: unknown;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          response = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          lastErr = undefined;
+          break;
+        } catch (err: any) {
+          lastErr = err;
+          if (attempt >= maxRetries || !this.isRetryableNetworkError(err)) break;
+          const backoffMs = 800 * (attempt + 1) ** 2;
+          await this.sleep(backoffMs);
+        }
+      }
+
+      if (!response) {
+        const error = new Error(`SGP clientes — falha de rede ao acessar ${url}`);
+        (error as any).cause = lastErr;
+        throw error;
       }
       if (!response.ok) {
         const errText = await response.text();
@@ -309,9 +343,9 @@ export class SGPInvoicesService {
       const offsets: number[] = [];
       for (let offset = limit; offset < total; offset += limit) offsets.push(offset);
 
-      // todas as páginas restantes em paralelo (lotes de 10 para não sobrecarregar o servidor)
-      for (let i = 0; i < offsets.length; i += 20) {
-        const batch = offsets.slice(i, i + 20);
+      // páginas restantes em paralelo, com concorrência limitada para reduzir timeouts
+      for (let i = 0; i < offsets.length; i += concurrency) {
+        const batch = offsets.slice(i, i + concurrency);
         const results = await Promise.all(batch.map(fetchPage));
         results.forEach(r => allClients.push(...r.clientes));
       }

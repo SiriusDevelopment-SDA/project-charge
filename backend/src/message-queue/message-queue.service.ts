@@ -42,7 +42,7 @@ export class MessageQueueService {
     private readonly campaignRepository: Repository<Campaign>,
   ) {}
 
-  async enqueueBatch(params: EnqueueBatchParams): Promise<DispatchBatch> {
+  async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number }> {
     const scheduledAt = params.scheduledAt ?? new Date();
 
     // Deduplicação: remove destinatários cujo telefone já foi despachado hoje para a mesma empresa
@@ -100,7 +100,7 @@ export class MessageQueueService {
       await this.queueRepository.save(jobs.slice(i, i + BATCH_INSERT_SIZE));
     }
 
-    return batch;
+    return { batch, skipped: deduped };
   }
 
   /**

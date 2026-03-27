@@ -68,7 +68,7 @@ export function useDispatchTemplateController() {
         }
         return recipient.components.some(
           (component) =>
-            component.type === "BUTTON" && component.sub_type === "ORDER_DETAILS",
+            component.type === "button" && component.sub_type === "order_details",
         );
       });
 
@@ -86,12 +86,17 @@ export function useDispatchTemplateController() {
       }
       console.groupEnd();
 
-      const response = await Api.post<{ batchId: string; queued: number }>(
+      const response = await Api.post<{ batchId: string; queued: number; skipped: number }>(
         "/templates/send",
         payload,
       );
       const result = response.data;
       setActiveBatchId(result.batchId);
+      if (result.skipped > 0) {
+        toast.warning(
+          `${result.skipped} destinatario(s) ja receberam mensagem hoje e foram ignorados.`,
+        );
+      }
       toast.success("Disparo efetuado!");
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Erro ao enviar mensagens"));

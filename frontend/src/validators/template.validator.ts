@@ -78,7 +78,7 @@ export function templateRequiresCompanyName(template: Template): boolean {
 }
 
 export function getMissingTemplateVariables(template: Template, recipient: Recipient): string[] {
-  const allVars = buildTemplateVars(recipient, template);
+  const allVars = buildTemplateVars(recipient, template, { skipStorage: true });
   return getOrderedTemplateVariableKeys(template).filter((fieldKey) => {
     if (fieldKey === "whatsapp") return false;
     return !String(allVars[fieldKey as keyof mappedVars] ?? "").trim();

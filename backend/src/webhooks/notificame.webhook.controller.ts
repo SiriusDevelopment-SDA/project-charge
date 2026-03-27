@@ -46,6 +46,11 @@ export class NotificaMeWebhookController {
   @Public()
   @Post('notificame')
   async handleNotificaMeEvent(@Body() body: NotificaMeWebhookPayload) {
+    if (!body || typeof body !== 'object') {
+      this.logger.warn('[Webhook] Body inválido ou ausente');
+      return { received: true };
+    }
+
     this.logger.log(`[Webhook] Payload recebido: ${JSON.stringify(body)}`);
 
     if (body.type === 'MESSAGE') {
