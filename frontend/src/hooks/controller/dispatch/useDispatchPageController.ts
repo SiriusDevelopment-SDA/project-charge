@@ -157,27 +157,87 @@ export function useDispatchPageController() {
     previewAudienceCount,
   ]);
 
+  const mergeFetchedClients = useCallback(
+    (baseClients: Cliente[], fetchedClients: Cliente[]) => {
+      const fetchedById = new Map(
+        fetchedClients.map((cliente) => [cliente.id, cliente]),
+      );
+
+      return baseClients.map(
+        (cliente) => fetchedById.get(cliente.id) ?? cliente,
+      );
+    },
+    [],
+  );
+
   const handleCloseFloatingMenus = useCallback(() => {
     setOpenDropdown(null);
   }, []);
 
   const handleClientsChange = useCallback(
-    (value: Cliente[]) => {
-      const clientesValidos = value.filter((cliente) => {
-        if (!dispatch.selectedTemplate) return false;
-        return validarSelecaoCliente(cliente, dispatch.selectedTemplate);
-      });
+    async (value: Cliente[]) => {
+      if (!dispatch.selectedTemplate) {
+        dispatch.setSelectedClientes([]);
+        return;
+      }
+
+      const selectedClientsById = new Map(
+        dispatch.selectedClientes.map((cliente) => [cliente.id, cliente]),
+      );
+      const nextClientIds = new Set(value.map((cliente) => cliente.id));
+      const removedClients = dispatch.selectedClientes.filter(
+        (cliente) => !nextClientIds.has(cliente.id),
+      );
+
+      let hydratedClients = value.map(
+        (cliente) => selectedClientsById.get(cliente.id) ?? cliente,
+      );
+      if (value.length <= dispatch.selectedClientes.length) {
+        const clientesValidos = hydratedClients.filter((cliente) =>
+          validarSelecaoCliente(cliente, dispatch.selectedTemplate ?? undefined),
+        );
+
+        dispatch.setSelectedClientes(clientesValidos);
+        return;
+      }
+
+      if (dispatch.selectedTemplate.category === "Cobrança") {
+        if (removedClients.length > 0) {
+          const clientesValidos = hydratedClients.filter((cliente) =>
+            validarSelecaoCliente(cliente, dispatch.selectedTemplate ?? undefined),
+          );
+
+          dispatch.setSelectedClientes(clientesValidos);
+          return;
+        }
+
+        const addedClients = hydratedClients.filter(
+          (cliente) => !selectedClientsById.has(cliente.id),
+        );
+
+        const needInvoices = addedClients.filter(
+          (cliente) => cliente.invoices?.status !== "success",
+        );
+
+        if (needInvoices.length) {
+          const fetchedClients = await fetchInvoices(needInvoices);
+          hydratedClients = mergeFetchedClients(hydratedClients, fetchedClients);
+        }
+      }
+
+      const clientesValidos = hydratedClients.filter((cliente) =>
+        validarSelecaoCliente(cliente, dispatch.selectedTemplate ?? undefined),
+      );
 
       dispatch.setSelectedClientes(clientesValidos);
-
-      if (
-        dispatch.selectedTemplate?.category === "CobranÃ§a" &&
-        clientesValidos.length
-      ) {
-        void fetchInvoices(clientesValidos);
-      }
     },
-    [dispatch, fetchInvoices],
+    [
+      dispatch.selectedClientes,
+      dispatch.selectedTemplate,
+      dispatch.setSelectedClientes,
+      fetchInvoices,
+      mergeFetchedClients,
+    ],
   );
 
   const handleLeadUpload = useCallback(
@@ -210,7 +270,7 @@ export function useDispatchPageController() {
     ],
   );
 
-  const handleOpenDispatchPreview = useCallback(() => {
+  const handleOpenDispatchPreview = useCallback(async () => {
     if (!dispatch.selectedTemplate) return;
 
     if (
@@ -244,25 +304,41 @@ export function useDispatchPageController() {
       }
     }
 
+    let hydratedSelectedClients = dispatch.selectedClientes;
+
     if (
-      ((dispatch.modoPage === "clientes" &&
-        dispatch.selectedClientes.length > 0) ||
-        (dispatch.modoPage === "leads" &&
-          dispatch.selectedLeads.length > 0)) &&
-      previewMappedVars.length === 0
+      dispatch.modoPage === "clientes" &&
+      dispatch.selectedTemplate.category === "Cobrança"
     ) {
-      toast.warning(
-        "Ainda nao foi possivel validar todas as variaveis do template.",
+      const needInvoices = dispatch.selectedClientes.filter(
+        (cliente) => cliente.invoices?.status !== "success",
       );
-      return;
+
+      if (needInvoices.length) {
+        const fetchedClients = await fetchInvoices(needInvoices);
+        hydratedSelectedClients = mergeFetchedClients(
+          dispatch.selectedClientes,
+          fetchedClients,
+        );
+        dispatch.setSelectedClientes(hydratedSelectedClients);
+      }
     }
 
-    // Compute fresh here so AppStorage reads reflect the latest attendant name,
-    // avoiding repeated modal prompts when the name was already confirmed.
     const freshSource =
       dispatch.modoPage === "clientes"
-        ? dispatch.selectedClientes
+        ? hydratedSelectedClients
         : dispatch.selectedLeads;
+
+    // Validação: sem AppStorage, para detectar campos realmente ausentes no recipient
+    const freshMappedVarsForValidation =
+      freshSource.length
+        ? mapRecipientsToTemplateVars(freshSource, dispatch.selectedTemplate, {
+            filterByTemplateVars: false,
+            skipStorage: true,
+          })
+        : [];
+
+    // Preview: com AppStorage, para exibir valores já confirmados anteriormente
     const freshMappedVars =
       freshSource.length
         ? mapRecipientsToTemplateVars(freshSource, dispatch.selectedTemplate, {
@@ -272,7 +348,7 @@ export function useDispatchPageController() {
 
     const incompleteRecipients = getIncompleteTemplateRecipients(
       dispatch.selectedTemplate,
-      freshMappedVars,
+      freshMappedVarsForValidation,
     );
 
     if (incompleteRecipients.length) {
@@ -298,12 +374,21 @@ export function useDispatchPageController() {
       return;
     }
 
+    if (freshMappedVars.length) {
+      setPreviewMapOverride({
+        selectionKey: previewSelectionKey,
+        mappedVars: freshMappedVars,
+      });
+    }
+
     manualLead.prepareDispatchPreview();
   }, [
     dispatch,
+    fetchInvoices,
     manualLead,
+    mergeFetchedClients,
     previewAudienceCount,
-    previewMappedVars,
+    previewSelectionKey,
     typedWhatsappDigits,
   ]);
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CampaignData, Category, DropdownType } from "../../../types";
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 
 type Params = {
   campaigns: CampaignData[];
@@ -57,6 +57,7 @@ export function useCampaignListController({ campaigns, categories }: Params) {
 
   return {
     categories,
+    filteredCampaigns,
     searchName,
     categoryFilter,
     page: safePage,

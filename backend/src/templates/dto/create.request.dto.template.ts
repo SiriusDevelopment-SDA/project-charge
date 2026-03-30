@@ -1,4 +1,4 @@
-import { IsArray, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
+import { IsArray, IsNumber, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 
@@ -38,10 +38,10 @@ class CreateComponentDto {
   @IsString()
   sub_type?: string;
 
-  @ApiProperty({ example: "0", required: false })
+  @ApiProperty({ example: 0, required: false })
   @IsOptional()
-  @IsString()
-  index?: string;
+  @IsNumber()
+  index?: number;
 
   @ApiProperty({
     example: [{ type: "URL", text: "Pagar agora" }, { type: "COPY_CODE", text: "Copiar codigo" }],

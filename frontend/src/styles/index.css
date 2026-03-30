@@ -9,6 +9,9 @@
   font-weight: 400;
   max-width: 100vw;
 }
+html{
+  overflow: hidden;
+}
 .app {
   background: linear-gradient(45deg, #000000 31%, #f1c40f 170%);
 }

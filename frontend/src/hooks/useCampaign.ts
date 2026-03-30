@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CampaignMetrics } from "../types";
 import { useAccountParam } from "./useAccountParam";
+import { queryKeys } from "../lib/queryKeys";
 import {
   useCampaignsQuery,
   useCampaignMetricsQuery,
@@ -26,9 +27,12 @@ const DEFAULT_METRICS: CampaignMetrics = {
   dispatchesToday: 0,
   totalDispatch: 0,
   totalDispatchSuccess: 0,
+  totalDispatchToday: 0,
+  totalDispatchSuccessToday: 0,
   totalDispatch24h: 0,
   totalDispatchSuccess24h: 0,
   deliveryRateTotal: 0,
+  deliveryRateToday: 0,
   deliveryRate24h: 0,
   nextDispatchTime: null,
   nextDispatchLabel: "Sem disparos agendados",
@@ -52,9 +56,22 @@ export function useCampaign() {
   };
 
   const reload = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ["campaigns", account],
-    });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.all(account),
+        exact: true,
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.metricsBase(account),
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.collectionsMetrics(account),
+        exact: true,
+        refetchType: "all",
+      }),
+    ]);
   }, [queryClient, account]);
 
   const deleteCampaign = useCallback(

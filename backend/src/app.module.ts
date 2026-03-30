@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MessageQueueModule } from './message-queue/message-queue.module';
 import { DatabaseModule } from './database/database.module';
@@ -28,7 +30,6 @@ import { AppServiceServices } from './services/app.service.services';
 import { Service } from './services/entities/services';
 import { AppServiceGraphics } from './graphics/app.service.graphics';
 import { GraphicsController } from './graphics/app.controller.graphics';
-import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
 import { Overdue } from './invoices/entities/Overdue';
 import { TemplateVarsValidator } from './validations';
 import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
@@ -42,6 +43,8 @@ import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
 import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
+import { ClientsSyncCron } from './clients/clients-sync.cron';
+import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
 
 @Module({
   imports: [
@@ -57,8 +60,8 @@ import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
     TypeOrmModule.forFeature([Category]),
     TypeOrmModule.forFeature([Service]),
     TypeOrmModule.forFeature([Overdue]),
-    TypeOrmModule.forFeature([DispatchBatch]),
     TypeOrmModule.forFeature([Agent]),
+    TypeOrmModule.forFeature([DispatchBatch]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',
@@ -95,6 +98,8 @@ import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
     ChatwootService,
     RedisService,
     RelatoryResolverCron,
+    ClientsSyncCron,
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
   exports: [AppServiceTemplate, AppServiceClient],
 })

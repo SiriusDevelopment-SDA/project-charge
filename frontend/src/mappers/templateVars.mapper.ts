@@ -2,6 +2,16 @@ import type { Cliente, Template, mappedVars } from "../types";
 import { compilarTemplate } from "../utils/validation";
 import { AppStorage } from "../services/storage/storage.service";
 
+function formatDueDate(date?: string): string {
+  if (!date) return "";
+  // YYYY-MM-DD → DD/MM/YYYY
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split("-");
+    return `${day}/${month}/${year}`;
+  }
+  return date;
+}
+
 export type Recipient = {
   id?: string;
   name?: string;
@@ -72,23 +82,29 @@ export function getOrderedTemplateVariableKeys(template: Template) {
   );
 }
 
-export function buildTemplateVars(recipient: Recipient, template: Template): mappedVars {
+export function buildTemplateVars(
+  recipient: Recipient,
+  template: Template,
+  options?: { skipStorage?: boolean },
+): mappedVars {
+  const skipStorage = options?.skipStorage ?? false;
   const invoice = getInvoice(recipient);
-  const attendantName = recipient.nome_atendente ?? AppStorage.getAttendantName();
+  const attendantName =
+    recipient.nome_atendente ?? (skipStorage ? "" : AppStorage.getAttendantName());
   const companyName =
     recipient.company?.name?.trim() ||
-    AppStorage.getDispatchCompanyName() ||
+    (skipStorage ? "" : AppStorage.getDispatchCompanyName()) ||
     template.company?.name?.trim() ||
     "";
   const pixCode =
-    invoice?.code_pix?.pix ??
-    recipient.code_pix ??
-    recipient.codigo_qr ??
-    recipient.codigo_qr_code ??
-    recipient.codigo_pix ??
+    (invoice?.code_pix?.status === "success" ? invoice.code_pix.pix : undefined) ||
+    recipient.code_pix ||
+    recipient.codigo_qr ||
+    recipient.codigo_qr_code ||
+    recipient.codigo_pix ||
     "";
 
-  const EXCLUDED_KEYS = ["id", "name", "cnpj_cpf", "whatsapp", "inputSource", "company", "invoices"];
+  const EXCLUDED_KEYS = ["id", "clientId", "name", "cnpj_cpf", "whatsapp", "inputSource", "company", "invoices"];
   const customFields = Object.fromEntries(
     Object.entries(recipient)
       .filter(([key, value]) => typeof value === "string" && !EXCLUDED_KEYS.includes(key))
@@ -97,14 +113,13 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
 
   const numeroContrato = invoice?.contract_id ?? recipient.numero_contrato ?? "";
   const valorFatura = invoice?.invoice_amount ?? recipient.valor_fatura ?? "";
-
   return {
     ...customFields,
     nome_cliente: toLower(recipient.name ?? recipient.nome_cliente),
     whatsapp: recipient.whatsapp ?? "",
     cnpj_cpf: recipient.cnpj_cpf ?? "",
     nome_atendente: toLower(attendantName),
-    data_vencimento_fatura: invoice?.invoice_due_date ?? recipient.data_vencimento_fatura ?? "",
+    data_vencimento_fatura: formatDueDate(invoice?.invoice_due_date ?? recipient.data_vencimento_fatura),
     nome_empresa: toLower(companyName),
     numero_contrato: numeroContrato,
     valor_fatura: valorFatura,
@@ -118,8 +133,8 @@ export function buildTemplateVars(recipient: Recipient, template: Template): map
     order_item_name: recipient.order_item_name ?? "Fatura",
     order_item_description: recipient.order_item_description ?? "",
     order_pix_merchant_name: recipient.order_pix_merchant_name ?? companyName ?? "",
-    order_pix_key: recipient.order_pix_key ?? pixCode ?? "",
-    order_pix_key_type: recipient.order_pix_key_type ?? "CNPJ",
+    order_pix_key: recipient.order_pix_key ?? AppStorage.getCompanyCnpj(),
+    order_pix_key_type: recipient.order_pix_key_type ?? (AppStorage.getCompanyCnpj() ? "CNPJ" : ""),
   };
 }
 
@@ -140,13 +155,13 @@ export function pickTemplateVars(
 export function mapRecipientsToTemplateVars(
   recipients: Recipient[],
   template: Template,
-  options?: { filterByTemplateVars?: boolean }
+  options?: { filterByTemplateVars?: boolean; skipStorage?: boolean }
 ): mappedVars[] {
   const templateVars = normalizeTemplateVars(template.variables);
   const filterByTemplateVars = options?.filterByTemplateVars ?? true;
 
   return recipients.map((recipient) => {
-    const allVars = buildTemplateVars(recipient, template);
+    const allVars = buildTemplateVars(recipient, template, { skipStorage: options?.skipStorage });
     const varsForMessage = filterByTemplateVars
       ? pickTemplateVars(templateVars, allVars)
       : (allVars as Record<string, string>);

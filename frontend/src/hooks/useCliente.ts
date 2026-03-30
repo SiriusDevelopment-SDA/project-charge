@@ -1,8 +1,17 @@
 import { useCallback, useState } from "react";
 import { useClientsQuery, useServicesQuery } from "./queries/useClientsQuery";
 import { useFetchInvoicesMutation } from "./mutations/useClientsMutations";
+import { toast } from "react-toastify";
 import { useDebounce } from "./useDebounce";
-import type { Cliente, IClientsContext } from "../types";
+import type {
+  Cliente,
+  IClientsContext,
+  InvoiceRuleClientsByDate,
+  InvoiceRuleFilter,
+} from "../types";
+import { useGlobalLoading } from "./useGlobalLoading";
+import { ClientService } from "../services/client/client.service";
+import { getErrorMessage } from "../utils/error";
 
 export function useClient(): IClientsContext {
   const [query, setQueryState] = useState("");
@@ -10,7 +19,6 @@ export function useClient(): IClientsContext {
   const [limit, setLimit] = useState(10);
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC");
   const [groupServices, setGroupServices] = useState(false);
-  const [groupInvoices, setGroupInvoices] = useState(false);
   const [servicesCompanyId, setServicesCompanyId] = useState<string | undefined>(undefined);
 
   const debouncedQuery = useDebounce(query, 350);
@@ -21,12 +29,12 @@ export function useClient(): IClientsContext {
     limit,
     order,
     groupServices,
-    groupInvoices,
   });
 
   const { data: services = [] } = useServicesQuery(servicesCompanyId);
 
   const fetchInvoicesMutation = useFetchInvoicesMutation();
+  const { showLoading, hideLoading, updateProgress } = useGlobalLoading();
 
   const setQuery = useCallback((value: string) => {
     setQueryState(value);
@@ -35,14 +43,26 @@ export function useClient(): IClientsContext {
 
   const fetchInvoices = useCallback(
     async (targetClients: Cliente[]): Promise<Cliente[]> => {
+      if (!targetClients.length) {
+        return [];
+      }
+
+      const loadingId = showLoading(
+        targetClients.length === 1
+          ? `Buscando faturas de ${targetClients[0]?.name ?? "cliente"}...`
+          : "Buscando faturas dos clientes selecionados...",
+      );
+
       try {
         const { updatedClients } = await fetchInvoicesMutation.mutateAsync(targetClients);
         return updatedClients;
       } catch {
         return targetClients;
+      } finally {
+        hideLoading(loadingId);
       }
     },
-    [fetchInvoicesMutation],
+    [fetchInvoicesMutation, hideLoading, showLoading],
   );
 
   const fetchServices = useCallback(
@@ -54,6 +74,111 @@ export function useClient(): IClientsContext {
     [clients],
   );
 
+  const consultClientsByInvoiceRule = useCallback(
+    async ({
+      companyId,
+      filter,
+    }: {
+      companyId: string;
+      filter: InvoiceRuleFilter;
+    }) => {
+      if (!companyId) {
+        return { clients: [], clientsByDispatchDate: {} };
+      }
+
+      const loadingId = showLoading("Consultando clientes pela regua de cobranca...");
+
+      let simulatedProgress = 0;
+      updateProgress(loadingId, 0);
+      const progressInterval = setInterval(() => {
+        simulatedProgress = Math.min(88, simulatedProgress + 1);
+        updateProgress(loadingId, simulatedProgress);
+      }, 700);
+
+      try {
+        const response = await ClientService.searchInvoices({
+          companyId,
+          filter,
+        });
+
+        const { data: providers, errors, status, message } = response.data;
+
+        if (status === "success") toast.success(message);
+        if (status === "partial") toast.warning(message);
+        if (status === "error") toast.error(message);
+
+        errors?.forEach((error) => {
+          toast.warning(`Cliente do documento: ${error.document} ${error.reason}`);
+        });
+
+        const clientsByDispatchDate: InvoiceRuleClientsByDate = {};
+        const uniqueClients = new Map<string, Cliente>();
+        const clientsByDateAndId = new Map<string, Cliente>();
+
+        providers.forEach((provider) => {
+          const mappedClient = {
+            id: provider.clientData.id,
+            clientId: provider.clientData.clientId,
+            cnpj_cpf: provider.clientData.cnpj_cpf,
+            name: provider.clientData.name,
+            whatsapp: provider.clientData.whatsapp,
+            email: provider.clientData.email ?? undefined,
+            company: provider.clientData.company,
+            invoices: provider.invoices,
+          };
+
+          const clientKey = mappedClient.id || mappedClient.cnpj_cpf;
+          if (!clientKey) return;
+
+          const dispatchDate = provider.dispatchDate ?? filter.referenceDate;
+          if (dispatchDate) {
+            const scopedKey = `${dispatchDate}::${clientKey}`;
+            clientsByDateAndId.set(scopedKey, mappedClient);
+          }
+
+          uniqueClients.set(clientKey, mappedClient);
+        });
+
+        clientsByDateAndId.forEach((client, scopedKey) => {
+          const [dispatchDate] = scopedKey.split("::");
+          const current = clientsByDispatchDate[dispatchDate] ?? [];
+          current.push(client);
+          clientsByDispatchDate[dispatchDate] = current;
+        });
+
+        // No mode "range", deduplicate: each client appears only on the earliest dispatch date
+        if (filter.recurringType === 'range') {
+          const seenClientKeys = new Set<string>();
+          const sortedDates = Object.keys(clientsByDispatchDate).sort();
+          for (const date of sortedDates) {
+            clientsByDispatchDate[date] = clientsByDispatchDate[date].filter((client) => {
+              const key = client.id || client.cnpj_cpf;
+              if (!key || seenClientKeys.has(key)) return false;
+              seenClientKeys.add(key);
+              return true;
+            });
+            if (clientsByDispatchDate[date].length === 0) {
+              delete clientsByDispatchDate[date];
+            }
+          }
+        }
+
+        return {
+          clients: [...uniqueClients.values()],
+          clientsByDispatchDate,
+        };
+      } catch (error) {
+        toast.error(getErrorMessage(error, "Erro ao consultar clientes pela regua."));
+        return { clients: [], clientsByDispatchDate: {} };
+      } finally {
+        clearInterval(progressInterval);
+        updateProgress(loadingId, 100);
+        setTimeout(() => hideLoading(loadingId), 300);
+      }
+    },
+    [hideLoading, showLoading, updateProgress],
+  );
+
   return {
     clients,
     services,
@@ -61,9 +186,10 @@ export function useClient(): IClientsContext {
     setPage,
     setLimit,
     setOrder,
-    setGroupInvoices,
+    setGroupInvoices: () => {},
     setGroupServices,
     fetchInvoices,
+    consultClientsByInvoiceRule,
     fetchServices,
   };
 }

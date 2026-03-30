@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 import { Api } from "../api";
 import { queryClient } from "../../lib/queryClient";
+import { queryKeys } from "../../lib/queryKeys";
 
 const CAMPAIGNS_NAMESPACE = "/campaigns";
 
@@ -27,9 +28,22 @@ export function setupCampaignsSocket(account: string): () => void {
   });
 
   socket.on("campaigns:sync", () => {
-    void queryClient.invalidateQueries({
-      queryKey: ["campaigns", account],
-    });
+    void Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.all(account),
+        exact: true,
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.metricsBase(account),
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.campaigns.collectionsMetrics(account),
+        exact: true,
+        refetchType: "all",
+      }),
+    ]);
   });
 
   return () => {

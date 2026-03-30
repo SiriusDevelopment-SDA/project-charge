@@ -38,12 +38,13 @@ export function AccountLayout() {
 
           if (!isMounted) return;
 
+          AppStorage.clearOnLogin();
           AppStorage.setAccessToken(result.accessToken);
           AppStorage.setAccount(result.company.account);
           AppStorage.setCompanyName(result.company.name);
+          AppStorage.setCompanyActive(result.company.active);
           AppStorage.setEmbedSignature(embedSignature);
           AppStorage.setAuthMode("embed");
-          AppStorage.clearOnLogin();
           setAccount(result.company.account);
           setIsAuthorized(true);
           setIsAuthorizing(false);
@@ -85,10 +86,19 @@ export function AccountLayout() {
         if (!isMounted) return;
 
         setAccount(result.company.account);
+        AppStorage.setCompanyCnpj(result.company.cnpj ?? '');
+        AppStorage.setCompanyActive(result.company.active);
         if (result.agent?.name) {
           AppStorage.setAgentName(result.agent.name);
           AppStorage.setAuthMode("agent");
         } else {
+          // Sessão embed sem token na URL = acesso direto indevido
+          // (permite se já autenticou via embed — assinatura salva no storage)
+          if (accountParam && !tokenParam && !AppStorage.getEmbedSignature()) {
+            AppStorage.clearSession();
+            navigate("/login", { replace: true, state: { from: currentPath } });
+            return;
+          }
           AppStorage.setAuthMode("embed");
           AppStorage.removeAgentName();
         }

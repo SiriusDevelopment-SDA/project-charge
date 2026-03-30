@@ -18,22 +18,32 @@ export type Template = {
   createdAt: Date;
   updatedAt: Date;
   variables: Record<string, string>;
-  components?: Array<Record<string, unknown>>;
+  components?:
+    | Array<Record<string, unknown>>
+    | { components?: Array<Record<string, unknown>> }
+    | string;
   isEnabled: boolean;
 };
 
 export type OrderDetailsPixPayment = {
   type: "pix_dynamic_code" | "pix_static_code";
   pix_dynamic_code?: {
+    code: string;
     merchant_name: string;
-    key: string;
-    key_type: "CNPJ" | "CPF" | "EMAIL" | "PHONE";
+    key?: string;
+    key_type?: "CNPJ" | "CPF" | "EMAIL" | "PHONE";
   };
   pix_static_code?: {
+    code: string;
     merchant_name: string;
-    key: string;
-    key_type: "CNPJ" | "CPF" | "EMAIL" | "PHONE";
+    key?: string;
+    key_type?: "CNPJ" | "CPF" | "EMAIL" | "PHONE";
   };
+};
+
+export type OrderDetailsAmount = {
+  value: number;
+  offset: number;
 };
 
 export type OrderDetailsItem = {
@@ -41,8 +51,7 @@ export type OrderDetailsItem = {
   name: string;
   description?: string;
   quantity: number;
-  unit_price: number;
-  currency: string;
+  amount: OrderDetailsAmount;
 };
 
 export type OrderDetailsData = {
@@ -51,15 +60,11 @@ export type OrderDetailsData = {
   payment_type: "br";
   payment_settings: OrderDetailsPixPayment[];
   currency: string;
-  total_amount: number;
-  amount_offset: number;
+  total_amount: OrderDetailsAmount;
   order: {
-    status: "pending_payment";
-    subtotal: number;
-    tax: number;
-    discount: number;
-    shipping: number;
+    status: "pending" | "pending_payment";
     items: OrderDetailsItem[];
+    subtotal: OrderDetailsAmount;
   };
 };
 
@@ -80,9 +85,9 @@ export type TemplateParameter =
     };
 
 export type TemplateComponent = {
-  type: "BODY" | "HEADER" | "FOOTER" | "BUTTON" | "BUTTONS";
-  sub_type?: string;
-  index?: string;
+  type: "BODY" | "HEADER" | "FOOTER" | "button" | "BUTTONS";
+  sub_type?: "url" | "copy_code" | "order_details" | "quick_reply";
+  index?: number;
   parameters: TemplateParameter[];
 };
 

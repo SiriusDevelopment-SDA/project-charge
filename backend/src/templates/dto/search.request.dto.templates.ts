@@ -65,22 +65,40 @@ export class OrderDetailsPixPaymentDto {
   @IsString()
   type!: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({
+    required: false,
+    example: {
+      code: "000201...",
+      merchant_name: "Empresa",
+      key: "39580525000189",
+      key_type: "CNPJ",
+    },
+  })
   @IsOptional()
   @IsObject()
   pix_dynamic_code?: {
+    code?: string;
     merchant_name: string;
-    key: string;
-    key_type: string;
+    key?: string;
+    key_type?: string;
   };
 
-  @ApiProperty({ required: false })
+  @ApiProperty({
+    required: false,
+    example: {
+      code: "000201...",
+      merchant_name: "Empresa",
+      key: "39580525000189",
+      key_type: "CNPJ",
+    },
+  })
   @IsOptional()
   @IsObject()
   pix_static_code?: {
+    code?: string;
     merchant_name: string;
-    key: string;
-    key_type: string;
+    key?: string;
+    key_type?: string;
   };
 }
 
@@ -134,24 +152,18 @@ export class OrderDetailsDataDto {
   @IsString()
   currency!: string;
 
-  @ApiProperty({ example: 25000 })
-  @IsNumber()
-  total_amount!: number;
+  @ApiProperty({ example: { value: 25000, offset: 100 } })
+  @IsNotEmpty()
+  total_amount!: unknown;
 
-  @ApiProperty({ example: 100 })
+  @ApiProperty({ example: 100, required: false })
+  @IsOptional()
   @IsNumber()
-  amount_offset!: number;
+  amount_offset?: number;
 
   @ApiProperty()
   @IsObject()
-  order!: {
-    status: string;
-    subtotal: number;
-    tax: number;
-    discount: number;
-    shipping: number;
-    items: OrderDetailsItemDto[];
-  };
+  order!: Record<string, unknown>;
 }
 
 export class OrderDetailsActionDto {
@@ -206,10 +218,10 @@ export class TemplateComponentDto {
   @IsString()
   sub_type?: string;
 
-  @ApiProperty({ required: false, example: "0" })
+  @ApiProperty({ required: false, example: 0 })
   @IsOptional()
-  @IsString()
-  index?: string;
+  @IsNumber()
+  index?: number;
 
   [key: string]: any;
 }

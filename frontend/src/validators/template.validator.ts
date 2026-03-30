@@ -6,6 +6,67 @@ import {
   getOrderedTemplateVariableKeys,
 } from "../mappers/templateVars.mapper";
 
+function normalizeTemplateComponents(template: Template): Array<Record<string, unknown>> {
+  const { components } = template;
+
+  if (Array.isArray(components)) {
+    return components as Array<Record<string, unknown>>;
+  }
+
+  if (typeof components === "string") {
+    try {
+      const parsed = JSON.parse(components) as Template["components"];
+
+      if (Array.isArray(parsed)) {
+        return parsed as Array<Record<string, unknown>>;
+      }
+
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        Array.isArray((parsed as { components?: unknown }).components)
+      ) {
+        return (parsed as { components: Array<Record<string, unknown>> }).components;
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  if (
+    components &&
+    typeof components === "object" &&
+    Array.isArray((components as { components?: unknown }).components)
+  ) {
+    return (components as { components: Array<Record<string, unknown>> }).components;
+  }
+
+  return [];
+}
+
+function hasOrderDetailsButton(template: Template): boolean {
+  const components = normalizeTemplateComponents(template);
+
+  return components.some((c) => {
+    const type = String(c?.type ?? "").toUpperCase();
+    if (type === "BUTTON" || type === "BUTTONS") {
+      const buttons: Array<Record<string, unknown>> = Array.isArray(c?.buttons)
+        ? (c.buttons as Array<Record<string, unknown>>)
+        : c?.sub_type ? [{ type: c.sub_type }] : [];
+      return buttons.some((b) =>
+        String(b?.type ?? b?.sub_type ?? "").toUpperCase() === "ORDER_DETAILS",
+      );
+    }
+    return false;
+  });
+}
+
+export function templateRequiresPix(template: Template): boolean {
+  const vars = normalizeTemplateVars(template.variables);
+  const hasPixVar = Object.values(vars).some((v) => String(v) === "code_pix");
+  return hasPixVar || hasOrderDetailsButton(template);
+}
+
 export function templateRequiresAttendantName(template: Template): boolean {
   const vars = normalizeTemplateVars(template.variables);
   return Object.values(vars).some((v) => String(v) === "nome_atendente");
@@ -17,7 +78,7 @@ export function templateRequiresCompanyName(template: Template): boolean {
 }
 
 export function getMissingTemplateVariables(template: Template, recipient: Recipient): string[] {
-  const allVars = buildTemplateVars(recipient, template);
+  const allVars = buildTemplateVars(recipient, template, { skipStorage: true });
   return getOrderedTemplateVariableKeys(template).filter((fieldKey) => {
     if (fieldKey === "whatsapp") return false;
     return !String(allVars[fieldKey as keyof mappedVars] ?? "").trim();

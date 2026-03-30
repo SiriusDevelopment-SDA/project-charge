@@ -1,16 +1,18 @@
-﻿
 import { z } from "zod";
 
 export const campaignSchema = z
   .object({
     name: z.string().min(1, "Nome da campanha é obrigatório!"),
     templateId: z.string().min(1, "Template é obrigatório!"),
-    categoryId: z.string().min(1, "Categoria Ãé obrigatória!"),
-    startDate: z.coerce.date({ message: "Escolha um dia na agenda." }),
+    categoryId: z.string().min(1, "Categoria é obrigatória!"),
+    recurringType: z.enum(["single", "range", "monthly_days"]),
+    startDate: z.coerce.date({ message: "Escolha um dia na agenda." }).optional(),
     endDate: z.coerce
       .date({ message: "Escolha um dia para finalizar a campanha!" })
       .optional(),
-    recurring: z.boolean(),
+    recurringDays: z
+      .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data recorrente inválida"))
+      .optional(),
     dispatchTime: z
       .string()
       .regex(/^([0-1]\d|2[0-3]):([0-5]\d)$/, "Horário inválido"),
@@ -20,10 +22,47 @@ export const campaignSchema = z
     const now = new Date();
     now.setSeconds(0, 0);
 
-    // Data inicial nÃ£o pode ser no passado
+    if (data.recurringType === "monthly_days") {
+      if (!data.recurringDays || data.recurringDays.length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["recurringDays"],
+          message: "Selecione pelo menos uma data para o disparo.",
+        });
+        return;
+      }
+
+      if (!data.startDate || !data.endDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["recurringDays"],
+          message: "Selecione ao menos uma data para o disparo.",
+        });
+        return;
+      }
+
+      if (data.endDate < data.startDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "A última data precisa ser igual ou maior que a primeira data selecionada.",
+        });
+      }
+
+      return;
+    }
+
+    if (!data.startDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["startDate"],
+        message: "Escolha um dia na agenda.",
+      });
+      return;
+    }
+
     const today = new Date(now);
     today.setHours(0, 0, 0, 0);
-
     const startDay = new Date(data.startDate);
     startDay.setHours(0, 0, 0, 0);
 
@@ -35,8 +74,7 @@ export const campaignSchema = z
       });
     }
 
-    // ValidaÃ§Ãµes para campanha recorrente
-    if (data.recurring) {
+    if (data.recurringType === "range") {
       if (!data.endDate) {
         ctx.addIssue({
           code: "custom",
@@ -52,7 +90,6 @@ export const campaignSchema = z
       }
     }
 
-    // Horario de disparo deve ser >= 59 minutos a frente
     const [hour, minute] = data.dispatchTime.split(":").map(Number);
     const dispatchDate = new Date(data.startDate);
     dispatchDate.setHours(hour, minute, 0, 0);
@@ -67,9 +104,6 @@ export const campaignSchema = z
     }
   });
 
-// ---------------------------------------------------------------------------
-// Schema: ediÃ§Ã£o de campanha (formulÃ¡rio inline do card)
-// ---------------------------------------------------------------------------
 export const campaignFormSchema = z
   .object({
     isRecurring: z.boolean(),
@@ -93,14 +127,11 @@ export const campaignFormSchema = z
       message:
         "Data de finalização deve ser igual ou maior que a data de início!",
       path: ["endDate"],
-    }
+    },
   );
 
 export type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 
-// ---------------------------------------------------------------------------
-// Schema: variÃ¡veis de template
-// ---------------------------------------------------------------------------
 export const mapVarsSchema = z.object({
   nome_cliente: z.string().min(1, "Nome do cliente é obrigatório"),
   whatsapp: z.string().min(1, "Whatsapp do cliente é obrigatório"),

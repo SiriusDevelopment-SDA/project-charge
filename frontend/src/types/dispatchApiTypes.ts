@@ -45,6 +45,7 @@ export type DispatchBatchStatus = {
 
 export type mappedVars = {
   [key: string]: string | undefined;
+  dispatchDate?: string;
   nome_cliente?: string;
   nome_atendente?: string;
   data_vencimento_fatura?: string;

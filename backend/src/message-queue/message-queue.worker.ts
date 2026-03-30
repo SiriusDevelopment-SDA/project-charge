@@ -38,7 +38,8 @@ export class MessageQueueWorker implements OnModuleInit {
     private readonly relatoryRepository: Repository<RelatoryDispatchTemplate>,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
+    await this.messageQueueService.reconcileCampaignStatuses();
     this.logger.log('MessageQueueWorker inicializado — intervalo: 1s');
   }
 
@@ -108,9 +109,15 @@ export class MessageQueueWorker implements OnModuleInit {
         ? job.payload.components
         : [];
 
+      const normalizedNumber = (() => {
+        const digits = job.payload.number.replace(/\D/g, '');
+        if (digits.startsWith('55') && digits.length >= 12) return digits;
+        return `55${digits}`;
+      })();
+
       const requestBody = {
         from: template.company.canalId_notificameHub,
-        to: job.payload.number,
+        to: normalizedNumber,
         contents: [
           {
             type: 'template',
@@ -125,10 +132,9 @@ export class MessageQueueWorker implements OnModuleInit {
         message_send_ttl_seconds: 3600,
       };
 
-      this.logger.verbose(
-        `[Job ${job.id.slice(0, 8)}] Enviando para NotificaMe → number: ${job.payload.number}, template: ${template.name}, language: ${template.language}, components: ${JSON.stringify(safeComponents)}`,
+      this.logger.log(
+        `[Job ${job.id.slice(0, 8)}] Payload NotificaMe → ${JSON.stringify(requestBody)}`,
       );
-
       const response = await fetch(
         `${this.baseUrl}/channels/whatsapp/messages`,
         {

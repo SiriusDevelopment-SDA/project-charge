@@ -17,6 +17,15 @@ type Props = {
   onStatusChanged: (id: string, isEnabled: boolean) => void;
 };
 
+function parseDateBr(value?: string) {
+  if (!value) return undefined;
+
+  const [day, month, year] = value.split("/").map(Number);
+  const parsedDate = new Date(year, (month ?? 1) - 1, day ?? 1);
+
+  return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate;
+}
+
 export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
   const {
     ui,
@@ -27,6 +36,8 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
     openCalendarFinal,
     openTimePicker,
     openTemplatePreview,
+    returnToEdit,
+    saveCampaignEdits,
     closeModal,
     editStatusCampaign,
     toggleActionsMenu,
@@ -34,9 +45,17 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
 
   const isFinished = isCampaignFinished(campaign);
   const isActive = isCampaignActive(campaign);
+  const isEditFlowOpen =
+    ui.activeModal === "EDIT" ||
+    ui.activeModal === "CAL_DISPARO" ||
+    ui.activeModal === "CAL_FINAL" ||
+    ui.activeModal === "TIME";
   const statusLabel = isFinished ? "FINALIZADA" : isActive ? "ATIVA" : "INATIVA";
   const templateMessage = campaign.template?.message ?? campaign.message ?? "Sem mensagem de template";
-  const campaignType = campaign.category?.name ?? "-";
+  const campaignDispatchType = campaign.recurring
+    ? "Disparo contínuo"
+    : "Disparo único";
+  const campaignCategory = campaign.category?.name ?? "-";
 
   const renderTemplateMessage = (message: string) => {
     const parts = message.split(/(\{\{\d+\}\})/g);
@@ -127,8 +146,12 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
           <h4>DETALHES DA CAMPANHA</h4>
           <div className={Style.detailsGrid}>
             <div>
-              <span>TIPO</span>
-              <strong>{campaignType}</strong>
+              <span>TIPO DE DISPARO</span>
+              <strong>{campaignDispatchType}</strong>
+            </div>
+            <div>
+              <span>CATEGORIA</span>
+              <strong>{campaignCategory}</strong>
             </div>
             <div>
               <span>INÍCIO DISPARO</span>
@@ -147,9 +170,10 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
       </article>
 
       <ModalEditarCampanha
-        open={ui.activeModal === "EDIT"}
+        open={isEditFlowOpen}
         onClose={closeModal}
         form={form}
+        onSave={saveCampaignEdits}
         onOpenCalendarDisparo={openCalendarDisparo}
         onOpenCalendarFinalizacao={openCalendarFinal}
         onOpenTimePicker={openTimePicker}
@@ -200,17 +224,20 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
         open={ui.activeModal === "CAL_DISPARO"}
         type="custom"
         title="Selecione a Data de Disparo"
-        onClose={closeModal}
+        onClose={returnToEdit}
         customContent={
           <MyCalendar
-            selected={undefined}
-            onSelect={(range) => {
-              if (range?.from) {
-                form.setValue("dispatchDate", format(range.from, "dd/MM/yyyy"), {
-                  shouldValidate: true,
-                });
-                closeModal();
-              }
+            mode="single"
+            selectedSingle={parseDateBr(form.watch("dispatchDate"))}
+            onSelectSingle={(date) => {
+              if (!date) return;
+
+              form.setValue("dispatchDate", format(date, "dd/MM/yyyy"), {
+                shouldValidate: true,
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+              returnToEdit();
             }}
           />
         }
@@ -220,17 +247,20 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
         open={ui.activeModal === "CAL_FINAL"}
         type="custom"
         title="Selecione a Data de Finalização"
-        onClose={closeModal}
+        onClose={returnToEdit}
         customContent={
           <MyCalendar
-            selected={undefined}
-            onSelect={(range) => {
-              if (range?.from) {
-                form.setValue("endDate", format(range.from, "dd/MM/yyyy"), {
-                  shouldValidate: true,
-                });
-                closeModal();
-              }
+            mode="single"
+            selectedSingle={parseDateBr(form.watch("endDate"))}
+            onSelectSingle={(date) => {
+              if (!date) return;
+
+              form.setValue("endDate", format(date, "dd/MM/yyyy"), {
+                shouldValidate: true,
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+              returnToEdit();
             }}
           />
         }
@@ -240,15 +270,27 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
         open={ui.activeModal === "TIME"}
         type="custom"
         title="Selecione o Horário"
-        onClose={closeModal}
+        onClose={returnToEdit}
         customContent={
-          <MyTimePicker
-            selected={form.watch("dispatchTime")}
-            onSelect={(time) => {
-              form.setValue("dispatchTime", time, { shouldValidate: true });
-              closeModal();
-            }}
-          />
+          <div className={Style.timeModalContent}>
+            <MyTimePicker
+              selected={form.watch("dispatchTime")}
+              onSelect={(time) => {
+                form.setValue("dispatchTime", time, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                  shouldTouch: true,
+                });
+              }}
+            />
+            <button
+              type="button"
+              className={Style.timeModalApplyButton}
+              onClick={returnToEdit}
+            >
+              Aplicar horário
+            </button>
+          </div>
         }
       />
     </>

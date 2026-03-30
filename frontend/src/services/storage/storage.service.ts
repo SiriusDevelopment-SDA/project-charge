@@ -15,6 +15,10 @@ const KEYS = {
   ATTENDANT_NAME: "attendant_name",
   /** Nome da empresa sobrescrito para disparo — fallback para COMPANY_NAME */
   DISPATCH_COMPANY_NAME: "dispatch_company_name",
+  /** CNPJ da empresa autenticada — usado como chave PIX no ORDER_DETAILS */
+  COMPANY_CNPJ: "company_cnpj",
+  /** Status de ativação da empresa no sistema de cobrança */
+  COMPANY_ACTIVE: "company_active",
 } as const;
 
 type AuthMode = "agent" | "embed";
@@ -80,6 +84,12 @@ export const AppStorage = {
     get(KEYS.DISPATCH_COMPANY_NAME) || get(KEYS.COMPANY_NAME),
   setDispatchCompanyName: (name: string) =>
     set(KEYS.DISPATCH_COMPANY_NAME, name),
+
+  getCompanyCnpj: () => get(KEYS.COMPANY_CNPJ),
+  setCompanyCnpj: (cnpj: string) => set(KEYS.COMPANY_CNPJ, cnpj),
+
+  getCompanyActive: (): boolean => get(KEYS.COMPANY_ACTIVE) !== "false",
+  setCompanyActive: (active: boolean) => set(KEYS.COMPANY_ACTIVE, String(active)),
 
   // --- Session ---
   /** Remove todos os dados de sessão (logout) */

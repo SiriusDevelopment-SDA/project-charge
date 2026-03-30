@@ -1,5 +1,4 @@
-
-import type { InvoicesResponse } from "./invoiceApiTypes";
+import type { InvoiceRuleFilter, InvoicesResponse } from "./invoiceApiTypes";
 
 type company = {
     id: string;
@@ -34,6 +33,14 @@ export type Cliente = {
     services?: Service[];
     company?: company;
   }
+
+  export type InvoiceRuleClientsByDate = Record<string, Cliente[]>;
+
+  export type InvoiceRuleConsultResult = {
+    clients: Cliente[];
+    clientsByDispatchDate: InvoiceRuleClientsByDate;
+  };
+
   export type responseClients = {
     data: Cliente[];
     limit: number;
@@ -52,5 +59,9 @@ export type Cliente = {
     setGroupServices: (value: boolean) => void;
   
     fetchInvoices: (clients: Cliente[]) => Promise<Cliente[]>;
+    consultClientsByInvoiceRule: (params: {
+      companyId: string;
+      filter: InvoiceRuleFilter;
+    }) => Promise<InvoiceRuleConsultResult>;
     fetchServices: (companyId?: string) => Promise<void>;
   }

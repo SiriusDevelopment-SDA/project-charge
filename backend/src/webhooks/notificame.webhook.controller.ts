@@ -2,6 +2,7 @@ import { Body, Controller, Logger, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
+import { Public } from '../auth/decorators/public.decorator';
 
 type NotificaMeMessageStatus = {
   timestamp?: string;
@@ -42,42 +43,58 @@ export class NotificaMeWebhookController {
     private readonly relatoryRepository: Repository<RelatoryDispatchTemplate>,
   ) {}
 
+  @Public()
   @Post('notificame')
   async handleNotificaMeEvent(@Body() body: NotificaMeWebhookPayload) {
-    this.logger.verbose(`[Webhook] Payload recebido: ${JSON.stringify(body)}`);
+    if (!body || typeof body !== 'object') {
+      this.logger.warn('[Webhook] Body inválido ou ausente');
+      return { received: true };
+    }
+
+    this.logger.log(`[Webhook] Payload recebido: ${JSON.stringify(body)}`);
 
     if (body.type === 'MESSAGE') {
       return this.handleIncomingMessage(body);
     }
 
     if (body.type !== 'MESSAGE_STATUS') {
-      this.logger.verbose(`[Webhook] Tipo ignorado: ${body.type}`);
+      this.logger.log(`[Webhook] Tipo ignorado: ${body.type}`);
       return { received: true };
     }
 
-    const messageId = body.messageId;
+    const candidateMessageIds = [
+      body.messageStatus?.providerMessageId,
+      body.messageId,
+    ]
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean);
     const rawCode = String(body.messageStatus?.code ?? '').toUpperCase();
 
-    if (!messageId) {
-      this.logger.warn('[Webhook] MESSAGE_STATUS sem messageId, ignorando');
+    if (candidateMessageIds.length === 0) {
+      this.logger.warn(
+        '[Webhook] MESSAGE_STATUS sem identificador de mensagem, ignorando',
+      );
       return { received: true };
     }
 
     const newStatus = STATUS_CODE_MAP[rawCode];
     if (!newStatus) {
       this.logger.warn(
-        `[Webhook] Status desconhecido: "${rawCode}" - messageId: ${messageId}`,
+        `[Webhook] Status desconhecido: "${rawCode}" - ids: ${candidateMessageIds.join(', ')}`,
       );
       return { received: true };
     }
 
-    const relatory = await this.relatoryRepository.findOne({
-      where: { external_message_id: messageId },
-    });
+    const relatory = await this.relatoryRepository
+      .createQueryBuilder('relatory')
+      .where('relatory.external_message_id IN (:...candidateMessageIds)', {
+        candidateMessageIds,
+      })
+      .getOne();
 
     if (!relatory) {
       this.logger.warn(
-        `[Webhook] Nenhum relatorio com external_message_id: ${messageId}`,
+        `[Webhook] Nenhum relatorio com external_message_id para ids: ${candidateMessageIds.join(', ')}`,
       );
       return { received: true };
     }
@@ -91,8 +108,10 @@ export class NotificaMeWebhookController {
         : {}),
     });
 
-    this.logger.log(
-      `[Webhook] Mensagem ${messageId.slice(0, 8)} -> ${rawCode} (relatorio ${relatory.id.slice(0, 8)})`,
+    const isFailed = newStatus === 'error' || newStatus === 'failed';
+    const logFn = isFailed ? this.logger.warn.bind(this.logger) : this.logger.log.bind(this.logger);
+    logFn(
+      `[Webhook] Mensagem ${String(relatory.external_message_id ?? candidateMessageIds[0]).slice(0, 8)} -> ${rawCode} (relatorio ${relatory.id.slice(0, 8)})${isFailed ? ` | descricao: ${body.messageStatus?.description ?? 'sem descricao'}` : ''}`,
     );
 
     return { received: true };

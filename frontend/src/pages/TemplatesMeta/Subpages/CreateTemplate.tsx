@@ -45,7 +45,7 @@ const mediaOptions: SelectOption[] = [
 const categoryOptions: SelectOption[] = [
   { id: "Marketing", name: "Marketing" },
   { id: "Aviso", name: "Aviso" },
-  { id: "Cobranca", name: "CobranÃ§a" },
+  { id: "Cobranca", name: "Cobrança" },
   { id: "Outros", name: "Outros" },
 ];
 

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Api } from "../../../services/api";
-import { useClient } from "../../useCliente";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import { buildTemplateRecipients } from "../../../mappers/templateRecipient.builder";
 import type {
@@ -23,7 +22,6 @@ export function useDispatchTemplateController() {
   const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
-  const { fetchInvoices } = useClient();
 
   const { data: activeDispatchBatch = null } = useBatchStatusQuery(account, activeBatchId);
 
@@ -55,27 +53,50 @@ export function useDispatchTemplateController() {
     }
   }, [selectedTemplate, selectedClientes, selectedLeads, modoPage]);
 
-  useEffect(() => {
-    if (selectedTemplate?.category !== "Cobrança") return;
-
-    const needInvoices = selectedClientes.filter(
-      (client) => !client.invoices || client.invoices.status === "error",
-    );
-
-    if (!needInvoices.length) return;
-
-    void fetchInvoices(needInvoices);
-  }, [selectedTemplate, selectedClientes, fetchInvoices]);
-
   const handleSubmit = useCallback(async (templateId: string, to: TemplateRecipient[]) => {
     try {
-      const response = await Api.post<{ batchId: string; queued: number }>("/templates/send", {
+      const payload = {
         templateId,
         account,
         to,
+      };
+
+      const orderDetailsRecipients = to.filter((recipient) => {
+        if (!Array.isArray(recipient.components)) {
+          console.error('[dispatch-debug] recipient.components nao e array:', recipient);
+          return false;
+        }
+        return recipient.components.some(
+          (component) =>
+            component.type === "button" && component.sub_type === "order_details",
+        );
       });
+
+      console.groupCollapsed("[dispatch-debug] payload /templates/send");
+      console.log("templateId", templateId);
+      console.log("account", account);
+      console.log("recipientsCount", to.length);
+      console.log("orderDetailsRecipientsCount", orderDetailsRecipients.length);
+      console.log("payload", JSON.parse(JSON.stringify(payload)));
+      if (orderDetailsRecipients.length) {
+        console.log(
+          "orderDetailsRecipients",
+          JSON.parse(JSON.stringify(orderDetailsRecipients)),
+        );
+      }
+      console.groupEnd();
+
+      const response = await Api.post<{ batchId: string; queued: number; skipped: number }>(
+        "/templates/send",
+        payload,
+      );
       const result = response.data;
       setActiveBatchId(result.batchId);
+      if (result.skipped > 0) {
+        toast.warning(
+          `${result.skipped} destinatario(s) ja receberam mensagem hoje e foram ignorados.`,
+        );
+      }
       toast.success("Disparo efetuado!");
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Erro ao enviar mensagens"));
@@ -93,14 +114,29 @@ export function useDispatchTemplateController() {
         modoPage === "leads" && Array.isArray(extraLeads) && extraLeads.length > 0
           ? [...selectedLeads, ...extraLeads]
           : modoPage === "clientes"
-          ? selectedClientes
-          : selectedLeads;
+            ? selectedClientes
+            : selectedLeads;
 
       const freshMappedVars = mapRecipientsToTemplateVars(source, selectedTemplate, {
         filterByTemplateVars: false,
       });
 
       const recipients = buildTemplateRecipients(selectedTemplate, freshMappedVars);
+
+      console.log("[sendTemplate debug]", {
+        sourceCount: source.length,
+        freshMappedVarsCount: freshMappedVars.length,
+        recipientsCount: recipients.length,
+        firstMappedVar: freshMappedVars[0]
+          ? {
+              whatsapp: freshMappedVars[0].whatsapp,
+              code_pix: freshMappedVars[0].code_pix,
+              valor_fatura: freshMappedVars[0].valor_fatura,
+              order_reference_id: freshMappedVars[0].order_reference_id,
+              numero_contrato: freshMappedVars[0].numero_contrato,
+            }
+          : null,
+      });
 
       if (!recipients.length) return;
 

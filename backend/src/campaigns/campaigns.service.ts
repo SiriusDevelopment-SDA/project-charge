@@ -3,9 +3,11 @@
   BadRequestException,
   ConflictException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, ILike, Not, Repository } from 'typeorm';
+import { DateTime } from 'luxon';
 import { Campaign } from './entities/campanhas.entity';
 import { CreateCampaignDto } from './dto/create-campanhas.dto';
 import { UpdateCampaignDto } from './dto/update-campanhas.dto';
@@ -16,9 +18,12 @@ import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity'
 import { Company } from '../companies/entities/companies';
 import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 import { RedisService } from '../redis/redis.service';
+import { MessageQueueService } from '../message-queue/message-queue.service';
 
 @Injectable()
 export class CampaignsService {
+  private readonly logger = new Logger(CampaignsService.name);
+
   constructor(
     @InjectRepository(Campaign)
     private readonly campaignRepository: Repository<Campaign>,
@@ -33,7 +38,20 @@ export class CampaignsService {
     private readonly clientService: AppServiceClient,
     private readonly campaignMetricsGateway: CampaignMetricsGateway,
     private readonly redisService: RedisService,
+    private readonly messageQueueService: MessageQueueService,
   ) {}
+
+  private readonly emptyDeliveryMetrics = {
+    totalDispatch: 0,
+    totalDispatchSuccess: 0,
+    totalDispatchToday: 0,
+    totalDispatchSuccessToday: 0,
+    totalDispatch24h: 0,
+    totalDispatchSuccess24h: 0,
+    deliveryRateTotal: 0,
+    deliveryRateToday: 0,
+    deliveryRate24h: 0,
+  };
 
   async create(createDto: CreateCampaignDto) {
     await this.ensureCampaignNameIsUnique(createDto.name);
@@ -89,8 +107,18 @@ export class CampaignsService {
 
   async findByAccount(account: string): Promise<Campaign[]> {
     const safeAccount = String(account ?? '').trim();
+    const reconciledCampaignIds =
+      await this.messageQueueService.reconcileCampaignStatuses(safeAccount);
+
+    if (reconciledCampaignIds.length) {
+      await this.invalidateCampaignCache(safeAccount);
+    }
+
     const cacheKey = `campaigns:${safeAccount}:list`;
-    const cached = await this.redisService.get<Campaign[]>(cacheKey);
+    const cached =
+      reconciledCampaignIds.length === 0
+        ? await this.redisService.get<Campaign[]>(cacheKey)
+        : null;
     if (cached) return cached;
 
     const campaigns = await this.campaignRepository.find({
@@ -173,9 +201,15 @@ export class CampaignsService {
     createDto: CreateCampaignDto,
     validClients: TemplateMapVar[],
   ) {
-    const dispatchAt = this.getDispatchDate(
+    const normalizedStartDate = this.normalizeCampaignBoundary(
       createDto.startDate,
-      createDto.dispatchTime,
+      createDto.timezone,
+      'start',
+    );
+    const normalizedEndDate = this.normalizeCampaignBoundary(
+      createDto.endDate,
+      createDto.timezone,
+      'end',
     );
 
     const validClientIds = Array.from(
@@ -184,7 +218,9 @@ export class CampaignsService {
 
     const campaign = this.campaignRepository.create({
       ...createDto,
-      status: dispatchAt > new Date() ? 'queue' : 'pending',
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
+      status: 'queue',
       isEnabled: createDto.isEnabled ?? true,
       templateMapVars: validClients,
       company: { id: createDto.company },
@@ -324,28 +360,52 @@ export class CampaignsService {
     return payload;
   }
 
-  async getMetricsByAccount(account: string) {
+  async getMetricsByAccount(
+    account: string,
+    filters?: { search?: string; category?: string },
+  ) {
     const safeAccount = String(account ?? '').trim();
     if (!safeAccount) {
       throw new BadRequestException('account e obrigatorio');
     }
 
-    const cacheKey = `campaigns:${safeAccount}:metrics`;
+    const normalizedFilters = this.normalizeMetricsFilters(filters);
 
-    const cached = await this.redisService.get(cacheKey);
+    const reconciledCampaignIds =
+      await this.messageQueueService.reconcileCampaignStatuses(safeAccount);
+
+    if (reconciledCampaignIds.length) {
+      await this.invalidateCampaignCache(safeAccount);
+    }
+
+    const cacheKey = this.buildMetricsCacheKey(safeAccount, normalizedFilters);
+
+    const cached =
+      reconciledCampaignIds.length === 0
+        ? await this.redisService.get(cacheKey)
+        : null;
     if (cached && this.hasCompleteDeliveryMetrics(cached)) {
       return cached;
     }
 
     const now = new Date();
 
-    const campaigns = await this.findByAccount(safeAccount);
+    const campaigns = this.applyCampaignMetricsFilters(
+      await this.findByAccount(safeAccount),
+      normalizedFilters,
+    );
+    const campaignIds = campaigns
+      .map((campaign) => campaign.id)
+      .filter(Boolean);
 
-    const [dispatchStats, deliveryMetrics, nextDispatch] = await Promise.all([
-      this.getDispatchStats(safeAccount),
-      this.calculateDeliveryRate(safeAccount, now),
-      this.getNextDispatch(campaigns, now),
-    ]);
+    const [dispatchStats, deliveryMetrics, nextDispatch] =
+      campaignIds.length === 0
+        ? [0, this.emptyDeliveryMetrics, null]
+        : await Promise.all([
+            this.getDispatchStats(safeAccount, campaignIds),
+            this.calculateDeliveryRate(safeAccount, now, campaignIds),
+            this.getNextDispatch(campaigns, now),
+          ]);
 
     const payload = {
       totalCampaigns: campaigns.length,
@@ -353,9 +413,12 @@ export class CampaignsService {
       dispatchesToday: dispatchStats,
       totalDispatch: deliveryMetrics.totalDispatch,
       totalDispatchSuccess: deliveryMetrics.totalDispatchSuccess,
+      totalDispatchToday: deliveryMetrics.totalDispatchToday,
+      totalDispatchSuccessToday: deliveryMetrics.totalDispatchSuccessToday,
       totalDispatch24h: deliveryMetrics.totalDispatch24h,
       totalDispatchSuccess24h: deliveryMetrics.totalDispatchSuccess24h,
       deliveryRateTotal: deliveryMetrics.deliveryRateTotal,
+      deliveryRateToday: deliveryMetrics.deliveryRateToday,
       deliveryRate24h: deliveryMetrics.deliveryRate24h,
       nextDispatchTime: nextDispatch?.nextDispatchTime ?? null,
       nextDispatchLabel: nextDispatch?.label ?? 'Sem disparos agendados',
@@ -373,9 +436,12 @@ export class CampaignsService {
     const numericKeys = [
       'totalDispatch',
       'totalDispatchSuccess',
+      'totalDispatchToday',
+      'totalDispatchSuccessToday',
       'totalDispatch24h',
       'totalDispatchSuccess24h',
       'deliveryRateTotal',
+      'deliveryRateToday',
       'deliveryRate24h',
     ];
 
@@ -387,20 +453,64 @@ export class CampaignsService {
 
 
   ///funcoes extras
-  private getDispatchDate(startDate: string, dispatchTime: string) {
-    const [hour, minute] = dispatchTime.split(':').map(Number);
-    const date = new Date(startDate);
-    date.setHours(hour, minute, 0, 0);
-    return date;
+  private getDispatchDate(
+    startDate: string | Date,
+    dispatchTime: string,
+    timeZone: string,
+  ) {
+    const baseDate = this.toDateTimeInZone(startDate, timeZone);
+    const [parsedHour, parsedMinute] = String(dispatchTime ?? '00:00')
+      .split(':')
+      .map(Number);
+
+    return DateTime.fromObject(
+      {
+        year: baseDate.year,
+        month: baseDate.month,
+        day: baseDate.day,
+        hour: Number.isFinite(parsedHour) ? parsedHour : 0,
+        minute: Number.isFinite(parsedMinute) ? parsedMinute : 0,
+        second: 0,
+        millisecond: 0,
+      },
+      { zone: this.resolveTimeZone(timeZone) },
+    )
+      .toUTC()
+      .toJSDate();
   }
 
   private validateMinimumDispatchWindow(createDto: CreateCampaignDto) {
+    if (createDto.recurringType === 'monthly_days') return;
+
+    const normalizedStartDate = this.normalizeCampaignBoundary(
+      createDto.startDate,
+      createDto.timezone,
+      'start',
+    );
+    const normalizedEndDate = this.normalizeCampaignBoundary(
+      createDto.endDate,
+      createDto.timezone,
+      'end',
+    );
     const dispatchAt = this.getDispatchDate(
       createDto.startDate,
       createDto.dispatchTime,
+      createDto.timezone,
     );
-    const minimumWindowMs = 59 * 60 * 1000;
 
+    if (normalizedEndDate < normalizedStartDate) {
+      throw new BadRequestException(
+        'A data final da campanha deve ser maior ou igual a data inicial.',
+      );
+    }
+
+    if (dispatchAt > normalizedEndDate) {
+      throw new BadRequestException(
+        'O horario de disparo precisa estar dentro da janela da campanha.',
+      );
+    }
+
+    const minimumWindowMs = 59 * 60 * 1000;
     if (dispatchAt.getTime() - Date.now() < minimumWindowMs) {
       throw new BadRequestException({
         code: 'CAMPAIGN_DISPATCH_TOO_SOON',
@@ -408,6 +518,40 @@ export class CampaignsService {
           'O disparo da campanha precisa estar agendado com no minimo 59 minutos de antecedencia.',
       });
     }
+  }
+
+  private normalizeCampaignBoundary(
+    date: string | Date,
+    timeZone: string,
+    boundary: 'start' | 'end',
+  ) {
+    const zonedDate = this.toDateTimeInZone(date, timeZone);
+    return (boundary === 'start'
+      ? zonedDate.startOf('day')
+      : zonedDate.endOf('day'))
+      .toUTC()
+      .toJSDate();
+  }
+
+  private toDateTimeInZone(date: string | Date, timeZone: string) {
+    const baseDate = date instanceof Date ? date : new Date(date);
+    const zone = this.resolveTimeZone(timeZone);
+    return DateTime.fromJSDate(baseDate, { zone });
+  }
+
+  private resolveTimeZone(timeZone: string | null | undefined) {
+    const safeZone = String(timeZone ?? '').trim() || 'America/Sao_Paulo';
+    const current = DateTime.now().setZone(safeZone);
+
+    if (current.isValid) {
+      return safeZone;
+    }
+
+    this.logger.warn(
+      `Timezone invalida "${safeZone}" na campanha. Aplicando America/Sao_Paulo como fallback.`,
+    );
+
+    return 'America/Sao_Paulo';
   }
 
   private buildWarnings(removedClients: TemplateMapVar[]) {
@@ -427,6 +571,47 @@ export class CampaignsService {
     const safeAccount = String(account ?? '').trim();
     if (!safeAccount) return;
     await this.redisService.delByPrefix(`campaigns:${safeAccount}:`);
+  }
+
+  private normalizeMetricsFilters(filters?: {
+    search?: string;
+    category?: string;
+  }) {
+    const search = String(filters?.search ?? '').trim().toLowerCase();
+    const category = String(filters?.category ?? '').trim().toLowerCase();
+
+    return {
+      search,
+      category,
+    };
+  }
+
+  private buildMetricsCacheKey(
+    account: string,
+    filters: { search: string; category: string },
+  ) {
+    const searchKey = encodeURIComponent(filters.search || 'all');
+    const categoryKey = encodeURIComponent(filters.category || 'all');
+    return `campaigns:${account}:metrics:${searchKey}:${categoryKey}`;
+  }
+
+  private applyCampaignMetricsFilters(
+    campaigns: Campaign[],
+    filters: { search: string; category: string },
+  ) {
+    return campaigns.filter((campaign) => {
+      const campaignName = String(campaign.name ?? '').trim().toLowerCase();
+      const categoryName = String(campaign.category?.name ?? '')
+        .trim()
+        .toLowerCase();
+
+      const matchesSearch =
+        !filters.search || campaignName.includes(filters.search);
+      const matchesCategory =
+        !filters.category || categoryName === filters.category;
+
+      return matchesSearch && matchesCategory;
+    });
   }
 
   private normalizePhone(number: string | null | undefined) {
@@ -467,22 +652,41 @@ export class CampaignsService {
     return campaign?.company?.account_chatwoot ?? null;
   }
 
-  private async getDispatchStats(account: string) {
+  private async getDispatchStats(account: string, campaignIds: string[]) {
+    if (campaignIds.length === 0) {
+      return 0;
+    }
+
     const todayStart = new Date();
     todayStart.setHours(0,0,0,0);
   
     const todayEnd = new Date();
     todayEnd.setHours(23,59,59,999);
-  
-    return this.relatoryRepository.count({
-      where: {
-        company: { account_chatwoot: account },
-        date_dispatch: Between(todayStart, todayEnd)
-      }
-    });
+
+    return this.relatoryRepository
+      .createQueryBuilder('relatory')
+      .innerJoin('relatory.company', 'company')
+      .where('company.account_chatwoot = :account', { account })
+      .andWhere('relatory.date_dispatch BETWEEN :todayStart AND :todayEnd', {
+        todayStart,
+        todayEnd,
+      })
+      .andWhere('relatory.campaignId IS NOT NULL')
+      .andWhere('relatory.campaignId IN (:...campaignIds)', { campaignIds })
+      .getCount();
   }
 
-  private async calculateDeliveryRate(account: string, now: Date) {
+  private async calculateDeliveryRate(
+    account: string,
+    now: Date,
+    campaignIds: string[],
+  ) {
+    if (campaignIds.length === 0) {
+      return this.emptyDeliveryMetrics;
+    }
+
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
     const last24h = new Date(now.getTime() - 86400000);
   
     const result = await this.relatoryRepository.query(`
@@ -492,13 +696,22 @@ export class CampaignsService {
         COUNT(*) FILTER (
           WHERE status_sent IN ('sent','delivered','read')
         ) AS success_all,
-  
+
         COUNT(*) FILTER (
           WHERE date_dispatch >= $2
+        ) AS total_today,
+
+        COUNT(*) FILTER (
+          WHERE date_dispatch >= $2
+          AND status_sent IN ('sent','delivered','read')
+        ) AS success_today,
+  
+        COUNT(*) FILTER (
+          WHERE date_dispatch >= $3
         ) AS total_24h,
   
         COUNT(*) FILTER (
-          WHERE date_dispatch >= $2
+          WHERE date_dispatch >= $3
           AND status_sent IN ('sent','delivered','read')
         ) AS success_24h,
   
@@ -507,7 +720,7 @@ export class CampaignsService {
             WHERE status_sent IN ('sent','delivered','read')
           ) * 100.0 / NULLIF(COUNT(*),0)
         ,1) AS delivery_rate_total,
-  
+
         ROUND(
           COUNT(*) FILTER (
             WHERE date_dispatch >= $2
@@ -517,22 +730,38 @@ export class CampaignsService {
             COUNT(*) FILTER (
               WHERE date_dispatch >= $2
             ),0)
+        ,1) AS delivery_rate_today,
+  
+        ROUND(
+          COUNT(*) FILTER (
+            WHERE date_dispatch >= $3
+            AND status_sent IN ('sent','delivered','read')
+          ) * 100.0 /
+          NULLIF(
+            COUNT(*) FILTER (
+              WHERE date_dispatch >= $3
+            ),0)
         ,1) AS delivery_rate_24h
   
       FROM relatory_dispatch_template
       WHERE "companyId" = (
         SELECT id FROM company WHERE account_chatwoot = $1
       )
-    `, [account, last24h]);
+        AND "campaignId" IS NOT NULL
+        AND "campaignId" = ANY($4::uuid[])
+    `, [account, todayStart, last24h, campaignIds]);
   
     return {
       totalDispatch: Number(result[0].total_all),
       totalDispatchSuccess: Number(result[0].success_all),
-    
+
+      totalDispatchToday: Number(result[0].total_today),
+      totalDispatchSuccessToday: Number(result[0].success_today),
       totalDispatch24h: Number(result[0].total_24h),
       totalDispatchSuccess24h: Number(result[0].success_24h),
-    
+
       deliveryRateTotal: Number(result[0].delivery_rate_total),
+      deliveryRateToday: Number(result[0].delivery_rate_today),
       deliveryRate24h: Number(result[0].delivery_rate_24h)
     };
   }
@@ -545,85 +774,58 @@ export class CampaignsService {
     for (const campaign of campaigns) {
       if (!campaign.isEnabled) continue;
       if (campaign.status === 'finished') continue;
-
-      const start = new Date(campaign.startDate);
-      const end = new Date(campaign.endDate);
+      const timeZone = this.resolveTimeZone(campaign.timezone);
+      const nowInZone = this.toDateTimeInZone(now, timeZone);
+      const startDay = this.toDateTimeInZone(
+        campaign.startDate,
+        timeZone,
+      ).startOf('day');
+      const endDay = this.toDateTimeInZone(
+        campaign.endDate,
+        timeZone,
+      ).startOf('day');
 
       if (
-        Number.isNaN(start.getTime()) ||
-        Number.isNaN(end.getTime()) ||
-        end < now
+        !startDay.isValid ||
+        !endDay.isValid ||
+        endDay.toMillis() < nowInZone.startOf('day').toMillis()
       ) {
         continue;
       }
 
-      const [parsedHour, parsedMinute] = String(
-        campaign.dispatchTime ?? '00:00',
-      )
+      const [parsedHour, parsedMinute] = String(campaign.dispatchTime ?? '00:00')
         .split(':')
         .map(Number);
-
       const hour = Number.isFinite(parsedHour) ? parsedHour : 0;
       const minute = Number.isFinite(parsedMinute) ? parsedMinute : 0;
-      const timeZone = campaign.timezone ?? 'America/Sao_Paulo';
 
-      let candidate: Date | null = null;
+      let candidate = campaign.recurring
+        ? nowInZone.set({ hour, minute, second: 0, millisecond: 0 })
+        : startDay.set({ hour, minute, second: 0, millisecond: 0 });
 
       if (campaign.recurring) {
-        const base = start > now ? start : now;
-        const baseParts = this.getZonedParts(base, timeZone);
-
-        candidate = this.toUtcFromZonedDateTime({
-          timezone: timeZone,
-          year: baseParts.year,
-          month: baseParts.month,
-          day: baseParts.day,
-          hour,
-          minute,
-          second: 0,
-        });
-
-        if (candidate < base) {
-          const nextDay = new Date(
-            Date.UTC(baseParts.year, baseParts.month - 1, baseParts.day),
-          );
-          nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-
-          candidate = this.toUtcFromZonedDateTime({
-            timezone: timeZone,
-            year: nextDay.getUTCFullYear(),
-            month: nextDay.getUTCMonth() + 1,
-            day: nextDay.getUTCDate(),
-            hour,
-            minute,
-            second: 0,
-          });
+        if (candidate.toMillis() <= nowInZone.toMillis()) {
+          candidate = candidate.plus({ days: 1 });
         }
-      } else {
-        const startParts = this.getZonedParts(start, timeZone);
-        candidate = this.toUtcFromZonedDateTime({
-          timezone: timeZone,
-          year: startParts.year,
-          month: startParts.month,
-          day: startParts.day,
-          hour,
-          minute,
-          second: 0,
-        });
 
-        if (candidate < now) {
-          candidate = null;
+        if (candidate.startOf('day').toMillis() < startDay.toMillis()) {
+          candidate = startDay.set({ hour, minute, second: 0, millisecond: 0 });
         }
+      } else if (candidate.toMillis() <= nowInZone.toMillis()) {
+        continue;
       }
 
-      if (!candidate) continue;
-      if (candidate < start || candidate > end) continue;
+      if (candidate.startOf('day').toMillis() > endDay.toMillis()) {
+        continue;
+      }
 
-      if (!nextDate || candidate < nextDate) {
-        nextDate = candidate;
+      const candidateDate = candidate.toUTC().toJSDate();
+
+      if (!nextDate || candidateDate < nextDate) {
+        nextDate = candidateDate;
         nextTimeZone = timeZone;
         count = 1;
-      } else if (candidate.getTime() === nextDate.getTime()) {
+      } else if (candidateDate.getTime() === nextDate.getTime()) {
         count++;
       }
     }

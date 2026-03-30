@@ -4,9 +4,9 @@ import { Repository } from 'typeorm';
 
 import { Overdue } from '../invoices/entities/Overdue';
 import { Client } from '../clients/entities.ts/clients';
-import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
+import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 
 @Injectable()
 export class AppServiceGraphics {

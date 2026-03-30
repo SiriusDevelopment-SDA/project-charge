@@ -1,7 +1,6 @@
+// Integração com API pausada temporariamente — UI mantida para demonstração
 import { useCallback, useMemo, useState } from "react";
-import { toast } from "react-toastify";
 import { Dropdown, PageContainer, TitlePage } from "../../componente/Index";
-import { ChatwootClientService } from "../../services/chatwoot/chatwootClient.service";
 import type {
   ChatwootAgent,
   ChatwootConversationItem,
@@ -9,15 +8,9 @@ import type {
   ChatwootMessageItem,
   ChatwootTeam,
 } from "../../types/chatwootApiTypes";
-import { getErrorMessage } from "../../utils/error";
 import { AppStorage } from "../../services/storage/storage.service";
 import { useAccountParam } from "../../hooks/useAccountParam";
 import Style from "./Styles/Chatwoot.module.css";
-import {
-  useChatwootAutoLoadConversations,
-  useChatwootBootstrap,
-  useChatwootMetaRefresh,
-} from "../../hooks/controller/chatwoot/useChatwootEffects";
 
 type StatusFilter = "all" | "open" | "pending" | "resolved" | "snoozed";
 type ChatwootSelectOption = { id: string; name: string };
@@ -33,20 +26,20 @@ const STATUS_OPTIONS: ChatwootSelectOption[] = [
 export function ChatwootPage() {
   const account = useAccountParam();
 
-  const [inboxes, setInboxes] = useState<ChatwootInboxOption[]>([]);
+  const [inboxes] = useState<ChatwootInboxOption[]>([]);
   const [inboxIdentifier, setInboxIdentifier] = useState("");
-  const [showInboxPicker, setShowInboxPicker] = useState(false);
-  const [accountApiEnabled, setAccountApiEnabled] = useState(false);
+  const [showInboxPicker] = useState(false);
+  const [accountApiEnabled] = useState(false);
 
-  const [conversations, setConversations] = useState<ChatwootConversationItem[]>([]);
+  const [conversations] = useState<ChatwootConversationItem[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
-  const [messages, setMessages] = useState<ChatwootMessageItem[]>([]);
+  const [messages] = useState<ChatwootMessageItem[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [myFilter, setMyFilter] = useState<"new" | "mine" | "others">("new");
 
-  const [teams, setTeams] = useState<ChatwootTeam[]>([]);
-  const [agents, setAgents] = useState<ChatwootAgent[]>([]);
+  const [teams] = useState<ChatwootTeam[]>([]);
+  const [agents] = useState<ChatwootAgent[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<number | "">("");
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<number | "">("");
   const [labelInput, setLabelInput] = useState("");
@@ -55,8 +48,8 @@ export function ChatwootPage() {
     "status" | "inbox" | "team" | "agent" | null
   >(null);
 
-  const [loading, setLoading] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loading] = useState(false);
+  const [loadingMessages] = useState(false);
 
   const selectedConversation = useMemo(
     () => conversations.find((item) => item.id === selectedConversationId) ?? null,
@@ -69,29 +62,17 @@ export function ChatwootPage() {
   );
 
   const inboxOptions = useMemo<ChatwootSelectOption[]>(
-    () =>
-      inboxes.map((inbox) => ({
-        id: inbox.identifier,
-        name: inbox.name,
-      })),
+    () => inboxes.map((inbox) => ({ id: inbox.identifier, name: inbox.name })),
     [inboxes]
   );
 
   const teamOptions = useMemo<ChatwootSelectOption[]>(
-    () =>
-      teams.map((team) => ({
-        id: String(team.id),
-        name: team.name,
-      })),
+    () => teams.map((team) => ({ id: String(team.id), name: team.name })),
     [teams]
   );
 
   const agentOptions = useMemo<ChatwootSelectOption[]>(
-    () =>
-      agents.map((agent) => ({
-        id: String(agent.id),
-        name: agent.name,
-      })),
+    () => agents.map((agent) => ({ id: String(agent.id), name: agent.name })),
     [agents]
   );
 
@@ -106,8 +87,7 @@ export function ChatwootPage() {
   );
 
   const selectedAgentOption = useMemo(
-    () =>
-      agentOptions.find((option) => option.id === String(selectedAssigneeId)) ?? null,
+    () => agentOptions.find((option) => option.id === String(selectedAssigneeId)) ?? null,
     [agentOptions, selectedAssigneeId]
   );
 
@@ -116,7 +96,6 @@ export function ChatwootPage() {
     return conversations.filter((item) => {
       const matchesSearch =
         !term || `${item.contactName} ${item.phone} ${item.lastMessage}`.toLowerCase().includes(term);
-
       const currentAgent = AppStorage.getAgentName();
       const matchesMine =
         myFilter === "new"
@@ -124,7 +103,6 @@ export function ChatwootPage() {
           : myFilter === "mine"
           ? item.assigneeName === currentAgent
           : Boolean(item.assigneeName && item.assigneeName !== currentAgent);
-
       return matchesSearch && matchesMine;
     });
   }, [conversations, myFilter, search]);
@@ -135,135 +113,15 @@ export function ChatwootPage() {
     return conversations;
   }, [filteredConversations, conversations, search]);
 
-  const loadMessages = useCallback(async (conversationId: number, listRef?: ChatwootConversationItem[]) => {
-    if (!account) return;
-    try {
-      setLoadingMessages(true);
-      const source = listRef ?? conversations;
-      const conversation = source.find((item) => item.id === conversationId);
-      const rows = await ChatwootClientService.listMessages(account, conversationId, {
-        inboxIdentifier: conversation?.inboxIdentifier ?? inboxIdentifier,
-        contactIdentifier: conversation?.contactIdentifier ?? null,
-      });
-      setSelectedConversationId(conversationId);
-      setMessages(rows);
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Erro ao carregar mensagens."));
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, [account, conversations, inboxIdentifier]);
+  // API pausada — funções desabilitadas temporariamente
+  const loadMessages = useCallback(async (_conversationId: number) => {
+    void account;
+  }, [account]);
 
-  const loadConversations = useCallback(async () => {
-    if (!account) return;
-    try {
-      setLoading(true);
-      const rows = await ChatwootClientService.listConversations(account, {
-        status: statusFilter,
-        inboxIdentifier: inboxIdentifier || undefined,
-      });
-      setConversations(rows);
-
-      if (!rows.length) {
-        setSelectedConversationId(null);
-        setMessages([]);
-        return;
-      }
-
-      const fallbackId = rows[0].id;
-      const targetId = rows.some((item) => item.id === selectedConversationId)
-        ? selectedConversationId
-        : fallbackId;
-
-      if (targetId) {
-        setSelectedConversationId(targetId);
-        await loadMessages(targetId, rows);
-      }
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Erro ao listar conversas."));
-    } finally {
-      setLoading(false);
-    }
-  }, [account, statusFilter, inboxIdentifier, selectedConversationId, loadMessages]);
-
-  useChatwootBootstrap({
-    account,
-    setInboxes,
-    setInboxIdentifier,
-    setShowInboxPicker,
-    setAccountApiEnabled,
-  });
-
-  useChatwootMetaRefresh({
-    account,
-    accountApiEnabled,
-    setTeams,
-    setAgents,
-  });
-
-  useChatwootAutoLoadConversations({
-    account,
-    inboxIdentifier,
-    inboxesLength: inboxes.length,
-    statusFilter,
-    loadConversations,
-  });
-
-  const sendMessage = async () => {
-    if (!account || !selectedConversation) return;
-    const content = newMessage.trim();
-    if (!content) return;
-    try {
-      const sent = await ChatwootClientService.sendMessage(account, selectedConversation.id, content, {
-        inboxIdentifier: selectedConversation.inboxIdentifier ?? inboxIdentifier,
-        contactIdentifier: selectedConversation.contactIdentifier ?? null,
-      });
-      setMessages((prev) => [...prev, sent]);
-      setNewMessage("");
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Erro ao enviar mensagem."));
-    }
-  };
-
-  const updateStatus = async (status: "open" | "resolved" | "pending" | "snoozed") => {
-    if (!account || !selectedConversation || !accountApiEnabled) return;
-    try {
-      await ChatwootClientService.updateStatus(account, selectedConversation.id, status);
-      toast.success("Status atualizado.");
-      await loadConversations();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Erro ao atualizar status."));
-    }
-  };
-
-  const transferConversation = async () => {
-    if (!account || !selectedConversation || !accountApiEnabled) return;
-    try {
-      await ChatwootClientService.transferConversation(account, selectedConversation.id, {
-        teamId: selectedTeamId === "" ? null : selectedTeamId,
-        assigneeId: selectedAssigneeId === "" ? null : selectedAssigneeId,
-      });
-      toast.success("Conversa transferida.");
-      await loadConversations();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Erro ao transferir conversa."));
-    }
-  };
-
-  const saveLabels = async () => {
-    if (!account || !selectedConversation || !accountApiEnabled) return;
-    const labels = labelInput
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    try {
-      await ChatwootClientService.updateLabels(account, selectedConversation.id, labels);
-      toast.success("Etiquetas atualizadas.");
-      await loadConversations();
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Erro ao salvar etiquetas."));
-    }
-  };
+  const sendMessage = async () => { void newMessage; };
+  const updateStatus = async (_status: string) => {};
+  const transferConversation = async () => {};
+  const saveLabels = async () => { void labelInput; };
 
   return (
     <PageContainer className={Style.container}>
@@ -316,14 +174,12 @@ export function ChatwootPage() {
                 setInboxIdentifier((value as ChatwootSelectOption).id)
               }
             />
-            <button type="button" disabled={!inboxIdentifier} onClick={() => setShowInboxPicker(false)}>
+            <button type="button" disabled={!inboxIdentifier} onClick={() => {}}>
               Entrar
             </button>
           </div>
         </div>
       )}
-
-      
 
       <section className={Style.chatLayout}>
         <aside className={Style.sidebar}>

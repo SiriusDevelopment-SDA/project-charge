@@ -10,9 +10,27 @@ export type InvoicesStatus = 'success' | 'error';
 
 export type CodePixStatus = 'success' | 'error';
 
+export type InvoiceRuleOperator =
+  | 'greater_than'
+  | 'less_than'
+  | 'greater_or_equal'
+  | 'less_or_equal';
+
+export interface InvoiceRuleFilter {
+  operator: InvoiceRuleOperator;
+  days?: number;
+  daysFrom: number;
+  daysTo: number;
+  referenceDate: string;
+  referenceDates?: string[];
+  recurringType?: 'range' | 'monthly_days' | 'single';
+}
+
 export interface CodePix {
   status: CodePixStatus;
   pix: string;
+  pix_key?: string;
+  pix_key_type?: string;
 }
 
 export interface Invoice {
@@ -31,10 +49,29 @@ export interface InvoicesResponse {
   message: string;
   list: Invoice[];
 }
+
+export interface InvoiceClientCompany {
+  id: string;
+  name: string;
+  account: string;
+}
+
+export interface InvoiceClientData {
+  id: string;
+  clientId: string;
+  cnpj_cpf: string;
+  name: string;
+  whatsapp: string;
+  email?: string | null;
+  company: InvoiceClientCompany;
+}
+
 export interface ResultInvoices {
+  clientData: InvoiceClientData;
   client: string;
   document: string;
   erp: string;
+  dispatchDate?: string | null;
   invoices: InvoicesResponse;
 }
 

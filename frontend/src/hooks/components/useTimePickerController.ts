@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Params = {
   selected?: string;
@@ -11,6 +11,14 @@ export function useTimePickerController({ selected, onSelect }: Params) {
 
   const [hour, setHour] = useState(initialHour);
   const [minute, setMinute] = useState(initialMinute);
+
+  useEffect(() => {
+    if (!selected) return;
+
+    const [nextHour = "09", nextMinute = "00"] = selected.split(":");
+    setHour(nextHour);
+    setMinute(nextMinute);
+  }, [selected]);
 
   const hours = useMemo(
     () => Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0")),

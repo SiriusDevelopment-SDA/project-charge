@@ -120,7 +120,7 @@ export class AppServiceTemplate {
       components: Array.isArray(recipient.components) ? recipient.components : [],
     }));
 
-    const batch = await this.messageQueueService.enqueueBatch({
+    const { batch, skipped } = await this.messageQueueService.enqueueBatch({
       companyId: template.company.id,
       templateId,
       campaignId: campaignId ?? null,
@@ -128,7 +128,7 @@ export class AppServiceTemplate {
       scope: campaignId ? 'campaign' : 'manual',
     });
 
-    return { batchId: batch.id, queued: recipients.length };
+    return { batchId: batch.id, queued: recipients.length - skipped, skipped };
   }
 
   async getLatestDispatchBatchReport(dto: LatestDispatchBatchReportDto) {
@@ -283,6 +283,7 @@ export class AppServiceTemplate {
       ],
     };
 
+    
     const response = await fetch('https://api.notificame.com.br/v2/templates', {
       method: 'POST',
       headers: {

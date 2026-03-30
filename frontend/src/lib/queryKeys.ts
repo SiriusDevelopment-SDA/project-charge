@@ -1,7 +1,11 @@
 export const queryKeys = {
   campaigns: {
     all: (account: string) => ["campaigns", account] as const,
-    metrics: (account: string) => ["campaigns", account, "metrics"] as const,
+    metricsBase: (account: string) => ["campaigns", account, "metrics"] as const,
+    metrics: (
+      account: string,
+      params: { search?: string; category?: string } = {},
+    ) => ["campaigns", account, "metrics", params] as const,
     categories: () => ["categories"] as const,
     collectionsMetrics: (account: string) =>
       ["campaigns", account, "collectionsMetrics"] as const,

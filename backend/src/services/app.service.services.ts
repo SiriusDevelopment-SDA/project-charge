@@ -26,7 +26,6 @@ export class AppServiceServices {
                     }
                 }
             });
-            console.log("teste", companyId)
             if (services.length === 0) throw new HttpException('Nenhum serviço encontrado.', HttpStatus.NOT_FOUND);
             return  services;
         } catch (error) {

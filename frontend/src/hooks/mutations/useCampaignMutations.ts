@@ -22,7 +22,7 @@ export function useDeleteCampaignMutation() {
       );
 
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.campaigns.metrics(account),
+        queryKey: queryKeys.campaigns.metricsBase(account),
       });
 
       toast.success("Campanha deletada com sucesso!");

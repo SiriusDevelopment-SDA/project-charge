@@ -135,9 +135,6 @@ export class HubsoftInvoicesService {
           }
         });
 
-        console.log('CLIENTE:', cliente.name);
-        console.log('DOC NORMALIZADO:', normalized);
-        console.log('INVOICES ENCONTRADAS:', invoices.length);
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -189,7 +186,7 @@ export class HubsoftInvoicesService {
       return resultados;
 
     } catch (error) {
-      console.error('[getInvoicesOverdue]', error);
+      console.error('[HubsoftInvoicesService][getInvoicesOverdue]', error);
 
       return [];
     }

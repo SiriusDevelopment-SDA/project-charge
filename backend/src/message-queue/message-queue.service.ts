@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { MessageQueue } from './entities/message-queue.entity';
 import { DispatchBatch } from './entities/dispatch-batch.entity';
 import type { MessageQueuePayload } from './entities/message-queue.entity';
@@ -36,10 +37,37 @@ export class MessageQueueService {
 
     @InjectRepository(DispatchBatch)
     private readonly batchRepository: Repository<DispatchBatch>,
+
+    @InjectRepository(Campaign)
+    private readonly campaignRepository: Repository<Campaign>,
   ) {}
 
-  async enqueueBatch(params: EnqueueBatchParams): Promise<DispatchBatch> {
+  async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number }> {
     const scheduledAt = params.scheduledAt ?? new Date();
+
+    // Deduplicação: remove destinatários cujo telefone já foi despachado hoje para a mesma empresa
+    const todayStart = new Date(scheduledAt);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const alreadyQueued = await this.queueRepository
+      .createQueryBuilder('q')
+      .select("q.payload->>'number'", 'number')
+      .where('q."companyId" = :companyId', { companyId: params.companyId })
+      .andWhere('q."scheduledAt" >= :todayStart', { todayStart })
+      .andWhere("q.status != 'failed'")
+      .getRawMany<{ number: string }>();
+
+    const alreadyQueuedSet = new Set(alreadyQueued.map((r) => r.number));
+    const uniqueRecipients = params.recipients.filter(
+      (r) => !alreadyQueuedSet.has(r.number),
+    );
+
+    const deduped = params.recipients.length - uniqueRecipients.length;
+    if (deduped > 0) {
+      this.logger.log(
+        `Deduplication: ${deduped} recipient(s) already dispatched today for company ${params.companyId} — skipped.`,
+      );
+    }
 
     const batch = await this.batchRepository.save({
       company: { id: params.companyId },
@@ -48,12 +76,12 @@ export class MessageQueueService {
       campaignId: params.campaignId ?? null,
       templateId: params.templateId,
       status: 'queued' as const,
-      totalRecipients: params.recipients.length,
+      totalRecipients: uniqueRecipients.length,
       processedRecipients: 0,
       scope: params.scope,
     });
 
-    const jobs = params.recipients.map((recipient) => ({
+    const jobs = uniqueRecipients.map((recipient) => ({
       company: { id: params.companyId },
       template: { id: params.templateId },
       campaign: params.campaignId ? { id: params.campaignId } : null,
@@ -72,7 +100,7 @@ export class MessageQueueService {
       await this.queueRepository.save(jobs.slice(i, i + BATCH_INSERT_SIZE));
     }
 
-    return batch;
+    return { batch, skipped: deduped };
   }
 
   /**
@@ -184,6 +212,33 @@ export class MessageQueueService {
       processedRecipients: processed,
       status,
     });
+
+    if (['completed', 'partial', 'failed'].includes(status)) {
+      await this.syncCampaignStatusFromBatch(batchId);
+    }
+  }
+
+  private async syncCampaignStatusFromBatch(batchId: string): Promise<void> {
+    const batch = await this.batchRepository.findOne({
+      where: { id: batchId },
+      relations: ['campaign'],
+      select: {
+        id: true,
+        campaignId: true,
+        campaign: {
+          id: true,
+          recurring: true,
+        },
+      },
+    });
+
+    if (!batch?.campaignId) {
+      return;
+    }
+
+    await this.campaignRepository.update(batch.campaignId, {
+      status: batch.campaign?.recurring ? 'queue' : 'finished',
+    });
   }
 
   async getLatestBatchByAccount(
@@ -223,5 +278,43 @@ export class MessageQueueService {
       sent: parseInt(row.sent ?? '0'),
       failed: parseInt(row.failed ?? '0'),
     };
+  }
+
+  async reconcileCampaignStatuses(account?: string): Promise<string[]> {
+    const params: string[] = [];
+    const accountFilter = account
+      ? ' AND comp.account_chatwoot = $1'
+      : '';
+
+    if (account) {
+      params.push(account);
+    }
+
+    const rows: Array<{ campaignId: string; recurring: boolean }> =
+      await this.batchRepository.manager.query(
+        `SELECT DISTINCT b."campaignId" AS "campaignId", c.recurring AS recurring
+         FROM dispatch_batch b
+         INNER JOIN campaigns c ON c.id = b."campaignId"
+         INNER JOIN company comp ON comp.id = c.company
+         WHERE b.scope = 'campaign'
+           AND b.status IN ('completed', 'partial', 'failed')
+           AND c.status = 'running'
+           ${accountFilter}
+           AND NOT EXISTS (
+             SELECT 1
+             FROM message_queue mq
+             WHERE mq."campaignId" = b."campaignId"
+               AND mq.status IN ('pending', 'processing')
+           )`,
+        params,
+      );
+
+    for (const row of rows) {
+      await this.campaignRepository.update(row.campaignId, {
+        status: row.recurring ? 'queue' : 'finished',
+      });
+    }
+
+    return rows.map((row) => row.campaignId);
   }
 }

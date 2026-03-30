@@ -1,6 +1,6 @@
 import { Api } from "../api";
 import type { CampaignData, CampaignMetrics, Category, CollectionsMetrics } from "../../types";
-import type { CampaignUpdate } from "../../types/champaignApiTypes";
+import type { CampaignUpdate, RecurringType } from "../../types/champaignApiTypes";
 
 type CampaignCreatePayload = {
   name: string;
@@ -12,8 +12,15 @@ type CampaignCreatePayload = {
   dispatchTime: string;
   timezone: string;
   recurring: boolean;
+  recurringType?: RecurringType;
+  recurringDays?: Array<number | string>;
   clients: string[];
   templateMapVars: Record<string, unknown>[];
+};
+
+type CampaignMetricsFilters = {
+  search?: string;
+  category?: string | null;
 };
 
 const DEFAULT_CAMPAIGN_METRICS: CampaignMetrics = {
@@ -22,9 +29,12 @@ const DEFAULT_CAMPAIGN_METRICS: CampaignMetrics = {
   dispatchesToday: 0,
   totalDispatch: 0,
   totalDispatchSuccess: 0,
+  totalDispatchToday: 0,
+  totalDispatchSuccessToday: 0,
   totalDispatch24h: 0,
   totalDispatchSuccess24h: 0,
   deliveryRateTotal: 0,
+  deliveryRateToday: 0,
   deliveryRate24h: 0,
   nextDispatchTime: null,
   nextDispatchLabel: "Sem disparos agendados",
@@ -45,9 +55,12 @@ function normalizeCampaignMetrics(data: unknown): CampaignMetrics {
     dispatchesToday: toNumber(payload.dispatchesToday),
     totalDispatch: toNumber(payload.totalDispatch),
     totalDispatchSuccess: toNumber(payload.totalDispatchSuccess),
+    totalDispatchToday: toNumber(payload.totalDispatchToday),
+    totalDispatchSuccessToday: toNumber(payload.totalDispatchSuccessToday),
     totalDispatch24h: toNumber(payload.totalDispatch24h),
     totalDispatchSuccess24h: toNumber(payload.totalDispatchSuccess24h),
     deliveryRateTotal: toNumber(payload.deliveryRateTotal),
+    deliveryRateToday: toNumber(payload.deliveryRateToday),
     deliveryRate24h: toNumber(payload.deliveryRate24h),
     nextDispatchTime:
       typeof payload.nextDispatchTime === "string" ? payload.nextDispatchTime : null,
@@ -83,8 +96,15 @@ export class CampaignService {
     return data as { success?: boolean };
   }
 
-  static async metrics(account: string | null): Promise<CampaignMetrics> {
-    const query = account ? `?account=${account}` : "";
+  static async metrics(
+    account: string | null,
+    filters: CampaignMetricsFilters = {},
+  ): Promise<CampaignMetrics> {
+    const params = new URLSearchParams();
+    if (account) params.set("account", account);
+    if (filters.search?.trim()) params.set("search", filters.search.trim());
+    if (filters.category?.trim()) params.set("category", filters.category.trim());
+    const query = params.toString() ? `?${params.toString()}` : "";
     const { data } = await Api.get(`/campaigns/metrics${query}`);
     return normalizeCampaignMetrics(data);
   }

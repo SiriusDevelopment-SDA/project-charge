@@ -1,8 +1,12 @@
-import { IsString, IsOptional } from "class-validator";
+import { IsArray, IsOptional, IsString } from "class-validator";
 
 export class TemplateMapVar {
   @IsString()
   clientId!: string;
+
+  @IsOptional()
+  @IsString()
+  dispatchDate?: string;
 
   @IsOptional()
   @IsString()
@@ -49,6 +53,34 @@ export class TemplateMapVar {
   @IsOptional()
   @IsString()
   link_boleto_pdf?: string;
+
+  @IsOptional()
+  @IsString()
+  order_reference_id?: string;
+
+  @IsOptional()
+  @IsString()
+  order_item_name?: string;
+
+  @IsOptional()
+  @IsString()
+  order_item_description?: string;
+
+  @IsOptional()
+  @IsString()
+  order_pix_merchant_name?: string;
+
+  @IsOptional()
+  @IsString()
+  order_pix_key?: string;
+
+  @IsOptional()
+  @IsString()
+  order_pix_key_type?: string;
+
+  @IsOptional()
+  @IsArray()
+  components?: Record<string, unknown>[];
 
   [key: string]: any;
 }
