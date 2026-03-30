@@ -103,6 +103,15 @@ export class CreateTemplateDTO {
   category!: string;
 
   @ApiProperty({
+    description: 'Categoria exibida no sistema',
+    example: 'Cobrança preventiva',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  displayCategory?: string;
+
+  @ApiProperty({
     description: 'Componentes do template',
     type: [CreateComponentDto],
     required: true

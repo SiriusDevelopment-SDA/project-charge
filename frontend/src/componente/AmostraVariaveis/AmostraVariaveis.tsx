@@ -29,7 +29,9 @@ const AmostraVariaveis = ({ variablesMap, setVariablesMap }: propAmostras) => {
         ))}
 
       {!hasVariables && (
-        <div className={Style.previewText}>Selecione uma Variável em 'Variáveis'</div>
+        <div className={Style.previewText}>
+          Selecione uma variável em &quot;Variáveis&quot;.
+        </div>
       )}
     </div>
   );

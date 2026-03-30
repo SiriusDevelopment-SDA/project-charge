@@ -24,9 +24,10 @@
 
 .row {
   display: grid;
-  grid-template-columns: 40px 1fr 160px;
+  grid-template-columns: 40px 1fr 220px;
   align-items: center;
   font-size: 0.78rem;
+  gap: 12px;
 }
 
 .header {
@@ -46,9 +47,15 @@
   text-overflow: ellipsis;
 }
 
+.usageCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .barWrapper {
   position: relative;
-  height: 4px;
+  height: 6px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   overflow: hidden;
@@ -61,4 +68,28 @@
   height: 100%;
   background: linear-gradient(90deg, #facc15, #f59e0b);
   border-radius: 4px;
+}
+
+.usageMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.usageCount {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+}
+
+.usagePercent {
+  color: #facc15;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.emptyState {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  padding: 10px 0 4px;
 }

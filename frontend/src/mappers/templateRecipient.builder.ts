@@ -5,6 +5,7 @@ type TemplateButtonBlueprint = {
   type?: string;
   sub_type?: string;
   index?: string | number;
+  text?: string;
 };
 
 type TemplateComponentBlueprint = {
@@ -187,7 +188,6 @@ function buildOrderDetailsComponent(
 }
 
 function buildButtonComponent(
-  button: TemplateButtonBlueprint,
   buttonIndex: number,
   buttonType: string,
   mappedVar: mappedVars
@@ -278,7 +278,7 @@ function buildTemplateRecipientFromBlueprint(
       continue;
     }
 
-    const component = buildButtonComponent(button, i, buttonType, mappedVar);
+    const component = buildButtonComponent(i, buttonType, mappedVar);
     if (component) components.push(component);
   }
 

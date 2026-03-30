@@ -18,6 +18,12 @@ const MANUAL_FIELD_LABELS: Record<string, string> = {
   codigo_qr: "Codigo QR",
   codigo_qr_code: "Codigo QR code",
   codigo_pix: "Codigo PIX",
+  order_reference_id: "Referencia do pedido",
+  order_item_name: "Nome do item",
+  order_item_description: "Descricao do item",
+  order_pix_merchant_name: "Nome do recebedor",
+  order_pix_key: "Chave PIX",
+  order_pix_key_type: "Tipo da chave PIX",
 };
 
 type UseManualLeadDispatchControllerParams = {

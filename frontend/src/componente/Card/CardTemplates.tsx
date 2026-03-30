@@ -7,8 +7,7 @@ import type { PropsCardTemplates } from "../../types";
 
 export function CardTemplates({
   template,
-  isOpen,
-  onToggle,
+  onPreview,
   onDelete,
   onUse,
 }: PropsCardTemplates) {
@@ -16,13 +15,6 @@ export function CardTemplates({
     <>
       <div className={Style.CardWrap}>
         <BaseCard classname={Style.TemplateCard}>
-          {isOpen && (
-            <div className={Style.Balloon}>
-              <span className={Style.BalloonTitle}>{template.name}</span>
-              <p className={Style.BalloonMessage}>{template.message}</p>
-            </div>
-          )}
-
           <div className={Style.CardInner}>
             <div className={Style.CardHeader}>
               <span className={Style.CardTitle}>{template.name}</span>
@@ -44,8 +36,8 @@ export function CardTemplates({
 
             <p className={Style.CardMessage}>{template.message}</p>
 
-            <span className={Style.VerMais} onClick={() => onToggle(template.id)}>
-              {isOpen ? "Fechar" : "Ver mais"}
+            <span className={Style.VerMais} onClick={() => onPreview(template)}>
+              Ver mais
             </span>
           </div>
         </BaseCard>

@@ -110,6 +110,39 @@ export type TemplateSearchResponse = {
   total: number;
 };
 
+export type TemplateUsageMetric = {
+  templateId: string;
+  templateName: string;
+  historicalUsage: number;
+  activeUsage: number;
+  totalUsage: number;
+  usagePercentage: number;
+};
+
+export type TemplateCreateButton = {
+  type: "URL" | "COPY_CODE" | "ORDER_DETAILS";
+  text: string;
+};
+
+export type TemplateCreateComponent = {
+  type: "BODY" | "HEADER" | "FOOTER" | "BUTTONS";
+  format?: "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
+  text?: string;
+  buttons?: TemplateCreateButton[];
+};
+
+export type TemplateCreateRequest = {
+  companyId: string;
+  name: string;
+  language: "pt_BR";
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION";
+  displayCategory?: string;
+  components: TemplateCreateComponent[];
+  variables: Record<string, string>;
+};
+
+export type TemplateCreateInput = Omit<TemplateCreateRequest, "companyId">;
+
 export interface ITemplatesContext {
   templates: Template[];
   categoryTemplateFilter: string | null;

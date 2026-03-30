@@ -3,32 +3,23 @@
 import { Dropdown } from "../Index";
 import Style from "../../pages/TemplatesMeta/Styles/Create-template.module.css";
 
-
 type VarOption = {
   id: string;
   name: string;
 };
 
 type Props = {
-  /** CLASSES */
   containerClassName?: string;
   textareaClassName?: string;
   labelClassName?: string;
-
-  /** STATE */
   corpo: string;
   setCorpo: React.Dispatch<React.SetStateAction<string>>;
-
   varsSelected: VarOption[];
   setVarsSelected: React.Dispatch<React.SetStateAction<VarOption[]>>;
-
-  /** DROPDOWN */
   varOptions: VarOption[];
   varOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
-
-  /** VARIÁVEIS */
   setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 };
 
@@ -56,60 +47,67 @@ export function TemplateBody({
 
   return (
     <div className={containerClassName}>
-      {/* Corpo */}
       <div>
         <label className={labelClassName}>Corpo*</label>
         <textarea
           className={textareaClassName}
           value={corpo}
-          onChange={(e) => setCorpo(e.target.value)}
+          onChange={(event) => setCorpo(event.target.value)}
           maxLength={1024}
         />
       </div>
 
-      {/* Variáveis */}
       <div className={Style.variablesBlock}>
-      <label className={labelClassName}>Variáveis*</label>
+        <label className={labelClassName}>Variáveis*</label>
 
-      <Dropdown
-        label="Variáveis"
-        options={varOptions}
-        selected={varsSelected}
-        multiple
-        open={varOpen}
-        onOpen={onOpen}
-        onClose={onClose}
-        onChange={(vals) => {
-          const next = vals as VarOption[];
+        <Dropdown
+          label="Variáveis"
+          placeholder="Selecione as variáveis"
+          showFloatingLabel={false}
+          options={varOptions}
+          selected={varsSelected}
+          multiple
+          open={varOpen}
+          onOpen={onOpen}
+          onClose={onClose}
+          onChange={(vals) => {
+            const next = vals as VarOption[];
 
-          const removed = varsSelected.filter(
-            (old) => !next.some((n) => n.id === old.id),
-          );
+            const removed = varsSelected.filter(
+              (old) => !next.some((item) => item.id === old.id),
+            );
 
-          if (removed.length > 0) {
-            setCorpo((prev) => {
-              let text = prev;
+            if (removed.length > 0) {
+              setCorpo((prev) => {
+                let text = prev;
 
-              removed.forEach((r) => {
-                text = text.replace(new RegExp(`{{${r.name}}}`, "g"), "");
+                removed.forEach((removedVariable) => {
+                  text = text.replace(
+                    new RegExp(`{{${removedVariable.name}}}`, "g"),
+                    "",
+                  );
+                });
+
+                return text.replace(/\s{2,}/g, " ").trim();
               });
 
-              return text.replace(/\s{2,}/g, " ").trim();
-            });
+              setVariablesMap((prev) => {
+                const copy = { ...prev };
+                removed.forEach((removedVariable) => delete copy[removedVariable.name]);
+                return copy;
+              });
+            } else {
+              const last = next[next.length - 1];
 
-            setVariablesMap((prev) => {
-              const copy = { ...prev };
-              removed.forEach((r) => delete copy[r.name]);
-              return copy;
-            });
-          } else {
-            const last = next[next.length - 1];
-            if (last?.name) insertVariable(last.name);
-          }
+              if (last?.name) {
+                insertVariable(last.name);
+              }
+            }
 
-          setVarsSelected(next);
-        }}
-      />
-    </div></div>
+            setVarsSelected(next);
+          }}
+        />
+      </div>
+    </div>
   );
 }

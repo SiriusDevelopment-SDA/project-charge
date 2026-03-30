@@ -16,6 +16,7 @@ import {
   SearchRequestDtoRelatories,
   SearchRequestDtoTemplates,
   SendTemplateDto,
+  TemplateUsageRequestDto,
 } from './dto/search.request.dto.templates';
 import { RelatoryDispatchTemplate } from './entities/relatory.entity';
 import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
@@ -77,6 +78,129 @@ export class AppServiceTemplate {
     });
 
     return { page: safePage, total, data };
+  }
+
+  async getTemplateUsage(dto: TemplateUsageRequestDto) {
+    const account = String(dto.account);
+    let rows: Array<{
+      templateId: string;
+      templateName: string;
+      historicalUsage: string | number;
+      activeUsage: string | number;
+      totalUsage: string | number;
+    }> = [];
+
+    try {
+      rows = await this.templateRepository.manager.query(
+        `
+          WITH historical_usage AS (
+            SELECT
+              r."templateId" AS "templateId",
+              COUNT(*)::int AS "historicalUsage"
+            FROM relatory_dispatch_template r
+            INNER JOIN company c
+              ON c.id = r."companyId"
+            WHERE c.account_chatwoot = $1
+            GROUP BY r."templateId"
+          ),
+          active_usage AS (
+            SELECT
+              b."templateId" AS "templateId",
+              SUM(GREATEST(b."totalRecipients" - b."processedRecipients", 0))::int AS "activeUsage"
+            FROM dispatch_batch b
+            INNER JOIN company c
+              ON c.id = b."companyId"
+            WHERE c.account_chatwoot = $1
+              AND b.status IN ('queued', 'processing')
+              AND b."templateId" IS NOT NULL
+            GROUP BY b."templateId"
+          )
+          SELECT
+            t.id AS "templateId",
+            t.name AS "templateName",
+            COALESCE(h."historicalUsage", 0)::int AS "historicalUsage",
+            COALESCE(a."activeUsage", 0)::int AS "activeUsage",
+            (
+              COALESCE(h."historicalUsage", 0) +
+              COALESCE(a."activeUsage", 0)
+            )::int AS "totalUsage"
+          FROM templates t
+          INNER JOIN company c
+            ON c.id = t."companyId"
+          LEFT JOIN historical_usage h
+            ON h."templateId" = t.id
+          LEFT JOIN active_usage a
+            ON a."templateId" = t.id
+          WHERE c.account_chatwoot = $1
+            AND t."isEnabled" = true
+          ORDER BY "totalUsage" DESC, t.name ASC
+        `,
+        [account],
+      ) as Array<{
+        templateId: string;
+        templateName: string;
+        historicalUsage: string | number;
+        activeUsage: string | number;
+        totalUsage: string | number;
+      }>;
+    } catch {
+      rows = await this.templateRepository.manager.query(
+        `
+          WITH historical_usage AS (
+            SELECT
+              r."templateId" AS "templateId",
+              COUNT(*)::int AS "historicalUsage"
+            FROM relatory_dispatch_template r
+            INNER JOIN company c
+              ON c.id = r."companyId"
+            WHERE c.account_chatwoot = $1
+            GROUP BY r."templateId"
+          )
+          SELECT
+            t.id AS "templateId",
+            t.name AS "templateName",
+            COALESCE(h."historicalUsage", 0)::int AS "historicalUsage",
+            0::int AS "activeUsage",
+            COALESCE(h."historicalUsage", 0)::int AS "totalUsage"
+          FROM templates t
+          INNER JOIN company c
+            ON c.id = t."companyId"
+          LEFT JOIN historical_usage h
+            ON h."templateId" = t.id
+          WHERE c.account_chatwoot = $1
+            AND t."isEnabled" = true
+          ORDER BY "totalUsage" DESC, t.name ASC
+        `,
+        [account],
+      ) as Array<{
+        templateId: string;
+        templateName: string;
+        historicalUsage: string | number;
+        activeUsage: string | number;
+        totalUsage: string | number;
+      }>;
+    }
+
+    const normalizedRows = rows.map((row) => ({
+      templateId: row.templateId,
+      templateName: row.templateName,
+      historicalUsage: Number(row.historicalUsage) || 0,
+      activeUsage: Number(row.activeUsage) || 0,
+      totalUsage: Number(row.totalUsage) || 0,
+    }));
+
+    const totalUsageAllTemplates = normalizedRows.reduce(
+      (sum, row) => sum + row.totalUsage,
+      0,
+    );
+
+    return normalizedRows.map((row) => ({
+      ...row,
+      usagePercentage:
+        totalUsageAllTemplates > 0
+          ? Number(((row.totalUsage * 100) / totalUsageAllTemplates).toFixed(1))
+          : 0,
+    }));
   }
 
   /**
@@ -274,17 +398,17 @@ export class AppServiceTemplate {
       contents: [
         {
           template: {
-            name: dto.name,
-            language: dto.language,
-            category: dto.category,
-            components: dto.components,
+          name: dto.name,
+          language: dto.language,
+          category: dto.category,
+          components: dto.components,
           },
         },
       ],
     };
 
     
-    const response = await fetch('https://api.notificame.com.br/v2/templates', {
+    const response = await fetch(`https://api.notificame.com.br/v1/templates/${company.token_notificameHub}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -303,6 +427,7 @@ export class AppServiceTemplate {
     await this.templateRepository.save([
       {
         active: true,
+        category: dto.displayCategory ?? dto.category,
         isEnabled: true,
         language: dto.language,
         message:
