@@ -41,13 +41,15 @@ export default function CreateTemplate() {
     setFooter,
     variablesMap,
     setVariablesMap,
-    isSubmitting,
     previewBody,
+    isSubmitting,
     categoryOptions,
     isCategoriesError,
     categoryPlaceholder,
     ctaOptions,
     variableOptions,
+    validBodyVariables,
+    invalidBodyVariables,
     handleBack,
     handleSaveTemplate,
   } = useCreateTemplatePageController();
@@ -56,7 +58,7 @@ export default function CreateTemplate() {
     <PageContainer className={Style.pageContainer}>
       <TitlePage
         title="Criar template"
-        subtitle="Monte e valide modelos de mensagem com variáveis dinâmicas."
+        subtitle="Monte e valide modelos de mensagem com variaveis dinamicas."
         className={Style.CreateTemplateTitle}
       />
 
@@ -64,58 +66,60 @@ export default function CreateTemplate() {
         <section className={Style.formCard}>
           <h4 className={Style.sectionTitle}>Dados do template</h4>
 
-          <div className={Style.formGroup}>
-            <label>Nome do template*</label>
-            <InputFields
-              maxLength={512}
-              className={Style.containerI1}
-              value={templateName}
-              onChange={(event) => setTemplateName(event.target.value)}
-              placeholder="Digite o nome do template"
-            />
-          </div>
+          <div className={Style.row2}>
+            <div className={Style.formGroup}>
+              <label>Nome do template*</label>
+              <InputFields
+                maxLength={512}
+                className={Style.containerI1}
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+                placeholder="Digite o nome do template"
+              />
+            </div>
 
-          <div className={Style.formGroup}>
-            <label className={Style.Titulosinputs}>Categoria*</label>
-            <Dropdown
-              className={Style.dropdown1}
-              label="Categoria"
-              placeholder={categoryPlaceholder}
-              showFloatingLabel={false}
-              options={categoryOptions}
-              value={selectedCategory}
-              open={categoryOpen}
-              onOpen={() => setCategoryOpen(true)}
-              onClose={() => setCategoryOpen(false)}
-              onChange={(value) => setSelectedCategory(value as Category)}
-            />
-            {isCategoriesError && (
-              <span className={Style.errorText}>
-                Não foi possível carregar as categorias cadastradas.
-              </span>
-            )}
+            <div className={Style.formGroup}>
+              <label className={Style.Titulosinputs}>Categoria*</label>
+              <Dropdown
+                className={Style.dropdown1}
+                label="Categoria"
+                placeholder={categoryPlaceholder}
+                showFloatingLabel={false}
+                options={categoryOptions}
+                value={selectedCategory}
+                open={categoryOpen}
+                onOpen={() => setCategoryOpen(true)}
+                onClose={() => setCategoryOpen(false)}
+                onChange={(value) => setSelectedCategory(value as Category)}
+              />
+              {isCategoriesError && (
+                <span className={Style.errorText}>
+                  Nao foi possivel carregar as categorias cadastradas.
+                </span>
+              )}
+            </div>
           </div>
 
           <div className={Style.row2}>
             <div className={Style.formGroup}>
-              <label>Cabeçalho</label>
+              <label>Cabecalho</label>
               <InputFields
                 maxLength={60}
                 className={Style.containerI1}
                 value={header}
                 onChange={(event) => setHeader(event.target.value)}
-                placeholder="Digite o cabeçalho fixo"
+                placeholder="Digite o cabecalho fixo"
               />
             </div>
 
             <div className={Style.formGroup}>
-              <label>Rodapé</label>
+              <label>Rodape</label>
               <InputFields
                 maxLength={60}
                 className={Style.containerI1}
                 value={footer}
                 onChange={(event) => setFooter(event.target.value)}
-                placeholder="Digite o rodapé"
+                placeholder="Digite o rodape"
               />
             </div>
           </div>
@@ -128,6 +132,8 @@ export default function CreateTemplate() {
             setCorpo={setBody}
             varsSelected={varsSelected}
             setVarsSelected={setVarsSelected}
+            detectedValidCount={validBodyVariables.length}
+            invalidVariables={invalidBodyVariables}
             varOptions={variableOptions}
             varOpen={varOpen}
             onOpen={() => setVarOpen(true)}
@@ -137,10 +143,10 @@ export default function CreateTemplate() {
 
           <div className={Style.rowCta}>
             <div className={Style.formGroupChamada}>
-              <label className={Style.Titulosinputs}>Botões</label>
+              <label className={Style.Titulosinputs}>Botoes</label>
               <Dropdown
-                label="Botões"
-                placeholder="Selecione os botões"
+                label="Botoes"
+                placeholder="Selecione um botao"
                 showFloatingLabel={false}
                 searchable={false}
                 options={ctaOptions}
@@ -149,10 +155,17 @@ export default function CreateTemplate() {
                 open={ctaOpen}
                 onOpen={() => setCtaOpen(true)}
                 onClose={() => setCtaOpen(false)}
-                onChange={(values) => setCtas(values as SelectOption[])}
+                onChange={(values) => {
+                  const nextValues = values as SelectOption[];
+                  setCtas(
+                    nextValues.length > 1
+                      ? [nextValues[nextValues.length - 1]]
+                      : nextValues,
+                  );
+                }}
               />
               <span className={Style.helperText}>
-                Escolha um ou os dois botões para seu template.
+                Escolha um botao para seu template.
               </span>
             </div>
 
@@ -179,13 +192,13 @@ export default function CreateTemplate() {
               <div className={Style.previewWhatsapp}>
                 {header && <p className={Style.previewHeader}>{header}</p>}
 
-                <p
+                <div
                   className={`${Style.previewBody} ${
                     !body.trim() ? Style.previewText : ""
                   }`}
                 >
-                  {previewBody}
-                </p>
+                  {previewBody || "Veja aqui a previa do corpo do seu template."}
+                </div>
 
                 {footer && <p className={Style.previewFooter}>{footer}</p>}
 

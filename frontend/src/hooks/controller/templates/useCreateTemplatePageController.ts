@@ -1,11 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import type { Category } from "../../../types";
 import type {
+  TemplateCreateButton,
   TemplateCreateComponent,
   TemplateCreateInput,
 } from "../../../types/templateApiTypes";
+import {
+  getInvalidTemplateVariableLabels,
+  getValidTemplateVariableNames,
+} from "../../../utils/templateVariableTokens";
+import { useGlobalLoading } from "../../useGlobalLoading";
 import { useCreateTemplateMutation } from "../../mutations/useTemplateMutations";
 import { useCategoriesQuery } from "../../queries/useCampaignsQuery";
 
@@ -14,33 +20,23 @@ type SelectOption = {
   name: string;
 };
 
+const ORDER_DETAILS_BUTTON_TEXT = "Copy Pix code";
+
 const CTA_OPTIONS: SelectOption[] = [
   { id: "pay_now", name: "Pagar agora" },
-  { id: "order_details", name: "Copiar código Pix" },
+  { id: "copy_code", name: ORDER_DETAILS_BUTTON_TEXT },
 ];
 
 const VARIABLE_OPTIONS: SelectOption[] = [
   { id: "nome_cliente", name: "nome_cliente" },
   { id: "nome_atendente", name: "nome_atendente" },
-  { id: "nome_empresa", name: "nome_empresa" },
   { id: "data_vencimento_fatura", name: "data_vencimento_fatura" },
   { id: "numero_contrato", name: "numero_contrato" },
   { id: "valor_fatura", name: "valor_fatura" },
   { id: "linha_digitavel_boleto", name: "linha_digitavel_boleto" },
   { id: "link_boleto_pdf", name: "link_boleto_pdf" },
   { id: "code_pix", name: "code_pix" },
-  { id: "codigo_qr", name: "codigo_qr" },
-  { id: "codigo_qr_code", name: "codigo_qr_code" },
-  { id: "codigo_pix", name: "codigo_pix" },
-  { id: "order_reference_id", name: "order_reference_id" },
-  { id: "order_item_name", name: "order_item_name" },
-  { id: "order_item_description", name: "order_item_description" },
-  { id: "order_pix_merchant_name", name: "order_pix_merchant_name" },
-  { id: "order_pix_key", name: "order_pix_key" },
-  { id: "order_pix_key_type", name: "order_pix_key_type" },
 ];
-
-const DEFAULT_BODY_PREVIEW = "Veja aqui a prévia do corpo do seu template.";
 
 function normalizeText(value: string) {
   return value
@@ -74,29 +70,11 @@ function mapCategoryToMetaCategory(
   return "UTILITY";
 }
 
-function mapCtaType(ctaId: string): "URL" | "ORDER_DETAILS" {
-  if (ctaId === "order_details") return "ORDER_DETAILS";
-  return "URL";
-}
-
-function extractOrderedVarsFromBody(body: string, allowedVars: string[]) {
-  const found: string[] = [];
-  const seen = new Set<string>();
-  const regex = /\{\{([^}]+)\}\}/g;
-  let match: RegExpExecArray | null = regex.exec(body);
-
-  while (match) {
-    const varName = String(match[1] ?? "").trim();
-
-    if (varName && allowedVars.includes(varName) && !seen.has(varName)) {
-      seen.add(varName);
-      found.push(varName);
-    }
-
-    match = regex.exec(body);
-  }
-
-  return found;
+function buildCtaButton(cta: SelectOption): TemplateCreateButton {
+  return {
+    type: "ORDER_DETAILS",
+    text: ORDER_DETAILS_BUTTON_TEXT,
+  };
 }
 
 function toMetaIndexedBody(body: string, orderedVars: string[]) {
@@ -105,9 +83,56 @@ function toMetaIndexedBody(body: string, orderedVars: string[]) {
   }, body);
 }
 
+function buildBodyExamples(
+  orderedVars: string[],
+  variablesMap: Record<string, string>,
+) {
+  return orderedVars.map((variableName) => {
+    const sampleValue = String(variablesMap[variableName] ?? "").trim();
+    return sampleValue || variableName;
+  });
+}
+
+function areSameOptionLists(left: SelectOption[], right: SelectOption[]) {
+  return (
+    left.length === right.length &&
+    left.every((item, index) => item.id === right[index]?.id)
+  );
+}
+
+function areSameVariablesMap(
+  left: Record<string, string>,
+  right: Record<string, string>,
+) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => left[key] === right[key])
+  );
+}
+
+function getRequiredCtaVariableNames(ctas: SelectOption[]) {
+  const requiredVariables = new Set<string>();
+
+  for (const cta of ctas) {
+    if (cta.id === "pay_now") {
+      requiredVariables.add("link_boleto_pdf");
+    }
+
+    if (cta.id === "copy_code") {
+      requiredVariables.add("code_pix");
+    }
+  }
+
+  return Array.from(requiredVariables);
+}
+
 export function useCreateTemplatePageController() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { showLoading, hideLoading } = useGlobalLoading();
   const createTemplateMutation = useCreateTemplateMutation();
   const {
     data: categories = [],
@@ -135,6 +160,51 @@ export function useCreateTemplatePageController() {
     [categories],
   );
 
+  const availableVariableNames = useMemo(
+    () => VARIABLE_OPTIONS.map((option) => option.name),
+    [],
+  );
+
+  const requiredCtaVariables = useMemo(
+    () => getRequiredCtaVariableNames(ctas),
+    [ctas],
+  );
+
+  const validBodyVariables = useMemo(
+    () => getValidTemplateVariableNames(body, availableVariableNames),
+    [availableVariableNames, body],
+  );
+
+  const invalidBodyVariables = useMemo(
+    () => getInvalidTemplateVariableLabels(body, availableVariableNames),
+    [availableVariableNames, body],
+  );
+
+  useEffect(() => {
+    const trackedVariables = Array.from(
+      new Set([...validBodyVariables, ...requiredCtaVariables]),
+    );
+
+    const nextSelected = VARIABLE_OPTIONS.filter((option) =>
+      trackedVariables.includes(option.name),
+    );
+
+    setVarsSelected((current) =>
+      areSameOptionLists(current, nextSelected) ? current : nextSelected,
+    );
+
+    setVariablesMap((current) => {
+      const nextMap = Object.fromEntries(
+        trackedVariables.map((variableName) => [
+          variableName,
+          current[variableName] ?? "",
+        ]),
+      );
+
+      return areSameVariablesMap(current, nextMap) ? current : nextMap;
+    });
+  }, [requiredCtaVariables, validBodyVariables]);
+
   const isSubmitting = createTemplateMutation.isPending;
 
   const categoryPlaceholder = isCategoriesLoading
@@ -144,11 +214,9 @@ export function useCreateTemplatePageController() {
       : "Nenhuma categoria cadastrada";
 
   const previewBody = useMemo(() => {
-    const templateText = body.trim() || DEFAULT_BODY_PREVIEW;
-
     return Object.entries(variablesMap).reduce((previewText, [key, value]) => {
       return previewText.replaceAll(`{{${key}}}`, value || `{{${key}}}`);
-    }, templateText);
+    }, body);
   }, [body, variablesMap]);
 
   const handleBack = () => {
@@ -174,22 +242,17 @@ export function useCreateTemplatePageController() {
       return;
     }
 
-    if (!varsSelected.length) {
-      toast.error("Selecione ao menos uma variável.");
+    if (invalidBodyVariables.length > 0) {
+      const invalidLabel =
+        invalidBodyVariables.length === 1
+          ? `A variavel ${invalidBodyVariables[0]} nao existe ou esta mal formatada.`
+          : `Corrija as variaveis invalidas: ${invalidBodyVariables.join(", ")}.`;
+      toast.error(invalidLabel);
       return;
     }
 
-    const selectedVariableNames = varsSelected.map((item) => String(item.name));
-    const orderedVars = extractOrderedVarsFromBody(normalizedBody, selectedVariableNames);
-
-    if (!orderedVars.length) {
-      toast.error(
-        "Inclua as variáveis no corpo do template para definir a ordem do Meta.",
-      );
-      return;
-    }
-
-    const bodyWithMetaOrder = toMetaIndexedBody(normalizedBody, orderedVars);
+    const bodyWithMetaOrder = toMetaIndexedBody(normalizedBody, validBodyVariables);
+    const bodyExamples = buildBodyExamples(validBodyVariables, variablesMap);
     const components: TemplateCreateComponent[] = [];
 
     if (header.trim()) {
@@ -200,10 +263,18 @@ export function useCreateTemplatePageController() {
       });
     }
 
-    components.push({
+    const bodyComponent: TemplateCreateComponent = {
       type: "BODY",
       text: bodyWithMetaOrder,
-    });
+    };
+
+    if (bodyExamples.length > 0) {
+      bodyComponent.example = {
+        body_text: bodyExamples,
+      };
+    }
+
+    components.push(bodyComponent);
 
     if (footer.trim()) {
       components.push({
@@ -213,16 +284,38 @@ export function useCreateTemplatePageController() {
     }
 
     if (ctas.length) {
+      const buttonDefinitions: TemplateCreateButton[] = [];
+
+      for (const cta of ctas) {
+        if (cta.id === "pay_now") {
+          const linkExample = String(variablesMap.link_boleto_pdf ?? "").trim();
+
+          if (!linkExample) {
+            toast.error(
+              "Preencha a amostra da variavel link_boleto_pdf para o botao Pagar agora.",
+            );
+            return;
+          }
+
+          buttonDefinitions.push({
+            type: "URL",
+            text: cta.name,
+            url: linkExample,
+            example: [linkExample],
+          });
+          continue;
+        }
+
+        buttonDefinitions.push(buildCtaButton(cta));
+      }
+
       components.push({
         type: "BUTTONS",
-        buttons: ctas.map((cta) => ({
-          type: mapCtaType(cta.id),
-          text: cta.name,
-        })),
+        buttons: buttonDefinitions,
       });
     }
 
-    const variables = orderedVars.reduce<Record<string, string>>(
+    const variables = validBodyVariables.reduce<Record<string, string>>(
       (accumulator, variableName, index) => {
         accumulator[String(index + 1)] = variableName;
         return accumulator;
@@ -239,8 +332,15 @@ export function useCreateTemplatePageController() {
       variables,
     };
 
-    await createTemplateMutation.mutateAsync(payload);
-    handleBack();
+    const loadingId = showLoading("Criando template...");
+
+    try {
+      await createTemplateMutation.mutateAsync(payload);
+      navigate(`/templates${location.search}`);
+      window.setTimeout(() => hideLoading(loadingId), 250);
+    } catch {
+      hideLoading(loadingId);
+    }
   };
 
   return {
@@ -266,14 +366,17 @@ export function useCreateTemplatePageController() {
     setFooter,
     variablesMap,
     setVariablesMap,
-    isSubmitting,
     previewBody,
+    isSubmitting,
     categoryOptions,
     isCategoriesLoading,
     isCategoriesError,
     categoryPlaceholder,
     ctaOptions: CTA_OPTIONS,
     variableOptions: VARIABLE_OPTIONS,
+    availableVariableNames,
+    validBodyVariables,
+    invalidBodyVariables,
     handleBack,
     handleSaveTemplate,
   };

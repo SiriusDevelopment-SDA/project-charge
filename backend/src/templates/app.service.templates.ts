@@ -3,6 +3,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -29,6 +30,8 @@ import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 
 @Injectable()
 export class AppServiceTemplate {
+  private readonly logger = new Logger(AppServiceTemplate.name);
+
   constructor(
     @InjectRepository(Templates)
     private templateRepository: Repository<Templates>,
@@ -382,7 +385,11 @@ export class AppServiceTemplate {
   async createTemplate(companyId: string, dto: CreateTemplateDTO) {
     const company = await this.companyRepository.findOne({
       where: { id: companyId },
-      select: { id: true, canalId_notificameHub: true, token_notificameHub: true },
+      select: {
+        id: true,
+        canalId_notificameHub: true,
+        token_notificameHub: true,
+      },
     });
 
     if (!company) throw new NotFoundException('Empresa nao encontrada!');
@@ -393,29 +400,33 @@ export class AppServiceTemplate {
       );
     }
 
+    const channelIdentifier = String(company.canalId_notificameHub ?? '').trim();
+
     const payload = {
-      from: company.canalId_notificameHub,
+      from: channelIdentifier,
       contents: [
         {
           template: {
-          name: dto.name,
-          language: dto.language,
-          category: dto.category,
-          components: dto.components,
+            name: dto.name,
+            language: dto.language,
+            category: dto.category,
+            components: dto.components,
           },
         },
       ],
     };
 
-    
-    const response = await fetch(`https://api.notificame.com.br/v1/templates/${company.token_notificameHub}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Token': company.token_notificameHub,
+    const response = await fetch(
+      `https://api.notificame.com.br/v1/templates/${channelIdentifier}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Token': company.token_notificameHub,
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -423,27 +434,155 @@ export class AppServiceTemplate {
     }
 
     const responseData = await response.json();
+    const upstreamError = this.extractTemplateCreationError(responseData);
 
-    await this.templateRepository.save([
-      {
-        active: true,
-        category: dto.displayCategory ?? dto.category,
-        isEnabled: true,
-        language: dto.language,
-        message:
-          dto.components
-            .filter((c) => c.type.toUpperCase() === 'BODY')
-            .map((c) => c.text)[0] ?? '',
-        meta_id: responseData.id,
-        meta_status: responseData.status,
-        variables: dto.variables,
-        components: dto.components,
-        company: { id: dto.companyId },
-        name: dto.name,
-      },
-    ]);
+    if (upstreamError) {
+      this.logger.error(
+        `[createTemplate] NotificaMe/Meta retornou erro. Payload: ${JSON.stringify(payload)} | Resposta: ${JSON.stringify(responseData)}`,
+      );
+      throw new BadRequestException(
+        `Erro ao criar template no meta: ${upstreamError}`,
+      );
+    }
+
+    const { metaId, metaStatus } = this.extractCreatedTemplateMetadata(responseData);
+
+    if (!metaId || !metaStatus) {
+      this.logger.error(
+        `[createTemplate] Resposta da NotificaMe sem meta_id/meta_status. Payload: ${JSON.stringify(payload)} | Resposta: ${JSON.stringify(responseData)}`,
+      );
+      throw new BadRequestException(
+        'Resposta da NotificaMe sem id/status do template criado.',
+      );
+    }
+
+    await this.templateRepository.save({
+      active: true,
+      category: dto.displayCategory ?? dto.category,
+      isEnabled: true,
+      language: dto.language,
+      message:
+        dto.components
+          .filter((c) => c.type.toUpperCase() === 'BODY')
+          .map((c) => c.text)[0] ?? '',
+      meta_id: metaId,
+      meta_status: metaStatus,
+      variables: dto.variables,
+      components: dto.components,
+      company: { id: companyId },
+      name: dto.name,
+    });
 
     return responseData;
+  }
+  private extractTemplateCreationError(responseData: unknown) {
+    if (!responseData || typeof responseData !== 'object' || Array.isArray(responseData)) {
+      return '';
+    }
+
+    const root = responseData as Record<string, unknown>;
+    const errorCandidate =
+      root.error ??
+      (Array.isArray(root.errors) ? root.errors[0] : undefined);
+
+    if (!errorCandidate) {
+      return '';
+    }
+
+    if (typeof errorCandidate === 'string') {
+      return errorCandidate;
+    }
+
+    if (typeof errorCandidate !== 'object' || Array.isArray(errorCandidate)) {
+      return JSON.stringify(errorCandidate);
+    }
+
+    const errorRecord = errorCandidate as Record<string, unknown>;
+    const messageParts = [
+      errorRecord.message,
+      errorRecord.error_user_title,
+      errorRecord.error_user_msg,
+    ]
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean);
+
+    if (messageParts.length > 0) {
+      return Array.from(new Set(messageParts)).join(' | ');
+    }
+
+    return JSON.stringify(errorRecord);
+  }
+
+  private extractCreatedTemplateMetadata(responseData: unknown) {
+    const candidates = this.collectTemplateResponseCandidates(responseData);
+
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        continue;
+      }
+
+      const record = candidate as Record<string, unknown>;
+      const rawId =
+        record.id ??
+        record.templateId ??
+        record.template_id ??
+        record.meta_id;
+      const rawStatus =
+        record.status ??
+        record.templateStatus ??
+        record.template_status ??
+        record.meta_status;
+
+      const metaId =
+        rawId === undefined || rawId === null ? '' : String(rawId).trim();
+      const metaStatus =
+        rawStatus === undefined || rawStatus === null
+          ? ''
+          : String(rawStatus).trim();
+
+      if (metaId || metaStatus) {
+        return {
+          metaId,
+          metaStatus,
+        };
+      }
+    }
+
+    return {
+      metaId: '',
+      metaStatus: '',
+    };
+  }
+
+  private collectTemplateResponseCandidates(responseData: unknown): unknown[] {
+    if (!responseData || typeof responseData !== 'object') {
+      return [responseData];
+    }
+
+    const root = responseData as Record<string, unknown>;
+    const data = root.data;
+    const result = root.result;
+    const template = root.template;
+    const contents = root.contents;
+
+    return [
+      root,
+      template,
+      data,
+      result,
+      Array.isArray(data) ? data[0] : undefined,
+      Array.isArray(result) ? result[0] : undefined,
+      Array.isArray(contents) ? contents[0] : undefined,
+      Array.isArray(contents) && contents[0] && typeof contents[0] === 'object'
+        ? (contents[0] as Record<string, unknown>).template
+        : undefined,
+      data && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>).template
+        : undefined,
+      data && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>).result
+        : undefined,
+    ];
   }
 
   async getTemplateOrFail(templateId: string) {

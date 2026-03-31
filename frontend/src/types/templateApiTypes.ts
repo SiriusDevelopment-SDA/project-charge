@@ -122,12 +122,19 @@ export type TemplateUsageMetric = {
 export type TemplateCreateButton = {
   type: "URL" | "COPY_CODE" | "ORDER_DETAILS";
   text: string;
+  url?: string;
+  example?: string[];
+};
+
+export type TemplateCreateComponentExample = {
+  body_text?: string[];
 };
 
 export type TemplateCreateComponent = {
   type: "BODY" | "HEADER" | "FOOTER" | "BUTTONS";
   format?: "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
   text?: string;
+  example?: TemplateCreateComponentExample;
   buttons?: TemplateCreateButton[];
 };
 

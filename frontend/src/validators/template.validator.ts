@@ -6,6 +6,13 @@ import {
   getOrderedTemplateVariableKeys,
 } from "../mappers/templateVars.mapper";
 
+const PIX_TEMPLATE_VARIABLE_KEYS = new Set([
+  "code_pix",
+  "codigo_qr",
+  "codigo_qr_code",
+  "codigo_pix",
+]);
+
 function normalizeTemplateComponents(template: Template): Array<Record<string, unknown>> {
   const { components } = template;
 
@@ -113,7 +120,9 @@ function hasOrderDetailsButton(template: Template): boolean {
 
 export function templateRequiresPix(template: Template): boolean {
   const vars = normalizeTemplateVars(template.variables);
-  const hasPixVar = Object.values(vars).some((v) => String(v) === "code_pix");
+  const hasPixVar = Object.values(vars).some((v) =>
+    PIX_TEMPLATE_VARIABLE_KEYS.has(String(v)),
+  );
   return hasPixVar || hasOrderDetailsButton(template);
 }
 
