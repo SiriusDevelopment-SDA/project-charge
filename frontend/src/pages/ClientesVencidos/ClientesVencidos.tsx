@@ -24,6 +24,7 @@ import { useFilterTemplates } from "../../hooks/components/useFilterTemplates.Co
 
 import { calcularDiasRelativosHoje } from "../../utils/filtrosClientesVencidos";
 import type { Cliente, Template } from "../../types";
+import { getTemplateStatusLabel, isTemplateApproved } from "../../utils/templateStatus";
 
 import Style from "./Styles/ClientesVencidos.module.css";
 
@@ -397,8 +398,19 @@ export function ClientesVencidos() {
                   {paginatedTemplates.map((template) => (
                     <div
                       key={template.id}
-                      className={Style.templateWrapper}
+                      className={`${Style.templateWrapper} ${
+                        !isTemplateApproved(template.meta_status)
+                          ? Style.templateWrapperDisabled
+                          : ""
+                      }`}
                       onClick={() => {
+                        if (!isTemplateApproved(template.meta_status)) {
+                          toast.warning(
+                            `O template ${template.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(template.meta_status)}.`,
+                          );
+                          return;
+                        }
+
                         setTemplateSelecionado(template);
                         setOpenConfirmTemplateModal(true);
                       }}

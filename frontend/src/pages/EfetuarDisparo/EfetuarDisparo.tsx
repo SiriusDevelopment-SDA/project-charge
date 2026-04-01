@@ -16,6 +16,7 @@ import {
   DynamicModal,
 } from "../../componente/Index";
 import { useDispatchPageController } from "../../hooks/controller/dispatch/useDispatchPageController";
+import { isTemplateApproved } from "../../utils/templateStatus";
 
 export default function EfetuarDisparo() {
   const {
@@ -88,6 +89,7 @@ export default function EfetuarDisparo() {
               filterOptions={categories}
               filterValue={categoryTemplateFilter}
               onFilterChange={setCategoryTemplateFilter}
+              isOptionDisabled={(template) => !isTemplateApproved(template.meta_status)}
             />
 
             {dispatch.modoPage === "clientes" ? (
@@ -324,6 +326,21 @@ export default function EfetuarDisparo() {
                   key={fieldKey}
                   label={manualLead.getManualFieldLabel(fieldKey)}
                   value={manualLead.manualLeadFieldValues[fieldKey] ?? ""}
+                  inputMode={
+                    fieldKey === "data_vencimento_fatura"
+                      ? "numeric"
+                      : fieldKey === "valor_fatura"
+                        ? "decimal"
+                        : undefined
+                  }
+                  maxLength={fieldKey === "data_vencimento_fatura" ? 10 : undefined}
+                  placeholder={
+                    fieldKey === "data_vencimento_fatura"
+                      ? "DD/MM/AAAA"
+                      : fieldKey === "valor_fatura"
+                        ? "0,00"
+                        : undefined
+                  }
                   onChange={(event) =>
                     manualLead.updateManualLeadFieldValue(
                       fieldKey,

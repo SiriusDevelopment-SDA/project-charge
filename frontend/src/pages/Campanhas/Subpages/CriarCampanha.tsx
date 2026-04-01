@@ -16,6 +16,7 @@ import {
 } from "../../../componente/Index";
 import { useCreateCampaignPageController } from "../../../hooks/controller/campaigns/useCreateCampaignPageController";
 import Style from "../Styles/CriarCampanha.module.css";
+import { isTemplateApproved } from "../../../utils/templateStatus";
 
 const calendarDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
@@ -550,6 +551,7 @@ export function CriarCampanha() {
                     filterOptions={templateCategories}
                     filterValue={categoryTemplateFilter}
                     onFilterChange={setCategoryTemplateFilter}
+                    isOptionDisabled={(template) => !isTemplateApproved(template.meta_status)}
                   />
 
                   <Dropdown<Category>

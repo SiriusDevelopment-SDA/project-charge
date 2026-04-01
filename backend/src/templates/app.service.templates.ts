@@ -8,7 +8,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, ILike, IsNull, Not, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, In, IsNull, Not, Repository } from 'typeorm';
 
 import { Templates } from './entities/templatesMeta';
 import {
@@ -79,6 +79,8 @@ export class AppServiceTemplate {
         createdAt: order,
       },
     });
+
+    await this.syncTemplateStatuses(data);
 
     return { page: safePage, total, data };
   }
@@ -221,6 +223,10 @@ export class AppServiceTemplate {
       relations: { company: true },
       select: {
         id: true,
+        name: true,
+        meta_id: true,
+        meta_status: true,
+        variables: true,
         company: {
           id: true,
           canalId_notificameHub: true,
@@ -237,6 +243,9 @@ export class AppServiceTemplate {
       );
     }
 
+    await this.refreshTemplateStatusForUsage(template);
+    this.ensureTemplateApprovedForUsage(template);
+
     if (!to.length) {
       throw new BadRequestException('Nenhum destinatario informado para envio.');
     }
@@ -244,7 +253,10 @@ export class AppServiceTemplate {
     const recipients: MessageQueuePayload[] = to.map((recipient) => ({
       number: recipient.number,
       name: recipient.name,
-      components: Array.isArray(recipient.components) ? recipient.components : [],
+      components: this.normalizeDispatchComponents(
+        Array.isArray(recipient.components) ? recipient.components : [],
+        template.variables,
+      ),
     }));
 
     const { batch, skipped } = await this.messageQueueService.enqueueBatch({
@@ -437,6 +449,79 @@ export class AppServiceTemplate {
     const upstreamError = this.extractTemplateCreationError(responseData);
 
     if (upstreamError) {
+      const metaErrorSubcode =
+        (responseData as any)?.error?.error_subcode ??
+        ((responseData as any)?.errors?.[0] ?? {})?.error_subcode;
+      const fbtraceId =
+        (responseData as any)?.error?.fbtrace_id ??
+        ((responseData as any)?.errors?.[0] ?? {})?.fbtrace_id;
+
+      // fallback: se Meta falhou mas o template existe, persiste mesmo assim
+      if ([99, 2388023, 2388024].includes(Number(metaErrorSubcode))) {
+        const existing = await this.findTemplateByName(
+          channelIdentifier,
+          company.token_notificameHub,
+          dto.name,
+        );
+
+        if (existing) {
+          const metaId =
+            existing.id ??
+            existing.templateId ??
+            existing.template_id ??
+            '';
+          const metaStatus =
+            existing.status ??
+            existing.templateStatus ??
+            existing.template_status ??
+            '';
+
+          if (metaId) {
+            this.logger.warn(
+              `[createTemplate] Meta retornou erro ${metaErrorSubcode} mas o template já existe. name=${dto.name} metaId=${metaId} fbtrace_id=${fbtraceId ?? 'n/a'}`,
+            );
+            await this.saveTemplateRecord(metaId, metaStatus, dto, companyId);
+            return { id: metaId, status: metaStatus, data: existing };
+          }
+        }
+      }
+
+      if (metaErrorSubcode === 2388024) {
+        this.logger.warn(
+          `[createTemplate] Template duplicado na Meta. name=${dto.name} fbtrace_id=${fbtraceId ?? 'n/a'}`,
+        );
+        throw new BadRequestException(
+          'Já existe um template pt_BR com esse nome ou conteúdo na Meta. Escolha outro nome e tente novamente.',
+        );
+      }
+
+      if (metaErrorSubcode === 2388023) {
+        this.logger.warn(
+          `[createTemplate] Lang pt_BR está sendo apagada na Meta, tentar de novo em <1min. name=${dto.name} fbtrace_id=${fbtraceId ?? 'n/a'}`,
+        );
+        throw new BadRequestException(
+          'A Meta ainda está excluindo a versão pt_BR deste template. Aguarde mais 1 minuto ou tente outro nome de template.',
+        );
+      }
+
+      if (metaErrorSubcode === 2388299) {
+        this.logger.warn(
+          `[createTemplate] Template com variavel no inicio ou fim do corpo. name=${dto.name} fbtrace_id=${fbtraceId ?? 'n/a'}`,
+        );
+        throw new BadRequestException(
+          'A Meta exige texto real antes e depois da variavel. Ponto, espaco ou emoji sozinho no inicio ou no fim nao contam.',
+        );
+      }
+
+      if (metaErrorSubcode === 99) {
+        this.logger.error(
+          `[createTemplate] Erro interno da Meta (subcode 99). fbtrace_id=${fbtraceId ?? 'n/a'} payload=${JSON.stringify(payload)}`,
+        );
+        throw new BadRequestException(
+          'A Meta retornou um erro interno ao criar o template. Tente novamente em 1 minuto. Código: 99.',
+        );
+      }
+
       this.logger.error(
         `[createTemplate] NotificaMe/Meta retornou erro. Payload: ${JSON.stringify(payload)} | Resposta: ${JSON.stringify(responseData)}`,
       );
@@ -475,6 +560,7 @@ export class AppServiceTemplate {
 
     return responseData;
   }
+
   private extractTemplateCreationError(responseData: unknown) {
     if (!responseData || typeof responseData !== 'object' || Array.isArray(responseData)) {
       return '';
@@ -511,6 +597,55 @@ export class AppServiceTemplate {
     }
 
     return JSON.stringify(errorRecord);
+  }
+
+  private async findTemplateByName(channelIdentifier: string, apiToken: string, name: string) {
+    try {
+      const response = await fetch(
+        `https://api.notificame.com.br/v1/templates/${channelIdentifier}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Token': apiToken,
+          },
+        },
+      );
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const list: any[] = Array.isArray((data as any)?.data) ? (data as any).data : [];
+      const targetName = String(name ?? '').trim().toLowerCase();
+
+      return list.find((item) => String(item?.name ?? '').trim().toLowerCase() === targetName) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async saveTemplateRecord(
+    metaId: string,
+    metaStatus: string,
+    dto: CreateTemplateDTO,
+    companyId: string,
+  ) {
+    await this.templateRepository.save({
+      active: true,
+      category: dto.displayCategory ?? dto.category,
+      isEnabled: true,
+      language: dto.language,
+      message:
+        dto.components
+          .filter((c) => c.type.toUpperCase() === 'BODY')
+          .map((c) => c.text)[0] ?? '',
+      meta_id: metaId,
+      meta_status: metaStatus,
+      variables: dto.variables,
+      components: dto.components,
+      company: { id: companyId },
+      name: dto.name,
+    });
   }
 
   private extractCreatedTemplateMetadata(responseData: unknown) {
@@ -588,6 +723,7 @@ export class AppServiceTemplate {
   async getTemplateOrFail(templateId: string) {
     const template = await this.templateRepository.findOne({
       where: { id: templateId, isEnabled: true },
+      relations: { company: true },
     });
 
     if (!template) {
@@ -599,6 +735,64 @@ export class AppServiceTemplate {
     }
 
     return template;
+  }
+
+  async syncAllTemplateStatuses() {
+    const templates = await this.templateRepository.find({
+      where: { isEnabled: true },
+      relations: { company: true },
+      select: {
+        id: true,
+        name: true,
+        meta_id: true,
+        meta_status: true,
+        company: {
+          id: true,
+        },
+      },
+    });
+
+    if (!templates.length) {
+      return { total: 0, updated: 0 };
+    }
+
+    const previousStatusById = new Map(
+      templates.map((template) => [
+        template.id,
+        this.normalizeTemplateStatus(template.meta_status),
+      ]),
+    );
+
+    await this.syncTemplateStatuses(templates);
+
+    const updated = templates.filter(
+      (template) =>
+        previousStatusById.get(template.id) !==
+        this.normalizeTemplateStatus(template.meta_status),
+    ).length;
+
+    return {
+      total: templates.length,
+      updated,
+    };
+  }
+
+  async ensureTemplateApprovedForUsage(
+    template: Pick<Templates, 'id' | 'name' | 'meta_status'> & {
+      meta_id?: string | null;
+      company?: { id?: string | null } | null;
+    },
+  ) {
+    await this.refreshTemplateStatusForUsage(template);
+
+    if (this.isTemplateApprovedStatus(template.meta_status)) {
+      return template;
+    }
+
+    const normalizedStatus = this.normalizeTemplateStatus(template.meta_status);
+    throw new BadRequestException(
+      `O template ${template.name} ainda nao foi aprovado na Meta e nao pode ser utilizado agora. Status atual: ${normalizedStatus || 'DESCONHECIDO'}.`,
+    );
   }
 
   extractRequiredTemplateVars(template: Templates): string[] {
@@ -614,5 +808,340 @@ export class AppServiceTemplate {
         message: 'Variaveis do template estao invalidas',
       });
     }
+  }
+
+  private normalizeTemplateStatus(status: unknown) {
+    return String(status ?? '').trim().toUpperCase();
+  }
+
+  private isTemplateApprovedStatus(status: unknown) {
+    return this.normalizeTemplateStatus(status) === 'APPROVED';
+  }
+
+  private extractRemoteTemplateStatus(record: unknown) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      return '';
+    }
+
+    const rawStatus =
+      (record as Record<string, unknown>).status ??
+      (record as Record<string, unknown>).template_status ??
+      (record as Record<string, unknown>).meta_status;
+
+    return rawStatus === undefined || rawStatus === null
+      ? ''
+      : String(rawStatus).trim();
+  }
+
+  private findRemoteTemplateMatch(
+    remoteTemplates: unknown[],
+    template: Pick<Templates, 'name'> & { meta_id?: string | null },
+  ) {
+    const templateMetaId = String(template.meta_id ?? '').trim();
+    const templateName = String(template.name ?? '').trim().toLowerCase();
+
+    return (
+      remoteTemplates.find((record) => {
+        if (!record || typeof record !== 'object' || Array.isArray(record)) {
+          return false;
+        }
+
+        const remoteId = String(
+          (record as Record<string, unknown>).id ??
+            (record as Record<string, unknown>).templateId ??
+            (record as Record<string, unknown>).template_id ??
+            '',
+        ).trim();
+
+        if (templateMetaId && remoteId && remoteId === templateMetaId) {
+          return true;
+        }
+
+        const remoteName = String(
+          (record as Record<string, unknown>).name ?? '',
+        )
+          .trim()
+          .toLowerCase();
+
+        return Boolean(templateName) && remoteName === templateName;
+      }) ?? null
+    );
+  }
+
+  private async fetchRemoteTemplates(
+    channelIdentifier: string,
+    apiToken: string,
+  ): Promise<unknown[]> {
+    try {
+      const response = await fetch(
+        `https://api.notificame.com.br/v1/templates/${channelIdentifier}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Token': apiToken,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+      return Array.isArray((data as any)?.data) ? (data as any).data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async syncTemplateStatuses(
+    templates: Array<
+      Pick<Templates, 'id' | 'name' | 'meta_id' | 'meta_status'> & {
+        company?: { id?: string | null } | null;
+      }
+    >,
+  ) {
+    const companyIds = Array.from(
+      new Set(
+        templates
+          .map((template) => String(template.company?.id ?? '').trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (!companyIds.length) {
+      return templates;
+    }
+
+    const companies = await this.companyRepository.find({
+      where: { id: In(companyIds) },
+      select: {
+        id: true,
+        canalId_notificameHub: true,
+        token_notificameHub: true,
+      },
+    });
+
+    const companiesById = new Map(companies.map((company) => [company.id, company]));
+    const updates: Array<{ id: string; meta_status: string }> = [];
+
+    for (const companyId of companyIds) {
+      const company = companiesById.get(companyId);
+      const channelIdentifier = String(company?.canalId_notificameHub ?? '').trim();
+      const apiToken = String(company?.token_notificameHub ?? '').trim();
+
+      if (!channelIdentifier || !apiToken) {
+        continue;
+      }
+
+      const remoteTemplates = await this.fetchRemoteTemplates(channelIdentifier, apiToken);
+      if (!remoteTemplates.length) {
+        continue;
+      }
+
+      for (const template of templates.filter(
+        (item) => String(item.company?.id ?? '').trim() === companyId,
+      )) {
+        const remoteTemplate = this.findRemoteTemplateMatch(remoteTemplates, template);
+        const remoteStatus = this.extractRemoteTemplateStatus(remoteTemplate);
+        const previousStatus = template.meta_status;
+
+        if (!remoteStatus) {
+          continue;
+        }
+
+        template.meta_status = remoteStatus;
+
+        if (
+          this.normalizeTemplateStatus(previousStatus) !==
+          this.normalizeTemplateStatus(remoteStatus)
+        ) {
+          updates.push({ id: template.id, meta_status: remoteStatus });
+        }
+      }
+    }
+
+    if (updates.length) {
+      await this.templateRepository.save(updates);
+    }
+
+    return templates;
+  }
+
+  private async refreshTemplateStatusForUsage(
+    template: Pick<Templates, 'id' | 'name' | 'meta_status'> & {
+      meta_id?: string | null;
+      company?: {
+        id?: string | null;
+        canalId_notificameHub?: string | null;
+        token_notificameHub?: string | null;
+      } | null;
+    },
+  ) {
+    const companyId = String(template.company?.id ?? '').trim();
+
+    let channelIdentifier = String(template.company?.canalId_notificameHub ?? '').trim();
+    let apiToken = String(template.company?.token_notificameHub ?? '').trim();
+
+    if ((!channelIdentifier || !apiToken) && companyId) {
+      const company = await this.companyRepository.findOne({
+        where: { id: companyId },
+        select: {
+          id: true,
+          canalId_notificameHub: true,
+          token_notificameHub: true,
+        },
+      });
+
+      channelIdentifier = String(company?.canalId_notificameHub ?? '').trim();
+      apiToken = String(company?.token_notificameHub ?? '').trim();
+    }
+
+    if (!channelIdentifier || !apiToken) {
+      return template;
+    }
+
+    const remoteTemplates = await this.fetchRemoteTemplates(channelIdentifier, apiToken);
+    const remoteTemplate = this.findRemoteTemplateMatch(remoteTemplates, template);
+    const remoteStatus = this.extractRemoteTemplateStatus(remoteTemplate);
+
+    if (
+      remoteStatus &&
+      this.normalizeTemplateStatus(remoteStatus) !==
+        this.normalizeTemplateStatus(template.meta_status)
+    ) {
+      template.meta_status = remoteStatus;
+      await this.templateRepository.save({
+        id: template.id,
+        meta_status: remoteStatus,
+      });
+    }
+
+    return template;
+  }
+
+  private normalizeDispatchComponents(
+    components: MessageQueuePayload['components'],
+    templateVariables: Templates['variables'],
+  ): MessageQueuePayload['components'] {
+    const contractNumber = this.extractBodyVariableValue(
+      components,
+      templateVariables,
+      'numero_contrato',
+    );
+
+    if (!contractNumber) {
+      return components;
+    }
+
+    return components.map((component) =>
+      this.applyOrderDetailsReferenceId(component, contractNumber),
+    );
+  }
+
+  private extractBodyVariableValue(
+    components: MessageQueuePayload['components'],
+    templateVariables: Templates['variables'],
+    variableName: string,
+  ): string {
+    const orderedVariableKeys = this.getOrderedTemplateVariableKeys(templateVariables);
+    const variableIndex = orderedVariableKeys.findIndex((key) => key === variableName);
+
+    if (variableIndex < 0) {
+      return '';
+    }
+
+    const bodyComponent = components.find(
+      (component) => String(component?.type ?? '').toUpperCase() === 'BODY',
+    );
+
+    if (!bodyComponent || !Array.isArray(bodyComponent.parameters)) {
+      return '';
+    }
+
+    return String(bodyComponent.parameters[variableIndex]?.text ?? '').trim();
+  }
+
+  private getOrderedTemplateVariableKeys(
+    templateVariables: Templates['variables'],
+  ): string[] {
+    try {
+      const parsedVariables =
+        typeof templateVariables === 'string'
+          ? JSON.parse(templateVariables)
+          : templateVariables ?? {};
+
+      return Object.keys(parsedVariables)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((key) => String(parsedVariables[key] ?? '').trim())
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  private applyOrderDetailsReferenceId(
+    component: MessageQueuePayload['components'][number],
+    contractNumber: string,
+  ): MessageQueuePayload['components'][number] {
+    const componentType = String(component?.type ?? '').toUpperCase();
+    const subType = String(component?.sub_type ?? '').toUpperCase();
+
+    if (componentType !== 'BUTTON' || subType !== 'ORDER_DETAILS') {
+      return component;
+    }
+
+    const parameters = Array.isArray(component.parameters) ? component.parameters : [];
+    const nextParameters = parameters.map((parameter) => {
+      const action =
+        parameter && typeof parameter === 'object'
+          ? (parameter.action as Record<string, unknown> | undefined)
+          : undefined;
+      const orderDetails =
+        action && typeof action === 'object'
+          ? (action.order_details as Record<string, unknown> | undefined)
+          : undefined;
+
+      if (!orderDetails || typeof orderDetails !== 'object') {
+        return parameter;
+      }
+
+      const order =
+        orderDetails.order && typeof orderDetails.order === 'object'
+          ? (orderDetails.order as Record<string, unknown>)
+          : undefined;
+      const items = Array.isArray(order?.items)
+        ? order.items.map((item) =>
+            item && typeof item === 'object'
+              ? { ...(item as Record<string, unknown>), retailer_id: contractNumber }
+              : item,
+          )
+        : undefined;
+
+      return {
+        ...parameter,
+        action: {
+          ...action,
+          order_details: {
+            ...orderDetails,
+            reference_id: contractNumber,
+            ...(order
+              ? {
+                  order: {
+                    ...order,
+                    ...(items ? { items } : {}),
+                  },
+                }
+              : {}),
+          },
+        },
+      };
+    });
+
+    return {
+      ...component,
+      parameters: nextParameters,
+    };
   }
 }

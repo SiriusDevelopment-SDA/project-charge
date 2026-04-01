@@ -72,7 +72,7 @@ function buildOrderDetailsComponent(
   mappedVar: mappedVars
 ): BuiltComponent | null {
   const referenceId = String(
-    mappedVar.order_reference_id ?? mappedVar.numero_contrato ?? ""
+    mappedVar.numero_contrato ?? mappedVar.order_reference_id ?? ""
   ).trim();
   const pixCode = String(
     mappedVar.code_pix ??
@@ -189,6 +189,7 @@ function buildOrderDetailsComponent(
 }
 
 function buildButtonComponent(
+  button: TemplateButtonBlueprint,
   buttonIndex: number,
   buttonType: string,
   mappedVar: mappedVars
@@ -273,7 +274,7 @@ function buildTemplateRecipientFromBlueprint(
       continue;
     }
 
-    const component = buildButtonComponent(i, buttonType, mappedVar);
+    const component = buildButtonComponent(button, i, buttonType, mappedVar);
     if (!component && buttonType === "URL") {
       console.warn(
         "[templateRecipient] botao URL ignorado para destinatario",

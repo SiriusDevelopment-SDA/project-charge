@@ -27,7 +27,11 @@ export function useTemplatesQuery(params: TemplateQueryParams) {
       return response.data.data.filter((item) => item.isEnabled);
     },
     enabled: Boolean(account),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60,
+    refetchInterval: 1000 * 60,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     placeholderData: keepPreviousData,
   });
 }

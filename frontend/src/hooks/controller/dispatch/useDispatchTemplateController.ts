@@ -13,6 +13,7 @@ import type {
 import { getErrorMessage } from "../../../utils/error";
 import { useAccountParam } from "../../useAccountParam";
 import { useBatchStatusQuery } from "../../queries/useLatestDispatchReportQuery";
+import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
 
 export function useDispatchTemplateController() {
   const account = useAccountParam();
@@ -107,6 +108,12 @@ export function useDispatchTemplateController() {
     async (extraLeads?: Lead[]) => {
       if (isSubmitting) return;
       if (!selectedTemplate) return;
+      if (!isTemplateApproved(selectedTemplate.meta_status)) {
+        toast.warning(
+          `O template ${selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
+        );
+        return;
+      }
 
       // Always recompute fresh so AppStorage values set just before dispatch
       // (e.g. attendant name confirmed in modal) are picked up correctly.

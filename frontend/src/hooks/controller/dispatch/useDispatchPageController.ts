@@ -16,6 +16,7 @@ import {
 } from "../../../validators/template.validator";
 import { AppStorage } from "../../../services/storage/storage.service";
 import { useAccountParam } from "../../useAccountParam";
+import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
 
 function getDispatchBatchLabel(status: string) {
   if (status === "queued") return "Na fila";
@@ -272,6 +273,13 @@ export function useDispatchPageController() {
 
   const handleOpenDispatchPreview = useCallback(async () => {
     if (!dispatch.selectedTemplate) return;
+
+    if (!isTemplateApproved(dispatch.selectedTemplate.meta_status)) {
+      toast.warning(
+        `O template ${dispatch.selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(dispatch.selectedTemplate.meta_status)}.`,
+      );
+      return;
+    }
 
     if (
       templateRequiresAttendantName(dispatch.selectedTemplate) &&

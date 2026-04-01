@@ -43,6 +43,7 @@ import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
 import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
+import { TemplateStatusSyncCron } from './templates/template-status-sync.cron';
 import { ClientsSyncCron } from './clients/clients-sync.cron';
 import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
 
@@ -98,6 +99,7 @@ import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
     ChatwootService,
     RedisService,
     RelatoryResolverCron,
+    TemplateStatusSyncCron,
     ClientsSyncCron,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],

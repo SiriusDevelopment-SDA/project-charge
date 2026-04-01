@@ -43,11 +43,17 @@ export default function CreateTemplate() {
     setVariablesMap,
     previewBody,
     isSubmitting,
+    templateNameError,
+    categoryError,
+    bodyError,
+    ctasError,
+    sampleFieldErrors,
     categoryOptions,
     isCategoriesError,
     categoryPlaceholder,
     ctaOptions,
     variableOptions,
+    variableLabels,
     validBodyVariables,
     invalidBodyVariables,
     handleBack,
@@ -76,6 +82,9 @@ export default function CreateTemplate() {
                 onChange={(event) => setTemplateName(event.target.value)}
                 placeholder="Digite o nome do template"
               />
+              {templateNameError && (
+                <span className={Style.errorText}>{templateNameError}</span>
+              )}
             </div>
 
             <div className={Style.formGroup}>
@@ -96,6 +105,9 @@ export default function CreateTemplate() {
                 <span className={Style.errorText}>
                   Nao foi possivel carregar as categorias cadastradas.
                 </span>
+              )}
+              {!isCategoriesError && categoryError && (
+                <span className={Style.errorText}>{categoryError}</span>
               )}
             </div>
           </div>
@@ -139,6 +151,7 @@ export default function CreateTemplate() {
             onOpen={() => setVarOpen(true)}
             onClose={() => setVarOpen(false)}
             setVariablesMap={setVariablesMap}
+            bodyError={bodyError}
           />
 
           <div className={Style.rowCta}>
@@ -167,6 +180,7 @@ export default function CreateTemplate() {
               <span className={Style.helperText}>
                 Escolha um botao para seu template.
               </span>
+              {ctasError && <span className={Style.errorText}>{ctasError}</span>}
             </div>
 
             <div className={Style.actions}>
@@ -225,6 +239,8 @@ export default function CreateTemplate() {
           <AmostraVariaveis
             variablesMap={variablesMap}
             setVariablesMap={setVariablesMap}
+            variableLabels={variableLabels}
+            sampleFieldErrors={sampleFieldErrors}
           />
         </aside>
       </div>

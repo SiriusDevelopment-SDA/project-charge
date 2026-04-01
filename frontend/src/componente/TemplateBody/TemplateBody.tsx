@@ -24,6 +24,7 @@ type Props = {
   onOpen: () => void;
   onClose: () => void;
   setVariablesMap: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  bodyError?: string;
 };
 
 type AutocompleteState = {
@@ -117,20 +118,20 @@ function getAutocompleteState(
       return true;
     }
 
-    return normalizeVariableName(option.name).includes(normalizedQuery);
+    return normalizeVariableName(option.id).includes(normalizedQuery);
   });
 
   const suggestions = [...filteredOptions].sort((left, right) => {
-    const leftName = normalizeVariableName(left.name);
-    const rightName = normalizeVariableName(right.name);
-    const leftStartsWith = normalizedQuery ? leftName.startsWith(normalizedQuery) : true;
-    const rightStartsWith = normalizedQuery ? rightName.startsWith(normalizedQuery) : true;
+    const leftId = normalizeVariableName(left.id);
+    const rightId = normalizeVariableName(right.id);
+    const leftStartsWith = normalizedQuery ? leftId.startsWith(normalizedQuery) : true;
+    const rightStartsWith = normalizedQuery ? rightId.startsWith(normalizedQuery) : true;
 
     if (leftStartsWith !== rightStartsWith) {
       return leftStartsWith ? -1 : 1;
     }
 
-    return left.name.localeCompare(right.name, "pt-BR", {
+    return left.id.localeCompare(right.id, "pt-BR", {
       sensitivity: "base",
     });
   });
@@ -211,6 +212,7 @@ export function TemplateBody({
   onOpen,
   onClose,
   setVariablesMap,
+  bodyError,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autocompletePanelRef = useRef<HTMLDivElement>(null);
@@ -338,7 +340,7 @@ export function TemplateBody({
       return;
     }
 
-    const token = `{{${option.name}}}`;
+    const token = `{{${option.id}}}`;
     const nextText =
       corpo.slice(0, autocompleteState.replaceStart) +
       token +
@@ -347,8 +349,8 @@ export function TemplateBody({
     updateBodyAtCursor(nextText, autocompleteState.replaceStart + token.length);
 
     setVariablesMap((prev) => {
-      if (prev[option.name] !== undefined) return prev;
-      return { ...prev, [option.name]: "" };
+      if (prev[option.id] !== undefined) return prev;
+      return { ...prev, [option.id]: "" };
     });
   }
 
@@ -432,13 +434,15 @@ export function TemplateBody({
                       applyAutocompleteSuggestion(option);
                     }}
                   >
-                    {`{{${option.name}}}`}
+                    {`{{${option.id}}} — ${option.name}`}
                   </button>
                 ))}
               </div>
             </div>
           )}
         </div>
+
+        {bodyError && <span className={Style.errorText}>{bodyError}</span>}
       </div>
 
       <div className={Style.variablesBlock}>
@@ -481,7 +485,7 @@ export function TemplateBody({
 
                 removed.forEach((removedVariable) => {
                   text = text.replace(
-                    new RegExp(`\\{\\{${removedVariable.name}\\}\\}`, "g"),
+                    new RegExp(`\\{\\{${removedVariable.id}\\}\\}`, "g"),
                     "",
                   );
                 });
@@ -491,14 +495,14 @@ export function TemplateBody({
 
               setVariablesMap((prev) => {
                 const copy = { ...prev };
-                removed.forEach((removedVariable) => delete copy[removedVariable.name]);
+                removed.forEach((removedVariable) => delete copy[removedVariable.id]);
                 return copy;
               });
             } else {
               const last = next[next.length - 1];
 
-              if (last?.name) {
-                insertVariable(last.name);
+              if (last?.id) {
+                insertVariable(last.id);
               }
             }
 

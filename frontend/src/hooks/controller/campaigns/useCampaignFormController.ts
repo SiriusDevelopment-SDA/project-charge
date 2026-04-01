@@ -25,6 +25,7 @@ import {
 import { AppStorage } from "../../../services/storage/storage.service";
 import { validarSelecaoCliente } from "../../../utils/validation";
 import { getErrorMessage } from "../../../utils/error";
+import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
 
 type ValidationResult =
   | { success: true }
@@ -313,6 +314,13 @@ export function useCampaignFormController() {
         return { success: false };
       }
 
+      if (!isTemplateApproved(selectedTemplate.meta_status)) {
+        toast.warning(
+          `O template ${selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
+        );
+        return { success: false };
+      }
+
       if (recurringType === "monthly_days" && !selectedDays.length) {
         return { success: false };
       }
@@ -558,6 +566,19 @@ export function useCampaignFormController() {
                 usesInvoiceRule
                   ? "Nenhum cliente foi encontrado para a regua de cobranca informada."
                   : "Selecione ao menos um cliente",
+            },
+          ],
+        },
+      };
+    }
+
+    if (selectedTemplate && !isTemplateApproved(selectedTemplate.meta_status)) {
+      return {
+        success: false,
+        error: {
+          issues: [
+            {
+              message: `O template ${selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
             },
           ],
         },

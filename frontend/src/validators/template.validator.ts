@@ -81,7 +81,7 @@ function getComponentRequiredFields(template: Template): string[] {
       if (buttonType === "ORDER_DETAILS") {
         requiredFields.add("code_pix");
         requiredFields.add("valor_fatura");
-        requiredFields.add("order_reference_id");
+        requiredFields.add("numero_contrato");
         return;
       }
 

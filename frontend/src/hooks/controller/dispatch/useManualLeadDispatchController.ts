@@ -4,6 +4,12 @@ import type { Dispatch, SetStateAction } from "react";
 import type { Lead, Template } from "../../../types";
 import { getMissingTemplateVariables } from "../../../validators/template.validator";
 import { AppStorage } from "../../../services/storage/storage.service";
+import {
+  maskCurrencyInput,
+  maskDateInput,
+  normalizeCurrencyValue,
+  normalizeDateValue,
+} from "../../../utils/templateFieldFormat";
 
 const MANUAL_FIELD_LABELS: Record<string, string> = {
   nome_cliente: "Nome do cliente",
@@ -18,7 +24,7 @@ const MANUAL_FIELD_LABELS: Record<string, string> = {
   codigo_qr: "Codigo QR",
   codigo_qr_code: "Codigo QR code",
   codigo_pix: "Codigo PIX",
-  order_reference_id: "Referencia do pedido",
+  order_reference_id: "Numero do contrato",
   order_item_name: "Nome do item",
   order_item_description: "Descricao do item",
   order_pix_merchant_name: "Nome do recebedor",
@@ -46,6 +52,30 @@ function buildInitialManualFieldValues(fields: string[]) {
       )
       .map((fieldKey) => [fieldKey, ""]),
   );
+}
+
+function normalizeManualFieldValue(fieldKey: string, value: string) {
+  if (fieldKey === "valor_fatura") {
+    return normalizeCurrencyValue(value);
+  }
+
+  if (fieldKey === "data_vencimento_fatura") {
+    return normalizeDateValue(value);
+  }
+
+  return value.trim();
+}
+
+function maskManualFieldValue(fieldKey: string, value: string) {
+  if (fieldKey === "valor_fatura") {
+    return maskCurrencyInput(value);
+  }
+
+  if (fieldKey === "data_vencimento_fatura") {
+    return maskDateInput(value);
+  }
+
+  return value;
 }
 
 export function useManualLeadDispatchController({
@@ -277,7 +307,7 @@ export function useManualLeadDispatchController({
   const updateManualLeadFieldValue = useCallback((fieldKey: string, value: string) => {
     setManualLeadFieldValues((prev) => ({
       ...prev,
-      [fieldKey]: value,
+      [fieldKey]: maskManualFieldValue(fieldKey, value),
     }));
   }, []);
 
@@ -294,7 +324,10 @@ export function useManualLeadDispatchController({
           return acc;
         }
 
-        acc[fieldKey] = String(manualLeadFieldValues[fieldKey] ?? "").trim();
+        acc[fieldKey] = normalizeManualFieldValue(
+          fieldKey,
+          String(manualLeadFieldValues[fieldKey] ?? ""),
+        );
         return acc;
       },
       {},
@@ -306,6 +339,17 @@ export function useManualLeadDispatchController({
 
     if (missingFieldKey) {
       toast.warning(`Informe ${getManualFieldLabel(missingFieldKey).toLowerCase()}.`);
+      return;
+    }
+
+    if (
+      pendingManualLeadFields.includes("data_vencimento_fatura") &&
+      manualLeadFieldValues.data_vencimento_fatura &&
+      !/^\d{2}\/\d{2}\/\d{4}$/.test(
+        resolvedFieldValues.data_vencimento_fatura ?? "",
+      )
+    ) {
+      toast.warning("Informe a data de vencimento no formato DD/MM/AAAA.");
       return;
     }
 

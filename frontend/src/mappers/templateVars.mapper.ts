@@ -1,15 +1,11 @@
 import type { Cliente, Template, mappedVars } from "../types";
 import { compilarTemplate } from "../utils/validation";
 import { AppStorage } from "../services/storage/storage.service";
+import { normalizeCurrencyValue, normalizeDateValue } from "../utils/templateFieldFormat";
 
 function formatDueDate(date?: string): string {
-  if (!date) return "";
+  return normalizeDateValue(date);
   // YYYY-MM-DD → DD/MM/YYYY
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const [year, month, day] = date.split("-");
-    return `${day}/${month}/${year}`;
-  }
-  return date;
 }
 
 export type Recipient = {
@@ -112,7 +108,9 @@ export function buildTemplateVars(
   );
 
   const numeroContrato = invoice?.contract_id ?? recipient.numero_contrato ?? "";
-  const valorFatura = invoice?.invoice_amount ?? recipient.valor_fatura ?? "";
+  const valorFatura = normalizeCurrencyValue(
+    invoice?.invoice_amount ?? recipient.valor_fatura ?? ""
+  );
   return {
     ...customFields,
     nome_cliente: toLower(recipient.name ?? recipient.nome_cliente),
@@ -129,7 +127,7 @@ export function buildTemplateVars(
     codigo_qr: pixCode,
     codigo_qr_code: pixCode,
     codigo_pix: pixCode,
-    order_reference_id: recipient.order_reference_id ?? numeroContrato ?? recipient.id ?? "",
+    order_reference_id: numeroContrato || recipient.order_reference_id || recipient.id || "",
     order_item_name: recipient.order_item_name ?? "Fatura",
     order_item_description: recipient.order_item_description ?? "",
     order_pix_merchant_name: recipient.order_pix_merchant_name ?? companyName ?? "",

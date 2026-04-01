@@ -14,6 +14,10 @@ function unique(values: string[]) {
   return Array.from(new Set(values));
 }
 
+function hasMeaningfulTemplateText(value: string) {
+  return value.replace(/[\p{P}\p{S}\s]+/gu, "").length > 0;
+}
+
 export function parseTemplateTextTokens(
   text: string,
   allowedVariables: string[],
@@ -104,5 +108,21 @@ export function getInvalidTemplateVariableLabels(
 
         return isUnknownName ? token.variableName : token.value;
       }),
+  );
+}
+
+export function hasTemplateVariableAtTextEdge(text: string) {
+  const meaningfulTokens = parseTemplateTextTokens(text.trim(), []).filter(
+    (token) =>
+      token.type === "variable" || hasMeaningfulTemplateText(token.value),
+  );
+
+  if (!meaningfulTokens.length) {
+    return false;
+  }
+
+  return (
+    meaningfulTokens[0]?.type === "variable" ||
+    meaningfulTokens[meaningfulTokens.length - 1]?.type === "variable"
   );
 }

@@ -4,7 +4,7 @@ import { Type } from "class-transformer";
 
 class ComponentExampleDto {
   @IsArray()
-  body_text!: string[];
+  body_text!: string[][];
 }
 
 class CreateComponentDto {
@@ -24,7 +24,7 @@ class CreateComponentDto {
 
   @ApiProperty({
     example: {
-      body_text: ['template'],
+      body_text: [['template']],
     },
     required: false,
   })

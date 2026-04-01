@@ -127,7 +127,7 @@ export type TemplateCreateButton = {
 };
 
 export type TemplateCreateComponentExample = {
-  body_text?: string[];
+  body_text?: string[][];
 };
 
 export type TemplateCreateComponent = {

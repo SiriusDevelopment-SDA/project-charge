@@ -474,6 +474,12 @@
   margin-bottom: 12px;
 }
 
+.variableValueWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .variableKey {
   background: #ffdd00;
   color: #111111;

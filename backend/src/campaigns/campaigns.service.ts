@@ -60,6 +60,7 @@ export class CampaignsService {
     const template = await this.templatesService.getTemplateOrFail(
       createDto.templateId,
     );
+    await this.templatesService.ensureTemplateApprovedForUsage(template);
 
     const requiredKeys =
       this.templatesService.extractRequiredTemplateVars(template);
