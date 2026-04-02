@@ -16,9 +16,11 @@ export function InputFields({
 }: Props) {
   const { focused, hasValue, handleFocus, handleBlur, handleChange } =
     useInputFieldController({ value, onlyNumbers, onChange });
+  const resolvedPlaceholder =
+    label && !(focused || hasValue) ? "" : props.placeholder;
 
   return (
-    <div className={S.floatingWrapper}>
+    <div className={`${S.floatingWrapper} ${label ? S.withLabel : ""}`}>
       {label && (
         <label className={`${S.floatingLabel} ${focused || hasValue ? S.active : ""}`}>
           {label}
@@ -28,6 +30,7 @@ export function InputFields({
       <input
         {...props}
         value={value}
+        placeholder={resolvedPlaceholder}
         onFocus={handleFocus}
         onBlur={handleBlur}
         className={`${S.floatingInput} ${className ?? ""}`}

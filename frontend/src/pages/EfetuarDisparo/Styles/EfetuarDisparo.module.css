@@ -1,6 +1,6 @@
 .EfetuarDisparoContainer {
-  border-radius: "10px";
-  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+  min-height: calc(100vh - 14vh);
+  overflow-y: auto;
 }
 .navTitlePage {
 
@@ -44,9 +44,10 @@
   margin-top: 8px;
 }
 .containerCenter{
-  padding: 28px 29px;
+  padding: 24px;
+  border: 1px solid #f5d033;
+  border-radius: 14px;
   background: linear-gradient(180deg, rgba(10, 10, 10, 0.94) 0%, rgba(18, 15, 7, 0.94) 100%);
-  border: 1px solid rgba(212, 166, 0, 0.42) ;
   border-radius: 20px;
   display: flex;
   flex-direction: column;
@@ -74,26 +75,14 @@
   gap: 20px;
 }
 .containerPreview {
-  div{
-    box-shadow:
-    0 6px 10px rgba(255, 215, 0, 0.35),
-    0 12px 20px rgba(255, 215, 0, 0.2) !important;
-  
-    background: transparent !important;
-    color: #fff !important;
-    border: 1px solid rgba(255, 215, 0, 0.35);
-    padding: 10px;
-    border-radius: 10px;
-    min-height: 62px;
-    display: flex;
-    align-items: center;
-  }
-  
-  
-  h6{
-    margin-top: 0px !important;
-    margin-left: 20px;
-  }
+  background: transparent !important;
+  color: #fff !important;
+  border: 2px solid rgba(255, 215, 0, 0.35);
+  padding: 10px;
+  border-radius: 10px;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
 }
 
 .containerButtonSend{
@@ -112,17 +101,19 @@
 .batchProgressCard{
   display: flex;
   position: absolute;
-  bottom: 4px;
-  right: 4px;
+  bottom: 20px;
+  right: 20px;
   flex-direction: column;
   gap: 14px;
   padding: 18px 20px;
+  width: min(360px, calc(100vw - 48px));
   border-radius: 16px;
   border: 1px solid rgba(212, 166, 0, 0.35);
   background: linear-gradient(145deg, rgba(24, 21, 12, 0.95) 0%, rgba(11, 11, 11, 0.94) 100%);
   box-shadow:
     0 10px 22px rgba(0, 0, 0, 0.26),
     inset 0 0 0 1px rgba(212, 166, 0, 0.08);
+  z-index: 8;
 }
 
 .batchProgressHeader{
@@ -149,6 +140,33 @@
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.batchProgressDismiss{
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 208, 51, 0.34);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7e39b;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  transition: transform 0.18s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.batchProgressDismiss:hover{
+  transform: translateY(-1px);
+  background: rgba(245, 208, 51, 0.12);
+  border-color: rgba(245, 208, 51, 0.68);
+}
+
+.batchProgressDismiss:focus-visible{
+  outline: 2px solid rgba(245, 208, 51, 0.65);
+  outline-offset: 2px;
 }
 
 .batchProgressEyebrow{

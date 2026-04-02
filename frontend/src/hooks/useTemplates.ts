@@ -54,6 +54,7 @@ export function useTemplate(): ITemplatesContext {
     setLimit,
     setOrder,
     page,
+    limit,
     deleteTemplate,
   };
 }

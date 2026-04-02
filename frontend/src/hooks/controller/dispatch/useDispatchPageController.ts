@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import type { Cliente } from "../../../types";
@@ -17,6 +17,7 @@ import {
 import { AppStorage } from "../../../services/storage/storage.service";
 import { useAccountParam } from "../../useAccountParam";
 import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
+import { templateRequiresInvoiceData } from "../../../utils/templateRequirements";
 
 function getDispatchBatchLabel(status: string) {
   if (status === "queued") return "Na fila";
@@ -171,6 +172,83 @@ export function useDispatchPageController() {
     [],
   );
 
+  const hasInvoiceUpdates = useCallback(
+    (currentClients: Cliente[], nextClients: Cliente[]) => {
+      return nextClients.some((cliente, index) => {
+        const current = currentClients[index];
+        const currentInvoice = current?.invoices?.list?.[0];
+        const nextInvoice = cliente.invoices?.list?.[0];
+
+        return (
+          current?.invoices?.status !== cliente.invoices?.status ||
+          current?.invoices?.list?.length !== cliente.invoices?.list?.length ||
+          currentInvoice?.invoice_due_date !== nextInvoice?.invoice_due_date ||
+          currentInvoice?.ticket_pdf_link !== nextInvoice?.ticket_pdf_link ||
+          currentInvoice?.ticket_digitable_line !== nextInvoice?.ticket_digitable_line ||
+          currentInvoice?.invoice_amount !== nextInvoice?.invoice_amount ||
+          currentInvoice?.contract_id !== nextInvoice?.contract_id ||
+          currentInvoice?.code_pix?.pix !== nextInvoice?.code_pix?.pix
+        );
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (dispatch.modoPage !== "clientes") {
+      return;
+    }
+
+    if (!templateRequiresInvoiceData(dispatch.selectedTemplate)) {
+      return;
+    }
+
+    if (!dispatch.selectedClientes.length) {
+      return;
+    }
+
+    const needInvoices = dispatch.selectedClientes.filter(
+      (cliente) => cliente.invoices?.status !== "success",
+    );
+
+    if (!needInvoices.length) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const fetchedClients = await fetchInvoices(needInvoices);
+
+      if (cancelled) {
+        return;
+      }
+
+      const mergedClients = mergeFetchedClients(
+        dispatch.selectedClientes,
+        fetchedClients,
+      );
+
+      if (!hasInvoiceUpdates(dispatch.selectedClientes, mergedClients)) {
+        return;
+      }
+
+      dispatch.setSelectedClientes(mergedClients);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dispatch.modoPage,
+    dispatch.selectedClientes,
+    dispatch.selectedTemplate,
+    dispatch.setSelectedClientes,
+    fetchInvoices,
+    hasInvoiceUpdates,
+    mergeFetchedClients,
+  ]);
+
   const handleCloseFloatingMenus = useCallback(() => {
     setOpenDropdown(null);
   }, []);
@@ -202,7 +280,7 @@ export function useDispatchPageController() {
         return;
       }
 
-      if (dispatch.selectedTemplate.category === "Cobrança") {
+      if (templateRequiresInvoiceData(dispatch.selectedTemplate)) {
         if (removedClients.length > 0) {
           const clientesValidos = hydratedClients.filter((cliente) =>
             validarSelecaoCliente(cliente, dispatch.selectedTemplate ?? undefined),
@@ -316,7 +394,7 @@ export function useDispatchPageController() {
 
     if (
       dispatch.modoPage === "clientes" &&
-      dispatch.selectedTemplate.category === "Cobrança"
+      templateRequiresInvoiceData(dispatch.selectedTemplate)
     ) {
       const needInvoices = dispatch.selectedClientes.filter(
         (cliente) => cliente.invoices?.status !== "success",

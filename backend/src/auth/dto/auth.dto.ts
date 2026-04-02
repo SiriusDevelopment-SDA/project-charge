@@ -1,4 +1,12 @@
-import { IsEmail, IsNotEmpty, IsString, IsUUID, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginAgentDto {
@@ -42,4 +50,24 @@ export class CreateAgentDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsUUID()
   companyId!: string;
+}
+
+export class UpdateProfileDto {
+  @ApiProperty({ example: 'Maria Silva', required: false })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  name?: string;
+
+  @ApiProperty({ example: 'senha-atual-123', required: false })
+  @ValidateIf((dto) => dto.newPassword !== undefined)
+  @IsString()
+  @IsNotEmpty()
+  currentPassword?: string;
+
+  @ApiProperty({ example: 'nova-senha-forte-123', required: false, minLength: 6 })
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  newPassword?: string;
 }

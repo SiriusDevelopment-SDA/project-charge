@@ -97,6 +97,13 @@ export const AppStorage = {
     remove(KEYS.ACCESS_TOKEN);
     remove(KEYS.ACCOUNT);
     remove(KEYS.EMBED_SIGNATURE);
+    remove(KEYS.AUTH_MODE);
+    remove(KEYS.AGENT_NAME);
+    remove(KEYS.ATTENDANT_NAME);
+    remove(KEYS.DISPATCH_COMPANY_NAME);
+    remove(KEYS.COMPANY_NAME);
+    remove(KEYS.COMPANY_CNPJ);
+    remove(KEYS.COMPANY_ACTIVE);
   },
 
   /** Remove dados de sessão + atendente ao fazer login limpo */

@@ -104,7 +104,7 @@ export function ClientesVencidos() {
     useFilterTemplates();
 
   const { clients, setGroupInvoices, setGroupServices, fetchInvoices } = useClient();
-  const { page, setPage, templates } = useTemplate();
+  const { page, setPage, templates, limit } = useTemplate();
 
   useEffect(() => {
     setGroupInvoices(true);
@@ -479,6 +479,7 @@ export function ClientesVencidos() {
           onPrev={() => setPage((p) => Math.max(p - 1, 1))}
           onNext={() => setPage((p) => p + 1)}
           disablePrev={page === 1}
+          disableNext={templates.length < limit}
         />
       </div>
     </PageContainer>

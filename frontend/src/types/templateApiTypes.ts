@@ -161,6 +161,7 @@ export interface ITemplatesContext {
   setLimit: React.Dispatch<SetStateAction<number>>;
   setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
   page: number;
+  limit: number;
   categories: string[];
   filteredTemplates: Template[];
   deleteTemplate: (

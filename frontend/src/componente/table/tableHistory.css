@@ -1,7 +1,7 @@
 /* ESTRUTURA GERAL */
 /* Linhas da tabela */
 table{
-  height: -webkit-fill-available;
+  height: auto;
 }
 .p-datatable tbody tr {
   background-color: #111827;
@@ -25,7 +25,6 @@ table{
   text-align: center;
 }
 
-/* Conteúdo interno do cabeçalho (texto + ícone) */
 .p-datatable thead th .p-column-header-content {
   display: flex;
   align-items: center;
@@ -419,7 +418,10 @@ svg {
 }
 .p-datatable{
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
-/* .p-datatable-wrapper{
-  height: 85%;
-} */
+.p-datatable-wrapper{
+  flex: 1;
+  overflow-y: auto;
+}

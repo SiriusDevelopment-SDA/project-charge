@@ -79,7 +79,7 @@ export default function Table({ data, className }: TableProps) {
       <DataTable
         value={parsedData}
         paginator
-        rows={5}
+        rows={8}
         dataKey="id"
         filters={filters}
         filterDisplay="menu"

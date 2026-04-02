@@ -94,12 +94,16 @@
 }
 
 .active {
-  top: -9px;
-  font-size: 11px;
+  top: 0;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--dropdown-label-active);
-  background: var(--dropdown-label-active-bg);
+  color: #f1ce3d;
+  background: linear-gradient(180deg, rgba(37, 31, 12, 0.96) 0%, rgba(37, 31, 12, 0.84) 100%);
   padding: 0 6px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .valueContainer {

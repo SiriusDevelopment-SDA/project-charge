@@ -221,7 +221,27 @@ export class InvoicesController {
         clients.map((c) => [String(c.clientId), c]),
       );
 
-      invoicesByClientId.forEach((rawInvoices, ixcClientId) => {
+      const ixcEntries = [...invoicesByClientId.entries()]
+        .map(([ixcClientId, rawInvoices]) => ({ ixcClientId, rawInvoices }))
+        .filter(({ ixcClientId }) => clientByIxcId.has(ixcClientId));
+
+      const allInvoiceIds = ixcEntries.flatMap(({ rawInvoices }) =>
+        rawInvoices.map((t) => String(t.id)),
+      );
+
+      const pixByInvoiceId = new Map<string, { status: string; pix: string }>();
+      await Promise.allSettled(
+        allInvoiceIds.map(async (invoiceId) => {
+          try {
+            const pix = await this.ixcService.getPixByInvoice({ companyId: company.id, invoiceId });
+            pixByInvoiceId.set(invoiceId, pix);
+          } catch {
+            pixByInvoiceId.set(invoiceId, { status: 'error', pix: '' });
+          }
+        }),
+      );
+
+      ixcEntries.forEach(({ ixcClientId, rawInvoices }) => {
         const cliente = clientByIxcId.get(ixcClientId);
         if (!cliente) return;
 
@@ -242,7 +262,7 @@ export class InvoicesController {
             invoice_status: 'A Receber',
             ticket_digitable_line: null,
             ticket_pdf_link: null,
-            code_pix: { status: 'error', pix: '' },
+            code_pix: pixByInvoiceId.get(String(t.id)) ?? { status: 'error', pix: '' },
           } as InvoiceMapResultDto;
         });
 

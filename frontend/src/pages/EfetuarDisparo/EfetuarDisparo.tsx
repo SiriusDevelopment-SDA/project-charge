@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import Style from "../EfetuarDisparo/Styles/EfetuarDisparo.module.css";
 import type { Cliente, Template } from "../../types";
 import {
@@ -19,6 +20,7 @@ import { useDispatchPageController } from "../../hooks/controller/dispatch/useDi
 import { isTemplateApproved } from "../../utils/templateStatus";
 
 export default function EfetuarDisparo() {
+  const [isBatchCardDismissed, setIsBatchCardDismissed] = useState(false);
   const {
     dispatch,
     manualLead,
@@ -48,6 +50,10 @@ export default function EfetuarDisparo() {
     handleOpenBatchHistory,
     handleConfirmAttendant,
   } = useDispatchPageController();
+
+  useEffect(() => {
+    setIsBatchCardDismissed(false);
+  }, [dispatch.activeDispatchBatch?.id]);
 
   return (
     <PageContainer className={Style.EfeturarDisparoContainer}>
@@ -163,14 +169,15 @@ export default function EfetuarDisparo() {
             )}
         </div>
 
-        <PreviewBox classname={Style.containerPreview}>
+        <section className={Style.containerPreview}>
           {!dispatch.selectedTemplate
             ? "Selecione um template"
             : dispatch.templateMapVars?.[0]?.mensagem ??
-              dispatch.selectedTemplate.message}
-        </PreviewBox>
+              dispatch.selectedTemplate.message
+          }
+        </section>
 
-        {dispatch.activeDispatchBatch && (
+        {dispatch.activeDispatchBatch && !isBatchCardDismissed && (
           <section className={Style.batchProgressCard}>
             <div className={Style.batchProgressHeader}>
               <div>
@@ -181,21 +188,30 @@ export default function EfetuarDisparo() {
                   {dispatch.activeDispatchBatch.totalRecipients} processados
                 </p>
               </div>
-              {isFinishedBatch && (
-                <div className={Style.batchProgressActions}>
-                  <MyButton
-                    text="Ver lote no historico"
-                    variant="secondary"
-                    onClick={handleOpenBatchHistory}
-                  />
-                  <MyButton
-                    text="Fechar painel"
-                    variant="secondary"
-                    onClick={dispatch.clearActiveDispatchBatch}
-                  />
-                </div>
-              )}
+              <button
+                type="button"
+                className={Style.batchProgressDismiss}
+                onClick={() => setIsBatchCardDismissed(true)}
+                aria-label="Fechar painel de lote"
+                title="Fechar painel"
+              >
+                ×
+              </button>
             </div>
+            {isFinishedBatch && (
+              <div className={Style.batchProgressActions}>
+                <MyButton
+                  text="Ver lote no historico"
+                  variant="secondary"
+                  onClick={handleOpenBatchHistory}
+                />
+                <MyButton
+                  text="Encerrar acompanhamento"
+                  variant="secondary"
+                  onClick={dispatch.clearActiveDispatchBatch}
+                />
+              </div>
+            )}
 
             <div className={Style.batchProgressBar}>
               <div

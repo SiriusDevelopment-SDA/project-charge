@@ -335,8 +335,8 @@ export function useCreateCampaignPageController() {
     navigate(`/campanhas${location.search}`);
   }, [form, location.search, modal, navigate, reload]);
 
-  const handleOpenPreview = useCallback(() => {
-    form.handleSubmit(modal.openCreate, () => setOpenAttendantModal(true));
+  const handleOpenPreview = useCallback(async () => {
+    await form.handleSubmit(modal.openCreate, () => setOpenAttendantModal(true));
   }, [form, modal]);
 
   const handleConfirmPreview = useCallback(async () => {
@@ -357,7 +357,7 @@ export function useCreateCampaignPageController() {
     setOpenAttendantModal(false);
   }, []);
 
-  const handleConfirmAttendant = useCallback(() => {
+  const handleConfirmAttendant = useCallback(async () => {
     const normalized = attendantName.trim();
     if (!normalized) {
       toast.warning("Informe o nome do atendente.");
@@ -366,7 +366,7 @@ export function useCreateCampaignPageController() {
 
     AppStorage.setAttendantName(normalized);
     setOpenAttendantModal(false);
-    form.handleSubmit(modal.openCreate);
+    await form.handleSubmit(modal.openCreate);
   }, [attendantName, form, modal]);
 
   return {
