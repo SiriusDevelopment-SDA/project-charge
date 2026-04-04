@@ -2,6 +2,8 @@ import { Api } from "../api";
 import type {
   InvoiceRuleFilter,
   InvoiceBatchResponse,
+  InvoiceSyncState,
+  OverdueClientsSearchResponse,
   responseClients,
   Service,
 } from "../../types";
@@ -59,5 +61,28 @@ export class ClientService {
 
   static async listServices(companyId: string) {
     return Api.post<Service[]>("/services", { companyId });
+  }
+
+  static async searchOverdueClients(params: {
+    account: string;
+    query: string;
+    page: number;
+    limit: number;
+    agingMin?: number;
+    agingMax?: number;
+    debtMin?: number;
+    debtMax?: number;
+  }) {
+    return Api.post<OverdueClientsSearchResponse>("/invoices/overdue-clients/search", params);
+  }
+
+  static async getInvoiceSyncState(account: string) {
+    return Api.get<InvoiceSyncState>(`/invoices/sync-state/${account}`);
+  }
+
+  static async syncInvoices(companyId: string) {
+    return Api.post<{ message: string; companyId: string; status: string }>(
+      `/invoices/sync/company/${companyId}`,
+    );
   }
 }

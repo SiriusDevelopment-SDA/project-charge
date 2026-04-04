@@ -53,6 +53,22 @@ export default function DynamicModal({
             <div className={styles.modalCustomContent}>
               {customContent}
             </div>
+            {buttons && buttons.length > 0 && (
+              <div className={styles.modalActions}>
+                {buttons.map((btn, index) => (
+                  <button
+                    key={index}
+                    className={`${styles.btn} ${
+                      styles[`btn-${btn.variant || "primary"}`]
+                    }`}
+                    onClick={btn.onClick}
+                    disabled={btn.disabled}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         ) : (
           <>

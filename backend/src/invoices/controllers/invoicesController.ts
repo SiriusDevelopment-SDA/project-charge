@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   Logger,
   NotFoundException,
@@ -9,13 +10,14 @@ import {
   Post,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Raw, Repository } from 'typeorm';
+import { Brackets, In, Raw, Repository } from 'typeorm';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
 import { IXCInvoicesService } from '../services/ixcInvoicesService';
 import { HubsoftInvoicesService } from '../services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../services/sgpInvoicesService';
+import { InvoiceSyncCron } from '../invoice-sync.cron';
 import {
   InvoiceBatchPartialDto,
   InvoiceBatchResponseDto,
@@ -45,6 +47,7 @@ export class InvoicesController {
     private readonly ixcService: IXCInvoicesService,
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
+    private readonly invoiceSyncCron: InvoiceSyncCron,
   ) {}
 
   @Post('search')
@@ -144,17 +147,268 @@ export class InvoicesController {
     return { results };
   }
 
-  @Post('overdue/:companyId')
+  @Post('overdue-clients/search')
   @HttpCode(200)
-  async getInvoicesOverdue(@Param('companyId') companyId: string) {
-    const data = await this.hubsoftService.getInvoicesOverdue(companyId);
+  @ApiOperation({ summary: 'Lista clientes vencidos a partir do snapshot local de faturas' })
+  async searchOverdueClients(
+    @Body()
+    body: {
+      account: string;
+      query?: string;
+      page?: number;
+      limit?: number;
+      agingMin?: number;
+      agingMax?: number;
+      debtMin?: number;
+      debtMax?: number;
+    },
+  ) {
+    const account = String(body.account ?? '').trim();
+    if (!account) {
+      throw new BadRequestException('Account é obrigatório.');
+    }
+
+    const safePage = Math.max(1, Number(body.page ?? 1));
+    const safeLimit = Math.min(100, Math.max(1, Number(body.limit ?? 24)));
+    const skip = (safePage - 1) * safeLimit;
+    const query = String(body.query ?? '').trim();
+    const normalizedQuery = query.replace(/\D/g, '');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todaySql = today.toISOString().split('T')[0];
+    const dueDateSql = this.getInvoiceDueDateSql('invoice.expiration');
+    const amountSql = this.getInvoiceAmountSql('invoice.value');
+
+    const agingMin = body.agingMin != null ? Number(body.agingMin) : null;
+    const agingMax = body.agingMax != null ? Number(body.agingMax) : null;
+    const debtMin = body.debtMin != null ? Number(body.debtMin) : null;
+    const debtMax = body.debtMax != null ? Number(body.debtMax) : null;
+    const hasStructuredFilter = agingMin != null || agingMax != null || debtMin != null || debtMax != null;
+
+    const baseQuery = this.clientRepo
+      .createQueryBuilder('client')
+      .innerJoin('client.company', 'company')
+      .innerJoin(
+        'client.invoices',
+        'invoice',
+        `LOWER(TRIM(invoice.status)) = 'a receber' AND ${dueDateSql} < :today`,
+        { today: todaySql },
+      )
+      .where('company.account_chatwoot = :account', { account });
+
+    if (query) {
+      baseQuery.andWhere(
+        new Brackets((qb) => {
+          qb.where('client.name ILIKE :query', { query: `%${query}%` })
+            .orWhere('client.whatsapp ILIKE :query', { query: `%${query}%` });
+
+          if (normalizedQuery) {
+            qb.orWhere(
+              "regexp_replace(client.cnpj_cpf, '\\D', '', 'g') ILIKE :normalizedQuery",
+              { normalizedQuery: `%${normalizedQuery}%` },
+            );
+          }
+        }),
+      );
+    }
+
+    const [summaryRow, mappedClients, clientsWithSnapshot, clientsWithOpenInvoices] =
+      await Promise.all([
+        baseQuery
+          .clone()
+          .select('COUNT(DISTINCT client.id)', 'totalClients')
+          .addSelect('COUNT(invoice.id)', 'totalInvoices')
+          .addSelect(`COALESCE(SUM(${amountSql}), 0)`, 'totalDebt')
+          .getRawOne<{ totalClients: string; totalInvoices: string; totalDebt: string }>(),
+        this.clientRepo
+          .createQueryBuilder('client')
+          .innerJoin('client.company', 'company')
+          .where('company.account_chatwoot = :account', { account })
+          .getCount(),
+        this.clientRepo
+          .createQueryBuilder('client')
+          .innerJoin('client.company', 'company')
+          .innerJoin('client.invoices', 'invoice')
+          .where('company.account_chatwoot = :account', { account })
+          .select('client.id')
+          .distinct(true)
+          .getCount(),
+        this.clientRepo
+          .createQueryBuilder('client')
+          .innerJoin('client.company', 'company')
+          .innerJoin('client.invoices', 'invoice', "LOWER(TRIM(invoice.status)) = 'a receber'")
+          .where('company.account_chatwoot = :account', { account })
+          .select('client.id')
+          .distinct(true)
+          .getCount(),
+      ]);
+
+    // Grouped query with optional HAVING for aging/debt filters
+    const groupedQuery = baseQuery
+      .clone()
+      .select('client.id', 'id')
+      .addSelect(`MIN(${dueDateSql})`, 'oldestExpiration')
+      .groupBy('client.id');
+
+    if (agingMin != null) {
+      groupedQuery.andHaving(`MAX(CURRENT_DATE - ${dueDateSql}) >= :agingMin`, { agingMin });
+    }
+    if (agingMax != null) {
+      groupedQuery.andHaving(`MAX(CURRENT_DATE - ${dueDateSql}) <= :agingMax`, { agingMax });
+    }
+    if (debtMin != null) {
+      groupedQuery.andHaving(`SUM(${amountSql}) >= :debtMin`, { debtMin });
+    }
+    if (debtMax != null) {
+      groupedQuery.andHaving(`SUM(${amountSql}) <= :debtMax`, { debtMax });
+    }
+
+    groupedQuery.orderBy(`MIN(${dueDateSql})`, 'ASC');
+
+    let total: number;
+    let clientIds: string[];
+
+    if (hasStructuredFilter) {
+      const allRows = await groupedQuery.getRawMany<{ id: string; oldestExpiration: string }>();
+      total = allRows.length;
+      clientIds = allRows.slice(skip, skip + safeLimit).map((row) => row.id);
+    } else {
+      const [count, pageRows] = await Promise.all([
+        baseQuery.clone().select('client.id').distinct(true).getCount(),
+        groupedQuery.offset(skip).limit(safeLimit).getRawMany<{ id: string; oldestExpiration: string }>(),
+      ]);
+      total = count;
+      clientIds = pageRows.map((row) => row.id);
+    }
+
+    if (!clientIds.length) {
+      return {
+        data: [],
+        page: safePage,
+        limit: safeLimit,
+        total,
+      };
+    }
+
+    const clients = await this.clientRepo.find({
+      where: { id: In(clientIds) },
+      relations: ['company', 'services', 'invoices'],
+    });
+
+    const positionById = new Map(clientIds.map((id, index) => [id, index]));
+
+    const data = clients
+      .map((client) => {
+        const overdueInvoices = (client.invoices ?? [])
+          .filter((invoice) => {
+            const safeStatus = String(invoice.status ?? '').trim().toLowerCase();
+            return safeStatus === 'a receber' && this.isInvoiceOverdue(invoice.expiration, today);
+          })
+          .sort((a, b) => {
+            const first = this.parseInvoiceDate(a.expiration)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+            const second = this.parseInvoiceDate(b.expiration)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+            return first - second;
+          });
+
+        return {
+          ...client,
+          company: client.company
+            ? {
+                id: client.company.id,
+                name: client.company.name,
+                account: client.company.account_chatwoot,
+              }
+            : null,
+          invoices: {
+            status: overdueInvoices.length ? 'success' : 'error',
+            message: overdueInvoices.length
+              ? 'Faturas vencidas encontradas.'
+              : 'Nenhuma fatura vencida encontrada.',
+            list: overdueInvoices.map((invoice) => ({
+              invoice_id: String(invoice.id_fatura ?? ''),
+              contract_id: String(invoice.contractId ?? ''),
+              invoice_due_date: this.toBrDate(invoice.expiration),
+              invoice_amount: String(invoice.value ?? ''),
+              invoice_status: invoice.status,
+              ticket_digitable_line: invoice.ticketDigitableLine ?? null,
+              ticket_pdf_link: invoice.ticketPdfLink ?? null,
+              code_pix: invoice.pixCode
+                ? { status: 'success', pix: invoice.pixCode }
+                : null,
+            })),
+          },
+        };
+      })
+      .filter((client) => client.invoices.list.length > 0)
+      .sort(
+        (a, b) =>
+          (positionById.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (positionById.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+      );
 
     return {
-      status: data.length ? 'success' : 'error',
-      message: data.length
-        ? 'Clientes inadimplentes encontrados com sucesso.'
-        : 'Nenhum cliente inadimplente encontrado.',
       data,
+      page: safePage,
+      limit: safeLimit,
+      total,
+      summary: {
+        totalOverdueClients: Number(summaryRow?.totalClients ?? total),
+        totalOverdueInvoices: Number(summaryRow?.totalInvoices ?? 0),
+        totalDebt: Number(summaryRow?.totalDebt ?? 0),
+        mappedClients,
+        clientsWithSnapshot,
+        clientsWithOpenInvoices,
+      },
+    };
+  }
+
+  @Get('sync-state/:account')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Retorna o status da última sincronização de faturas por account' })
+  async getSyncState(@Param('account') account: string) {
+    const syncState = await this.invoiceSyncCron.getStateByAccount(account);
+
+    if (!syncState?.company) {
+      throw new NotFoundException(`Nenhuma empresa encontrada para a account ${account}.`);
+    }
+
+    return {
+      companyId: syncState.company.id,
+      companyName: syncState.company.name,
+      account: syncState.company.account_chatwoot,
+      status: syncState.status,
+      message: syncState.message,
+      invoicesSynced: syncState.invoicesSynced,
+      lastStartedAt: syncState.lastStartedAt?.toISOString() ?? null,
+      lastFinishedAt: syncState.lastFinishedAt?.toISOString() ?? null,
+      lastSuccessAt: syncState.lastSuccessAt?.toISOString() ?? null,
+      durationMs: syncState.durationMs ? Number(syncState.durationMs) : null,
+      updatedAt: syncState.updatedAt?.toISOString() ?? null,
+    };
+  }
+
+  @Post('sync/company/:companyId')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Dispara sincronização manual de faturas da empresa no ERP' })
+  async syncCompanyInvoices(@Param('companyId') companyId: string) {
+    const company = await this.companyRepo.findOne({
+      where: { id: companyId, active: true },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Empresa ${companyId} não encontrada.`);
+    }
+
+    void this.invoiceSyncCron.syncCompanyById(companyId).catch((error) => {
+      this.logger.error(
+        `[InvoiceSync] Falha na sincronização manual da empresa ${companyId}: ${error?.message ?? error}`,
+      );
+    });
+
+    return {
+      message: 'Sincronização iniciada.',
+      companyId,
+      status: 'running',
     };
   }
 
@@ -437,5 +691,54 @@ export class InvoicesController {
       data: resultados,
       errors: errors.length ? errors : undefined,
     };
+  }
+
+  private toBrDate(value: string) {
+    if (!value) return value;
+    if (value.includes('/')) return value;
+
+    const [year, month, day] = value.split('T')[0].split('-');
+    if (!year || !month || !day) return value;
+
+    return `${day}/${month}/${year}`;
+  }
+
+  private parseInvoiceDate(value: string): Date | null {
+    if (!value) return null;
+
+    if (value.includes('/')) {
+      const [day, month, year] = value.split('/').map(Number);
+      const parsed = new Date(year, month - 1, day);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const [year, month, day] = value.split('T')[0].split('-').map(Number);
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private isInvoiceOverdue(value: string, today: Date) {
+    const dueDate = this.parseInvoiceDate(value);
+    if (!dueDate) return false;
+
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  }
+
+  private getInvoiceDueDateSql(alias: string) {
+    return `CASE
+      WHEN ${alias} ~ '^\\d{2}/\\d{2}/\\d{4}$' THEN to_date(${alias}, 'DD/MM/YYYY')
+      WHEN ${alias} ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN to_date(${alias}, 'YYYY-MM-DD')
+      ELSE NULL
+    END`;
+  }
+
+  private getInvoiceAmountSql(alias: string) {
+    return `CASE
+      WHEN ${alias} LIKE '%,%' AND ${alias} LIKE '%.%' THEN REPLACE(REPLACE(${alias}, '.', ''), ',', '.')::numeric
+      WHEN ${alias} LIKE '%,%' THEN REPLACE(${alias}, ',', '.')::numeric
+      WHEN NULLIF(${alias}, '') IS NULL THEN 0
+      ELSE ${alias}::numeric
+    END`;
   }
 }

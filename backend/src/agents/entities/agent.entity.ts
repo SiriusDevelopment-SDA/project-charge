@@ -9,6 +9,9 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/companies';
 
+export const AGENT_ROLES = ['admin', 'operator'] as const;
+export type AgentRole = (typeof AGENT_ROLES)[number];
+
 @Entity('agents')
 export class Agent {
   @PrimaryGeneratedColumn('uuid')
@@ -22,6 +25,16 @@ export class Agent {
 
   @Column()
   passwordHash!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: 'admin',
+  })
+  role!: AgentRole;
+
+  @Column({ type: 'boolean', default: true })
+  active!: boolean;
 
   @ManyToOne(() => Company, (company) => company.agents, { nullable: false })
   @JoinColumn({ name: 'companyId' })

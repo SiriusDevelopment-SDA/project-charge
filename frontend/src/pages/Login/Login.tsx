@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { AuthService } from "../../services/auth/auth.service";
 import { AppStorage } from "../../services/storage/storage.service";
 import { getErrorMessage } from "../../utils/error";
+import { createNormalizedSearchParams } from "../../utils/locationSearch";
 import styles from "./Styles/Login.module.css";
 import logoCoraxy from "../../assets/icons/coraxy.svg";
 
@@ -44,9 +45,11 @@ export function Login() {
           ? (location.state as { from: string }).from
           : "/";
 
-      const targetPath = from.includes("?")
-        ? `${from}&account=${result.company.account}`
-        : `${from}?account=${result.company.account}`;
+      const targetUrl = new URL(from, window.location.origin);
+      const normalizedParams = createNormalizedSearchParams(targetUrl.search);
+      normalizedParams.set("account", result.company.account);
+      const normalizedSearch = normalizedParams.toString();
+      const targetPath = `${targetUrl.pathname}${normalizedSearch ? `?${normalizedSearch}` : ""}${targetUrl.hash}`;
 
       navigate(targetPath, { replace: true });
     } catch (error: unknown) {

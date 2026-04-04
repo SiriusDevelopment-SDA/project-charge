@@ -4,6 +4,7 @@ import { AuthService } from "../services/auth/auth.service";
 import { AppStorage } from "../services/storage/storage.service";
 import { Navbar } from "../componente/Index";
 import Style from "./AccountLayout.module.css";
+import { buildNormalizedSearch, createNormalizedSearchParams } from "../utils/locationSearch";
 
 export function AccountLayout() {
   const [searchParams] = useSearchParams();
@@ -21,7 +22,9 @@ export function AccountLayout() {
     const tokenParam = searchParams.get("token");
     const hasEmbedCredentials = Boolean(accountParam && tokenParam);
     const accessToken = AppStorage.getAccessToken();
-    const currentPath = `${location.pathname}${location.search}`;
+    const normalizedSearch = buildNormalizedSearch(location.search);
+    const normalizedParams = createNormalizedSearchParams(location.search);
+    const currentPath = `${location.pathname}${normalizedSearch}`;
     let isMounted = true;
 
     setIsAuthorized(false);
@@ -49,7 +52,7 @@ export function AccountLayout() {
           setIsAuthorized(true);
           setIsAuthorizing(false);
 
-          const params = new URLSearchParams(location.search);
+          const params = createNormalizedSearchParams(location.search);
           params.delete("token");
           params.set("account", result.company.account);
           navigate(`${location.pathname}?${params.toString()}`, {
@@ -106,10 +109,17 @@ export function AccountLayout() {
         setIsAuthorized(true);
         setIsAuthorizing(false);
 
-        if (accountParam !== result.company.account) {
-          const params = new URLSearchParams(location.search);
-          params.set("account", result.company.account);
-          navigate(`${location.pathname}?${params.toString()}`, {
+        const normalizedAccount = normalizedParams.get("account");
+        const expectedParams = createNormalizedSearchParams(location.search);
+        expectedParams.set("account", result.company.account);
+        const expectedSearch = expectedParams.toString() ? `?${expectedParams.toString()}` : "";
+
+        if (
+          normalizedAccount !== result.company.account ||
+          location.search !== normalizedSearch ||
+          location.search !== expectedSearch
+        ) {
+          navigate(`${location.pathname}${expectedSearch}`, {
             replace: true,
           });
         }

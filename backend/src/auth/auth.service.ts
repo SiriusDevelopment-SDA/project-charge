@@ -12,11 +12,25 @@ import {
   CreateAgentDto,
   EmbedLoginDto,
   LoginAgentDto,
+  ManageAgentDto,
+  PromiseReminderTiming,
+  UpdatePromiseAutomationSettingsDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
 import { JwtService } from '@nestjs/jwt';
-import { Agent } from '../agents/entities/agent.entity';
+import { Agent, type AgentRole } from '../agents/entities/agent.entity';
 import { compare, hash } from 'bcryptjs';
+import { Templates } from '../templates/entities/templatesMeta';
+import { ClientInteraction } from '../client-interaction/entities/client-interaction.entity';
+
+type PromiseAutomationSettings = {
+  reminderEnabled: boolean;
+  reminderTiming: PromiseReminderTiming;
+  autoBreakEnabled: boolean;
+  checkPaymentBeforeBreak: boolean;
+  reminderTemplateId: string | null;
+  reminderTemplateName: string | null;
+};
 
 type JwtPayload = {
   sub: string;
@@ -25,6 +39,8 @@ type JwtPayload = {
   agentId?: string;
   agentName?: string;
   agentEmail?: string;
+  agentRole?: AgentRole;
+  agentActive?: boolean;
 };
 
 @Injectable()
@@ -34,6 +50,10 @@ export class AuthService {
     private readonly companyRepository: Repository<Company>,
     @InjectRepository(Agent)
     private readonly agentRepository: Repository<Agent>,
+    @InjectRepository(Templates)
+    private readonly templateRepository: Repository<Templates>,
+    @InjectRepository(ClientInteraction)
+    private readonly clientInteractionRepository: Repository<ClientInteraction>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -46,6 +66,8 @@ export class AuthService {
         email: true,
         name: true,
         passwordHash: true,
+        role: true,
+        active: true,
         company: {
           id: true,
           name: true,
@@ -57,6 +79,10 @@ export class AuthService {
 
     if (!agent) {
       throw new UnauthorizedException('Credenciais invalidas');
+    }
+
+    if (!agent.active) {
+      throw new UnauthorizedException('Usuario bloqueado.');
     }
 
     const passwordOk = await compare(dto.password, agent.passwordHash);
@@ -73,6 +99,8 @@ export class AuthService {
         agentId: agent.id,
         agentName: agent.name ?? agent.email,
         agentEmail: agent.email,
+        agentRole: agent.role,
+        agentActive: agent.active,
       },
     );
   }
@@ -103,14 +131,17 @@ export class AuthService {
     );
   }
 
-  async createAgent(dto: CreateAgentDto) {
-    const company = await this.companyRepository.findOne({
-      where: { id: dto.companyId },
-      select: { id: true },
-    });
+  async createAgent(
+    authorization: string | undefined,
+    dto: CreateAgentDto,
+  ) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+    const companyId = dto.companyId?.trim() || actingAgent.company.id;
 
-    if (!company) {
-      throw new NotFoundException('Empresa nao encontrada');
+    if (companyId !== actingAgent.company.id) {
+      throw new BadRequestException(
+        'Nao e permitido criar usuarios em outra empresa.',
+      );
     }
 
     const normalizedEmail = dto.email.toLowerCase().trim();
@@ -128,7 +159,9 @@ export class AuthService {
       name: dto.name.trim(),
       email: normalizedEmail,
       passwordHash,
-      company: { id: dto.companyId },
+      role: dto.role === 'admin' ? 'admin' : 'operator',
+      active: true,
+      company: { id: companyId },
     });
 
     const saved = await this.agentRepository.save(created);
@@ -138,7 +171,11 @@ export class AuthService {
         id: saved.id,
         name: saved.name,
         email: saved.email,
-        companyId: dto.companyId,
+        role: saved.role,
+        active: saved.active,
+        createdAt: saved.createdAt,
+        updatedAt: saved.updatedAt,
+        companyId,
       },
     };
   }
@@ -154,6 +191,7 @@ export class AuthService {
         account_chatwoot: true,
         cnpj: true,
         active: true,
+        config: true,
       },
     });
 
@@ -172,6 +210,8 @@ export class AuthService {
             id: true,
             name: true,
             email: true,
+            role: true,
+            active: true,
             company: {
               id: true,
             },
@@ -192,13 +232,107 @@ export class AuthService {
         cnpj: company.cnpj ?? '',
         active: company.active,
       },
+      promiseAutomation: this.normalizePromiseAutomationSettings(company.config),
       agent: agent
         ? {
             id: agent.id,
             name: agent.name ?? null,
             email: agent.email,
+            role: agent.role,
+            active: agent.active,
           }
         : null,
+    };
+  }
+
+  async getPromiseAutomationSettings(authorization?: string) {
+    const company = await this.resolveCompanyFromAuthorization(authorization);
+
+    return {
+      success: true,
+      promiseAutomation: this.normalizePromiseAutomationSettings(company.config),
+    };
+  }
+
+  async updatePromiseAutomationSettings(
+    authorization: string | undefined,
+    dto: UpdatePromiseAutomationSettingsDto,
+  ) {
+    const company = await this.resolveCompanyFromAuthorization(authorization);
+    const currentConfig = this.parseCompanyConfig(company.config);
+    const currentSettings = this.normalizePromiseAutomationSettings(currentConfig);
+
+    const nextSettings: PromiseAutomationSettings = {
+      reminderEnabled: dto.reminderEnabled ?? currentSettings.reminderEnabled,
+      reminderTiming: dto.reminderTiming ?? currentSettings.reminderTiming,
+      autoBreakEnabled: dto.autoBreakEnabled ?? currentSettings.autoBreakEnabled,
+      checkPaymentBeforeBreak:
+        dto.checkPaymentBeforeBreak ?? currentSettings.checkPaymentBeforeBreak,
+      reminderTemplateId:
+        dto.reminderTemplateId === undefined
+          ? currentSettings.reminderTemplateId
+          : dto.reminderTemplateId,
+      reminderTemplateName:
+        dto.reminderTemplateName === undefined
+          ? currentSettings.reminderTemplateName
+          : dto.reminderTemplateName,
+    };
+
+    if (nextSettings.reminderEnabled && !nextSettings.reminderTemplateId) {
+      throw new BadRequestException(
+        'Selecione um template para o lembrete automatico.',
+      );
+    }
+
+    if (nextSettings.reminderTemplateId) {
+      const template = await this.templateRepository.findOne({
+        where: {
+          id: nextSettings.reminderTemplateId,
+          company: { id: company.id },
+        },
+        relations: ['company'],
+        select: {
+          id: true,
+          name: true,
+          meta_status: true,
+          isEnabled: true,
+          active: true,
+          company: { id: true },
+        },
+      });
+
+      if (!template) {
+        throw new NotFoundException(
+          'Template de lembrete nao encontrado para esta empresa.',
+        );
+      }
+
+      if (!template.isEnabled || !template.active) {
+        throw new BadRequestException(
+          'O template de lembrete selecionado esta desativado.',
+        );
+      }
+
+      if (String(template.meta_status).toUpperCase() !== 'APPROVED') {
+        throw new BadRequestException(
+          'O template de lembrete precisa estar aprovado para uso.',
+        );
+      }
+
+      nextSettings.reminderTemplateName = template.name;
+    }
+
+    company.config = {
+      ...currentConfig,
+      promiseAutomation: nextSettings,
+    };
+
+    await this.companyRepository.save(company);
+
+    return {
+      success: true,
+      message: 'Configuracoes de promessa atualizadas com sucesso.',
+      promiseAutomation: nextSettings,
     };
   }
 
@@ -222,6 +356,8 @@ export class AuthService {
         name: true,
         email: true,
         passwordHash: true,
+        role: true,
+        active: true,
         company: {
           id: true,
         },
@@ -281,6 +417,175 @@ export class AuthService {
         id: saved.id,
         name: saved.name ?? null,
         email: saved.email,
+        role: saved.role,
+        active: saved.active,
+      },
+    };
+  }
+
+  async listCompanyAgents(authorization?: string) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+
+    const agents = await this.agentRepository.find({
+      where: { company: { id: actingAgent.company.id } },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true,
+        updatedAt: true,
+        company: { id: true },
+      },
+      order: {
+        name: 'ASC',
+        email: 'ASC',
+      },
+    });
+
+    return {
+      success: true,
+      agents: agents.map((agent) => ({
+        id: agent.id,
+        name: agent.name ?? null,
+        email: agent.email,
+        role: agent.role,
+        active: agent.active,
+        createdAt: agent.createdAt,
+        updatedAt: agent.updatedAt,
+      })),
+    };
+  }
+
+  async manageCompanyAgent(
+    authorization: string | undefined,
+    agentId: string,
+    dto: ManageAgentDto,
+  ) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+    const normalizedAgentId = String(agentId).trim();
+
+    if (!normalizedAgentId) {
+      throw new BadRequestException('Agente nao informado.');
+    }
+
+    const agent = await this.agentRepository.findOne({
+      where: {
+        id: normalizedAgentId,
+        company: { id: actingAgent.company.id },
+      },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        company: { id: true },
+      },
+    });
+
+    if (!agent) {
+      throw new NotFoundException('Agente nao encontrado para esta empresa.');
+    }
+
+    const isSelf = agent.id === actingAgent.id;
+    const nextRole = dto.role ?? agent.role;
+    const nextActive = dto.active ?? agent.active;
+
+    if (isSelf && dto.active === false) {
+      throw new BadRequestException('Voce nao pode bloquear o proprio usuario.');
+    }
+
+    if (isSelf && dto.role && dto.role !== agent.role) {
+      throw new BadRequestException('Voce nao pode alterar a propria role.');
+    }
+
+    if (agent.role === 'admin' && (nextRole !== 'admin' || nextActive === false)) {
+      await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
+    }
+
+    agent.role = nextRole;
+    agent.active = nextActive;
+
+    const saved = await this.agentRepository.save(agent);
+
+    return {
+      success: true,
+      message: 'Usuario atualizado com sucesso.',
+      agent: {
+        id: saved.id,
+        name: saved.name ?? null,
+        email: saved.email,
+        role: saved.role,
+        active: saved.active,
+      },
+    };
+  }
+
+  async removeCompanyAgent(
+    authorization: string | undefined,
+    agentId: string,
+  ) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+
+    const normalizedAgentId = String(agentId).trim();
+    if (!normalizedAgentId) {
+      throw new BadRequestException('Agente nao informado.');
+    }
+
+    if (normalizedAgentId === actingAgent.id) {
+      throw new BadRequestException(
+        'Voce nao pode remover o proprio usuario logado.',
+      );
+    }
+
+    const agent = await this.agentRepository.findOne({
+      where: {
+        id: normalizedAgentId,
+        company: { id: actingAgent.company.id },
+      },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        company: { id: true },
+      },
+    });
+
+    if (!agent) {
+      throw new NotFoundException('Agente nao encontrado para esta empresa.');
+    }
+
+    if (agent.role === 'admin' && agent.active) {
+      await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
+    }
+
+    await this.clientInteractionRepository.update(
+      {
+        company_id: actingAgent.company.id,
+        agent_id: normalizedAgentId,
+      },
+      {
+        agent_id: null,
+      },
+    );
+
+    await this.agentRepository.remove(agent);
+
+    return {
+      success: true,
+      message: 'Usuario removido com sucesso.',
+      removedAgent: {
+        id: agent.id,
+        name: agent.name ?? null,
+        email: agent.email,
+        role: agent.role,
       },
     };
   }
@@ -294,6 +599,8 @@ export class AuthService {
       agentId?: string;
       agentName?: string;
       agentEmail?: string;
+      agentRole?: AgentRole;
+      agentActive?: boolean;
     },
   ) {
     const payload: JwtPayload = {
@@ -303,6 +610,8 @@ export class AuthService {
       agentId: agent?.agentId,
       agentName: agent?.agentName,
       agentEmail: agent?.agentEmail,
+      agentRole: agent?.agentRole,
+      agentActive: agent?.agentActive,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -321,6 +630,8 @@ export class AuthService {
             id: agent.agentId,
             name: agent.agentName ?? null,
             email: agent.agentEmail ?? null,
+            role: agent.agentRole ?? 'operator',
+            active: agent.agentActive ?? true,
           }
         : null,
     };
@@ -340,5 +651,138 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Token invalido');
     }
+  }
+
+  private async resolveCompanyFromAuthorization(authorization?: string) {
+    const payload = await this.getTokenPayload(authorization);
+
+    const company = await this.companyRepository.findOne({
+      where: { id: payload.sub, account_chatwoot: String(payload.account) },
+      select: {
+        id: true,
+        name: true,
+        account_chatwoot: true,
+        config: true,
+      },
+    });
+
+    if (!company) {
+      throw new UnauthorizedException('Empresa nao encontrada');
+    }
+
+    return company;
+  }
+
+  private async requireAdminAgent(authorization?: string) {
+    const payload = await this.getTokenPayload(authorization);
+
+    if (!payload.agentId) {
+      throw new UnauthorizedException(
+        'Gestao de equipe disponivel apenas para usuarios autenticados.',
+      );
+    }
+
+    const agent = await this.agentRepository.findOne({
+      where: {
+        id: payload.agentId,
+        company: { id: payload.sub },
+      },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        company: { id: true },
+      },
+    });
+
+    if (!agent || !agent.active) {
+      throw new UnauthorizedException('Agente nao encontrado ou bloqueado.');
+    }
+
+    if (agent.role !== 'admin') {
+      throw new UnauthorizedException(
+        'Apenas administradores podem gerenciar a equipe.',
+      );
+    }
+
+    return agent;
+  }
+
+  private async ensureCompanyHasAnotherAdmin(
+    companyId: string,
+    excludingAgentId: string,
+  ) {
+    const adminCount = await this.agentRepository.count({
+      where: {
+        company: { id: companyId },
+        role: 'admin',
+        active: true,
+      },
+    });
+
+    const targetIsActiveAdmin = await this.agentRepository.exists({
+      where: {
+        id: excludingAgentId,
+        company: { id: companyId },
+        role: 'admin',
+        active: true,
+      },
+    });
+
+    if (targetIsActiveAdmin && adminCount <= 1) {
+      throw new BadRequestException(
+        'A empresa precisa manter ao menos um administrador ativo.',
+      );
+    }
+  }
+
+  private parseCompanyConfig(config: Company['config'] | string | null | undefined) {
+    if (!config) return {};
+    if (typeof config === 'string') {
+      try {
+        return JSON.parse(config) as Record<string, unknown>;
+      } catch {
+        return {};
+      }
+    }
+
+    return config;
+  }
+
+  private normalizePromiseAutomationSettings(
+    config: Company['config'] | string | null | undefined,
+  ): PromiseAutomationSettings {
+    const parsedConfig = this.parseCompanyConfig(config);
+    const rawSettings = parsedConfig.promiseAutomation as
+      | Partial<PromiseAutomationSettings>
+      | undefined;
+
+    const reminderTiming =
+      rawSettings?.reminderTiming === 'same_day' ||
+      rawSettings?.reminderTiming === 'both'
+        ? rawSettings.reminderTiming
+        : 'day_before';
+
+    return {
+      reminderEnabled: Boolean(rawSettings?.reminderEnabled ?? false),
+      reminderTiming,
+      autoBreakEnabled: Boolean(rawSettings?.autoBreakEnabled ?? false),
+      checkPaymentBeforeBreak: Boolean(
+        rawSettings?.checkPaymentBeforeBreak ?? true,
+      ),
+      reminderTemplateId:
+        typeof rawSettings?.reminderTemplateId === 'string' &&
+        rawSettings.reminderTemplateId.trim()
+          ? rawSettings.reminderTemplateId.trim()
+          : null,
+      reminderTemplateName:
+        typeof rawSettings?.reminderTemplateName === 'string' &&
+        rawSettings.reminderTemplateName.trim()
+          ? rawSettings.reminderTemplateName.trim()
+          : null,
+    };
   }
 }

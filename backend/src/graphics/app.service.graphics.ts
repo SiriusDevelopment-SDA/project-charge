@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { Overdue } from '../invoices/entities/Overdue';
+import { Invoice } from '../invoices/entities/invoices';
 import { Client } from '../clients/entities.ts/clients';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
@@ -12,8 +12,8 @@ import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 export class AppServiceGraphics {
 
   constructor(
-    @InjectRepository(Overdue)
-    private readonly overdueRepo: Repository<Overdue>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepo: Repository<Invoice>,
 
     @InjectRepository(Client)
     private readonly clientRepo: Repository<Client>,
@@ -29,76 +29,63 @@ export class AppServiceGraphics {
   ) { }
 
   async getCharges(companyId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
 
-    // Buscar clientes da empresa
-    const clients = await this.clientRepo.find({
-      where: {
-        company: {
-          id: companyId
-        }
-      }
-    });
+    const dueDateSql = `CASE
+      WHEN invoice.expiration ~ '^\\d{2}/\\d{2}/\\d{4}$' THEN TO_DATE(invoice.expiration, 'DD/MM/YYYY')
+      WHEN invoice.expiration ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN TO_DATE(invoice.expiration, 'YYYY-MM-DD')
+      ELSE NULL
+    END`;
 
-    // Buscar inadimplentes
-    const overdueList = await this.overdueRepo.find({
-      where: { companyId }
-    });
+    const [clients, overdueRows] = await Promise.all([
+      this.clientRepo.find({
+        where: { company: { id: companyId } },
+        select: ['cnpj_cpf'],
+      }),
+      this.invoiceRepo
+        .createQueryBuilder('invoice')
+        .innerJoin('invoice.client', 'client')
+        .innerJoin('invoice.company', 'company')
+        .where('company.id = :companyId', { companyId })
+        .andWhere("LOWER(TRIM(invoice.status)) = 'a receber'")
+        .andWhere(`${dueDateSql} < :today`, { today: todayStr })
+        .select(`regexp_replace(COALESCE(client.cnpj_cpf, ''), '\\D', '', 'g')`, 'cnpj_cpf')
+        .addSelect(dueDateSql, 'dueDate')
+        .getRawMany<{ cnpj_cpf: string; dueDate: string | null }>(),
+    ]);
 
-    // Criar Set de CPFs inadimplentes
-    const overdueSet = new Set(
-      overdueList.map(o => this.normalizeDoc(o.client))
-    );
+    const overdueSet = new Set(overdueRows.map(r => r.cnpj_cpf));
 
     let defaultCount = 0;
     let paymentsCount = 0;
 
-    // Mapa de meses
-    const monthsMap: Record<string, { default: number; payments: number }> = {};
-
-    overdueList.forEach(item => {
-
-      const date = new Date(item.dueDate);
-
-      const month = this.getMonthName(date.getUTCMonth() + 1);
-
-      if (!monthsMap[month]) {
-        monthsMap[month] = { default: 0, payments: 0 };
-      }
-
-      monthsMap[month].default++;
-
-    });
-
-    // Verificar clientes
-    clients.forEach(client => {
-
-      const normalizedCpf = this.normalizeDoc(client.cnpj_cpf);
-
-      const isOverdue = overdueSet.has(normalizedCpf);
-
-      if (isOverdue) {
+    for (const client of clients) {
+      if (overdueSet.has(this.normalizeDoc(client.cnpj_cpf))) {
         defaultCount++;
       } else {
         paymentsCount++;
       }
+    }
 
-    });
+    const monthsMap: Record<string, { default: number; payments: number }> = {};
 
-    // Converter para array (gráfico)
-    const months = Object.entries(monthsMap).map(
-      ([month, values]) => ({
-        month,
-        default: values.default,
-        payments: paymentsCount
-      })
-    );
+    for (const row of overdueRows) {
+      if (!row.dueDate) continue;
+      const date = new Date(row.dueDate);
+      const month = this.getMonthName(date.getUTCMonth() + 1);
+      if (!monthsMap[month]) monthsMap[month] = { default: 0, payments: 0 };
+      monthsMap[month].default++;
+    }
 
-    return {
-      inadimplentes: defaultCount,
-      pagamentos: paymentsCount,
-      months
-    };
+    const months = Object.entries(monthsMap).map(([month, values]) => ({
+      month,
+      default: values.default,
+      payments: paymentsCount,
+    }));
 
+    return { inadimplentes: defaultCount, pagamentos: paymentsCount, months };
   }
 
   async getMonthlyDispatches(companyId: string) {

@@ -14,6 +14,7 @@ import { templateRequiresAttendantName } from "../../../validators/template.vali
 import { AppStorage } from "../../../services/storage/storage.service";
 import { useHolidays } from "../../useHolidays";
 import { filterBusinessDays, isWeekend, isHoliday } from "../../../utils/businessDay";
+import { buildNormalizedSearch } from "../../../utils/locationSearch";
 
 const INVOICE_RULE_LABELS = {
   greater_than: "Depois do vencimento",
@@ -93,6 +94,7 @@ function formatInvoiceRulePreview(
 export function useCreateCampaignPageController() {
   const navigate = useNavigate();
   const location = useLocation();
+  const normalizedSearch = buildNormalizedSearch(location.search);
   const [openDropdown, setOpenDropdown] = useState<DropdownType>(null);
   const [openAttendantModal, setOpenAttendantModal] = useState(false);
   const [attendantName, setAttendantName] = useState(AppStorage.getAttendantName());
@@ -218,8 +220,8 @@ export function useCreateCampaignPageController() {
   );
 
   const handleBackToCampaigns = useCallback(() => {
-    navigate(`/campanhas${location.search}`);
-  }, [location.search, navigate]);
+    navigate(`/campanhas${normalizedSearch}`);
+  }, [navigate, normalizedSearch]);
 
   const handleUploadClientsSpreadsheet = useCallback(
     (file: File) => {
@@ -332,8 +334,8 @@ export function useCreateCampaignPageController() {
     if (!result?.success) return;
 
     await reload();
-    navigate(`/campanhas${location.search}`);
-  }, [form, location.search, modal, navigate, reload]);
+    navigate(`/campanhas${normalizedSearch}`);
+  }, [form, modal, navigate, normalizedSearch, reload]);
 
   const handleOpenPreview = useCallback(async () => {
     await form.handleSubmit(modal.openCreate, () => setOpenAttendantModal(true));

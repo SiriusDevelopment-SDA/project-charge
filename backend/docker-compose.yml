@@ -9,7 +9,7 @@ services:
     environment:
       PORT: 3000
       REDIS_URL: redis://redis:6379
-      DB_HOST: host.docker.internal
+      DB_HOST: ${DB_HOST}
       DB_PORT: 5432
       DB_USER_NAME: ${DB_USER_NAME}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -33,24 +33,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-
-  # postgres:
-  #   image: postgres:16-alpine
-  #   container_name: project-charge-postgres
-  #   restart: unless-stopped
-  #   environment:
-  #     POSTGRES_DB: project_charge
-  #     POSTGRES_USER: postgres
-  #     POSTGRES_PASSWORD: postgres
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U postgres -d project_charge"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
 
 volumes:
   redis_data:

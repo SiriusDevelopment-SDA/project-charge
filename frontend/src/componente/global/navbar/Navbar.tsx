@@ -4,11 +4,12 @@ import { NavLink } from "react-router-dom";
 import styles from "./StyleNavbar.module.css";
 import { useLocation } from "react-router-dom";
 import { AppStorage } from "../../../services/storage/storage.service";
+import { createNormalizedSearchParams } from "../../../utils/locationSearch";
 
 export function Navbar() {
   const location = useLocation();
   const isEmbed = AppStorage.getAuthMode() === "embed";
-  const currentSearchParams = new URLSearchParams(location.search);
+  const currentSearchParams = createNormalizedSearchParams(location.search);
   const scope = currentSearchParams.get("scope");
   currentSearchParams.delete("scope");
   const baseQuery = currentSearchParams.toString();

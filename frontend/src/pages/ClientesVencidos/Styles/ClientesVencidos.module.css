@@ -6,258 +6,633 @@
   overflow-y: auto;
 }
 
-.contentPanel {
-  padding: 24px;
-  border: 1px solid #f5d033;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(10, 10, 10, 0.94) 0%, rgba(18, 15, 7, 0.94) 100%);
-  box-shadow:
-  0 0 10px rgba(212, 166, 0, 0.24),
-  0 0 20px rgba(212, 166, 0, 0.14);
-}
-.Pagination{
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 22px;
-  button{
-    background: rgba(212, 166, 0, 0.32);
-    transition: border 0.2s ease-in;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-  }
-  button:hover{
-    transform: translateY(-1px);
-    box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 10px 22px rgba(0, 0, 0, 0.45), 0 0 18px rgba(244, 196, 0, 0.6);
-    filter: brightness(1.05);
-    border: 2px solid yellow;
-}
-}
 /* =========================
-   FILTROS
+   PAGE HEADER
 ========================= */
-.filterPanel {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 32px;
-  margin-bottom: 24px;
-}
-
-.filterLeft {
-  width: 100%;
-}
-
-.filterRight {
-  margin-top: 20px;
+.pageHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
-/* =========================
-   FORMULÁRIO
-========================= */
-.ContainerForm {
-  padding: 24px;
-  border: 1px solid #eab308;
-  border-radius: 16px;
-  background: rgba(234, 179, 8, 0.04);
+.pageHeaderActions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.syncCard {
+  min-width: 240px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  width: 100%;
+  gap: 4px;
 }
 
-.ContainerText {
-  position: relative;
-  padding-bottom: 12px;
+.syncCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.ContainerText h2 {
+.syncCard strong {
+  font-size: 0.9rem;
+  color: #fff2b2;
+}
+
+.syncCard small {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.syncIdle {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.syncRunning {
+  border-color: rgba(234, 179, 8, 0.45);
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.15);
+}
+
+.syncSuccess {
+  border-color: rgba(34, 197, 94, 0.38);
+}
+
+.syncError {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* =========================
+   PANEL PRINCIPAL
+========================= */
+.contentPanel {
+  padding: 20px 24px 28px;
+  border: 1px solid rgba(245, 208, 51, 0.3);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.94) 0%, rgba(18, 15, 7, 0.94) 100%);
+  box-shadow:
+    0 0 10px rgba(212, 166, 0, 0.12),
+    0 0 28px rgba(212, 166, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loadingState {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.1rem;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  background: rgba(234, 179, 8, 0.07);
+  color: #f4df9e;
+}
+
+.spinner {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* =========================
+   CONSULTA BAR (antes de consultar)
+========================= */
+.consultaBar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.consultaSearch {
+  flex: 1;
+  min-width: 220px;
+}
+
+.consultaActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* =========================
+   FILTER PANEL (pós-consulta)
+========================= */
+.filterPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Linha de filtro individual */
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.filterRow:last-child {
+  border-bottom: none;
+}
+
+/* Label do grupo */
+.filterRowLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+  width: 130px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Chips dentro do grupo */
+.filterChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  flex-wrap: wrap;
+}
+
+/* Chip individual */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.chip:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Chip ativo */
+.chipActive {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: rgba(234, 179, 8, 0.5);
+  color: #f4df9e;
   font-weight: 600;
 }
 
-.ContainerText::after {
-  content: "";
-  position: absolute;
-  left: -24px;
-  right: -24px;
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    #f5d26a,
-    rgba(245, 210, 106, 0.15)
-  );
+.chipActive:hover {
+  background: rgba(234, 179, 8, 0.2);
+  color: #f4df9e;
 }
 
-.IconFunil {
-  color: #eab308;
+/* Variantes de cor por contexto */
+.chipDanger.chipActive {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ff7a7a;
 }
 
-/* =========================
-   GRID DE FILTROS
-========================= */
-.filtersGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
-  gap: 20px;
-  align-items: end;
+.chipDanger.chipActive:hover {
+  background: rgba(239, 68, 68, 0.18);
 }
 
-.FiltroStatusContrato,
-.FiltroTipoDias,
-.InputDias,
-.ConsultaActions {
-  width: 100%;
+.chipWarning.chipActive {
+  background: rgba(251, 146, 60, 0.12);
+  border-color: rgba(251, 146, 60, 0.4);
+  color: #fdba74;
 }
 
-.ConsultaActions {
-  grid-column: 1 / -1;
+.chipWarning.chipActive:hover {
+  background: rgba(251, 146, 60, 0.18);
+}
+
+.chipSuccess.chipActive {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #6ee7a0;
+}
+
+.enrichingHint {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.automationModalContent {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  justify-content: flex-end;
+  text-align: left;
 }
 
-.ConsultaActions button {
-  min-width: 180px;
+.automationModalDescription {
+  margin: 0;
+  color: rgba(255, 243, 209, 0.78);
+  line-height: 1.4;
+  max-width: 64ch;
 }
 
-.cardMetricas{
-  width: 400px;
-  height: 120px;
-  padding-top: 15px !important;
-  background: linear-gradient(145deg, rgba(28, 23, 9, 0.9) 0%, rgba(14, 12, 5, 0.95) 100%) !important;
-  border: 1px solid rgba(212, 166, 0, 0.32) !important;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(212, 166, 0, 0.12) !important;
-  border-radius: 16px !important;
-
-  h1{
-    font-size: 50px;
-    font-weight: 600;
-    color: #f4df9e;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
-  }
-  h3{
-    color: rgba(229, 201, 117, 0.78);
-    font-weight: 700;
-    font-size: 0.85rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-}
-.contentMetricas{
-  padding-left: 50px;
+.automationFieldBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(245, 208, 51, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 218, 92, 0.05), rgba(255, 255, 255, 0.015)),
+    rgba(255, 255, 255, 0.03);
 }
 
-/* =========================
-   AÇÕES
-========================= */
-.submenuActions {
-  margin: 24px 0;
+.automationFieldLabel {
+  color: #fff1b7;
+  font-weight: 600;
+  font-size: 0.98rem;
+}
+
+.automationTemplateDropdown {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.automationSettingsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.automationSettingRow,
+.automationTimingPanel {
   display: flex;
   gap: 16px;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 208, 51, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.automationCardText {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+
+.automationCardText strong,
+.automationTimingHeader strong {
+  color: #fff1b7;
+}
+
+.automationCardText span {
+  color: rgba(255, 245, 214, 0.68);
+  line-height: 1.4;
+  font-size: 0.88rem;
+}
+
+.automationToggle,
+.automationChip {
+  border: 1px solid rgba(245, 208, 51, 0.28);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f5e2a7;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    color 0.18s ease;
+}
+
+.automationToggle {
+  min-width: 112px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.automationToggle:hover,
+.automationChip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(245, 208, 51, 0.5);
+}
+
+.automationToggleActive,
+.automationChipActive {
+  background: rgba(245, 208, 51, 0.14);
+  border-color: rgba(245, 208, 51, 0.7);
+  color: #fff5ce;
+}
+
+.automationTimingPanel {
+  align-items: flex-start;
+  flex-direction: column;
+  padding-top: 16px;
+}
+
+.automationTimingHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.automationChipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.automationChip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.automationModalContainer {
+  width: min(760px, calc(100vw - 40px));
+  max-width: 760px;
+  max-height: min(720px, calc(100dvh - 40px));
+}
+
+.automationModalContainer :global(.modalCustomContent) {
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .automationSettingRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .automationToggle {
+    width: 100%;
+  }
+}
+
+/* Search row dentro do filter panel */
+.filterSearchRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.filterSearchInput {
+  flex: 1;
+  padding: 0 14px;
 }
 
 /* =========================
-   GRID DE CARDS
+   KPI STRIP
+========================= */
+.kpiStrip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kpiCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(212, 166, 0, 0.2);
+  border-radius: 10px;
+  flex: 1;
+  min-width: 150px;
+}
+
+.kpiIcon {
+  color: #eab308;
+  flex-shrink: 0;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kpiLabel {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(229, 201, 117, 0.6);
+  font-weight: 600;
+}
+
+.kpiValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f4df9e;
+  line-height: 1.2;
+}
+
+.clearFiltersBtn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.74);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.clearFiltersBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* =========================
+   TOOLBAR
+========================= */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarInfo {
+  font-size: 0.73rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* =========================
+   CARDS GRID
 ========================= */
 .Cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 28px;
-  padding: 12px 0;
+  gap: 18px;
 }
 
 .empty {
   grid-column: 1 / -1;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.75);
-  padding: 18px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 0;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.82rem;
+}
+
+.emptyIcon {
+  opacity: 0.2;
 }
 
 /* =========================
-   RESPONSIVIDADE
+   PAGINATION
 ========================= */
-@media (max-width: 1200px) {
-  .filterPanel {
-    grid-template-columns: 1fr;
-  }
-
-  .overdueClientsCard {
-    width: 100%;
-  }
+.Pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 22px;
+  padding-top: 8px;
 }
 
-@media (max-width: 768px) {
-  .filtersGrid {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
-  }
-
-  .submenuActions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .ConsultaActions {
-    justify-content: stretch;
-  }
-
-  .ConsultaActions button {
-    width: 100%;
-  }
+.Pagination button {
+  background: rgba(212, 166, 0, 0.28);
+  transition: border 0.2s ease-in;
+  border: 2px solid rgba(255, 255, 255, 0.15);
 }
 
-@media (max-width: 640px) {
-  .filtersGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .Cards {
-    grid-template-columns: 1fr;
-  }
+.Pagination button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 10px 22px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(244, 196, 0, 0.6);
+  filter: brightness(1.05);
+  border: 2px solid yellow;
 }
 
 /* =========================
-   GRID DE TEMPLATES (4 x 2)
+   TEMPLATES MODAL
 ========================= */
+.modalTemplatesContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-height: 0;
+}
+
+.templatePickerModal {
+  width: min(1120px, calc(100vw - 32px));
+  max-width: 1120px;
+  min-height: min(720px, calc(100dvh - 48px));
+  justify-content: flex-start;
+  padding: 28px;
+}
+
+.templatePickerModal :global(.modalDescription) {
+  width: 100%;
+  max-width: none;
+  margin: 14px 0 0;
+}
+
 .listaTemplates {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
   align-items: start;
-
-  /* ESSENCIAL */
+  width: 100%;
   overflow: visible;
 }
 
 .templateWrapper {
   transition: opacity 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.templateWrapper:hover {
+  transform: translateY(-2px);
+}
+
+.templatePickerModal .Pagination {
+  padding-top: 4px;
 }
 
 .templateWrapperDisabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-/* Responsivo */
+/* =========================
+   RESPONSIVIDADE
+========================= */
 @media (max-width: 1400px) {
-  .listaTemplates {
-    grid-template-columns: repeat(3, 1fr);
-  }
+  .Cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 1100px) {
+  .Cards { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 1024px) {
-  .listaTemplates {
-    grid-template-columns: repeat(2, 1fr);
+  .templatePickerModal {
+    width: calc(100vw - 24px);
+    min-height: auto;
+    padding: 22px 18px;
   }
 }
 
+@media (max-width: 768px) {
+  .filterRowLabel { width: 100px; font-size: 0.58rem; }
+  .pageHeaderActions { width: 100%; justify-content: flex-end; }
+  .kpiCard { min-width: 130px; }
+}
+
 @media (max-width: 640px) {
-  .listaTemplates {
-    grid-template-columns: 1fr;
-  }
+  .Cards { grid-template-columns: 1fr; }
+  .listaTemplates { grid-template-columns: 1fr; }
+  .filterRow { flex-direction: column; align-items: flex-start; }
+  .filterRowLabel { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); width: 100%; }
+  .consultaBar { flex-direction: column; }
+  .consultaSearch { min-width: 0; }
 }

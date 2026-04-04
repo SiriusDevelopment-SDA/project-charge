@@ -5,7 +5,6 @@ import { campaignSchema } from "../../../schemas/campaign.schema";
 import type {
   Category,
   Cliente,
-  Invoice,
   InvoiceRuleClientsByDate,
   mappedVars,
   Template,
@@ -27,6 +26,7 @@ import { validarSelecaoCliente } from "../../../utils/validation";
 import { getErrorMessage } from "../../../utils/error";
 import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
 import { templateRequiresInvoiceData } from "../../../utils/templateRequirements";
+import { useDispatchTemplate } from "../../useDispatchTemplate";
 
 type ValidationResult =
   | { success: true }
@@ -100,30 +100,8 @@ function getClientIdentity(client: Cliente) {
   return String(client.id ?? client.cnpj_cpf ?? "").trim();
 }
 
-function mergeSelectedInvoiceData(
-  selectedInvoice: Invoice | undefined,
-  fetchedInvoice: Invoice | undefined,
-) {
-  if (!selectedInvoice) {
-    return fetchedInvoice;
-  }
-
-  if (!fetchedInvoice) {
-    return selectedInvoice;
-  }
-
-  return {
-    ...selectedInvoice,
-    ...fetchedInvoice,
-    ticket_digitable_line:
-      fetchedInvoice.ticket_digitable_line ?? selectedInvoice.ticket_digitable_line,
-    ticket_pdf_link:
-      fetchedInvoice.ticket_pdf_link ?? selectedInvoice.ticket_pdf_link,
-    code_pix: fetchedInvoice.code_pix ?? selectedInvoice.code_pix,
-  };
-}
-
 export function useCampaignFormController() {
+  const dispatch = useDispatchTemplate();
   const [selectedClients, setSelectedClientsState] = useState<Cliente[]>([]);
   const [selectedTemplate, setSelectedTemplateState] = useState<Template>();
   const [templateMapVars, setTemplateMapsVars] = useState<mappedVars[]>([]);
@@ -145,6 +123,15 @@ export function useCampaignFormController() {
   const { fetchInvoices } = useClient();
   const fetchInvoicesRef = useRef(fetchInvoices);
   fetchInvoicesRef.current = fetchInvoices;
+  const hydratedFromDispatchRef = useRef(false);
+
+  useEffect(() => {
+    if (hydratedFromDispatchRef.current) return;
+    if (!dispatch.selectedClientes.length) return;
+
+    setSelectedClientsState(dispatch.selectedClientes);
+    hydratedFromDispatchRef.current = true;
+  }, [dispatch.selectedClientes]);
 
   const resetInvoiceRuleConsultation = useCallback(() => {
     setInvoiceRuleClientsByDate({});
@@ -267,46 +254,6 @@ export function useCampaignFormController() {
       return mergeFetchedInvoices(clients, fetchedClients);
     },
     [clientNeedsTemplateInvoiceHydration, mergeFetchedInvoices],
-  );
-
-  const mergeFetchedInvoiceRuleClient = useCallback(
-    (selectedClient: Cliente, fetchedClient?: Cliente) => {
-      if (!fetchedClient?.invoices) {
-        return selectedClient;
-      }
-
-      const selectedInvoices = selectedClient.invoices?.list ?? [];
-      const selectedInvoice = selectedInvoices[0];
-
-      if (!selectedInvoice) {
-        return {
-          ...selectedClient,
-          invoices: fetchedClient.invoices,
-        };
-      }
-
-      const matchedInvoice = fetchedClient.invoices.list.find(
-        (invoice) =>
-          String(invoice.invoice_id ?? "").trim() ===
-          String(selectedInvoice.invoice_id ?? "").trim(),
-      );
-
-      const mergedInvoice = mergeSelectedInvoiceData(selectedInvoice, matchedInvoice);
-
-      if (!mergedInvoice) {
-        return selectedClient;
-      }
-
-      return {
-        ...selectedClient,
-        invoices: {
-          ...(selectedClient.invoices ?? fetchedClient.invoices),
-          ...fetchedClient.invoices,
-          list: [mergedInvoice, ...selectedInvoices.slice(1)],
-        },
-      };
-    },
-    [],
   );
 
   const buildMappedVarsFromInvoiceRuleSelections = useCallback(

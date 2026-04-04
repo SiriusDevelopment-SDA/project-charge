@@ -1,9 +1,31 @@
+.page{
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: calc(100vh - 14vh);
+}
+
 .table{
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.table :global(.p-datatable){
+    flex: 1;
+    min-height: 100%;
+}
+
+.table :global(.p-datatable-wrapper){
+    flex: 1;
+    min-height: 0;
+}
+
+.table :global(.p-paginator){
+    margin-top: auto;
+    padding-top: 12px;
 }
 
 .batchSummaryCard{
@@ -93,7 +115,18 @@
 .liveReportModal{
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 10px;
+    text-align: left;
+}
+
+.liveReportModalContainer{
+    width: min(720px, calc(100vw - 56px));
+    max-width: 720px;
+    max-height: min(680px, calc(100dvh - 44px));
+}
+
+.liveReportModalContainer :global(.modalCustomContent){
+    margin-top: 6px;
 }
 
 .liveReportEmpty{
@@ -116,29 +149,36 @@
 }
 
 .liveReportHero{
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(245, 208, 51, 0.14);
+    background: linear-gradient(145deg, rgba(24, 21, 12, 0.92) 0%, rgba(12, 12, 12, 0.92) 100%);
 
     strong{
         display: block;
         margin-top: 4px;
         color: #fff4cc;
-        font-size: 1.35rem;
+        font-size: clamp(0.98rem, 1.4vw, 1.25rem);
+        line-height: 1.15;
+        word-break: break-word;
     }
 
     p{
         margin: 8px 0 0;
         color: rgba(255, 236, 179, 0.78);
+        font-size: 0.86rem;
     }
 }
 
 .liveReportHeroInfo{
     display: inline-block;
-    margin-top: 10px;
+    margin-top: 8px;
     color: rgba(255, 236, 179, 0.6);
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     word-break: break-all;
 }
 
@@ -152,29 +192,35 @@
 }
 
 .liveReportHeroMeta{
-    min-width: 96px;
-    padding: 12px 14px;
-    border-radius: 18px;
+    min-width: 104px;
+    padding: 10px 12px;
+    border-radius: 16px;
     background: linear-gradient(145deg, rgba(245, 208, 51, 0.14) 0%, rgba(245, 208, 51, 0.06) 100%);
     border: 1px solid rgba(245, 208, 51, 0.18);
     text-align: center;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 
     span{
         display: block;
         color: #ffd85e;
-        font-size: 1.45rem;
+        font-size: clamp(1.1rem, 1.6vw, 1.45rem);
         font-weight: 700;
     }
 
     small{
         color: rgba(255, 236, 179, 0.72);
-        font-size: 0.8rem;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 }
 
 .liveReportProgress{
     width: 100%;
-    height: 12px;
+    height: 8px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
     overflow: hidden;
@@ -190,29 +236,30 @@
 
 .liveReportNumbers{
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
 
     article{
-        padding: 14px;
-        border-radius: 14px;
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
-        border: 1px solid rgba(212, 166, 0, 0.14);
+        padding: 11px 10px;
+        border-radius: 12px;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0.015) 100%);
+        border: 1px solid rgba(212, 166, 0, 0.12);
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 5px;
+        min-height: 72px;
     }
 
     span{
         color: rgba(255, 236, 179, 0.68);
-        font-size: 0.82rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
     }
 
     strong{
         color: #fff;
-        font-size: 1.08rem;
+        font-size: 0.9rem;
     }
 }
 
@@ -221,91 +268,36 @@
     justify-content: flex-end;
 }
 
-.liveReportList{
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(245, 208, 51, 0.16);
-}
-
-.liveReportListHeader{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-
-    span{
-        color: #fff1b8;
-        font-size: 1rem;
-        font-weight: 700;
+@media (max-width: 900px){
+    .liveReportModalContainer{
+        width: min(100%, calc(100vw - 24px));
+        max-height: calc(100dvh - 20px);
     }
 
-    small{
-        color: rgba(255, 236, 179, 0.68);
-    }
-}
-
-.liveReportRows{
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 320px;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-
-.liveReportRow{
-    padding: 14px 16px;
-    border-radius: 14px;
-    border: 1px solid rgba(212, 166, 0, 0.16);
-    background: linear-gradient(145deg, rgba(20, 18, 10, 0.96) 0%, rgba(13, 13, 13, 0.96) 100%);
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: center;
-}
-
-.liveReportRowMain{
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    strong{
-        color: #fff;
-        font-size: 0.98rem;
+    .liveReportHero{
+        grid-template-columns: 1fr;
     }
 
-    span{
-        color: rgba(255, 236, 179, 0.7);
-        font-size: 0.88rem;
+    .liveReportHeroMeta{
+        justify-self: stretch;
     }
+
+    .liveReportNumbers{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
 }
 
-.liveReportRowMessage{
-    max-width: 520px;
-    color: rgba(255, 236, 179, 0.58);
-    font-size: 0.8rem;
-    line-height: 1.4;
-}
+@media (max-width: 640px){
+    .liveReportNumbers{
+        grid-template-columns: 1fr;
+    }
 
-.liveReportRowMeta{
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 10px;
-    color: rgba(255, 244, 209, 0.72);
-    font-size: 0.88rem;
-}
+    .liveReportActions{
+        justify-content: stretch;
+    }
 
-.liveReportRowStatus{
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: rgba(245, 208, 51, 0.12);
-    border: 1px solid rgba(245, 208, 51, 0.16);
-    color: #fff1b8;
-    font-weight: 700;
+    .liveReportActions :global(button){
+        width: 100%;
+    }
 }

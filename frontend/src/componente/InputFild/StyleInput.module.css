@@ -1,6 +1,8 @@
- .floatingWrapper {
+.floatingWrapper {
     position: relative;
     width: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
   .withLabel {
@@ -19,6 +21,13 @@
   }
   .floatingInput:focus {
     border-color: #f1ce3d;
+    box-shadow: 0 0 0 3px rgba(241, 206, 61, 0.14);
+  }
+
+  .floatingInput:focus-visible {
+    outline: none;
+    border-color: #f1ce3d;
+    box-shadow: 0 0 0 3px rgba(241, 206, 61, 0.14);
   }
 
   .withLabel .floatingInput {

@@ -10,13 +10,15 @@ import { Company } from '../companies/entities/companies';
 import { Templates } from '../templates/entities/templatesMeta';
 import { Service } from '../services/entities/services';
 import { Invoice } from '../invoices/entities/invoices';
+import { InvoiceSyncState } from '../invoices/entities/invoice-sync-state.entity';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { Category } from '../category/entities/category.entity';
-import { Overdue } from '../invoices/entities/Overdue';
 import { Agent } from '../agents/entities/agent.entity';
 import { MessageQueue } from '../message-queue/entities/message-queue.entity';
 import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
+import { PaymentPromise } from '../payment-promise/entities/payment-promise.entity';
+import { ClientInteraction } from '../client-interaction/entities/client-interaction.entity';
 
 export default <TypeOrmModuleAsyncOptions>{
   inject: [ConfigService],
@@ -32,6 +34,7 @@ export default <TypeOrmModuleAsyncOptions>{
       database: configService.get('DB_DATABASE'),
       entities: [
         Invoice,
+        InvoiceSyncState,
         Client,
         Service,
         Company,
@@ -40,9 +43,10 @@ export default <TypeOrmModuleAsyncOptions>{
         Campaign,
         Category,
         Agent,
-        Overdue,
         MessageQueue,
         DispatchBatch,
+        PaymentPromise,
+        ClientInteraction,
       ],
       synchronize: configService.get('NODE_ENV') !== 'production',
     };

@@ -1,6 +1,8 @@
 services:
   api:
-    image: node:22.12.0-alpine3.21
+    build: .
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     container_name: minha-api-dev
     working_dir: /app
     env_file:
@@ -8,7 +10,7 @@ services:
     environment:
       PORT: 3000
       REDIS_URL: redis://redis:6379
-      DB_HOST: host.docker.internal
+      DB_HOST: ${DB_HOST}
       DB_PORT: 5432
       DB_USER_NAME: ${DB_USER_NAME}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -45,3 +47,8 @@ services:
 volumes:
   redis_data:
   api_node_modules:
+  
+networks:
+  default:
+    external: true
+    name: n8n-stack_default

@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Headers, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   CreateAgentDto,
   EmbedLoginDto,
   LoginAgentDto,
+  ManageAgentDto,
+  UpdatePromiseAutomationSettingsDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -33,8 +35,11 @@ export class AuthController {
   @Post('agents')
   @ApiOperation({ summary: 'Cria um agente vinculado a uma empresa' })
   @ApiBody({ type: CreateAgentDto })
-  createAgent(@Body() dto: CreateAgentDto) {
-    return this.authService.createAgent(dto);
+  createAgent(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() dto: CreateAgentDto,
+  ) {
+    return this.authService.createAgent(authorization, dto);
   }
 
   @Public()
@@ -52,5 +57,56 @@ export class AuthController {
     @Body() dto: UpdateProfileDto,
   ) {
     return this.authService.updateProfile(authorization, dto);
+  }
+
+  @Get('me/team')
+  @ApiOperation({ summary: 'Lista os agentes da empresa autenticada' })
+  listTeam(@Headers('authorization') authorization?: string) {
+    return this.authService.listCompanyAgents(authorization);
+  }
+
+  @Post('me/team')
+  @ApiOperation({ summary: 'Cria um agente na empresa autenticada' })
+  @ApiBody({ type: CreateAgentDto })
+  createTeamAgent(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() dto: CreateAgentDto,
+  ) {
+    return this.authService.createAgent(authorization, dto);
+  }
+
+  @Patch('agents/:agentId')
+  @ApiOperation({ summary: 'Atualiza role ou status de acesso de um agente da empresa autenticada' })
+  @ApiBody({ type: ManageAgentDto })
+  manageAgent(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('agentId') agentId: string,
+    @Body() dto: ManageAgentDto,
+  ) {
+    return this.authService.manageCompanyAgent(authorization, agentId, dto);
+  }
+
+  @Delete('agents/:agentId')
+  @ApiOperation({ summary: 'Remove um agente da empresa autenticada' })
+  removeAgent(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('agentId') agentId: string,
+  ) {
+    return this.authService.removeCompanyAgent(authorization, agentId);
+  }
+
+  @Get('me/promise-automation')
+  @ApiOperation({ summary: 'Retorna as configuracoes de automacao de promessas da empresa autenticada' })
+  promiseAutomation(@Headers('authorization') authorization?: string) {
+    return this.authService.getPromiseAutomationSettings(authorization);
+  }
+
+  @Patch('me/promise-automation')
+  @ApiOperation({ summary: 'Atualiza as configuracoes de automacao de promessas da empresa autenticada' })
+  updatePromiseAutomation(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() dto: UpdatePromiseAutomationSettingsDto,
+  ) {
+    return this.authService.updatePromiseAutomationSettings(authorization, dto);
   }
 }

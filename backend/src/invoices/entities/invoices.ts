@@ -3,15 +3,19 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
 
 @Entity()
+@Unique(['id_fatura', 'company'])
+@Index(['status', 'expiration'])
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -21,20 +25,32 @@ export class Invoice {
   value!: string;
 
   @IsString()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   id_fatura!: string;
 
   @IsString()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   contractId!: string;
 
   @IsString()
   @Column()
   status!: string
 
+  @Column({ type: 'text', nullable: true })
+  ticketDigitableLine?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ticketPdfLink?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  pixCode?: string | null;
+
   @IsString()
   @Column()
   expiration!: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastSyncAt?: Date | null;
 
   @CreateDateColumn()
   createdAt!: Date;
@@ -62,4 +78,3 @@ export class Invoice {
   })
   company!: Company;
 }
-

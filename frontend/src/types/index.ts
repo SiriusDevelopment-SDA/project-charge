@@ -41,9 +41,11 @@ import type {
   InvoiceError,
   InvoiceRuleFilter,
   InvoiceRuleOperator,
+  InvoiceSyncState,
   InvoiceStatus,
   InvoicesResponse, 
   InvoicesStatus,
+  OverdueClientsSearchResponse,
   ResultInvoices 
 } from "./invoiceApiTypes";
 
@@ -68,7 +70,20 @@ import type {
   CollectionsMetrics,
   Category,
   RecurringType,
-} from "./champaignApiTypes"
+} from "./champaignApiTypes";
+
+import type {
+  PaymentPromise,
+  PaymentPromiseStatus,
+  CreatePaymentPromisePayload,
+  ClientInteraction,
+  CreateClientInteractionPayload,
+  DispatchSummary,
+  DispatchSummaryBatchResponse,
+  InteractionType,
+  InteractionOutcome,
+} from "./collectionApiTypes";
+
 type DropdownType = "template" | "category" | "client" | null;
 export type 
 { Cliente,
@@ -116,13 +131,23 @@ export type
   InvoiceError,
   InvoiceRuleFilter,
   InvoiceRuleOperator,
+  InvoiceSyncState,
   InvoiceStatus,
   InvoicesResponse, 
   InvoicesStatus,
+  OverdueClientsSearchResponse,
   ResultInvoices,
   IHistoricoContext,
   IClientsContext,
   IDispatchTemplateContext,
   ITemplatesContext,
+  PaymentPromise,
+  PaymentPromiseStatus,
+  CreatePaymentPromisePayload,
+  ClientInteraction,
+  CreateClientInteractionPayload,
+  DispatchSummary,
+  DispatchSummaryBatchResponse,
+  InteractionType,
+  InteractionOutcome,
 };
-

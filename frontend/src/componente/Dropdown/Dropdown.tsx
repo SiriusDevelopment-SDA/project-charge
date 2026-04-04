@@ -43,6 +43,8 @@ export type DropdownProps<T> = {
   filterAllLabel?: string;
   filterButtonLabel?: string;
   getFilterValue?: (option: T) => string | null | undefined;
+  summaryThreshold?: number;
+  summaryVisibleNames?: number;
 };
 
 export function Dropdown<
@@ -73,6 +75,8 @@ export function Dropdown<
   filterAllLabel = "Todas",
   filterButtonLabel = "Filtrar opcoes",
   getFilterValue,
+  summaryThreshold = 4,
+  summaryVisibleNames = 3,
 }: DropdownProps<T>) {
   const controlRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -116,12 +120,23 @@ export function Dropdown<
 
   const selectedLabel = value?.name ?? "";
   const shouldShowSummary = Boolean(
-    multiple && summaryOnMultiple && selected && selected.length > 1,
+    multiple &&
+    selected &&
+    selected.length > 0 &&
+    (summaryOnMultiple || selected.length >= summaryThreshold),
   );
   const summaryText = shouldShowSummary
-    ? `${selected![0].name} + ${selected!.length - 1} ${
-        selected!.length - 1 === 1 ? "cliente" : "clientes"
-      }`
+    ? (() => {
+        const visibleNames = selected!.slice(0, summaryVisibleNames).map((item) => item.name);
+        const remaining = Math.max(0, selected!.length - visibleNames.length);
+        const namesText = visibleNames.join(", ");
+
+        if (remaining <= 0) {
+          return `${namesText} selecionado${selected!.length > 1 ? "s" : ""}`;
+        }
+
+        return `${namesText} e mais ${remaining} selecionado${remaining > 1 ? "s" : ""}`;
+      })()
     : "";
 
   const selectedOptionIds = useMemo(() => {

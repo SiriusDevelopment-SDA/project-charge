@@ -16,6 +16,7 @@ import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import { useDispatchTemplate, useTemplate } from "../../hooks";
 import { useTemplateUsageQuery } from "../../hooks/queries/useTemplatesQuery";
 import { useTemplatesPageController } from "../../hooks/controller/templates/useTemplatesPageController";
+import { buildNormalizedSearch } from "../../utils/locationSearch";
 import { getTemplateStatusLabel, isTemplateApproved } from "../../utils/templateStatus";
 import Style from "./Styles/TemplatesMeta.module.css";
 
@@ -125,6 +126,7 @@ export default function TemplatesMeta() {
   const previewSections = previewTemplate
     ? extractTemplatePreviewSections(previewTemplate)
     : null;
+  const normalizedSearch = buildNormalizedSearch(location.search);
 
   return (
     <PageContainer className={Style.TemplatesContainer}>
@@ -143,7 +145,7 @@ export default function TemplatesMeta() {
               text="Criar Template"
               variant="secondary"
               className={Style.BtnCriarTemplate}
-              onClick={() => navigate(`/CreateTemplate${location.search}`)}
+              onClick={() => navigate(`/CreateTemplate${normalizedSearch}`)}
              />
             <InputFields
               className={Style.InputFiltro}
@@ -219,7 +221,7 @@ export default function TemplatesMeta() {
 
               dispatch.setSelectedTemplate(selectedTemplate);
               toast.success(`Template ${selectedTemplate.name} selecionado para disparo.`);
-              navigate(location.search ? `/${location.search}` : "/");
+              navigate(normalizedSearch ? `/${normalizedSearch}` : "/");
             }}
           />
         ))}
@@ -305,7 +307,6 @@ export default function TemplatesMeta() {
     </PageContainer>
   );
 }
-
 
 
 

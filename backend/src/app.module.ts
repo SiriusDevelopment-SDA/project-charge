@@ -14,6 +14,7 @@ import { AppServiceTemplate } from './templates/app.service.templates';
 import { Templates } from './templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from './templates/entities/relatory.entity';
 import { Invoice } from './invoices/entities/invoices';
+import { InvoiceSyncState } from './invoices/entities/invoice-sync-state.entity';
 import { InvoicesController } from './invoices/controllers/invoicesController';
 import { Company } from './companies/entities/companies';
 import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
@@ -30,9 +31,9 @@ import { AppServiceServices } from './services/app.service.services';
 import { Service } from './services/entities/services';
 import { AppServiceGraphics } from './graphics/app.service.graphics';
 import { GraphicsController } from './graphics/app.controller.graphics';
-import { Overdue } from './invoices/entities/Overdue';
 import { TemplateVarsValidator } from './validations';
 import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
+import { InvoicesSyncGateway } from './realtime/invoices-sync.gateway';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { JwtModule } from '@nestjs/jwt';
@@ -45,7 +46,15 @@ import { NotificaMeWebhookController } from './webhooks/notificame.webhook.contr
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
 import { TemplateStatusSyncCron } from './templates/template-status-sync.cron';
 import { ClientsSyncCron } from './clients/clients-sync.cron';
+import { InvoiceSyncCron } from './invoices/invoice-sync.cron';
 import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
+import { PaymentPromise } from './payment-promise/entities/payment-promise.entity';
+import { PaymentPromiseService } from './payment-promise/payment-promise.service';
+import { PaymentPromiseController } from './payment-promise/payment-promise.controller';
+import { PaymentPromiseCron } from './payment-promise/payment-promise.cron';
+import { ClientInteraction } from './client-interaction/entities/client-interaction.entity';
+import { ClientInteractionService } from './client-interaction/client-interaction.service';
+import { ClientInteractionController } from './client-interaction/client-interaction.controller';
 
 @Module({
   imports: [
@@ -56,13 +65,15 @@ import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
     TypeOrmModule.forFeature([Templates]),
     TypeOrmModule.forFeature([RelatoryDispatchTemplate]),
     TypeOrmModule.forFeature([Invoice]),
+    TypeOrmModule.forFeature([InvoiceSyncState]),
     TypeOrmModule.forFeature([Company]),
     TypeOrmModule.forFeature([Campaign]),
     TypeOrmModule.forFeature([Category]),
     TypeOrmModule.forFeature([Service]),
-    TypeOrmModule.forFeature([Overdue]),
     TypeOrmModule.forFeature([Agent]),
     TypeOrmModule.forFeature([DispatchBatch]),
+    TypeOrmModule.forFeature([PaymentPromise]),
+    TypeOrmModule.forFeature([ClientInteraction]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',
@@ -82,6 +93,8 @@ import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
     RedisController,
     GraphicsController,
     NotificaMeWebhookController,
+    PaymentPromiseController,
+    ClientInteractionController,
   ],
   providers: [
     AppServiceClient, 
@@ -95,12 +108,17 @@ import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
     AppServiceGraphics,
     TemplateVarsValidator,
     CampaignMetricsGateway,
+    InvoicesSyncGateway,
     AuthService,
     ChatwootService,
     RedisService,
     RelatoryResolverCron,
     TemplateStatusSyncCron,
     ClientsSyncCron,
+    InvoiceSyncCron,
+    PaymentPromiseCron,
+    PaymentPromiseService,
+    ClientInteractionService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
   exports: [AppServiceTemplate, AppServiceClient],

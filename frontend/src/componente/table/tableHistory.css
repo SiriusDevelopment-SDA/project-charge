@@ -78,14 +78,21 @@ table{
 .p-column-filter-overlay {
   background: #0f172a !important;
   border: 1px solid #ffdd00 !important;
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 14px;
+  padding: 12px !important;
   box-shadow: 0 0 25px rgba(255, 221, 0, 0.25);
-  min-width: 260px;
+  min-width: 292px;
 }
 .p-column-filter-overlay:hover {
   box-shadow: 0 0 30px rgba(255, 221, 0, 0.45);
 }
+
+.p-column-filter-overlay .p-column-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 /* Inputs do filtro */
 .p-column-filter-overlay .p-inputtext {
   background: #020617;
@@ -94,7 +101,12 @@ table{
 }
 /* BOTÕES LIMPAR / APLICAR */
 .p-column-filter-buttonbar {
-  margin-top: 10px;
+  margin-top: 12px;
+  padding-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 /* BOTÃO + ADICIONAR REGRA */
 /* remove o fundo do botão */
@@ -139,6 +151,7 @@ button.p-button {
 .p-column-filter-overlay .p-column-filter-operator-dropdown,
 .p-column-filter-overlay .p-column-filter-matchmode-dropdown {
   margin-bottom: 10px !important;
+  width: 100% !important;
 }
 
 /* INPUT do valor do filtro (campo abaixo do "Contém") */
@@ -146,12 +159,64 @@ button.p-button {
   border: 1px solid #ffdd00 !important;
   background: #ffffff11 !important;
   color: #ffffff !important;
-  border-radius: 5px !important;
-  padding: 0px 0px !important;
+  border-radius: 8px !important;
+  width: 100% !important;
+  min-height: 28px;
+  padding: 6px 10px !important;
 }
 /* cor dos dropdowns */
 .p-column-filter-overlay .p-dropdown {
   border: 1px solid #ffdd00 !important;
+  width: 100% !important;
+  min-height: 38px;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.p-column-filter-overlay .p-dropdown .p-dropdown-label {
+  padding: 8px 12px !important;
+}
+
+.p-column-filter-overlay .p-dropdown .p-dropdown-trigger {
+  width: 36px !important;
+}
+
+.p-dropdown-panel {
+  background: #1f2937 !important;
+  border: 1px solid #ffdd00 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42) !important;
+}
+
+.p-dropdown-panel .p-dropdown-header {
+  display: none;
+}
+
+.p-dropdown-panel .p-dropdown-items {
+  padding: 6px 0 !important;
+}
+
+.p-dropdown-panel .p-dropdown-item {
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  color: #f8fafc !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+.p-dropdown-panel .p-dropdown-item:hover {
+  background: rgba(255, 221, 0, 0.12) !important;
+  color: #fff7d1 !important;
+}
+
+.p-dropdown-panel .p-dropdown-item.p-highlight {
+  background: rgba(255, 221, 0, 0.22) !important;
+  color: #fff7d1 !important;
+}
+
+.p-dropdown-panel .p-dropdown-item.p-focus {
+  box-shadow: none !important;
 }
 
    /* COR DO ÍCONE "+" DO "ADICIONAR REGRA" */
@@ -174,7 +239,9 @@ svg {
   border-radius: 30px !important;
   box-shadow: none !important;
   transition: all 0.15s ease;
-  padding: 4px;
+  min-width: 96px;
+  justify-content: center;
+  padding: 7px 14px;
 }
 /* Hover igual ao Limpar */
 .p-column-filter-overlay .p-column-filter-buttonbar .p-button:hover {

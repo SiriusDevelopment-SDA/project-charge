@@ -1,6 +1,7 @@
 import Typography from "@mui/material/Typography";
 import { useLocation, useNavigate } from "react-router-dom";
 import { MyButton } from "../../Index";
+import { createNormalizedSearchParams } from "../../../utils/locationSearch";
 import S from "./StylesTitlePage.module.css";
 
 export const TitlePage = ({
@@ -21,7 +22,7 @@ export const TitlePage = ({
   const navigate = useNavigate();
   const location = useLocation();
   const buildHistorySearch = () => {
-    const searchParams = new URLSearchParams(location.search);
+    const searchParams = createNormalizedSearchParams(location.search);
     searchParams.set("scope", "manual");
     const nextSearch = searchParams.toString();
     return nextSearch ? `?${nextSearch}` : "";
