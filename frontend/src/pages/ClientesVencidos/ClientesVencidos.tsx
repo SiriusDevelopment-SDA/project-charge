@@ -867,9 +867,17 @@ export function ClientesVencidos() {
   const totalClientesVencidos = hasStructuredFilters
     ? totalClients
     : (snapshotSummary?.totalOverdueClients ?? totalClients);
-  const snapshotCoverageText = snapshotSummary
-    ? `${snapshotSummary.clientsWithSnapshot} de ${snapshotSummary.mappedClients} clientes com snapshot. ${snapshotSummary.totalOverdueClients} com atraso.`
-    : syncState?.message ?? "Aguardando primeira sincronização.";
+  const checkedClients = snapshotSummary?.checkedClients ?? snapshotSummary?.clientsWithSnapshot ?? 0;
+  const snapshotSummaryView = snapshotSummary
+    ? {
+        checkedLabel:
+          checkedClients >= snapshotSummary.mappedClients
+            ? `Todos os ${snapshotSummary.mappedClients} clientes`
+            : `${checkedClients} de ${snapshotSummary.mappedClients} clientes`,
+        syncedLabel: `${snapshotSummary.clientsWithSnapshot} com faturas`,
+        overdueLabel: `${snapshotSummary.totalOverdueClients} em atraso`,
+      }
+    : null;
 
   function toggleCliente(cliente: Cliente) {
     setClientesMarcados((prev) =>
@@ -1037,7 +1045,22 @@ export function ClientesVencidos() {
                 <span>Última atualização</span>
               </div>
               <strong>{formatSyncTime(syncState?.lastSuccessAt ?? syncState?.updatedAt)}</strong>
-              <small>{snapshotCoverageText}</small>
+              {snapshotSummaryView ? (
+                <div className={Style.syncCardStats}>
+                  <small>
+                    <span>ERP verificado</span>
+                    <strong>{snapshotSummaryView.checkedLabel}</strong>
+                  </small>
+                  <small>
+                    <span>Resumo</span>
+                    <strong>
+                      {snapshotSummaryView.syncedLabel} • {snapshotSummaryView.overdueLabel}
+                    </strong>
+                  </small>
+                </div>
+              ) : (
+                <small>{syncState?.message ?? "Aguardando primeira sincronização."}</small>
+              )}
             </div>
 
           <MyButton

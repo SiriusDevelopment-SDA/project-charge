@@ -212,7 +212,7 @@ export class InvoicesController {
       );
     }
 
-    const [summaryRow, mappedClients, clientsWithSnapshot, clientsWithOpenInvoices] =
+    const [summaryRow, mappedClients, checkedClients, clientsWithSnapshot, clientsWithOpenInvoices] =
       await Promise.all([
         baseQuery
           .clone()
@@ -224,6 +224,12 @@ export class InvoicesController {
           .createQueryBuilder('client')
           .innerJoin('client.company', 'company')
           .where('company.account_chatwoot = :account', { account })
+          .getCount(),
+        this.clientRepo
+          .createQueryBuilder('client')
+          .innerJoin('client.company', 'company')
+          .where('company.account_chatwoot = :account', { account })
+          .andWhere('client.invoiceSnapshotCheckedAt IS NOT NULL')
           .getCount(),
         this.clientRepo
           .createQueryBuilder('client')
@@ -356,6 +362,7 @@ export class InvoicesController {
         totalOverdueInvoices: Number(summaryRow?.totalInvoices ?? 0),
         totalDebt: Number(summaryRow?.totalDebt ?? 0),
         mappedClients,
+        checkedClients,
         clientsWithSnapshot,
         clientsWithOpenInvoices,
       },

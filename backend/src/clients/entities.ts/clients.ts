@@ -52,6 +52,9 @@ export class Client {
   @UpdateDateColumn()
   updatedAt!: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  invoiceSnapshotCheckedAt?: Date | null;
+
   @OneToMany(() => Invoice, (invoice) => invoice.client)
   invoices!: Invoice[];
 
@@ -68,4 +71,3 @@ export class Client {
   @ManyToMany(() => Campaign, (campaign) => campaign.clients)
   campaigns!: Campaign[];
 }
-

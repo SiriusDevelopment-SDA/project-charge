@@ -331,6 +331,7 @@ export class InvoiceSyncCron {
     }
 
     await this.closeMissingOpenInvoices(company.id, fetchedInvoiceIds, syncTime);
+    await this.markClientsAsChecked(clients.map((client) => client.id), syncTime);
 
     this.logger.log(
       `[InvoiceSync] ${erp} ${company.name}: ${toUpsert.length} faturas sincronizadas`,
@@ -413,6 +414,19 @@ export class InvoiceSyncCron {
         {
           status: 'Pago',
           lastSyncAt: syncTime,
+        },
+      );
+    }
+  }
+
+  private async markClientsAsChecked(clientIds: string[], syncTime: Date) {
+    if (!clientIds.length) return;
+
+    for (const chunk of toChunks(clientIds, CHUNK_SIZE)) {
+      await this.clientRepo.update(
+        { id: In(chunk) },
+        {
+          invoiceSnapshotCheckedAt: syncTime,
         },
       );
     }

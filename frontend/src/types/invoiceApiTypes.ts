@@ -112,6 +112,7 @@ export interface OverdueClientsSearchResponse {
     totalOverdueInvoices: number;
     totalDebt: number;
     mappedClients: number;
+    checkedClients: number;
     clientsWithSnapshot: number;
     clientsWithOpenInvoices: number;
   };
