@@ -49,6 +49,10 @@ import { Agent } from '../../agents/entities/agent.entity';
     account_chatwoot!: string;
 
     @IsString()
+    @Column({ type: 'varchar', nullable: true })
+    teamChargeId!: string | null;
+
+    @IsString()
     @Column()
     erp!: string;
 

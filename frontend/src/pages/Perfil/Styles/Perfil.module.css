@@ -152,7 +152,10 @@
   margin-top: auto;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
+
 
 .sectionHeader {
   display: flex;
@@ -234,6 +237,7 @@
 
 .formGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .formGridCompact {
@@ -252,17 +256,25 @@
 
 .createGrid > :nth-child(3),
 .createGrid > :nth-child(4),
-.createGrid > :nth-child(5) {
+.createGrid > :nth-child(5),
+.createGrid > :nth-child(6) {
   grid-column: span 4;
 }
 
 .readOnlyField {
-  min-height: 62px;
+  min-height: 78px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  padding: 12px 14px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 16px 14px 12px;
+  box-sizing: border-box;
+}
+
+.readOnlyField strong {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
 }
 
 .actions,
@@ -353,7 +365,19 @@
   max-width: 980px;
 }
 
+.importModalContainer {
+  width: min(720px, calc(100vw - 40px));
+  max-width: 720px;
+}
+
 .teamModalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.importModalContent {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -364,6 +388,13 @@
   margin: 0;
   color: rgba(255, 239, 192, 0.72);
   font-size: 0.9rem;
+}
+
+.importModalIntro p {
+  margin: 0;
+  color: rgba(255, 239, 192, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .teamModalCreate {
@@ -408,6 +439,15 @@
   padding-right: 4px;
 }
 
+.importModalList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .teamEmptyState {
   padding: 18px;
   border-radius: 14px;
@@ -415,6 +455,68 @@
   background:
     linear-gradient(180deg, rgba(255, 220, 94, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%),
     rgba(14, 12, 8, 0.8);
+}
+
+.importCredentialCard {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(245, 208, 51, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 220, 94, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%),
+    rgba(14, 12, 8, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.importCredentialHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.importCredentialHeader strong {
+  color: #fff3c6;
+  font-size: 0.95rem;
+}
+
+.importCredentialHeader span {
+  color: rgba(245, 208, 51, 0.74);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.importCredentialBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.importCredentialRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.importCredentialRow span {
+  color: rgba(255, 239, 192, 0.66);
+  font-size: 0.84rem;
+}
+
+.importCredentialRow strong,
+.importCredentialRow code {
+  color: #fff8dd;
+  font-size: 0.88rem;
+}
+
+.importCredentialRow code {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 208, 51, 0.18);
+  background: rgba(10, 10, 10, 0.72);
 }
 
 .teamEmptyState strong {
@@ -475,7 +577,8 @@
 
 .roleBadge,
 .statusBadge,
-.selfBadge {
+.selfBadge,
+.syncBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -490,6 +593,12 @@
   border: 1px solid rgba(245, 208, 51, 0.28);
   background: rgba(245, 208, 51, 0.12);
   color: #f6d86b;
+}
+
+.syncBadge {
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  background: rgba(30, 64, 175, 0.16);
+  color: #dbeafe;
 }
 
 .statusActive {
@@ -559,9 +668,14 @@
     width: min(100%, calc(100vw - 24px));
   }
 
+  .importModalContainer {
+    width: min(100%, calc(100vw - 24px));
+  }
+
   .contentGrid {
     grid-template-columns: 1fr;
   }
+
 }
 
 @media (max-width: 900px) {
@@ -592,7 +706,8 @@
   .createGrid > :nth-child(2),
   .createGrid > :nth-child(3),
   .createGrid > :nth-child(4),
-  .createGrid > :nth-child(5) {
+  .createGrid > :nth-child(5),
+  .createGrid > :nth-child(6) {
     grid-column: auto;
   }
 
@@ -610,7 +725,9 @@
 
   .teamModalToolbar,
   .teamRowMain,
-  .teamRowActions {
+  .teamRowActions,
+  .importCredentialHeader,
+  .importCredentialRow {
     flex-direction: column;
     align-items: flex-start;
   }

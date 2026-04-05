@@ -5,6 +5,7 @@ import {
   EmbedLoginDto,
   LoginAgentDto,
   ManageAgentDto,
+  UpdateChatwootConfigDto,
   UpdatePromiseAutomationSettingsDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
@@ -93,6 +94,28 @@ export class AuthController {
     @Param('agentId') agentId: string,
   ) {
     return this.authService.removeCompanyAgent(authorization, agentId);
+  }
+
+  @Get('me/chatwoot-config')
+  @ApiOperation({ summary: 'Retorna o status da integracao do Chatwoot para a empresa autenticada' })
+  chatwootConfig(@Headers('authorization') authorization?: string) {
+    return this.authService.getChatwootConfig(authorization);
+  }
+
+  @Patch('me/chatwoot-config')
+  @ApiOperation({ summary: 'Atualiza os tokens e time padrao do Chatwoot para a empresa autenticada' })
+  @ApiBody({ type: UpdateChatwootConfigDto })
+  updateChatwootConfig(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() dto: UpdateChatwootConfigDto,
+  ) {
+    return this.authService.updateChatwootConfig(authorization, dto);
+  }
+
+  @Post('me/chatwoot-sync-agents')
+  @ApiOperation({ summary: 'Sincroniza agentes legados da empresa autenticada com o Chatwoot' })
+  syncChatwootAgents(@Headers('authorization') authorization?: string) {
+    return this.authService.syncCompanyAgentsWithChatwoot(authorization);
   }
 
   @Get('me/promise-automation')

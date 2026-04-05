@@ -5,6 +5,21 @@
   padding: 24px;
 }
 
+.shell {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--app-shell-bg);
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
 .authCard {
   width: min(100%, 460px);
   background:

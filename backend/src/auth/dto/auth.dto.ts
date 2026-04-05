@@ -145,4 +145,21 @@ export class ManageAgentDto {
   @IsOptional()
   @IsString()
   role?: AgentRole;
+
+  @ApiProperty({ example: 'token-chatwoot-do-agente', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  chatwootAccessToken?: string | null;
+}
+
+export class UpdateChatwootConfigDto {
+  @ApiProperty({ example: 'admin-token-da-account', required: false })
+  @IsOptional()
+  @IsString()
+  chatwootAdminToken?: string;
+
+  @ApiProperty({ example: '12', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  teamChargeId?: string | null;
 }

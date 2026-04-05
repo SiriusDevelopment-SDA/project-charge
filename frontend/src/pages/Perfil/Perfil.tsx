@@ -57,7 +57,7 @@ const RoleSegmentSelector = memo(function RoleSegmentSelector({
 }: RoleSegmentSelectorProps) {
   return (
     <label className={styles.dropdownField}>
-      <span>Role inicial</span>
+      <span>Perfil inicial</span>
       <div className={styles.roleSegmented}>
         <button
           type="button"
@@ -108,6 +108,9 @@ const TeamMemberRow = memo(function TeamMemberRow({
             }`}
           >
             {member.active ? "Ativo" : "Bloqueado"}
+          </span>
+          <span className={styles.syncBadge}>
+            {member.chatwootLinked ? "Maestro OK" : "Sem Maestro"}
           </span>
           {isCurrentUser && <span className={styles.selfBadge}>Voce</span>}
         </div>
@@ -170,23 +173,24 @@ export function PerfilPage() {
     handleRemoveAgent,
     handleRoleChange,
     handleSaveProfile,
+    handleSyncChatwootAgents,
     handleToggleAccess,
     isAdmin,
     isCreatingAgent,
     isLoading,
     isSaving,
+    isSyncingChatwootAgents,
     isTeamLoading,
     isTeamModalOpen,
     newAgentForm,
     openTeamModal,
     profileForm,
+    profileEmail,
     profileMeta,
     setTeamSearch,
     teamSearch,
     teamSummary,
   } = usePerfilPageController();
-
-  const profileValues = profileForm.watch();
 
   return (
     <PageContainer className={styles.page}>
@@ -245,7 +249,7 @@ export function PerfilPage() {
 
               <div className={styles.readOnlyField}>
                 <span>Email de acesso</span>
-                <strong>{profileValues.email || "Nao informado"}</strong>
+                <strong>{profileEmail || "Nao informado"}</strong>
               </div>
             </div>
 
@@ -324,7 +328,7 @@ export function PerfilPage() {
             <aside className={styles.adminSummaryCard}>
               <div className={styles.sectionHeader}>
                 <h2>Resumo administrativo</h2>
-                <p>Uma visao rapida da equipe e dos acessos ativos.</p>
+                <p>Uma visao rapida da equipe, dos acessos ativos e das etiquetas disponiveis no chat.</p>
               </div>
 
               <div className={styles.summaryGrid}>
@@ -336,7 +340,7 @@ export function PerfilPage() {
 
               <div className={styles.adminNotes}>
                 <strong>Gestao de equipe</strong>
-                <p>Abra a administracao para cadastrar acessos e organizar os perfis da empresa.</p>
+                <p>Abra a administracao para cadastrar acessos, organizar os perfis da empresa e importar os agentes ja existentes do Maestro quando precisar.</p>
               </div>
 
               <div className={styles.adminActions}>
@@ -344,6 +348,12 @@ export function PerfilPage() {
                   text="Gerenciar equipe"
                   variant="secondary"
                   onClick={openTeamModal}
+                />
+                <MyButton
+                  text={isSyncingChatwootAgents ? "Sincronizando..." : "Importar e sincronizar agentes"}
+                  variant="btn-enviar"
+                  disabled={isSyncingChatwootAgents}
+                  onClick={handleSyncChatwootAgents}
                 />
               </div>
             </aside>
@@ -362,7 +372,7 @@ export function PerfilPage() {
           customContent={
             <div className={styles.teamModalContent}>
               <div className={styles.teamModalIntro}>
-                <p>Cadastre novos acessos, defina o tipo de usuario e gerencie a equipe da empresa em um so lugar.</p>
+                <p>Cadastre novos acessos, crie o agente no Maestro e depois atualize a base para buscar o token gerado automaticamente.</p>
               </div>
 
               <div className={styles.teamModalCreate}>
@@ -471,6 +481,7 @@ export function PerfilPage() {
           }
         />
       )}
+
     </PageContainer>
   );
 }

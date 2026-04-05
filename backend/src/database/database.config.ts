@@ -19,6 +19,8 @@ import { MessageQueue } from '../message-queue/entities/message-queue.entity';
 import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 import { PaymentPromise } from '../payment-promise/entities/payment-promise.entity';
 import { ClientInteraction } from '../client-interaction/entities/client-interaction.entity';
+import { ChatSession } from '../chatwoot/entities/chat-session.entity';
+import { ChatSessionMessage } from '../chatwoot/entities/chat-session-message.entity';
 
 export default <TypeOrmModuleAsyncOptions>{
   inject: [ConfigService],
@@ -47,6 +49,8 @@ export default <TypeOrmModuleAsyncOptions>{
         DispatchBatch,
         PaymentPromise,
         ClientInteraction,
+        ChatSession,
+        ChatSessionMessage,
       ],
       synchronize: configService.get('NODE_ENV') !== 'production',
     };

@@ -2,6 +2,7 @@ import { Api } from "../api";
 import type {
   ChatwootAgent,
   ChatwootBootstrapResponse,
+  ChatwootContactDetails,
   ChatwootConversationItem,
   ChatwootMessageItem,
   ChatwootTeam,
@@ -19,11 +20,12 @@ export class ChatwootClientService {
 
   static async listConversations(
     account: string,
-    params?: { status?: string; inboxIdentifier?: string }
+    params?: { status?: string; inboxIdentifier?: string; teamId?: number | string | null }
   ): Promise<ChatwootConversationItem[]> {
     const search = new URLSearchParams({ account });
     if (params?.status) search.set("status", params.status);
     if (params?.inboxIdentifier) search.set("inboxIdentifier", params.inboxIdentifier);
+    if (params?.teamId != null) search.set("teamId", String(params.teamId));
 
     search.set("_ts", String(Date.now()));
     const { data } = await Api.get<{ data: ChatwootConversationItem[] }>(`/chatwoot/conversations?${search.toString()}`, {
@@ -46,6 +48,38 @@ export class ChatwootClientService {
       { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } }
     );
     return Array.isArray(data?.data) ? data.data : [];
+  }
+
+  static async listConversationLabels(account: string, conversationId: number): Promise<string[]> {
+    const { data } = await Api.get<{ data: string[] }>(
+      `/chatwoot/conversations/${conversationId}/labels?account=${account}&_ts=${Date.now()}`,
+      { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } }
+    );
+    return Array.isArray(data?.data) ? data.data : [];
+  }
+
+  static async listAccountLabels(account: string): Promise<string[]> {
+    const { data } = await Api.get<{ data: string[] }>(
+      `/chatwoot/labels?account=${account}&_ts=${Date.now()}`,
+      { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } }
+    );
+    return Array.isArray(data?.data) ? data.data : [];
+  }
+
+  static async listContactLabels(account: string, contactId: number): Promise<string[]> {
+    const { data } = await Api.get<{ data: string[] }>(
+      `/chatwoot/contacts/${contactId}/labels?account=${account}&_ts=${Date.now()}`,
+      { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } }
+    );
+    return Array.isArray(data?.data) ? data.data : [];
+  }
+
+  static async getContactDetails(account: string, contactId: number): Promise<ChatwootContactDetails | null> {
+    const { data } = await Api.get<{ data: ChatwootContactDetails }>(
+      `/chatwoot/contacts/${contactId}?account=${account}&_ts=${Date.now()}`,
+      { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } }
+    );
+    return data?.data ?? null;
   }
 
   static async sendMessage(
@@ -80,8 +114,20 @@ export class ChatwootClientService {
     await Api.patch(`/chatwoot/conversations/${conversationId}/assign?account=${account}`, payload);
   }
 
-  static async updateLabels(account: string, conversationId: number, labels: string[]) {
+  static async updateLabels(
+    account: string,
+    conversationId: number,
+    labels: string[],
+  ) {
     await Api.patch(`/chatwoot/conversations/${conversationId}/labels?account=${account}`, { labels });
+  }
+
+  static async updateContactLabels(
+    account: string,
+    contactId: number,
+    labels: string[],
+  ) {
+    await Api.patch(`/chatwoot/contacts/${contactId}/labels?account=${account}`, { labels });
   }
 
   static async listTeams(account: string): Promise<ChatwootTeam[]> {

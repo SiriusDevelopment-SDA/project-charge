@@ -1,47 +1,54 @@
-import styles from './GraficoCampanhas.module.css';
-import { useDashboardCampaignsStats } from '../../hooks/controller/dashboard/useDashboardCampaignsStats';
-
-const ProgressBar: React.FC<{ progress: number }> = ({ progress }) => (
-  <div className={styles.progressBar}>
-    <div className={styles.progressFill} style={{ width: `${progress}%` }} />
-  </div>
-);
+import { useMemo } from "react";
+import styles from "./GraficoCampanhas.module.css";
+import { useDashboardCampaignsStats } from "../../hooks/controller/dashboard/useDashboardCampaignsStats";
+import { Megaphone } from "lucide-react";
 
 const GraficoCampanhas: React.FC = () => {
   const { campaigns } = useDashboardCampaignsStats();
 
+  const sorted = useMemo(
+    () => [...campaigns].sort((a, b) => b.response - a.response),
+    [campaigns]
+  );
+
   return (
     <div className={styles.container}>
-      <h2 className={styles.title}>
-        Envio de campanhas
-      </h2>
-
-      <div className={styles.tableHeader}>
-        <div>#</div>
-        <div>Campanha</div>
-        <div>Uso</div>
-        <div>Resposta</div>
+      <div className={styles.header}>
+        <div>
+          <h2 className={styles.title}>Campanhas</h2>
+          <p className={styles.subtitle}>Performance de envio e engajamento</p>
+        </div>
+        <div className={styles.headerBadge}>
+          <Megaphone size={13} />
+          <span>{campaigns.length} ativas</span>
+        </div>
       </div>
 
-      <div className={styles.campaignList}>
-        {campaigns.map((item) => (
-          <div key={item.id} className={styles.campaignItem}>
-            <div className={styles.campaignId}>
-              {item.id}
-            </div>
+      <div className={styles.tableHead}>
+        <span className={styles.colName}>Campanha</span>
+        <span className={styles.colUsage}>Uso</span>
+        <span className={styles.colResponse}>Resposta</span>
+      </div>
 
-            <div className={styles.campaignName}>
-              {item.name}
-            </div>
+      <div className={styles.list}>
+        {sorted.length === 0 && (
+          <div className={styles.empty}>Nenhuma campanha encontrada</div>
+        )}
+        {sorted.map((item, index) => (
+          <div key={item.id} className={styles.row} style={{ animationDelay: `${index * 60}ms` }}>
+            <div className={styles.rowIndex}>{index + 1}</div>
 
-            <div className={styles.progressContainer}>
-              <ProgressBar progress={item.usage} />
-            </div>
-
-            <div className={styles.responseContainer}>
-              <div className={styles.responseBadge}>
-                {item.response}%
+            <div className={styles.rowName}>
+              <span className={styles.campaignName}>{item.name}</span>
+              <div className={styles.usageBarWrap}>
+                <div className={styles.usageBar} style={{ width: `${item.usage}%` }} />
               </div>
+              <span className={styles.usagePct}>{item.usage}%</span>
+            </div>
+
+            <div className={styles.responseBadge}>
+              <span className={styles.responseVal}>{item.response}%</span>
+              <div className={styles.responseDot} />
             </div>
           </div>
         ))}

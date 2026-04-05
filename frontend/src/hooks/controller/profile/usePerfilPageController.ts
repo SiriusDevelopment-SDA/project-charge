@@ -3,7 +3,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AuthService, type CompanyAgent } from "../../../services/auth/auth.service";
+import {
+  AuthService,
+  type CompanyAgent,
+} from "../../../services/auth/auth.service";
 import { AppStorage } from "../../../services/storage/storage.service";
 import {
   profileFormSchema,
@@ -18,6 +21,7 @@ import { buildNormalizedSearch } from "../../../utils/locationSearch";
 type ProfileMeta = {
   active: boolean;
   currentAgentId: string;
+  email: string;
   role: AgentRoleValue;
 };
 
@@ -36,8 +40,23 @@ const DEFAULT_TEAM_AGENT_VALUES: TeamAgentFormValues = {
   role: "operator",
 };
 
+function normalizeAgentName(name: string | null | undefined, email: string | null | undefined) {
+  const normalizedName = String(name ?? "").trim();
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+
+  if (!normalizedName) {
+    return "";
+  }
+
+  if (normalizedEmail && normalizedName.toLowerCase() === normalizedEmail) {
+    return "";
+  }
+
+  return normalizedName;
+}
+
 function getAgentDisplayLabel(agent: Pick<CompanyAgent, "name" | "email">) {
-  return agent.name?.trim() || agent.email?.trim() || "este usuario";
+  return normalizeAgentName(agent.name, agent.email) || agent.email?.trim() || "este usuario";
 }
 
 function sortAgents(agents: CompanyAgent[]) {
@@ -54,6 +73,7 @@ export function usePerfilPageController() {
   const [profileMeta, setProfileMeta] = useState<ProfileMeta>({
     active: true,
     currentAgentId: "",
+    email: "",
     role: "operator",
   });
   const [teamMembers, setTeamMembers] = useState<CompanyAgent[]>([]);
@@ -62,6 +82,7 @@ export function usePerfilPageController() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingAgent, setIsCreatingAgent] = useState(false);
+  const [isSyncingChatwootAgents, setIsSyncingChatwootAgents] = useState(false);
   const [isTeamLoading, setIsTeamLoading] = useState(false);
   const [busyAgentId, setBusyAgentId] = useState("");
   const navigate = useNavigate();
@@ -122,13 +143,14 @@ export function usePerfilPageController() {
 
         profileForm.reset({
           ...DEFAULT_PROFILE_VALUES,
-          name: result.agent?.name ?? "",
+          name: normalizeAgentName(result.agent?.name, result.agent?.email),
           email: result.agent?.email ?? "",
         });
 
         const nextMeta: ProfileMeta = {
           active: result.agent?.active ?? true,
           currentAgentId: result.agent?.id ?? "",
+          email: result.agent?.email ?? "",
           role: result.agent?.role ?? "operator",
         };
 
@@ -189,13 +211,14 @@ export function usePerfilPageController() {
 
       profileForm.reset({
         ...DEFAULT_PROFILE_VALUES,
-        name: result.agent.name ?? values.name.trim(),
+        name: normalizeAgentName(result.agent.name, result.agent.email) || values.name.trim(),
         email: result.agent.email ?? values.email.trim(),
       });
 
       setProfileMeta((previous) => ({
         ...previous,
         active: result.agent.active ?? previous.active,
+        email: result.agent.email ?? previous.email,
         role: result.agent.role ?? previous.role,
       }));
 
@@ -223,13 +246,33 @@ export function usePerfilPageController() {
 
       setTeamMembers((previous) => sortAgents([...previous, result.agent]));
       newAgentForm.reset(DEFAULT_TEAM_AGENT_VALUES);
-      toast.success(`Usuario ${getAgentDisplayLabel(result.agent)} adicionado com sucesso.`);
+      toast.success(
+        result.message ||
+          `Usuario ${getAgentDisplayLabel(result.agent)} adicionado com sucesso.`,
+      );
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Nao foi possivel adicionar o usuario."));
     } finally {
       setIsCreatingAgent(false);
     }
   });
+
+  const handleSyncChatwootAgents = useCallback(async () => {
+    if (!isAdmin || isSyncingChatwootAgents) {
+      return;
+    }
+
+    try {
+      setIsSyncingChatwootAgents(true);
+      const result = await AuthService.syncChatwootAgents();
+      await loadTeam();
+      toast.success(result.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Nao foi possivel sincronizar os agentes com o Maestro."));
+    } finally {
+      setIsSyncingChatwootAgents(false);
+    }
+  }, [isAdmin, isSyncingChatwootAgents, loadTeam]);
 
   const openTeamModal = useCallback(async () => {
     if (!isAdmin) {
@@ -340,16 +383,19 @@ export function usePerfilPageController() {
     handleRemoveAgent,
     handleRoleChange,
     handleSaveProfile,
+    handleSyncChatwootAgents,
     handleToggleAccess,
     isAdmin,
     isCreatingAgent,
     isLoading,
     isSaving,
+    isSyncingChatwootAgents,
     isTeamLoading,
     isTeamModalOpen,
     newAgentForm,
     openTeamModal,
     profileForm,
+    profileEmail: profileMeta.email,
     profileMeta,
     setTeamSearch,
     teamSearch,

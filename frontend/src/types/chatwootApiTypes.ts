@@ -56,6 +56,15 @@ export type ChatwootBootstrapResponse = {
     baseUrl: string;
     inboxes: ChatwootInboxOption[];
     selectedInboxIdentifier: string | null;
+    teamChargeId: string | null;
+    availableLabels: string[];
+    realtime?: {
+      enabled: boolean;
+      cableUrl: string;
+      pubsubToken: string | null;
+      accountId: number | null;
+      userId: number | null;
+    };
     permissions?: {
       accountApi?: boolean;
     };
@@ -67,12 +76,16 @@ export type ChatwootConversationItem = {
   id: number;
   status: string;
   inboxId: number | null;
+  contactId?: number | null;
   contactName: string;
   phone: string;
   labels: string[];
   assigneeName: string | null;
   teamName: string | null;
   lastMessage: string;
+  protocol?: string | null;
+  report?: string | null;
+  generatedProtocol?: boolean;
   unreadCount: number;
   updatedAt: number | string | null;
   contactIdentifier?: string | null;
@@ -83,6 +96,7 @@ export type ChatwootMessageItem = {
   id: number;
   content: string;
   senderType: string;
+  senderName?: string | null;
   createdAt: number | string | null;
 };
 
@@ -94,4 +108,14 @@ export type ChatwootTeam = {
 export type ChatwootAgent = {
   id: number;
   name: string;
+};
+
+export type ChatwootContactDetails = {
+  id: number | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  identifier: string | null;
+  additionalAttributes: Record<string, unknown>;
+  customAttributes: Record<string, unknown>;
 };

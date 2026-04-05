@@ -160,9 +160,11 @@ export function AccountLayout() {
   }
 
   return (
-    <>
+    <div className={Style.shell}>
       <Navbar />
-      <Outlet />
-    </>
+      <div className={Style.content}>
+        <Outlet />
+      </div>
+    </div>
   );
 }

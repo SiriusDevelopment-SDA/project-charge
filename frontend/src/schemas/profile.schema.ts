@@ -63,6 +63,12 @@ export const teamAgentFormSchema = z.object({
   role: agentRoleSchema,
 });
 
+export const chatwootConfigFormSchema = z.object({
+  chatwootAdminToken: z.string().trim().default(""),
+  teamChargeId: z.string().trim().default(""),
+});
+
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 export type TeamAgentFormValues = z.infer<typeof teamAgentFormSchema>;
 export type AgentRoleValue = z.infer<typeof agentRoleSchema>;
+export type ChatwootConfigFormValues = z.infer<typeof chatwootConfigFormSchema>;

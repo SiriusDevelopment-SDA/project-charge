@@ -27,14 +27,15 @@
 }
 
 .syncCard {
-  min-width: 240px;
-  padding: 10px 12px;
+  min-width: 320px;
+  max-width: 360px;
+  padding: 10px 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 8px;
 }
 
 .syncCardHeader {
@@ -47,24 +48,42 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+.syncCardBody {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.syncCardTimeBlock {
+  min-width: 0;
+  flex: 0 1 150px;
+}
+
 .syncCard strong {
-  font-size: 0.86rem;
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.2;
   color: #fff2b2;
 }
 
 .syncCard small {
-  font-size: 0.75rem;
+  margin-top: 4px;
+  font-size: 0.71rem;
   color: rgba(255, 255, 255, 0.58);
   line-height: 1.35;
-  max-width: 320px;
+  max-width: none;
   display: block;
 }
 
 .syncCardStats {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4px;
-  margin-top: 1px;
+  gap: 6px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  flex: 1;
+  min-width: 0;
 }
 
 .syncCardStats small {
@@ -87,6 +106,30 @@
   font-weight: 600;
   line-height: 1.25;
   color: rgba(255, 248, 221, 0.88);
+}
+
+@media (max-width: 900px) {
+  .syncCard {
+    min-width: 100%;
+    max-width: none;
+  }
+
+  .syncCardBody {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .syncCardTimeBlock {
+    flex-basis: auto;
+  }
+
+  .syncCardStats {
+    width: 100%;
+    padding-left: 0;
+    padding-top: 10px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
 }
 
 .syncIdle {

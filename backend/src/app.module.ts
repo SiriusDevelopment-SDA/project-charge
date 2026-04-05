@@ -55,6 +55,9 @@ import { PaymentPromiseCron } from './payment-promise/payment-promise.cron';
 import { ClientInteraction } from './client-interaction/entities/client-interaction.entity';
 import { ClientInteractionService } from './client-interaction/client-interaction.service';
 import { ClientInteractionController } from './client-interaction/client-interaction.controller';
+import { ChatSession } from './chatwoot/entities/chat-session.entity';
+import { ChatSessionMessage } from './chatwoot/entities/chat-session-message.entity';
+import { ChatSessionHistoryService } from './chatwoot/chat-session-history.service';
 
 @Module({
   imports: [
@@ -74,6 +77,8 @@ import { ClientInteractionController } from './client-interaction/client-interac
     TypeOrmModule.forFeature([DispatchBatch]),
     TypeOrmModule.forFeature([PaymentPromise]),
     TypeOrmModule.forFeature([ClientInteraction]),
+    TypeOrmModule.forFeature([ChatSession]),
+    TypeOrmModule.forFeature([ChatSessionMessage]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',
@@ -111,6 +116,7 @@ import { ClientInteractionController } from './client-interaction/client-interac
     InvoicesSyncGateway,
     AuthService,
     ChatwootService,
+    ChatSessionHistoryService,
     RedisService,
     RelatoryResolverCron,
     TemplateStatusSyncCron,

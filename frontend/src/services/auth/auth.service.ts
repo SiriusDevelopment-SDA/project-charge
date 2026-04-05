@@ -61,6 +61,16 @@ export type CompanyAgent = {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  chatwootLinked?: boolean;
+};
+
+export type ChatwootConfigStatus = {
+  accountId: string;
+  teamChargeId: string;
+  platformTokenConfigured: boolean;
+  adminTokenConfigured: boolean;
+  platformAccessOk: boolean;
+  platformAccessMessage: string;
 };
 
 type CreateAgentPayload = {
@@ -128,7 +138,23 @@ type ManageAgentResponse = {
     email: string | null;
     role: "admin" | "operator";
     active: boolean;
+    chatwootLinked?: boolean;
   };
+};
+
+type ChatwootConfigResponse = {
+  success: boolean;
+  chatwoot: ChatwootConfigStatus;
+};
+
+type SyncChatwootAgentsResponse = {
+  success: boolean;
+  message: string;
+  synced: number;
+  skipped: number;
+  imported: number;
+  linked: number;
+  roleUpdated: number;
 };
 
 export class AuthService {
@@ -172,8 +198,8 @@ export class AuthService {
 
   static async createTeamAgent(
     payload: CreateAgentPayload,
-  ): Promise<{ success: boolean; agent: CompanyAgent }> {
-    const { data } = await Api.post<{ success: boolean; agent: CompanyAgent }>(
+  ): Promise<{ success: boolean; message?: string; agent: CompanyAgent }> {
+    const { data } = await Api.post<{ success: boolean; message?: string; agent: CompanyAgent }>(
       "/auth/me/team",
       payload,
     );
@@ -182,7 +208,11 @@ export class AuthService {
 
   static async manageAgent(
     agentId: string,
-    payload: { role?: "admin" | "operator"; active?: boolean },
+    payload: {
+      role?: "admin" | "operator";
+      active?: boolean;
+      chatwootAccessToken?: string | null;
+    },
   ): Promise<ManageAgentResponse> {
     const { data } = await Api.patch<ManageAgentResponse>(
       `/auth/agents/${agentId}`,
@@ -193,6 +223,29 @@ export class AuthService {
 
   static async removeAgent(agentId: string): Promise<RemoveAgentResponse> {
     const { data } = await Api.delete<RemoveAgentResponse>(`/auth/agents/${agentId}`);
+    return data;
+  }
+
+  static async getChatwootConfig(): Promise<ChatwootConfigResponse> {
+    const { data } = await Api.get<ChatwootConfigResponse>("/auth/me/chatwoot-config");
+    return data;
+  }
+
+  static async updateChatwootConfig(payload: {
+    chatwootAdminToken?: string;
+    teamChargeId?: string;
+  }): Promise<ChatwootConfigResponse> {
+    const { data } = await Api.patch<ChatwootConfigResponse>(
+      "/auth/me/chatwoot-config",
+      payload,
+    );
+    return data;
+  }
+
+  static async syncChatwootAgents(): Promise<SyncChatwootAgentsResponse> {
+    const { data } = await Api.post<SyncChatwootAgentsResponse>(
+      "/auth/me/chatwoot-sync-agents",
+    );
     return data;
   }
 

@@ -1,5 +1,21 @@
 @import url("https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&display=swap");
 
+:root {
+  --app-navbar-height: 14vh;
+  --app-shell-bg:
+    radial-gradient(circle at top center, rgba(245, 208, 51, 0.16) 0%, transparent 26%),
+    linear-gradient(180deg, #4a3a0a 0%, #2d240c 14%, #121212 42%, #090909 100%);
+  --app-scrollbar-size: 10px;
+  --app-scrollbar-track: rgba(255, 255, 255, 0.035);
+  --app-scrollbar-thumb: rgba(245, 208, 51, 0.34);
+  --app-scrollbar-thumb-hover: rgba(245, 208, 51, 0.52);
+  --app-scrollbar-thumb-active: rgba(234, 179, 8, 0.7);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 * {
   margin: 0px;
   padding: 0px;
@@ -9,28 +25,66 @@
   font-weight: 400;
   max-width: 100vw;
 }
-html{
+
+[data-app-scrollable="true"] {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
+}
+
+[data-app-scrollable="true"]::-webkit-scrollbar {
+  width: var(--app-scrollbar-size);
+  height: var(--app-scrollbar-size);
+}
+
+[data-app-scrollable="true"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-app-scrollable="true"]::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: var(--app-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+[data-app-scrollable="true"]::-webkit-scrollbar-thumb:hover {
+  background: var(--app-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+[data-app-scrollable="true"]::-webkit-scrollbar-thumb:active {
+  background: var(--app-scrollbar-thumb-active);
+  background-clip: padding-box;
+}
+
+[data-app-scrollable="true"]::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html {
   min-height: 100%;
+  height: 100%;
+  scrollbar-gutter: stable;
 }
 
 body,
-#root {
+#root,
+.app {
   min-height: 100%;
+  height: 100%;
 }
 
 body {
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
+  background: #090909;
+  color: #f5f5f5;
 }
+
 .app {
-  min-height: 100vh;
-  background: linear-gradient(45deg, #000000 31%, #f1c40f 170%);
-}
-:root {
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--app-shell-bg);
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,

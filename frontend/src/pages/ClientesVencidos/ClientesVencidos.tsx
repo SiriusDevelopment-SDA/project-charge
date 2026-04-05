@@ -1035,7 +1035,7 @@ export function ClientesVencidos() {
       <div className={Style.pageHeader}>
         <TitlePage
           title="Clientes Vencidos"
-          subtitle="Snapshot leve das faturas vencidas sincronizado por empresa, com atualização sob demanda"
+          subtitle="Acompanhe a base validada no ERP, identifique quem está em atraso e avance com a cobrança no momento certo."
         />
 
         <div className={Style.pageHeaderActions}>
@@ -1044,23 +1044,31 @@ export function ClientesVencidos() {
                 <Radio size={14} />
                 <span>Última atualização</span>
               </div>
-              <strong>{formatSyncTime(syncState?.lastSuccessAt ?? syncState?.updatedAt)}</strong>
-              {snapshotSummaryView ? (
-                <div className={Style.syncCardStats}>
+              <div className={Style.syncCardBody}>
+                <div className={Style.syncCardTimeBlock}>
+                  <strong>{formatSyncTime(syncState?.lastSuccessAt ?? syncState?.updatedAt)}</strong>
                   <small>
-                    <span>ERP verificado</span>
-                    <strong>{snapshotSummaryView.checkedLabel}</strong>
-                  </small>
-                  <small>
-                    <span>Resumo</span>
-                    <strong>
-                      {snapshotSummaryView.syncedLabel} • {snapshotSummaryView.overdueLabel}
-                    </strong>
+                    {snapshotSummaryView
+                      ? "Base pronta para consulta e seleção de clientes."
+                      : (syncState?.message ?? "Aguardando a primeira sincronização do ERP.")}
                   </small>
                 </div>
-              ) : (
-                <small>{syncState?.message ?? "Aguardando primeira sincronização."}</small>
-              )}
+
+                {snapshotSummaryView && (
+                  <div className={Style.syncCardStats}>
+                    <small>
+                      <span>Base conferida</span>
+                      <strong>{snapshotSummaryView.checkedLabel}</strong>
+                    </small>
+                    <small>
+                      <span>Cenário atual</span>
+                      <strong>
+                        {snapshotSummaryView.syncedLabel} • {snapshotSummaryView.overdueLabel}
+                      </strong>
+                    </small>
+                  </div>
+                )}
+              </div>
             </div>
 
           <MyButton

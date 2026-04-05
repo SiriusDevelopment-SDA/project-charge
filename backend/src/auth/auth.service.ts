@@ -5,8 +5,9 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
 import {
   CreateAgentDto,
@@ -14,6 +15,7 @@ import {
   LoginAgentDto,
   ManageAgentDto,
   PromiseReminderTiming,
+  UpdateChatwootConfigDto,
   UpdatePromiseAutomationSettingsDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
@@ -22,6 +24,7 @@ import { Agent, type AgentRole } from '../agents/entities/agent.entity';
 import { compare, hash } from 'bcryptjs';
 import { Templates } from '../templates/entities/templatesMeta';
 import { ClientInteraction } from '../client-interaction/entities/client-interaction.entity';
+import { ChatwootService } from '../chatwoot/chatwoot.service';
 
 type PromiseAutomationSettings = {
   reminderEnabled: boolean;
@@ -55,6 +58,8 @@ export class AuthService {
     @InjectRepository(ClientInteraction)
     private readonly clientInteractionRepository: Repository<ClientInteraction>,
     private readonly jwtService: JwtService,
+    private readonly chatwootService: ChatwootService,
+    private readonly configService: ConfigService,
   ) {}
 
   async loginAgent(dto: LoginAgentDto) {
@@ -154,19 +159,42 @@ export class AuthService {
     }
 
     const passwordHash = await hash(dto.password, 10);
-
-    const created = this.agentRepository.create({
-      name: dto.name.trim(),
+    const normalizedName = dto.name.trim();
+    const normalizedRole = dto.role === 'admin' ? 'admin' : 'operator';
+    const provisionedIdentity = await this.chatwootService.provisionAgentIdentity({
+      companyId,
+      name: normalizedName,
       email: normalizedEmail,
-      passwordHash,
-      role: dto.role === 'admin' ? 'admin' : 'operator',
-      active: true,
-      company: { id: companyId },
+      password: dto.password,
+      role: normalizedRole,
     });
 
-    const saved = await this.agentRepository.save(created);
+    let saved: Agent;
+    try {
+      const created = this.agentRepository.create({
+        name: normalizedName,
+        email: normalizedEmail,
+        passwordHash,
+        role: normalizedRole,
+        active: true,
+        chatwootUserId: provisionedIdentity.userId,
+        chatwootAccessToken: null,
+        company: { id: companyId },
+      });
+
+      saved = await this.agentRepository.save(created);
+    } catch (error) {
+      await this.chatwootService.removeAgentIdentity(
+        companyId,
+        provisionedIdentity.userId,
+      );
+      throw error;
+    }
+
     return {
       success: true,
+      message:
+        'Agente criado no sistema e no Maestro. Atualize a base para buscar o token gerado automaticamente.',
       agent: {
         id: saved.id,
         name: saved.name,
@@ -176,6 +204,7 @@ export class AuthService {
         createdAt: saved.createdAt,
         updatedAt: saved.updatedAt,
         companyId,
+        chatwootLinked: Boolean(saved.chatwootUserId || saved.chatwootAccessToken),
       },
     };
   }
@@ -242,6 +271,345 @@ export class AuthService {
             active: agent.active,
           }
         : null,
+    };
+  }
+
+  async getChatwootConfig(authorization?: string) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+    const company = await this.companyRepository.findOne({
+      where: { id: actingAgent.company.id },
+      select: {
+        id: true,
+        account_chatwoot: true,
+        teamChargeId: true,
+        config: true,
+      },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa nao encontrada.');
+    }
+
+    const config = this.parseCompanyConfig(company.config);
+    const platformToken = String(
+      this.configService.get<string>('CHATWOOT_PLATFORM_TOKEN') ?? '',
+    ).trim();
+    const adminToken = String(
+      (config as any).chatwoot_admin_token ??
+      (config as any).chatwoot_app_token ??
+      (config as any).chatwoot_token_admin ??
+      '',
+    ).trim();
+
+    const access = platformToken
+      ? await this.chatwootService.inspectCompanyPlatformAccess(company.id).catch(() => ({
+          accountId: Number(company.account_chatwoot) || null,
+          ok: false,
+          message: 'Nao foi possivel validar a Platform App nesta account.',
+        }))
+      : {
+          accountId: Number(company.account_chatwoot) || null,
+          ok: false,
+          message: 'Configure a variavel de ambiente CHATWOOT_PLATFORM_TOKEN para validar a integracao.',
+        };
+
+    return {
+      success: true,
+      chatwoot: {
+        accountId: company.account_chatwoot,
+        teamChargeId: company.teamChargeId ?? '',
+        platformTokenConfigured: Boolean(platformToken),
+        adminTokenConfigured: Boolean(adminToken),
+        platformAccessOk: access.ok,
+        platformAccessMessage: access.message,
+      },
+    };
+  }
+
+  async updateChatwootConfig(
+    authorization: string | undefined,
+    dto: UpdateChatwootConfigDto,
+  ) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+    const company = await this.companyRepository.findOne({
+      where: { id: actingAgent.company.id },
+      select: {
+        id: true,
+        account_chatwoot: true,
+        teamChargeId: true,
+        config: true,
+      },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa nao encontrada.');
+    }
+
+    const currentConfig = this.parseCompanyConfig(company.config);
+    const nextConfig = { ...currentConfig } as Record<string, unknown>;
+
+    if (dto.chatwootAdminToken !== undefined) {
+      const value = String(dto.chatwootAdminToken ?? '').trim();
+      if (value) {
+        nextConfig.chatwoot_admin_token = value;
+      } else {
+        delete nextConfig.chatwoot_admin_token;
+      }
+    }
+
+    if (dto.teamChargeId !== undefined) {
+      const nextTeamChargeId = String(dto.teamChargeId ?? '').trim();
+      company.teamChargeId = nextTeamChargeId || null;
+    }
+
+    company.config = nextConfig;
+    await this.companyRepository.save(company);
+
+    return this.getChatwootConfig(authorization);
+  }
+
+  async syncCompanyAgentsWithChatwoot(authorization?: string) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+    const company = await this.companyRepository.findOne({
+      where: { id: actingAgent.company.id },
+      select: {
+        id: true,
+        account_chatwoot: true,
+      },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa nao encontrada.');
+    }
+
+    let imported = 0;
+    let linked = 0;
+    let roleUpdated = 0;
+    let passwordUpdated = 0;
+    let tokenUpdated = 0;
+    let missingPasswordHash = 0;
+    let skipped = 0;
+    let invalidEmailSkipped = 0;
+    let duplicatePayloadSkipped = 0;
+    let emailConflictSkipped = 0;
+
+    const accountAgents = await this.chatwootService.listCompanyAgentsFromWebhook(company.id);
+    const normalizedRemoteEmails = Array.from(
+      new Set(
+        accountAgents
+          .map((agent) => agent.email.toLowerCase().trim())
+          .filter((email) => this.isLikelyEmail(email)),
+      ),
+    );
+    const localAgents = await this.agentRepository.find({
+      where: { company: { id: actingAgent.company.id } },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        passwordHash: true,
+        role: true,
+        active: true,
+        chatwootUserId: true,
+        chatwootAccessToken: true,
+        company: { id: true },
+      },
+    });
+    const existingAgentsByEmail = normalizedRemoteEmails.length
+      ? await this.agentRepository.find({
+          where: { email: In(normalizedRemoteEmails) },
+          relations: ['company'],
+          select: {
+            id: true,
+            email: true,
+            company: { id: true },
+          },
+        })
+      : [];
+
+    const localAgentsByEmail = new Map(
+      localAgents.map((agent) => [agent.email.toLowerCase().trim(), agent] as const),
+    );
+    const existingAgentsByEmailMap = new Map(
+      existingAgentsByEmail.map((agent) => [agent.email.toLowerCase().trim(), agent] as const),
+    );
+    const processedEmails = new Set<string>();
+    const conflictingEmails: string[] = [];
+
+    for (const remoteAgent of accountAgents) {
+      const normalizedEmail = remoteAgent.email.toLowerCase().trim();
+      if (!this.isLikelyEmail(normalizedEmail)) {
+        skipped += 1;
+        invalidEmailSkipped += 1;
+        continue;
+      }
+
+      if (processedEmails.has(normalizedEmail)) {
+        skipped += 1;
+        duplicatePayloadSkipped += 1;
+        continue;
+      }
+      processedEmails.add(normalizedEmail);
+
+      const mappedRole = this.mapMaestroRoleToAgentRole(remoteAgent.role);
+      const normalizedImportedName = this.normalizeImportedAgentName(
+        remoteAgent.name,
+        normalizedEmail,
+      );
+      const importedPasswordHash = this.normalizeImportedPasswordHash(
+        remoteAgent.encryptedPassword,
+      );
+      const importedToken = String(remoteAgent.token ?? '').trim() || null;
+      const existing = localAgentsByEmail.get(normalizedEmail);
+
+      if (existing) {
+        let changed = false;
+
+        if ((!existing.chatwootUserId && remoteAgent.id) || (!existing.chatwootAccessToken && importedToken)) {
+          if (!existing.chatwootUserId && remoteAgent.id) {
+            existing.chatwootUserId = remoteAgent.id;
+          }
+
+          if (!existing.chatwootAccessToken && importedToken) {
+            existing.chatwootAccessToken = importedToken;
+            tokenUpdated += 1;
+          }
+
+          linked += 1;
+          changed = true;
+        } else if (importedToken && existing.chatwootAccessToken !== importedToken) {
+          existing.chatwootAccessToken = importedToken;
+          tokenUpdated += 1;
+          changed = true;
+        }
+
+        if (existing.role !== mappedRole) {
+          const shouldDemoteLastAdmin =
+            existing.role === 'admin' &&
+            mappedRole !== 'admin' &&
+            existing.active;
+
+          if (shouldDemoteLastAdmin) {
+            try {
+              await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, existing.id);
+              existing.role = mappedRole;
+              roleUpdated += 1;
+              changed = true;
+            } catch {
+              // Mantem o admin local quando ele e o ultimo administrador ativo.
+            }
+          } else {
+            existing.role = mappedRole;
+            roleUpdated += 1;
+            changed = true;
+          }
+        }
+
+        const existingNormalizedName = String(existing.name ?? '').trim();
+        if (
+          normalizedImportedName &&
+          existingNormalizedName !== normalizedImportedName
+        ) {
+          existing.name = normalizedImportedName;
+          changed = true;
+        } else if (
+          !normalizedImportedName &&
+          existingNormalizedName &&
+          existingNormalizedName.toLowerCase() === normalizedEmail
+        ) {
+          existing.name = undefined;
+          changed = true;
+        }
+
+        if (importedPasswordHash && existing.passwordHash !== importedPasswordHash) {
+          existing.passwordHash = importedPasswordHash;
+          passwordUpdated += 1;
+          changed = true;
+        }
+
+        if (changed) {
+          const saved = await this.agentRepository.save(existing);
+          localAgentsByEmail.set(normalizedEmail, saved);
+        }
+
+        continue;
+      }
+
+      const existingInAnotherCompany = existingAgentsByEmailMap.get(normalizedEmail);
+      if (
+        existingInAnotherCompany &&
+        existingInAnotherCompany.company.id !== actingAgent.company.id
+      ) {
+        skipped += 1;
+        emailConflictSkipped += 1;
+        conflictingEmails.push(normalizedEmail);
+        continue;
+      }
+
+      const created = this.agentRepository.create({
+        name: normalizedImportedName ?? undefined,
+        email: normalizedEmail,
+        passwordHash:
+          importedPasswordHash ??
+          (await hash(this.chatwootService.createProvisionPassword(), 10)),
+        role: mappedRole,
+        active: true,
+        chatwootUserId: remoteAgent.id,
+        chatwootAccessToken: importedToken,
+        company: { id: actingAgent.company.id },
+      });
+
+      await this.agentRepository.save(created);
+      localAgentsByEmail.set(normalizedEmail, created);
+      existingAgentsByEmailMap.set(normalizedEmail, created);
+      imported += 1;
+      if (importedPasswordHash) {
+        passwordUpdated += 1;
+      } else {
+        missingPasswordHash += 1;
+      }
+      if (importedToken) {
+        tokenUpdated += 1;
+      }
+    }
+
+    const parts: string[] = [];
+    if (imported) parts.push(`${imported} importado(s) do Maestro`);
+    if (linked) parts.push(`${linked} vinculado(s) por email`);
+    if (roleUpdated) parts.push(`${roleUpdated} cargo(s) ajustado(s)`);
+    if (passwordUpdated) parts.push(`${passwordUpdated} senha(s) sincronizada(s)`);
+    if (tokenUpdated) parts.push(`${tokenUpdated} token(s) sincronizado(s)`);
+    if (missingPasswordHash) {
+      parts.push(`${missingPasswordHash} usuario(s) importado(s) sem hash de senha`);
+    }
+    if (emailConflictSkipped) {
+      parts.push(`${emailConflictSkipped} conflito(s) de email em outra empresa`);
+    }
+    if (duplicatePayloadSkipped) {
+      parts.push(`${duplicatePayloadSkipped} registro(s) duplicado(s) ignorado(s) no retorno`);
+    }
+    if (invalidEmailSkipped) {
+      parts.push(`${invalidEmailSkipped} registro(s) sem email valido ignorado(s)`);
+    }
+
+    const conflictPreview = conflictingEmails.length
+      ? ` Emails em conflito: ${conflictingEmails.slice(0, 5).join(', ')}${
+          conflictingEmails.length > 5 ? '...' : ''
+        }.`
+      : '';
+
+    return {
+      success: true,
+      message: parts.length
+        ? `Sincronizacao concluida: ${parts.join(', ')}.${imported || linked ? '' : ' Nenhum novo usuario foi criado nesta rodada.'}${conflictPreview}`
+        : 'Nenhum usuario pendente de sincronizacao com o Maestro.',
+      synced: imported + linked,
+      skipped,
+      imported,
+      linked,
+      roleUpdated,
+      importedAgents: [],
     };
   }
 
@@ -435,6 +803,8 @@ export class AuthService {
         email: true,
         role: true,
         active: true,
+        chatwootUserId: true,
+        chatwootAccessToken: true,
         createdAt: true,
         updatedAt: true,
         company: { id: true },
@@ -455,6 +825,7 @@ export class AuthService {
         active: agent.active,
         createdAt: agent.createdAt,
         updatedAt: agent.updatedAt,
+        chatwootLinked: Boolean(agent.chatwootUserId || agent.chatwootAccessToken),
       })),
     };
   }
@@ -483,6 +854,8 @@ export class AuthService {
         email: true,
         role: true,
         active: true,
+        chatwootUserId: true,
+        chatwootAccessToken: true,
         company: { id: true },
       },
     });
@@ -494,6 +867,10 @@ export class AuthService {
     const isSelf = agent.id === actingAgent.id;
     const nextRole = dto.role ?? agent.role;
     const nextActive = dto.active ?? agent.active;
+    const nextChatwootToken =
+      dto.chatwootAccessToken === undefined
+        ? agent.chatwootAccessToken
+        : (String(dto.chatwootAccessToken ?? '').trim() || null);
 
     if (isSelf && dto.active === false) {
       throw new BadRequestException('Voce nao pode bloquear o proprio usuario.');
@@ -509,6 +886,10 @@ export class AuthService {
 
     agent.role = nextRole;
     agent.active = nextActive;
+    agent.chatwootAccessToken = nextChatwootToken;
+    if (!nextChatwootToken) {
+      agent.chatwootUserId = null;
+    }
 
     const saved = await this.agentRepository.save(agent);
 
@@ -521,6 +902,7 @@ export class AuthService {
         email: saved.email,
         role: saved.role,
         active: saved.active,
+        chatwootLinked: Boolean(saved.chatwootUserId || saved.chatwootAccessToken),
       },
     };
   }
@@ -574,6 +956,11 @@ export class AuthService {
       {
         agent_id: null,
       },
+    );
+
+    await this.chatwootService.removeAgentIdentity(
+      actingAgent.company.id,
+      agent.chatwootUserId ?? null,
     );
 
     await this.agentRepository.remove(agent);
@@ -752,6 +1139,47 @@ export class AuthService {
     return config;
   }
 
+  private isLikelyEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim());
+  }
+
+  private mapMaestroRoleToAgentRole(role: string | number | null | undefined): AgentRole {
+    if (typeof role === 'number') {
+      return role > 0 ? 'admin' : 'operator';
+    }
+
+    const normalizedRole = String(role ?? '').trim().toLowerCase();
+    const numericRole = Number(normalizedRole);
+    if (Number.isFinite(numericRole)) {
+      return numericRole > 0 ? 'admin' : 'operator';
+    }
+
+    return normalizedRole.includes('admin') ? 'admin' : 'operator';
+  }
+
+  private normalizeImportedPasswordHash(passwordHash: string | null | undefined) {
+    const normalized = String(passwordHash ?? '').trim();
+    return /^\$2[aby]\$\d{2}\$/.test(normalized) ? normalized : null;
+  }
+
+  private normalizeImportedAgentName(
+    name: string | null | undefined,
+    email: string | null | undefined,
+  ) {
+    const normalizedName = String(name ?? '').trim();
+    const normalizedEmail = String(email ?? '').trim().toLowerCase();
+
+    if (!normalizedName) {
+      return null;
+    }
+
+    if (normalizedEmail && normalizedName.toLowerCase() === normalizedEmail) {
+      return null;
+    }
+
+    return normalizedName;
+  }
+
   private normalizePromiseAutomationSettings(
     config: Company['config'] | string | null | undefined,
   ): PromiseAutomationSettings {
@@ -785,4 +1213,5 @@ export class AuthService {
           : null,
     };
   }
+
 }

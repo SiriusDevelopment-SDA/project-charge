@@ -26,6 +26,12 @@ export class Agent {
   @Column()
   passwordHash!: string;
 
+  @Column({ type: 'integer', nullable: true })
+  chatwootUserId!: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  chatwootAccessToken!: string | null;
+
   @Column({
     type: 'varchar',
     length: 20,
