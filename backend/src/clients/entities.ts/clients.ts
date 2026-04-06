@@ -8,18 +8,20 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToMany,
+  Index
 } from 'typeorm';
 import { Service } from '../../services/entities/services';
 import { Company } from '../../companies/entities/companies';
 import { Invoice } from '../../invoices/entities/invoices';
 import { Campaign } from '../../campaigns/entities/campanhas.entity';
 
+@Index(['cnpj_cpf', 'companyId'], { unique: true })
 @Entity()
 export class Client {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ unique: true })
+  @Column()
   cnpj_cpf!: string;
 
   @Column()
@@ -52,11 +54,17 @@ export class Client {
   @UpdateDateColumn()
   updatedAt!: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  invoiceSnapshotCheckedAt?: Date | null;
+
   @OneToMany(() => Invoice, (invoice) => invoice.client)
   invoices!: Invoice[];
 
   @OneToMany(() => Service, (service) => service.client)
   services!: Service[];
+
+  @Column()
+  companyId!: string;
 
   @ManyToOne(() => Company, (company) => company.clients)
   @JoinColumn({
@@ -68,4 +76,3 @@ export class Client {
   @ManyToMany(() => Campaign, (campaign) => campaign.clients)
   campaigns!: Campaign[];
 }
-

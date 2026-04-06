@@ -11,6 +11,7 @@ import { useHistorico } from "../../hooks/useHistorico";
 import { useLatestDispatchReportController } from "../../hooks/controller/history/useLatestDispatchReportController";
 import { useBatchStatusQuery } from "../../hooks/queries/useLatestDispatchReportQuery";
 import type { DispatchBatchStatus } from "../../types";
+import { createNormalizedSearchParams } from "../../utils/locationSearch";
 import S from "./Styles/historico.module.css";
 
 function getBatchStatusLabel(status?: DispatchBatchStatus["status"]) {
@@ -20,16 +21,6 @@ function getBatchStatusLabel(status?: DispatchBatchStatus["status"]) {
   if (status === "partial") return "Concluido com falhas";
   if (status === "failed") return "Falhou";
   return "Lote";
-}
-
-function getDispatchStatusLabel(status?: string) {
-  if (status === "queued") return "Em fila";
-  if (status === "pending") return "Pendente";
-  if (status === "sent") return "Enviado";
-  if (status === "delivered") return "Entregue";
-  if (status === "read") return "Lido";
-  if (status === "failed") return "Falhou";
-  return status || "-";
 }
 
 function formatBatchDate(value?: string | Date) {
@@ -43,7 +34,7 @@ export function HistoricoDisparoPage() {
   const { histories } = useHistorico();
   const navigate = useNavigate();
   const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
+  const searchParams = createNormalizedSearchParams(location.search);
   const isCampaignHistory = searchParams.get("scope") === "campaigns";
   const isDispatchHistory = searchParams.get("scope") === "manual";
   const liveReportScope = isCampaignHistory ? "campaigns" : isDispatchHistory ? "manual" : null;
@@ -76,6 +67,7 @@ export function HistoricoDisparoPage() {
         if (normalizedStatus === "delivered") accumulator.delivered += 1;
         if (normalizedStatus === "read") accumulator.read += 1;
         if (normalizedStatus === "failed") accumulator.failed += 1;
+        if (normalizedStatus === "skipped") accumulator.skipped += 1;
         if (record.response) accumulator.responded += 1;
 
         return accumulator;
@@ -87,6 +79,7 @@ export function HistoricoDisparoPage() {
         delivered: 0,
         read: 0,
         failed: 0,
+        skipped: 0,
         responded: 0,
       },
     );
@@ -126,7 +119,7 @@ export function HistoricoDisparoPage() {
   const latestReportFilteredScope = isCampaignHistory ? "campaigns" : "manual";
 
   const buildCampaignsSearch = () => {
-    const nextSearch = new URLSearchParams(location.search);
+    const nextSearch = createNormalizedSearchParams(location.search);
     nextSearch.delete("scope");
     nextSearch.delete("batchId");
     const query = nextSearch.toString();
@@ -134,14 +127,14 @@ export function HistoricoDisparoPage() {
   };
 
   const buildHistoryWithoutBatchSearch = () => {
-    const nextSearch = new URLSearchParams(location.search);
+    const nextSearch = createNormalizedSearchParams(location.search);
     nextSearch.delete("batchId");
     const query = nextSearch.toString();
     return query ? `?${query}` : "";
   };
 
   return (
-    <PageContainer>
+    <PageContainer className={S.page}>
       <TitlePage
         title={pageTitle}
         subtitle={pageSubtitle}
@@ -222,7 +215,9 @@ export function HistoricoDisparoPage() {
       <DynamicModal
         open={isLatestReportOpen}
         type="custom"
+        size="default"
         title={latestReportModalTitle}
+        containerClassName={S.liveReportModalContainer}
         onClose={closeLatestReport}
         customContent={
           <div className={S.liveReportModal}>
@@ -268,6 +263,10 @@ export function HistoricoDisparoPage() {
                   <article>
                     <span>Falhas</span>
                     <strong>{latestDispatchReport.batch.failedCount}</strong>
+                  </article>
+                  <article>
+                    <span>Ignorados</span>
+                    <strong>{latestDispatchStats.skipped}</strong>
                   </article>
                   <article>
                     <span>Em fila</span>
@@ -319,40 +318,6 @@ export function HistoricoDisparoPage() {
                     }}
                   />
                 </div>
-
-                <div className={S.liveReportList}>
-                  <div className={S.liveReportListHeader}>
-                    <span>Relatorio completo</span>
-                    <small>
-                      {latestDispatchReport.records.length} registros carregados - atualizacao ao vivo
-                    </small>
-                  </div>
-
-                  <div className={S.liveReportRows}>
-                    {latestDispatchReport.records.map((record) => (
-                      <div key={record.id} className={S.liveReportRow}>
-                        <div className={S.liveReportRowMain}>
-                          <strong>{record.name || "Sem nome"}</strong>
-                          <span>{record.number || "-"}</span>
-                          {record.message && (
-                            <small className={S.liveReportRowMessage}>{record.message}</small>
-                          )}
-                        </div>
-                        <div className={S.liveReportRowMeta}>
-                          <span className={S.liveReportRowStatus}>
-                            {getDispatchStatusLabel(record.status_sent)}
-                          </span>
-                          <span>
-                            {record.response
-                              ? `Respondeu em ${formatBatchDate(record.response_at)}`
-                              : "Sem retorno"}
-                          </span>
-                          <span>{formatBatchDate(record.date_dispatch ?? record.createdAt)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </>
             )}
           </div>
@@ -361,4 +326,3 @@ export function HistoricoDisparoPage() {
     </PageContainer>
   );
 }
-

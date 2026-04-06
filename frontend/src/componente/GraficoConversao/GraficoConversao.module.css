@@ -1,0 +1,175 @@
+.container {
+  padding: 20px 22px 16px;
+  border-radius: 16px;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.94) 0%, rgba(18, 15, 7, 0.94) 100%);
+  border: 1px solid rgba(245, 208, 51, 0.22);
+  box-shadow: 0 0 10px rgba(212, 166, 0, 0.08), 0 0 28px rgba(212, 166, 0, 0.04);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton {
+  border-radius: 16px;
+  width: 100%;
+  height: 280px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── HEADER ─────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0 0 3px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff1b7;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.bestBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.bestVal {
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(74, 222, 128, 0.9);
+  line-height: 1;
+}
+
+.bestLabel {
+  font-size: 10px;
+  color: rgba(74, 222, 128, 0.4);
+  text-align: right;
+}
+
+/* ── CHART ───────────────────────────────── */
+.chartArea {
+  flex: 1;
+  min-height: 100px;
+}
+
+/* ── BRACKET LIST ─────────────────────────── */
+.bracketList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bracketRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.bracketLabel {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  flex: 1;
+}
+
+.bracketStats {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.bracketRate {
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── TOOLTIP ─────────────────────────────── */
+.tooltip {
+  background: rgba(12, 10, 5, 0.95);
+  border: 1px solid rgba(212, 166, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.tooltipLabel {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0 0 4px;
+}
+
+.tooltipVal {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(212, 166, 0, 0.9);
+  margin: 0;
+}
+
+.tooltipSub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 2px 0 0;
+}
+
+/* ── FOOTER ─────────────────────────────── */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.footerItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.footerLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(229, 201, 117, 0.4);
+  font-weight: 600;
+}
+
+.footerVal {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f4df9e;
+}
+
+.footerDivider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}

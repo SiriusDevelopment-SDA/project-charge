@@ -32,5 +32,19 @@ export const queryKeys = {
   dashboard: {
     charges: (companyId: string) =>
       ["dashboard", "charges", companyId] as const,
+    returnRate: (companyId: string) =>
+      ["dashboard", "returnRate", companyId] as const,
+    campaigns: (companyId: string) =>
+      ["dashboard", "campaigns", companyId] as const,
+    promises: (companyId: string) =>
+      ["dashboard", "promises", companyId] as const,
+    aging: (companyId: string) =>
+      ["dashboard", "aging", companyId] as const,
+    forecast: (companyId: string) =>
+      ["dashboard", "forecast", companyId] as const,
+    debtConversion: (companyId: string) =>
+      ["dashboard", "debtConversion", companyId] as const,
+    all: (companyId: string) =>
+      ["dashboard", companyId] as const,
   },
 } as const;

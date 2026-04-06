@@ -43,6 +43,11 @@ export function setupCampaignsSocket(account: string): () => void {
         exact: true,
         refetchType: "all",
       }),
+      // Dashboard charts also depend on dispatch/campaign data — refresh them too
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard"],
+        refetchType: "all",
+      }),
     ]);
   });
 

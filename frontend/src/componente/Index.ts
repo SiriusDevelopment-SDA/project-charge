@@ -18,6 +18,11 @@ import GraficoCobranca from './GraficoCobrança/GraficoCobranca';
 import GraficoDisparo from './GraficoDisparo/GraficoDisparo';
 import GraficoRelatorio from './GraficoRelatorioDisparo/GraficoRelatorio';
 import GraficoCampanhas from './GraficoCampanhas/GraficoCampanhas';
+import GraficoFunil from './GraficoFunil/GraficoFunil';
+import GraficoPromessas from './GraficoPromessas/GraficoPromessas';
+import GraficoPrevisao from './GraficoPrevisao/GraficoPrevisao';
+import GraficoAging from './GraficoAging/GraficoAging';
+import GraficoConversao from './GraficoConversao/GraficoConversao';
 import { MyCalendar } from "./Calendar/calendar";
 import { MyTimePicker } from "./TimePicker/timePicker";
 import SwitchLabels from "./Switch/Switch";
@@ -45,6 +50,11 @@ export
   GraficoDisparo, 
   GraficoRelatorio, 
   GraficoCampanhas,
+  GraficoFunil,
+  GraficoPromessas,
+  GraficoPrevisao,
+  GraficoAging,
+  GraficoConversao,
   MyCalendar, 
   MyTimePicker,
   Pagination, 

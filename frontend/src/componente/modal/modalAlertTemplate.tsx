@@ -14,7 +14,8 @@ export type ModalButton = {
 export type DynamicModalProps = {
   open: boolean;
   type: ModalType;
-  size?: "default" | "wide";
+  size?: "default" | "wide" | "compact";
+
   title: string;
   description?: string | ReactNode;
   buttons?: ModalButton[];
@@ -53,6 +54,22 @@ export default function DynamicModal({
             <div className={styles.modalCustomContent}>
               {customContent}
             </div>
+            {buttons && buttons.length > 0 && (
+              <div className={styles.modalActions}>
+                {buttons.map((btn, index) => (
+                  <button
+                    key={index}
+                    className={`${styles.btn} ${
+                      styles[`btn-${btn.variant || "primary"}`]
+                    }`}
+                    onClick={btn.onClick}
+                    disabled={btn.disabled}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         ) : (
           <>

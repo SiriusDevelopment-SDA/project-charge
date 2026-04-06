@@ -62,14 +62,26 @@ export class CampaignsService {
     );
     await this.templatesService.ensureTemplateApprovedForUsage(template);
 
-    const requiredKeys =
-      this.templatesService.extractRequiredTemplateVars(template);
+    const allRequiredKeys = this.templatesService.extractRequiredTemplateVars(template);
+    const invoicePixVars = new Set([
+      'data_vencimento_fatura',
+      'numero_contrato',
+      'valor_fatura',
+      'linha_digitavel_boleto',
+      'link_boleto_pdf',
+      'code_pix',
+      'codigo_qr',
+      'codigo_qr_code',
+      'codigo_pix'
+    ]);
+    const requiredKeysForCreation = allRequiredKeys.filter(key => !invoicePixVars.has(key));
 
     const { validClients, removedClients } =
       this.clientService.filterClientsByRequiredVars(
         createDto.templateMapVars,
-        requiredKeys,
+        requiredKeysForCreation,
       );
+
 
     if (validClients.length === 0) {
       this.clientService.noValidClientsException(removedClients);

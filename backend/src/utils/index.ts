@@ -1,5 +1,7 @@
-export function formatarDataBR(data: string) {
+export function formatarDataBR(data: string | undefined | null): string | null {
+    if (!data) return null;
     const [ano, mes, dia] = data.split('-');
+    if (!ano || !mes || !dia) return null;
     return `${dia}/${mes}/${ano.slice(2)}`;
   }
 export const formatDateLocal2 = (date: Date) => {

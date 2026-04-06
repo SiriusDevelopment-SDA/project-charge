@@ -1,106 +1,163 @@
-/* =========================
-   CONTAINER PRINCIPAL
-========================= */
+/* ============================================
+   CONTAINER — altura fixa, sem scroll
+============================================ */
 .DashboardContainer {
-    min-height: calc(100vh - 14vh) !important; /* Altura mínima da página descontando a navbar */
-    overflow-y: auto; /* Scroll vertical quando necessário */
-    padding: 20px; /* Espaçamento interno */
+  height: calc(100vh - 14vh) !important;
+  min-height: unset !important;
+  overflow: hidden !important;
+  padding: 20px 24px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-/* =========================
-   CONTAINER DOS CARDS DE MÉTRICAS
-========================= */
-.cardsContainer {
-    display: flex; /* Layout flexível */
-    flex-wrap: wrap; /* Permite quebra de linha */
-    gap: 20px; /* Espaçamento entre os cards */
-    justify-content: center; /* Centraliza os cards */
-    margin-top: 30px; /* Margem superior */
+/* ============================================
+   KPI GRID
+============================================ */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-/* =========================
-   CARD DE MÉTRICAS
-========================= */
-.cardMetricas{
-  width: 400px; /* Largura fixa */
-  height: 120px; /* Altura fixa */
-  padding-top: 15px !important; /* Espaçamento superior interno */
-  background: #eab308 !important; /* Cor de fundo amarela */
-  border: 1px solid rgba(255, 215, 0, 0.35) !important; /* Borda amarela transparente */
-  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px !important; /* Sombra suave */
-
-  h1{
-    font-size: 50px;
-    font-weight: 600;
-    color: #ffff;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.10); /* Sombra no texto */
-  }
-  
-  /* Subtítulo (descrição da métrica) */
-  h3{
-    color: #ffff;
-    font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.10);
-  }
+.kpiCard {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(212, 166, 0, 0.18);
+  border-radius: 11px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  animation: fadeInUp 0.4s ease both;
 }
 
-/* Conteúdo interno do card de métricas */
-.contentMetricas{
-  padding-left: 50px; /* Espaçamento à esquerda */
+.kpiCard:hover {
+  border-color: rgba(212, 166, 0, 0.32);
+  box-shadow: 0 0 14px rgba(212, 166, 0, 0.06);
 }
 
-/* =========================
-   CONTAINER DOS GRÁFICOS
-========================= */
-.graficosContainer{
-    display: grid; /* Layout em grid */
-    grid-template-columns: repeat(2, 1fr); /* 2 colunas de tamanho igual */
-    gap: 30px; /* Espaçamento entre os gráficos */
-    margin-top: 30px; /* Margem superior */
-    max-width: 1800px; /* Largura máxima do grid */
-    margin-left: auto; /* Centralização horizontal */
-    margin-right: auto; /* Centralização horizontal */
+.kpiCard.kpi_alert { border-color: rgba(239, 68, 68, 0.2); }
+.kpiCard.kpi_alert:hover {
+  border-color: rgba(239, 68, 68, 0.36);
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.05);
 }
 
-/* =========================
-   GRÁFICOS INDIVIDUAIS
-========================= */
-.grafico1, .grafico2, .grafico3, .grafico4 {
-    display: flex; /* Layout flexível */
-    justify-content: center; /* Centraliza horizontalmente */
-    align-items: center; /* Centraliza verticalmente */
-    height: 550px; /* Altura fixa e igual para todos os gráficos */
-    overflow: visible; /* Evita corte de conteúdo */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* =========================
-   RESPONSIVIDADE
-========================= */
+.kpiIcon       { color: #d4a600; flex-shrink: 0; opacity: 0.85; }
+.kpiIcon_alert { color: rgba(239, 68, 68, 0.8); }
 
-/* Telas menores que 1400px - Gráficos empilhados em coluna única */
+.kpiTexts { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
+.kpiLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(229, 201, 117, 0.5);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpiValue       { font-size: 20px; font-weight: 700; color: #f4df9e; line-height: 1.1; }
+.kpiValue_alert { color: #ff9e9e; }
+
+/* ============================================
+   TAB BAR
+============================================ */
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 10px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.45);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  border-color: rgba(212, 166, 0, 0.3);
+  color: rgba(244, 223, 158, 0.8);
+  background: rgba(212, 166, 0, 0.06);
+}
+
+.tabActive {
+  background: rgba(212, 166, 0, 0.12);
+  border-color: rgba(212, 166, 0, 0.45);
+  color: #f4df9e;
+  font-weight: 600;
+}
+
+/* ============================================
+   CHARTS AREA — ocupa o restante da altura
+============================================ */
+.chartsArea {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.grid2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  height: 100%;
+}
+
+.grid1col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  height: 100%;
+  max-width: 900px;
+}
+
+.cell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ============================================
+   RESPONSIVE
+============================================ */
 @media (max-width: 1400px) {
-    .graficosContainer {
-        grid-template-columns: 1fr; /* Uma coluna */
-        max-width: 900px; /* Largura máxima reduzida */
-    }
+  .kpiGrid { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* Telas menores que 768px - Mobile */
+@media (max-width: 1100px) {
+  .grid2col { grid-template-columns: 1fr; overflow-y: auto; }
+  .kpiGrid  { grid-template-columns: repeat(2, 1fr); }
+  /* em telas pequenas libera scroll */
+  .DashboardContainer {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+  .chartsArea { overflow-y: visible; }
+}
+
 @media (max-width: 768px) {
-    /* Cards empilhados verticalmente */
-    .cardsContainer {
-        flex-direction: column; /* Coluna */
-        align-items: center; /* Centraliza */
-    }
-    
-    /* Ajuste de largura dos cards em mobile */
-    .cardMetricas {
-        width: 100%; /* Largura total disponível */
-        max-width: 400px; /* Largura máxima mantida */
-    }
-    
-    /* Redução da altura dos gráficos em mobile */
-    .grafico1, .grafico2, .grafico3, .grafico4 {
-        height: 500px; /* Altura reduzida para mobile */
-    }
+  .DashboardContainer { padding: 14px !important; }
+  .kpiGrid { grid-template-columns: 1fr; }
 }

@@ -9,5 +9,5 @@ import { AppStorage } from "../services/storage/storage.service";
  */
 export function useAccountParam(): string {
   const [searchParams] = useSearchParams();
-  return searchParams.get("account") ?? AppStorage.getAccount();
+  return AppStorage.getAccount() || searchParams.get("account") || "";
 }

@@ -3,7 +3,6 @@ import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
 import { toast } from "react-toastify";
 import { normalizeDoc } from "./document";
-import { templateRequiresInvoiceData } from "./templateRequirements";
 
 type SpreadsheetRow = Record<string, string | number | null | undefined>;
 
@@ -110,27 +109,23 @@ export function buildTemplateParams(
     }));
 }
 
-export function validarSelecaoCliente(cliente: Cliente, template?: Template) {
-  if (!templateRequiresInvoiceData(template)) {
-    return true;
-  }
+/**
+ * Valida se o cliente pode ser selecionado para a campanha/disparo.
+ *
+ * A verificacao de faturas abertas e dados de invoice (PIX, valor, vencimento, contrato)
+ * foi movida para o momento do disparo no backend (TemplateDispatchPayloadService),
+ * onde os dados sao buscados diretamente do ERP em tempo real.
+ *
+ * O frontend agora so valida dados basicos de contato. Campos de invoice/PIX
+ * sao ignorados aqui pois serao resolvidos no dispatch.
+ */
+export function validarSelecaoCliente(cliente: Cliente, template?: Template): boolean {
+  const name = String(cliente.name ?? "").trim();
+  const whatsapp = String(cliente.whatsapp ?? "").replace(/\D/g, "");
 
-  const invoices = cliente.invoices?.list;
-
-  if (!Array.isArray(invoices) || invoices.length === 0) {
+  if (!name || whatsapp.length < 10) {
     toast.warning(
-      `O cliente ${cliente.name} nao possui faturas e nao pode ser selecionado para cobranca.`
-    );
-    return false;
-  }
-
-  const possuiFaturaAberta = invoices.some(
-    (inv) => inv.invoice_status === "A Receber"
-  );
-
-  if (!possuiFaturaAberta) {
-    toast.warning(
-      `O cliente ${cliente.name} nao possui faturas em aberto e nao pode ser selecionado para cobranca.`
+      `O cliente ${name || "(sem nome)"} nao possui dados de contato validos (nome e whatsapp obrigatorios).`
     );
     return false;
   }

@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useRef } from "react";
 import { useCampaignListController } from "../../hooks/controller/campaigns/useCampaignListController.ts";
 import { isCampaignActive } from "../../utils/campaign.ts";
+import { buildNormalizedSearch, createNormalizedSearchParams } from "../../utils/locationSearch.ts";
 
 const DEFAULT_FILTERED_METRICS: CampaignMetrics = {
   totalCampaigns: 0,
@@ -76,9 +77,10 @@ export function Campanhas() {
 
   const formatPercent = (value: number) =>
     `${value.toFixed(1).replace(".", ",")}%`;
+  const normalizedSearch = buildNormalizedSearch(location.search);
 
   const buildCampaignHistorySearch = () => {
-    const searchParams = new URLSearchParams(location.search);
+    const searchParams = createNormalizedSearchParams(location.search);
     searchParams.set("scope", "campaigns");
     const nextSearch = searchParams.toString();
     return nextSearch ? `?${nextSearch}` : "";
@@ -98,7 +100,7 @@ export function Campanhas() {
               text="Criar campanha"
               variant="secondary"
               className={Style.BtnCriarTemplate}
-              onClick={() => navigate(`/createCampanha${location.search}`)}
+              onClick={() => navigate(`/createCampanha${normalizedSearch}`)}
             />
 
             <MyButton

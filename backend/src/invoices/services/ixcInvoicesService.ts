@@ -7,18 +7,13 @@ import { ReqPixInvoice } from '../types';
 import { formatarDataBR, formatDateLocal2 } from '../../utils';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Company } from '../../companies/entities/companies';
-import { Raw, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import {
   InvoiceMapResultDto,
-  InvoiceOverdueDto,
   InvoiceSearchFilterDto,
-  InvoicesOverdueResponseDto,
   InvoicesResponseDto,
-  ResultInvoicesOverdueDto,
 } from '../dto/search.request.dto.invoices';
 import { ResponseFnAReceber } from '../types/ixcTypes';
-import { Invoice } from '../entities/invoices';
-import { Overdue } from '../entities/Overdue';
 import { getInvoiceRuleQueryWindow } from '../utils/invoice-rule';
 import { RedisService } from '../../redis/redis.service';
 
@@ -28,9 +23,6 @@ const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 export class IXCInvoicesService {
   constructor(
     @InjectRepository(Company) private readonly companyRepository: Repository<Company>,
-    @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
-    @InjectRepository(Overdue) private readonly overdueRepository: Repository<Overdue>,
-    @InjectRepository(Client) private readonly clientRepository: Repository<Client>,
     private readonly redisService: RedisService,
   ) { }
 
@@ -39,7 +31,7 @@ export class IXCInvoicesService {
     filter?: InvoiceSearchFilterDto,
   ): Promise<InvoicesResponseDto> {
         const fim = new Date()
-        fim.setDate(fim.getDate() + 33)
+        fim.setDate(fim.getDate() + 720)
         const invoiceRuleWindow = getInvoiceRuleQueryWindow(filter);
         const dueDateFilter = invoiceRuleWindow
           ? {
@@ -107,7 +99,7 @@ export class IXCInvoicesService {
                   ? t.id_contrato_avulso
                   : null;
       
-              const pix = await this.getPixByInvoice({
+              const responsePix = await this.getPixByInvoice({
                 companyId: empresa.id,
                 invoiceId: String(t.id),
               })
@@ -119,13 +111,13 @@ export class IXCInvoicesService {
                 invoice_status: 'A Receber',
                 ticket_digitable_line: null,
                 ticket_pdf_link: null,
-                code_pix: pix,
+                code_pix: responsePix.pix,
               };
             })
           );
       
           map.sort((a, b) => {
-            const parseDate = (str?: string) => {
+            const parseDate = (str?: string | null) => {
               if (!str) return 0;
               const [day, month, year] = str.split('/');
               const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
@@ -255,92 +247,6 @@ export class IXCInvoicesService {
       throw new BadRequestException(
         `${err.message ? err.message : "Falha ao encontrar boleto!"}`,
       );
-    }
-  }
-
-  async getInvoicesOverdue(companyId: string): Promise<ResultInvoicesOverdueDto[]> {
-    try {
-
-      const clients = await this.clientRepository.find({
-        where: {
-          company: {
-            id: companyId
-          }
-        },
-        relations: ['company'],
-      })
-
-      const resultados: ResultInvoicesOverdueDto[] = [];
-      const overdueToSave: Overdue[] = [];
-
-      for (const cliente of clients) {
-        const normalized = cliente.cnpj_cpf.replace(/\D/g, '');
-
-        const invoices = await this.invoiceRepository.find({
-          where: {
-            company: {
-              id: cliente.company.id
-            },
-            client: Raw(
-              (alias: string) => `regexp_replace(${alias}, '\\D', '', 'g') = :doc`,
-              { doc: normalized }
-            )
-          }
-        });
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const list: InvoiceOverdueDto[] = invoices
-          .filter((inv) => {
-            if (!inv.expiration) return false;
-
-            const due = new Date(inv.expiration);
-            due.setHours(0, 0, 0, 0)
-
-            const status = inv.status?.trim().toLowerCase();
-
-            return status === 'a receber' && due < today;
-          })
-          .map((inv) => {
-            overdueToSave.push({
-              invoiceId: String(inv.id_fatura ?? inv.id),
-              client: normalized,
-              companyId: cliente.company.id,
-              dueDate: new Date(inv.expiration),
-            } as Overdue)
-
-            return {
-              invoice_due_date: inv.expiration,
-              invoice_status: inv.status as 'A Receber' | 'Pago' | 'Renegociado' | 'Perdido',
-              overdue: true,
-            };
-          });
-
-        if (!list.length) continue;
-
-        resultados.push({
-          client: cliente.name,
-          document: normalized,
-          erp: cliente.company.erp,
-          invoices: {
-            status: 'success',
-            message: 'Faturas inadimplentes encontradas',
-            list,
-          } as InvoicesOverdueResponseDto
-        });
-      }
-
-      if (overdueToSave.length) {
-        await this.overdueRepository.upsert(overdueToSave, ['invoiceId', 'companyId'])
-      }
-
-      return resultados;
-
-    } catch (error) {
-      console.error('[IXCInvoicesService][getInvoicesOverdue]', error);
-
-      return [];
     }
   }
 

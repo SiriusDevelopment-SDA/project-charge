@@ -43,7 +43,14 @@ export function AppRoutes() {
         <Route path="clientesVencidos" element={<BlockedRoute><ClientesVencidos /></BlockedRoute>} />
         <Route path="createTemplate" element={<BlockedRoute><CreateTemplate /></BlockedRoute>} />
         <Route path="dashboard" element={<BlockedRoute><DashboardProvider><Dashboard /></DashboardProvider></BlockedRoute>} />
-        <Route path="chat" element={<BlockedRoute><ChatwootPage /></BlockedRoute>} />
+        <Route
+          path="chat"
+          element={
+            <AgentOnlyRoute>
+              <BlockedRoute><ChatwootPage /></BlockedRoute>
+            </AgentOnlyRoute>
+          }
+        />
 
         <Route path="*" element={<NotFoundPage />} />
 

@@ -5,7 +5,6 @@ import { campaignSchema } from "../../../schemas/campaign.schema";
 import type {
   Category,
   Cliente,
-  Invoice,
   InvoiceRuleClientsByDate,
   mappedVars,
   Template,
@@ -15,7 +14,6 @@ import type { InvoiceRuleOperator } from "../../../types/invoiceApiTypes";
 import { CampaignService } from "../../../services/campaign/campaign.service";
 import { useClient } from "../../useCliente";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
-import { buildTemplateRecipient } from "../../../mappers/templateRecipient.builder";
 import {
   areOnlyAttendantFieldsMissing,
   getMissingTemplateVariables,
@@ -27,6 +25,7 @@ import { validarSelecaoCliente } from "../../../utils/validation";
 import { getErrorMessage } from "../../../utils/error";
 import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
 import { templateRequiresInvoiceData } from "../../../utils/templateRequirements";
+import { useDispatchTemplate } from "../../useDispatchTemplate";
 
 type ValidationResult =
   | { success: true }
@@ -100,30 +99,8 @@ function getClientIdentity(client: Cliente) {
   return String(client.id ?? client.cnpj_cpf ?? "").trim();
 }
 
-function mergeSelectedInvoiceData(
-  selectedInvoice: Invoice | undefined,
-  fetchedInvoice: Invoice | undefined,
-) {
-  if (!selectedInvoice) {
-    return fetchedInvoice;
-  }
-
-  if (!fetchedInvoice) {
-    return selectedInvoice;
-  }
-
-  return {
-    ...selectedInvoice,
-    ...fetchedInvoice,
-    ticket_digitable_line:
-      fetchedInvoice.ticket_digitable_line ?? selectedInvoice.ticket_digitable_line,
-    ticket_pdf_link:
-      fetchedInvoice.ticket_pdf_link ?? selectedInvoice.ticket_pdf_link,
-    code_pix: fetchedInvoice.code_pix ?? selectedInvoice.code_pix,
-  };
-}
-
 export function useCampaignFormController() {
+  const dispatch = useDispatchTemplate();
   const [selectedClients, setSelectedClientsState] = useState<Cliente[]>([]);
   const [selectedTemplate, setSelectedTemplateState] = useState<Template>();
   const [templateMapVars, setTemplateMapsVars] = useState<mappedVars[]>([]);
@@ -145,6 +122,15 @@ export function useCampaignFormController() {
   const { fetchInvoices } = useClient();
   const fetchInvoicesRef = useRef(fetchInvoices);
   fetchInvoicesRef.current = fetchInvoices;
+  const hydratedFromDispatchRef = useRef(false);
+
+  useEffect(() => {
+    if (hydratedFromDispatchRef.current) return;
+    if (!dispatch.selectedClientes.length) return;
+
+    setSelectedClientsState(dispatch.selectedClientes);
+    hydratedFromDispatchRef.current = true;
+  }, [dispatch.selectedClientes]);
 
   const resetInvoiceRuleConsultation = useCallback(() => {
     setInvoiceRuleClientsByDate({});
@@ -267,46 +253,6 @@ export function useCampaignFormController() {
       return mergeFetchedInvoices(clients, fetchedClients);
     },
     [clientNeedsTemplateInvoiceHydration, mergeFetchedInvoices],
-  );
-
-  const mergeFetchedInvoiceRuleClient = useCallback(
-    (selectedClient: Cliente, fetchedClient?: Cliente) => {
-      if (!fetchedClient?.invoices) {
-        return selectedClient;
-      }
-
-      const selectedInvoices = selectedClient.invoices?.list ?? [];
-      const selectedInvoice = selectedInvoices[0];
-
-      if (!selectedInvoice) {
-        return {
-          ...selectedClient,
-          invoices: fetchedClient.invoices,
-        };
-      }
-
-      const matchedInvoice = fetchedClient.invoices.list.find(
-        (invoice) =>
-          String(invoice.invoice_id ?? "").trim() ===
-          String(selectedInvoice.invoice_id ?? "").trim(),
-      );
-
-      const mergedInvoice = mergeSelectedInvoiceData(selectedInvoice, matchedInvoice);
-
-      if (!mergedInvoice) {
-        return selectedClient;
-      }
-
-      return {
-        ...selectedClient,
-        invoices: {
-          ...(selectedClient.invoices ?? fetchedClient.invoices),
-          ...fetchedClient.invoices,
-          list: [mergedInvoice, ...selectedInvoices.slice(1)],
-        },
-      };
-    },
-    [],
   );
 
   const buildMappedVarsFromInvoiceRuleSelections = useCallback(
@@ -455,37 +401,28 @@ export function useCampaignFormController() {
       }
 
       const templateMapVarsForSubmit = mappedVarsForSubmit
-        .map((item) => {
-          const recipient = buildTemplateRecipient(selectedTemplate, item);
-          if (!recipient) return null;
-
-          return {
-            clientId: String(item.clientId ?? "").trim(),
-            dispatchDate: item.dispatchDate,
-            cnpj_cpf: String(item.cnpj_cpf ?? "").trim(),
-            whatsapp: String(item.whatsapp ?? "").trim(),
-            nome_cliente: item.nome_cliente,
-            nome_atendente: item.nome_atendente || attendantName || "",
-            data_vencimento_fatura: item.data_vencimento_fatura,
-            nome_empresa: item.nome_empresa,
-            numero_contrato: item.numero_contrato,
-            valor_fatura: item.valor_fatura,
-            code_pix: item.code_pix,
-            linha_digitavel_boleto: item.linha_digitavel_boleto,
-            link_boleto_pdf: item.link_boleto_pdf,
-            mensagem: item.mensagem,
-            order_reference_id: item.order_reference_id,
-            order_item_name: item.order_item_name,
-            order_item_description: item.order_item_description,
-            order_pix_merchant_name: item.order_pix_merchant_name,
-            order_pix_key: item.order_pix_key,
-            order_pix_key_type: item.order_pix_key_type,
-            components: recipient.components,
-          };
-        })
+        .map((item) => ({
+          clientId: String(item.clientId ?? "").trim(),
+          dispatchDate: item.dispatchDate,
+          cnpj_cpf: String(item.cnpj_cpf ?? "").trim(),
+          whatsapp: String(item.whatsapp ?? "").trim(),
+          invoice_id: item.invoice_id ? String(item.invoice_id).trim() : undefined,
+          nome_cliente: item.nome_cliente,
+          nome_atendente: item.nome_atendente || attendantName || "",
+          data_vencimento_fatura: item.data_vencimento_fatura,
+          nome_empresa: item.nome_empresa,
+          numero_contrato: item.numero_contrato,
+          valor_fatura: item.valor_fatura,
+          mensagem: item.mensagem,
+          order_reference_id: item.order_reference_id,
+          order_item_name: item.order_item_name,
+          order_item_description: item.order_item_description,
+          order_pix_merchant_name: item.order_pix_merchant_name,
+          order_pix_key: item.order_pix_key,
+          order_pix_key_type: item.order_pix_key_type,
+        }))
         .filter(
-          (item): item is NonNullable<typeof item> =>
-            item !== null &&
+          (item) =>
             item.clientId.length > 0 &&
             item.cnpj_cpf.length > 0 &&
             item.whatsapp.length > 0,
@@ -680,10 +617,17 @@ export function useCampaignFormController() {
       };
     }
 
+    // Campos de invoice/PIX (INVOICE_DEPENDENT_FIELDS) sao preenchidos pelo backend
+    // no momento do disparo — nunca devem bloquear a criacao da campanha.
+    // Isso se aplica tanto ao modo single quanto ao modo recorrente (usesInvoiceRule).
     const incompleteRecipients = getIncompleteTemplateRecipients(
       selectedTemplate,
       effectiveMapVars,
-    );
+    ).map((r) => ({
+      ...r,
+      missingFields: r.missingFields.filter((f) => !INVOICE_DEPENDENT_FIELDS.has(f)),
+    })).filter((r) => r.missingNumber || r.missingFields.length > 0);
+
 
     if (incompleteRecipients.length) {
       if (

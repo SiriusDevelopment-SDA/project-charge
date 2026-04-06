@@ -20,6 +20,11 @@ export class ChatwootConversationsQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  teamId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   _ts?: string;
 }
 
@@ -37,6 +42,11 @@ export class ChatwootAccountQueryDto {
   @IsOptional()
   @IsString()
   contactIdentifier?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  contactId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

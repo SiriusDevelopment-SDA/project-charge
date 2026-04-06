@@ -3,14 +3,18 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
 
+@Index(['id_fatura', 'companyId'], { unique: true })
+@Index(['status', 'expiration'])
 @Entity()
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
@@ -21,20 +25,32 @@ export class Invoice {
   value!: string;
 
   @IsString()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   id_fatura!: string;
 
   @IsString()
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   contractId!: string;
 
   @IsString()
   @Column()
   status!: string
 
+  @Column({ type: 'text', nullable: true })
+  ticketDigitableLine?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ticketPdfLink?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  pixCode?: string | null;
+
   @IsString()
   @Column()
   expiration!: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastSyncAt?: Date | null;
 
   @CreateDateColumn()
   createdAt!: Date;
@@ -42,18 +58,18 @@ export class Invoice {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToOne(() => Client, (client) => client.invoices, { nullable: false })
+  @Column()
+  clientId!: string;
+
+  @ManyToOne(() => Client, (client) => client.invoices)
   @JoinColumn({
-    name: 'client',
-    referencedColumnName: 'cnpj_cpf',
+    name: 'clientId',
+    referencedColumnName: 'id',
   })
   client!: Client;
-  // @ManyToOne(() => Service, (service) => service.invoices)
-  // @JoinColumn({
-  //   name: 'serviceId',
-  //   referencedColumnName: 'id',
-  // })
-  // service?: Service;
+
+  @Column()
+  companyId!: string;
 
   @ManyToOne(() => Company, (company) => company.invoices)
   @JoinColumn({
@@ -62,4 +78,3 @@ export class Invoice {
   })
   company!: Company;
 }
-

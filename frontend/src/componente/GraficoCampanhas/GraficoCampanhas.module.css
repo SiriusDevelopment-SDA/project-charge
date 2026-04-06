@@ -1,139 +1,198 @@
-/* =========================
-   CONTAINER PRINCIPAL
-========================= */
+/* ============================================
+   CONTAINER
+============================================ */
 .container {
-  background: radial-gradient(circle at 10% 10%, #2a2400 0%, #080808 100%);
-  padding: 35px 45px;
-  border-radius: 28px;
+  padding: 20px 22px 16px;
+  border-radius: 16px;
   width: 100%;
-  max-width: 950px;
-  height: 500px;
-  max-height: 500px;
+  height: 100%;
+  min-height: 220px;
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.94) 0%, rgba(18, 15, 7, 0.94) 100%);
+  border: 1px solid rgba(245, 208, 51, 0.22);
+  box-shadow: 0 0 10px rgba(212, 166, 0, 0.08), 0 0 28px rgba(212, 166, 0, 0.04);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #fff;
-  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.95);
-  border: 1px solid #1a1a1a;
-  overflow: hidden;
-  box-sizing: border-box;
 }
 
-/* =========================
-   TÍTULO DA SEÇÃO
-========================= */
+/* ============================================
+   HEADER
+============================================ */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
 .title {
-  margin: 0 0 35px 0;
-  font-size: 22px;
-  font-weight: 400;
-  color: #d4af37;
-  letter-spacing: 0.5px;
-  opacity: 0.95;
-  flex-shrink: 0;
-}
-
-/* =========================
-   CABEÇALHO DA TABELA
-========================= */
-.tableHeader {
-  display: grid;
-  grid-template-columns: 60px 1.2fr 1.5fr 120px;
-  gap: 20px;
-  padding-bottom: 20px;
-  color: #666;
+  margin: 0 0 3px;
   font-size: 14px;
+  font-weight: 600;
+  color: #fff1b7;
+  letter-spacing: -0.1px;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.headerBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(212, 166, 0, 0.08);
+  border: 1px solid rgba(212, 166, 0, 0.2);
+  border-radius: 20px;
+  padding: 3px 9px;
+  font-size: 11px;
+  color: rgba(229, 201, 117, 0.7);
   font-weight: 500;
-  letter-spacing: 1px;
-  text-transform: uppercase;
   flex-shrink: 0;
 }
 
-.tableHeader > div:last-child {
-  text-align: center;
+/* ============================================
+   TABLE HEAD
+============================================ */
+.tableHead {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  gap: 12px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
+  flex-shrink: 0;
 }
 
-/* =========================
-   LISTA DE CAMPANHAS
-========================= */
-.campaignList {
+.colName,
+.colUsage,
+.colResponse {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.colResponse { text-align: right; }
+
+/* ============================================
+   LIST
+============================================ */
+.list {
   display: flex;
   flex-direction: column;
   flex: 1;
+  overflow-y: auto;
+  gap: 1px;
+  scrollbar-width: none;
+}
+.list::-webkit-scrollbar { display: none; }
+
+.empty {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  text-align: center;
+  padding: 32px 0;
+}
+
+/* ============================================
+   ROW
+============================================ */
+.row {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+  animation: fadeInUp 0.35s ease both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.row:hover { background: rgba(255, 255, 255, 0.025); }
+
+/* ============================================
+   ROW INDEX
+============================================ */
+.rowIndex {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(212, 166, 0, 0.3);
+  text-align: center;
+}
+
+/* ============================================
+   ROW NAME + BAR
+============================================ */
+.rowName {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.campaignName {
+  font-size: 12px;
+  color: rgba(255, 243, 209, 0.8);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.usageBarWrap {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
   overflow: hidden;
 }
 
-/* =========================
-   ITEM DA CAMPANHA
-========================= */
-.campaignItem {
-  display: grid;
-  grid-template-columns: 60px 1.2fr 1.5fr 120px;
-  gap: 20px;
-  align-items: center;
-  padding: 12px 0;
-  border-top: 1px solid #151515;
-}
-
-/* Número de ordem */
-.campaignId {
-  color: #d4af37;
-  font-size: 16px;
-  font-weight: 500;
-  opacity: 0.8;
-}
-
-/* Nome da campanha */
-.campaignName {
-  font-size: 16px;
-  font-weight: 400;
-  color: #e0e0e0;
-  letter-spacing: 0.3px;
-}
-
-/* Container da barra de progresso */
-.progressContainer {
-  padding-right: 60px;
-}
-
-/* Container do badge de resposta */
-.responseContainer {
-  display: flex;
-  justify-content: center;
-}
-
-/* Badge de resposta */
-.responseBadge {
-  width: 75px;
-  height: 50px;
-  border: 1px solid rgba(212, 175, 55, 0.25);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  color: #d4af37;
-  background-color: rgba(212, 175, 55, 0.03);
-  font-weight: 500;
-  box-shadow: inset 0 0 10px rgba(212, 175, 55, 0.05);
-}
-
-/* =========================
-   BARRA DE PROGRESSO
-========================= */
-.progressBar {
-  width: 100%;
-  height: 5px;
-  background-color: #1a1a1a;
-  border-radius: 10px;
-  overflow: visible;
-  position: relative;
-  border: 1px solid #222;
-}
-
-.progressFill {
+.usageBar {
   height: 100%;
-  background-color: #d4af37;
-  box-shadow: 0 0 12px rgba(212, 175, 55, 0.6);
-  border-radius: 10px;
-  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(90deg, rgba(212,166,0,0.9), rgba(212,166,0,0.5));
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.usagePct {
+  font-size: 10px;
+  color: rgba(229, 201, 117, 0.45);
+}
+
+/* ============================================
+   RESPONSE BADGE
+============================================ */
+.responseBadge {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 166, 0, 0.15);
+  background: rgba(212, 166, 0, 0.05);
+}
+
+.responseVal {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f4df9e;
+}
+
+.responseDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #d4a600;
 }

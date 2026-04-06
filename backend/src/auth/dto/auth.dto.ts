@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -8,6 +9,15 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AGENT_ROLES, type AgentRole } from '../../agents/entities/agent.entity';
+
+export const PROMISE_REMINDER_TIMINGS = [
+  'day_before',
+  'same_day',
+  'both',
+] as const;
+
+export type PromiseReminderTiming = (typeof PROMISE_REMINDER_TIMINGS)[number];
 
 export class LoginAgentDto {
   @ApiProperty({ example: 'agente@empresa.com' })
@@ -47,9 +57,22 @@ export class CreateAgentDto {
   @MinLength(6)
   password!: string;
 
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({
+    example: 'operator',
+    required: false,
+    enum: AGENT_ROLES,
+  })
+  @IsOptional()
+  @IsString()
+  role?: AgentRole;
+
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    required: false,
+  })
+  @IsOptional()
   @IsUUID()
-  companyId!: string;
+  companyId?: string;
 }
 
 export class UpdateProfileDto {
@@ -70,4 +93,73 @@ export class UpdateProfileDto {
   @IsString()
   @MinLength(6)
   newPassword?: string;
+}
+
+export class UpdatePromiseAutomationSettingsDto {
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  reminderEnabled?: boolean;
+
+  @ApiProperty({
+    example: 'day_before',
+    required: false,
+    enum: PROMISE_REMINDER_TIMINGS,
+  })
+  @IsOptional()
+  @IsString()
+  reminderTiming?: PromiseReminderTiming;
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  autoBreakEnabled?: boolean;
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  checkPaymentBeforeBreak?: boolean;
+
+  @ApiProperty({ example: 'uuid-template', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  reminderTemplateId?: string | null;
+
+  @ApiProperty({ example: 'lembrete_pagamento_v1', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  reminderTemplateName?: string | null;
+}
+
+export class ManageAgentDto {
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+
+  @ApiProperty({
+    example: 'operator',
+    required: false,
+    enum: AGENT_ROLES,
+  })
+  @IsOptional()
+  @IsString()
+  role?: AgentRole;
+
+  @ApiProperty({ example: 'token-chatwoot-do-agente', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  chatwootAccessToken?: string | null;
+}
+
+export class UpdateChatwootConfigDto {
+  @ApiProperty({ example: 'admin-token-da-account', required: false })
+  @IsOptional()
+  @IsString()
+  chatwootAdminToken?: string;
+
+  @ApiProperty({ example: '12', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  teamChargeId?: string | null;
 }

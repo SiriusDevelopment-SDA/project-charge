@@ -22,6 +22,7 @@ import {
   templateCreateSchema,
   type TemplateCreateFormValues,
 } from "../../../schemas/template.schema";
+import { buildNormalizedSearch } from "../../../utils/locationSearch";
 import { useGlobalLoading } from "../../useGlobalLoading";
 import { useCreateTemplateMutation } from "../../mutations/useTemplateMutations";
 import { useCategoriesQuery } from "../../queries/useCampaignsQuery";
@@ -254,6 +255,7 @@ function sanitizeTemplateFormValues(input: {
 export function useCreateTemplatePageController() {
   const navigate = useNavigate();
   const location = useLocation();
+  const normalizedSearch = buildNormalizedSearch(location.search);
   const { showLoading, hideLoading } = useGlobalLoading();
   const createTemplateMutation = useCreateTemplateMutation();
   const {
@@ -417,7 +419,7 @@ export function useCreateTemplatePageController() {
   }, [body, variablesMap]);
 
   const handleBack = () => {
-    navigate(`/templates${location.search}`);
+    navigate(`/templates${normalizedSearch}`);
   };
 
   const validateForm = () => {
@@ -606,7 +608,7 @@ export function useCreateTemplatePageController() {
 
     try {
       await createTemplateMutation.mutateAsync(payload);
-      navigate(`/templates${location.search}`);
+      navigate(`/templates${normalizedSearch}`);
       window.setTimeout(() => hideLoading(loadingId), 250);
     } catch {
       hideLoading(loadingId);

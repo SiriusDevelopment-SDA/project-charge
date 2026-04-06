@@ -28,4 +28,24 @@ export class GraphicsController{
     async getCampaignsStats(@Param('companyId') companyId: string){
         return await this.graphicsService.getCampaignsStats(companyId);
     }
+
+    @Post('promises/:companyId')
+    async getPaymentPromisesStats(@Param('companyId') companyId: string){
+        return await this.graphicsService.getPaymentPromisesStats(companyId);
+    }
+
+    @Post('aging/:companyId')
+    async getDelinquencyAging(@Param('companyId') companyId: string){
+        return await this.graphicsService.getDelinquencyAging(companyId);
+    }
+
+    @Post('forecast/:companyId')
+    async getPaymentForecast(@Param('companyId') companyId: string){
+        return await this.graphicsService.getPaymentForecast(companyId);
+    }
+
+    @Post('debt-conversion/:companyId')
+    async getDebtConversion(@Param('companyId') companyId: string){
+        return await this.graphicsService.getDebtConversion(companyId);
+    }
 }

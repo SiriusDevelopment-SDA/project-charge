@@ -73,13 +73,10 @@ export class RelatoryResolverCron {
     try {
       let result: { list: unknown[] };
 
-      if (erp === 'IXC') {
-        result = await this.ixcService.getInvoices(client);
-      } else if (erp === 'HUBSOFT') {
-        result = await this.hubsoftService.getInvoices(client);
-      } else if (erp === 'SGP') {
-        result = await this.sgpService.getInvoices(client);
-      } else {
+      if (erp === 'IXC')result = await this.ixcService.getInvoices(client);
+      else if (erp === 'HUBSOFT') result = await this.hubsoftService.getInvoices(client);
+      else if (erp === 'SGP')result = await this.sgpService.getInvoices(client);
+      else {
         this.logger.warn(`[RelatoryResolver] ERP desconhecido "${erp}" para empresa ${companyId}`);
         return false;
       }

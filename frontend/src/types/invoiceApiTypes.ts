@@ -86,3 +86,48 @@ export interface InvoiceBatchResponse {
   data: ResultInvoices[];
   errors?: InvoiceError[];
 }
+
+export interface OverdueClientsSearchResponse {
+  data: Array<{
+    id: string;
+    cnpj_cpf: string;
+    name: string;
+    whatsapp?: string;
+    email?: string;
+    clientId?: string;
+    services?: Array<{
+      id: string;
+      id_servico: string;
+      status: string;
+      name: string;
+    }>;
+    company?: InvoiceClientCompany | null;
+    invoices: InvoicesResponse;
+  }>;
+  page: number;
+  limit: number;
+  total: number;
+  summary: {
+    totalOverdueClients: number;
+    totalOverdueInvoices: number;
+    totalDebt: number;
+    mappedClients: number;
+    checkedClients: number;
+    clientsWithSnapshot: number;
+    clientsWithOpenInvoices: number;
+  };
+}
+
+export interface InvoiceSyncState {
+  companyId: string;
+  companyName: string;
+  account: string;
+  status: 'idle' | 'running' | 'success' | 'error';
+  message?: string | null;
+  invoicesSynced: number;
+  lastStartedAt?: string | null;
+  lastFinishedAt?: string | null;
+  lastSuccessAt?: string | null;
+  durationMs?: number | null;
+  updatedAt?: string | null;
+}

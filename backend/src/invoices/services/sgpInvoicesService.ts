@@ -5,12 +5,7 @@ import {
 import { Company } from '../../companies/entities/companies';
 import { Client } from '../../clients/entities.ts/clients';
 import { formatarDataBR } from '../../utils';
-import { InvoiceMapResultDto, InvoiceOverdueDto, InvoicesOverdueResponseDto, InvoicesResponseDto, ResultInvoicesOverdueDto } from '../dto/search.request.dto.invoices';
-import { InvoiceSearchFilterDto } from '../dto/search.request.dto.invoices';
-import { Invoice } from '../entities/invoices';
-import { Raw, Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Overdue } from '../entities/Overdue';
+import { InvoiceMapResultDto, InvoicesResponseDto, InvoiceSearchFilterDto } from '../dto/search.request.dto.invoices';
 import { getInvoiceRuleQueryWindow } from '../utils/invoice-rule';
 import { RedisService } from '../../redis/redis.service';
 
@@ -18,10 +13,7 @@ const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 
 @Injectable()
 export class SGPInvoicesService {
-  overdueRepository: any;
-  clientRepository: any;
   constructor(
-      @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
       private readonly redisService: RedisService,
     ) { }
 
@@ -98,10 +90,7 @@ export class SGPInvoicesService {
         invoice_status: 'A Receber',
         ticket_digitable_line: t.codigoBarras || "",
         ticket_pdf_link: t.link || "",
-        code_pix: {
-          status: t.codigoPix !== "" ? "success": "error",
-          pix: t.codigoPix ?? null
-        }
+        code_pix: t.codigoPix ?? null
       }))
       .sort((a: any, b: any) => {
         const parseDate = (str?: string) => {
@@ -117,93 +106,6 @@ export class SGPInvoicesService {
       message: "Dados consultados com sucesso",
       list: map,
     });
-  }
-
-   async getInvoicesOverdue(companyId: string): Promise<ResultInvoicesOverdueDto[]> {
-    try {
-
-      const clients = await this.clientRepository.find({
-        where: {
-          company: {
-            id: companyId
-          }
-        },
-        relations: ['company'],
-      })
-
-      const resultados: ResultInvoicesOverdueDto[] = [];
-      const overdueToSave: Overdue[] = [];
-
-      for (const cliente of clients) {
-        const normalized = cliente.cnpj_cpf.replace(/\D/g, '');
-
-        const invoices = await this.invoiceRepository.find({
-          where: {
-            company: {
-              id: cliente.company.id
-            },
-            client: Raw(
-              (alias: string) => `regexp_replace(${alias}, '\\D', '', 'g') = :doc`,
-              { doc: normalized }
-            )
-          }
-        });
-
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const list: InvoiceOverdueDto[] = invoices
-          .filter((inv) => {
-            if (!inv.expiration) return false;
-
-            const due = new Date(inv.expiration);
-            due.setHours(0, 0, 0, 0)
-
-            const status = inv.status?.trim().toLowerCase();
-
-            return status === 'a receber' && due < today;
-          })
-          .map((inv) => {
-            overdueToSave.push({
-              invoiceId: String(inv.id_fatura ?? inv.id),
-              client: normalized,
-              companyId: cliente.company.id,
-              dueDate: new Date(inv.expiration),
-            } as Overdue)
-
-            return {
-              invoice_due_date: inv.expiration,
-              invoice_status: inv.status as 'A Receber' | 'Pago' | 'Renegociado' | 'Perdido',
-              overdue: true,
-            };
-          });
-
-        if (!list.length) continue;
-
-        resultados.push({
-          client: cliente.name,
-          document: normalized,
-          erp: cliente.company.erp,
-          invoices: {
-            status: 'success',
-            message: 'Faturas inadimplentes encontradas',
-            list,
-          } as InvoicesOverdueResponseDto
-        });
-      }
-
-      if (overdueToSave.length) {
-        await this.overdueRepository.upsert(overdueToSave, ['invoiceId', 'companyId'])
-      }
-
-      return resultados;
-
-    } catch (error) {
-      console.error('[SGPInvoicesService][getInvoicesOverdue]', error);
-
-      return [];
-    }
   }
 
   async getInvoicesByDateWindowBatch(

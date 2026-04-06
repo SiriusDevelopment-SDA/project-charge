@@ -4,12 +4,18 @@ import type { ReactNode } from "react";
 export function PageContainer({ children, className }: { children: ReactNode, className?: string }) {
   return (
     <Box
-      minHeight="calc(100vh - 14vh)"
+      data-app-scrollable="true"
+      height="100%"
+      minHeight={0}
       display="flex"
       flexDirection="column"
-      overflow="visible"
+      overflow="auto"
       className={className}
       padding={"20px"}
+      sx={{
+        scrollbarGutter: "stable",
+        background: "transparent",
+      }}
     >
       {children}
     </Box>

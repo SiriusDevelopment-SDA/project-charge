@@ -13,6 +13,7 @@ type EnqueueBatchParams = {
   recipients: MessageQueuePayload[];
   scope: 'manual' | 'campaign';
   scheduledAt?: Date;
+  disableDailyDedup?: boolean;
 };
 
 type ClaimedJob = {
@@ -44,29 +45,33 @@ export class MessageQueueService {
 
   async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number }> {
     const scheduledAt = params.scheduledAt ?? new Date();
+    let uniqueRecipients = params.recipients;
+    let deduped = 0;
 
-    // Deduplicação: remove destinatários cujo telefone já foi despachado hoje para a mesma empresa
-    const todayStart = new Date(scheduledAt);
-    todayStart.setHours(0, 0, 0, 0);
+    if (!params.disableDailyDedup) {
+      // Deduplicação: remove destinatários cujo telefone já foi despachado hoje para a mesma empresa
+      const todayStart = new Date(scheduledAt);
+      todayStart.setHours(0, 0, 0, 0);
 
-    const alreadyQueued = await this.queueRepository
-      .createQueryBuilder('q')
-      .select("q.payload->>'number'", 'number')
-      .where('q."companyId" = :companyId', { companyId: params.companyId })
-      .andWhere('q."scheduledAt" >= :todayStart', { todayStart })
-      .andWhere("q.status != 'failed'")
-      .getRawMany<{ number: string }>();
+      const alreadyQueued = await this.queueRepository
+        .createQueryBuilder('q')
+        .select("q.payload->>'number'", 'number')
+        .where('q."companyId" = :companyId', { companyId: params.companyId })
+        .andWhere('q."scheduledAt" >= :todayStart', { todayStart })
+        .andWhere("q.status != 'failed'")
+        .getRawMany<{ number: string }>();
 
-    const alreadyQueuedSet = new Set(alreadyQueued.map((r) => r.number));
-    const uniqueRecipients = params.recipients.filter(
-      (r) => !alreadyQueuedSet.has(r.number),
-    );
-
-    const deduped = params.recipients.length - uniqueRecipients.length;
-    if (deduped > 0) {
-      this.logger.log(
-        `Deduplication: ${deduped} recipient(s) already dispatched today for company ${params.companyId} — skipped.`,
+      const alreadyQueuedSet = new Set(alreadyQueued.map((r) => r.number));
+      uniqueRecipients = params.recipients.filter(
+        (r) => !alreadyQueuedSet.has(r.number),
       );
+
+      deduped = params.recipients.length - uniqueRecipients.length;
+      if (deduped > 0) {
+        this.logger.log(
+          `Deduplication: ${deduped} recipient(s) already dispatched today for company ${params.companyId} — skipped.`,
+        );
+      }
     }
 
     const batch = await this.batchRepository.save({

@@ -32,7 +32,7 @@ const RECURRING_TYPE_LABELS = {
   monthly_days: "Dias do mes",
 } as const;
 
-const INVOICE_RULE_MAX_DAYS = 360;
+const INVOICE_RULE_MAX_DAYS = 720;
 
 const INVOICE_RULE_PRESETS = [
   {
@@ -341,8 +341,8 @@ export function CriarCampanha() {
                         <small>
                           <span>Regua de cobranca</span>
                           {isMonthlyDays
-                            ? "As datas escolhidas no calendário serão usadas como referência da regua ao consultar as faturas no ERP."
-                            : "Cada dia dentro do período recorrente será usado como referência da regua ao consultar as faturas no ERP."}
+                            ? "As datas escolhidas no calendário serão usadas como referência da regua sobre o snapshot de faturas sincronizado no sistema (sem consultar o ERP nesta etapa)."
+                            : "Cada dia dentro do período recorrente será usado como referência da regua sobre o snapshot de faturas sincronizado no sistema (sem consultar o ERP nesta etapa)."}
                         </small>
 
                         <div className={Style.invoiceRuleTopRow}>
@@ -410,27 +410,6 @@ export function CriarCampanha() {
                       <div className={Style.invoiceRuleManualHeader}>
                         <span>Ou defina manualmente</span>
                       </div>
-                      {/* <div className={Style.invoiceRuleManualFields}>
-                       <div className={Style.invoiceRuleField}>
-                         <InputFields
-                           label="De (dias)"
-                           value={String(normalizedInvoiceRuleStart)}
-                           onChange={(e) => handleInvoiceRuleRangeStartChange(Number(e.target.value || 0))}
-                           onlyNumbers
-                           disabled={isSameDayRule}
-                         />
-                       </div>
-                       <div className={Style.invoiceRuleManualDivider}>-</div>
-                       <div className={Style.invoiceRuleField}>
-                         <InputFields
-                           label="Ate (dias)"
-                           value={String(normalizedInvoiceRuleEnd)}
-                           onChange={(e) => handleInvoiceRuleRangeEndChange(Number(e.target.value || 0))}
-                           onlyNumbers
-                           disabled={isSameDayRule}
-                         />
-                       </div>
-                     </div> */}
 
                       {!isSameDayRule && (
                         <>
@@ -469,7 +448,7 @@ export function CriarCampanha() {
                           </div>
 
                           <div className={Style.invoiceRuleRangeScale}>
-                            {[0, 90, 180, 270, 360].map((value) => (
+                            {[0, 90, 180, 270, 360, 450, 540, 630, 720].map((value) => (
                               <span key={value}>{value}</span>
                             ))}
                           </div>
@@ -619,6 +598,7 @@ export function CriarCampanha() {
           type="custom"
           size="wide"
           title="Preview da campanha"
+
           onClose={modal.closeModal}
           customContent={
             <DispatchPreviewContent

@@ -3,7 +3,6 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ScheduleModule } from '@nestjs/schedule';
-import { MessageQueueModule } from './message-queue/message-queue.module';
 import { DatabaseModule } from './database/database.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Client } from './clients/entities.ts/clients';
@@ -14,6 +13,7 @@ import { AppServiceTemplate } from './templates/app.service.templates';
 import { Templates } from './templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from './templates/entities/relatory.entity';
 import { Invoice } from './invoices/entities/invoices';
+import { InvoiceSyncState } from './invoices/entities/invoice-sync-state.entity';
 import { InvoicesController } from './invoices/controllers/invoicesController';
 import { Company } from './companies/entities/companies';
 import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
@@ -30,9 +30,9 @@ import { AppServiceServices } from './services/app.service.services';
 import { Service } from './services/entities/services';
 import { AppServiceGraphics } from './graphics/app.service.graphics';
 import { GraphicsController } from './graphics/app.controller.graphics';
-import { Overdue } from './invoices/entities/Overdue';
 import { TemplateVarsValidator } from './validations';
 import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
+import { InvoicesSyncGateway } from './realtime/invoices-sync.gateway';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { JwtModule } from '@nestjs/jwt';
@@ -45,24 +45,43 @@ import { NotificaMeWebhookController } from './webhooks/notificame.webhook.contr
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
 import { TemplateStatusSyncCron } from './templates/template-status-sync.cron';
 import { ClientsSyncCron } from './clients/clients-sync.cron';
+import { InvoiceSyncCron } from './invoices/invoice-sync.cron';
 import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
+import { PaymentPromise } from './payment-promise/entities/payment-promise.entity';
+import { PaymentPromiseService } from './payment-promise/payment-promise.service';
+import { PaymentPromiseController } from './payment-promise/payment-promise.controller';
+import { PaymentPromiseCron } from './payment-promise/payment-promise.cron';
+import { ClientInteraction } from './client-interaction/entities/client-interaction.entity';
+import { ClientInteractionService } from './client-interaction/client-interaction.service';
+import { ClientInteractionController } from './client-interaction/client-interaction.controller';
+import { ChatSession } from './chatwoot/entities/chat-session.entity';
+import { ChatSessionMessage } from './chatwoot/entities/chat-session-message.entity';
+import { ChatSessionHistoryService } from './chatwoot/chat-session-history.service';
+import { MessageQueueService } from './message-queue/message-queue.service';
+import { TemplateDispatchPayloadService } from './templates/template-dispatch-payload.service';
+import { MessageQueue } from './message-queue/entities/message-queue.entity';
+import { CampaignScheduler } from './message-queue/campaign-scheduler';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    MessageQueueModule,
     TypeOrmModule.forFeature([Client]),
     TypeOrmModule.forFeature([Templates]),
     TypeOrmModule.forFeature([RelatoryDispatchTemplate]),
     TypeOrmModule.forFeature([Invoice]),
+    TypeOrmModule.forFeature([InvoiceSyncState]),
     TypeOrmModule.forFeature([Company]),
     TypeOrmModule.forFeature([Campaign]),
     TypeOrmModule.forFeature([Category]),
     TypeOrmModule.forFeature([Service]),
-    TypeOrmModule.forFeature([Overdue]),
     TypeOrmModule.forFeature([Agent]),
     TypeOrmModule.forFeature([DispatchBatch]),
+    TypeOrmModule.forFeature([PaymentPromise]),
+    TypeOrmModule.forFeature([ClientInteraction]),
+    TypeOrmModule.forFeature([ChatSession]),
+    TypeOrmModule.forFeature([ChatSessionMessage]),
+    TypeOrmModule.forFeature([MessageQueue]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',
@@ -82,27 +101,48 @@ import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
     RedisController,
     GraphicsController,
     NotificaMeWebhookController,
+    PaymentPromiseController,
+    ClientInteractionController,
+
   ],
   providers: [
     AppServiceClient, 
-    AppServiceTemplate, 
-    IXCInvoicesService, 
+    AppServiceTemplate,
     CampaignsService,
     CategoryService,
-    HubsoftInvoicesService,
-    SGPInvoicesService,
     AppServiceServices,
     AppServiceGraphics,
     TemplateVarsValidator,
     CampaignMetricsGateway,
+    InvoicesSyncGateway,
     AuthService,
     ChatwootService,
-    RedisService,
+    ChatSessionHistoryService,
     RelatoryResolverCron,
     TemplateStatusSyncCron,
     ClientsSyncCron,
+    InvoiceSyncCron,
+    PaymentPromiseCron,
+    PaymentPromiseService,
+    ClientInteractionService,
+    MessageQueueService,
+    IXCInvoicesService,
+    HubsoftInvoicesService,
+    SGPInvoicesService,
+    RedisService,
+    TemplateDispatchPayloadService,
+    CampaignScheduler,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
-  exports: [AppServiceTemplate, AppServiceClient],
+  exports: [
+    AppServiceTemplate, 
+    AppServiceClient,
+    MessageQueueService,
+    IXCInvoicesService,
+    HubsoftInvoicesService,
+    SGPInvoicesService,
+    TemplateDispatchPayloadService,
+    RedisService
+  ],
 })
 export class AppModule { }

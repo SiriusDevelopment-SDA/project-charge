@@ -27,6 +27,10 @@ import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 import { MessageQueueService } from '../message-queue/message-queue.service';
 import type { MessageQueuePayload } from '../message-queue/entities/message-queue.entity';
 import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
+import {
+  TemplateDispatchPayloadService,
+  type DispatchSkipRecord,
+} from './template-dispatch-payload.service';
 
 @Injectable()
 export class AppServiceTemplate {
@@ -44,6 +48,7 @@ export class AppServiceTemplate {
 
     private readonly campaignMetricsGateway: CampaignMetricsGateway,
     private readonly messageQueueService: MessageQueueService,
+    private readonly templateDispatchPayload: TemplateDispatchPayloadService,
   ) {}
 
   async getTemplates(dto: SearchRequestDtoTemplates) {
@@ -221,18 +226,6 @@ export class AppServiceTemplate {
         company: { account_chatwoot: String(account) },
       },
       relations: { company: true },
-      select: {
-        id: true,
-        name: true,
-        meta_id: true,
-        meta_status: true,
-        variables: true,
-        company: {
-          id: true,
-          canalId_notificameHub: true,
-          token_notificameHub: true,
-        },
-      },
     });
 
     if (!template) throw new NotFoundException('Template nao encontrado');
@@ -250,14 +243,52 @@ export class AppServiceTemplate {
       throw new BadRequestException('Nenhum destinatario informado para envio.');
     }
 
-    const recipients: MessageQueuePayload[] = to.map((recipient) => ({
-      number: recipient.number,
-      name: recipient.name,
-      components: this.normalizeDispatchComponents(
-        Array.isArray(recipient.components) ? recipient.components : [],
-        template.variables,
-      ),
-    }));
+    const useServerBuild = to.every(
+      (r) => !Array.isArray(r.components) || r.components.length === 0,
+    );
+
+    let recipients: MessageQueuePayload[];
+    let dispatchSkips: DispatchSkipRecord[] = [];
+
+    if (useServerBuild) {
+      const rows = to.map((r) => {
+        const plain = { ...r } as Record<string, unknown>;
+        plain.whatsapp = r.number;
+        if (r.name) plain.nome_cliente = r.name;
+        else if (r.name) plain.nome_cliente = r.name;
+        return plain;
+      });
+      const built = await this.templateDispatchPayload.buildQueueRecipients(
+        template,
+        template.company.id,
+        rows,
+      );
+      recipients = built.recipients;
+      dispatchSkips = built.skips;
+      if (!recipients.length) {
+        await this.templateDispatchPayload.persistDispatchSkips(
+          template,
+          template.company.id,
+          campaignId ?? null,
+          null,
+          dispatchSkips,
+        );
+        throw new BadRequestException(
+          dispatchSkips.length
+            ? `Nenhum destinatario valido apos validar faturas no ERP (${dispatchSkips.length} ignorado(s); registros no relatorio com status "não enviado (Fatura indisponível)").`
+            : 'Nenhum destinatario valido apos montagem das variaveis no servidor.',
+        );
+      }
+    } else {
+      recipients = to.map((recipient) => ({
+        number: recipient.number,
+        name: recipient.name,
+        components: this.normalizeDispatchComponents(
+          Array.isArray(recipient.components) ? recipient.components : [],
+          template.variables,
+        ),
+      }));
+    }
 
     const { batch, skipped } = await this.messageQueueService.enqueueBatch({
       companyId: template.company.id,
@@ -267,7 +298,22 @@ export class AppServiceTemplate {
       scope: campaignId ? 'campaign' : 'manual',
     });
 
-    return { batchId: batch.id, queued: recipients.length - skipped, skipped };
+    if (useServerBuild && dispatchSkips.length) {
+      await this.templateDispatchPayload.persistDispatchSkips(
+        template,
+        template.company.id,
+        campaignId ?? null,
+        batch.id,
+        dispatchSkips,
+      );
+    }
+
+    return {
+      batchId: batch.id,
+      queued: recipients.length - skipped,
+      skipped,
+      skippedInvalidInvoices: dispatchSkips.length,
+    };
   }
 
   async getLatestDispatchBatchReport(dto: LatestDispatchBatchReportDto) {

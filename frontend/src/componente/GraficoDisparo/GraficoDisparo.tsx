@@ -1,137 +1,139 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
-  Bar,
   BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
+  Bar,
   XAxis,
   YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  LabelList,
 } from "recharts";
-import { Dropdown } from "../Index";
-import { usePollingChartData } from "../../hooks/components/usePollingChartData";
-import { useDashboardDispatches } from "../../hooks/controller/dashboard/useDashboardDispatches";
+import { useDashboardReturnRate } from "../../hooks/controller/dashboard/useDashboardReturnRate";
 import styles from "./GraficoDisparo.module.css";
 
-interface MonthlyData {
-  month: string;
-  value: number;
-}
+type CustomBarLabelProps = { x?: number; y?: number; width?: number; value?: number };
 
-type PeriodOption = {
-  id: string;
-  name: string;
-  months: string[];
+const CustomBarLabel = ({ x = 0, y = 0, width = 0, value = 0 }: CustomBarLabelProps) => {
+  if (!value) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 5}
+      fill="rgba(212,166,0,0.8)"
+      fontSize={10}
+      fontWeight={600}
+      textAnchor="middle"
+    >
+      {value}%
+    </text>
+  );
 };
 
-const periods: PeriodOption[] = [
-  { id: "jan-jun", name: "Jan - Jun", months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"] },
-  { id: "jul-dez", name: "Jul - Dez", months: ["Jul", "Ago", "Set", "Out", "Nov", "Dez"] },
-  {
-    id: "ano-todo",
-    name: "Ano todo",
-    months: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
-  },
-];
+type TooltipEntry = { value?: number };
+type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[]; label?: string };
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (!active || !payload?.length) return null;
+  const rate = payload[0]?.value ?? 0;
+  return (
+    <div className={styles.tooltip}>
+      <p className={styles.tooltipLabel}>{label}</p>
+      <p className={styles.tooltipVal}>
+        {rate}%
+        <span> de resposta</span>
+      </p>
+      <p className={styles.tooltipSub}>
+        {rate >= 60 ? "Excelente" : rate >= 30 ? "Regular" : rate > 0 ? "Baixo" : "Sem dados"}
+      </p>
+    </div>
+  );
+};
 
 const GraficoDisparo: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState(periods[0]);
-  const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
-  const { dispatches } = useDashboardDispatches();
+  const { returnRate, loading } = useDashboardReturnRate();
 
-  const filteredData = useMemo(
-    () => dispatches.filter((item) => selectedPeriod.months.includes(item.month)),
-    [dispatches, selectedPeriod]
+  const data = useMemo(
+    () =>
+      returnRate.map((item) => ({
+        month: item.month,
+        rate: item.disparo > 0 ? Math.round((item.retorno / item.disparo) * 100) : 0,
+      })),
+    [returnRate]
   );
 
-  const maxValue = useMemo(
-    () => Math.max(...filteredData.map((d) => d.value), 9),
-    [filteredData]
-  );
+  const avg = useMemo(() => {
+    const nonZero = data.filter((d) => d.rate > 0);
+    if (!nonZero.length) return 0;
+    return Math.round(nonZero.reduce((sum, d) => sum + d.rate, 0) / nonZero.length);
+  }, [data]);
+
+  if (loading) return <div className={styles.skeleton} />;
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Disparo mensal</h2>
-
-        <Dropdown<PeriodOption>
-          className={styles.dateSelector}
-          label="Periodo"
-          options={periods}
-          value={selectedPeriod}
-          placeholder="Selecionar"
-          open={isPeriodDropdownOpen}
-          onOpen={() => setIsPeriodDropdownOpen(true)}
-          onClose={() => setIsPeriodDropdownOpen(false)}
-          onChange={(value) => setSelectedPeriod(value as PeriodOption)}
-        />
+        <div>
+          <h2 className={styles.title}>Taxa de Resposta Mensal</h2>
+          <p className={styles.subtitle}>Percentual de clientes que responderam após o disparo</p>
+        </div>
+        {avg > 0 && (
+          <div className={styles.avgBadge}>
+            <span className={styles.avgLabel}>Média</span>
+            <span className={styles.avgValue}>{avg}%</span>
+          </div>
+        )}
       </div>
 
       <div className={styles.chartArea}>
-        <ResponsiveContainer>
-          <BarChart
-            data={filteredData}
-            margin={{ top: 10, right: 10, left: -15, bottom: 20 }}
-          >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 22, right: 12, left: -16, bottom: 16 }}>
             <defs>
-              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ffd700" stopOpacity={1} />
-                <stop offset="100%" stopColor="#b8860b" stopOpacity={1} />
+              <linearGradient id="rateBarGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(212,166,0,0.9)" />
+                <stop offset="100%" stopColor="rgba(212,166,0,0.25)" />
               </linearGradient>
-
-              <filter id="barGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="5" result="blur" />
-                <feFlood floodColor="#ffd700" floodOpacity="0.4" result="color" />
-                <feComposite in="color" in2="blur" operator="in" result="glow" />
-                <feMerge>
-                  <feMergeNode in="glow" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
             </defs>
 
-            <CartesianGrid
-              strokeDasharray="4 4"
-              vertical={false}
-              stroke="#333"
-              strokeOpacity={0.6}
-            />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+
+            {avg > 0 && (
+              <ReferenceLine
+                y={avg}
+                stroke="rgba(212,166,0,0.3)"
+                strokeDasharray="4 4"
+                label={{
+                  value: `Média ${avg}%`,
+                  position: "insideTopRight",
+                  fontSize: 10,
+                  fill: "rgba(212,166,0,0.5)",
+                }}
+              />
+            )}
 
             <XAxis
               dataKey="month"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#777", fontSize: 13 }}
-              dy={15}
+              tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 11 }}
+              dy={10}
             />
-
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#777", fontSize: 13 }}
-              domain={[0, maxValue]}
-              dx={-5}
+              tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 11 }}
+              domain={[0, 100]}
+              tickFormatter={(v) => `${v}%`}
+              dx={-6}
             />
 
-            <Tooltip
-              cursor={{ fill: "rgba(212, 175, 55, 0.05)" }}
-              contentStyle={{
-                backgroundColor: "#111",
-                border: "1px solid #d4af37",
-                borderRadius: "12px",
-                color: "#d4af37",
-                boxShadow: "0 10px 20px rgba(0,0,0,0.5)",
-              }}
-              itemStyle={{ color: "#ffd700" }}
-            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(212,166,0,0.04)" }} />
 
-            <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={28} filter="url(#barGlow)">
-              {filteredData.map((_, index) => (
-                <Cell key={`cell-${index}`} fill="url(#barGradient)" />
-              ))}
+            <Bar dataKey="rate" radius={[4, 4, 1, 1]} barSize={26} fill="url(#rateBarGrad)">
+              <LabelList content={<CustomBarLabel />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
