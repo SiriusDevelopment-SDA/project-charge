@@ -17,6 +17,8 @@ export const traduzirStatus = (status: string) => {
       return 'Falhou';
     case 'error':
       return 'Erro';
+    case 'skipped':
+      return 'Não enviado (Fatura indisponível)';
     default:
       return status || '-';
   }
@@ -40,6 +42,8 @@ export const statusSeverity = (status: string) => {
       return 'danger';
     case 'error':
       return 'danger';
+    case 'skipped':
+      return 'warning';
     default:
       return 'secondary';
   }

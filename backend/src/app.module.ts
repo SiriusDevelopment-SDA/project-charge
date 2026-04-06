@@ -3,7 +3,6 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ScheduleModule } from '@nestjs/schedule';
-import { MessageQueueModule } from './message-queue/message-queue.module';
 import { DatabaseModule } from './database/database.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Client } from './clients/entities.ts/clients';
@@ -58,12 +57,15 @@ import { ClientInteractionController } from './client-interaction/client-interac
 import { ChatSession } from './chatwoot/entities/chat-session.entity';
 import { ChatSessionMessage } from './chatwoot/entities/chat-session-message.entity';
 import { ChatSessionHistoryService } from './chatwoot/chat-session-history.service';
+import { MessageQueueService } from './message-queue/message-queue.service';
+import { TemplateDispatchPayloadService } from './templates/template-dispatch-payload.service';
+import { MessageQueue } from './message-queue/entities/message-queue.entity';
+import { CampaignScheduler } from './message-queue/campaign-scheduler';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    MessageQueueModule,
     TypeOrmModule.forFeature([Client]),
     TypeOrmModule.forFeature([Templates]),
     TypeOrmModule.forFeature([RelatoryDispatchTemplate]),
@@ -79,6 +81,7 @@ import { ChatSessionHistoryService } from './chatwoot/chat-session-history.servi
     TypeOrmModule.forFeature([ClientInteraction]),
     TypeOrmModule.forFeature([ChatSession]),
     TypeOrmModule.forFeature([ChatSessionMessage]),
+    TypeOrmModule.forFeature([MessageQueue]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',
@@ -100,15 +103,13 @@ import { ChatSessionHistoryService } from './chatwoot/chat-session-history.servi
     NotificaMeWebhookController,
     PaymentPromiseController,
     ClientInteractionController,
+
   ],
   providers: [
     AppServiceClient, 
-    AppServiceTemplate, 
-    IXCInvoicesService, 
+    AppServiceTemplate,
     CampaignsService,
     CategoryService,
-    HubsoftInvoicesService,
-    SGPInvoicesService,
     AppServiceServices,
     AppServiceGraphics,
     TemplateVarsValidator,
@@ -117,7 +118,6 @@ import { ChatSessionHistoryService } from './chatwoot/chat-session-history.servi
     AuthService,
     ChatwootService,
     ChatSessionHistoryService,
-    RedisService,
     RelatoryResolverCron,
     TemplateStatusSyncCron,
     ClientsSyncCron,
@@ -125,8 +125,24 @@ import { ChatSessionHistoryService } from './chatwoot/chat-session-history.servi
     PaymentPromiseCron,
     PaymentPromiseService,
     ClientInteractionService,
+    MessageQueueService,
+    IXCInvoicesService,
+    HubsoftInvoicesService,
+    SGPInvoicesService,
+    RedisService,
+    TemplateDispatchPayloadService,
+    CampaignScheduler,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
-  exports: [AppServiceTemplate, AppServiceClient],
+  exports: [
+    AppServiceTemplate, 
+    AppServiceClient,
+    MessageQueueService,
+    IXCInvoicesService,
+    HubsoftInvoicesService,
+    SGPInvoicesService,
+    TemplateDispatchPayloadService,
+    RedisService
+  ],
 })
 export class AppModule { }

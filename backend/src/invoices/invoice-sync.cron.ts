@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, In, Repository } from 'typeorm';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { Company } from '../companies/entities/companies';
 import { Client } from '../clients/entities.ts/clients';
 import { Invoice } from './entities/invoices';
@@ -238,11 +239,14 @@ export class InvoiceSyncCron {
   }
 
   private getSyncWindow() {
-    const today = new Date();
-    const start = new Date(today);
+    const now = new Date();
+  
+    const start = new Date(now);
     start.setFullYear(start.getFullYear() - SYNC_LOOKBACK_YEARS);
-
-    return { start, end: today };
+  
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+  
+    return { start, end };
   }
 
   private async syncIXC(company: Company): Promise<number> {
@@ -302,22 +306,63 @@ export class InvoiceSyncCron {
     );
 
     const fetchedInvoiceIds = new Set<string>();
-    const toUpsert: DeepPartial<Invoice>[] = [];
+    // Postgres error guard:
+    // "ON CONFLICT DO UPDATE command cannot affect row a second time" happens when
+    // the same conflict target (id_fatura+companyId) appears multiple times in the
+    // same INSERT ... ON CONFLICT statement.
+    // TypeORM's Repository.upsert(VALUES...) does not automatically deduplicate.
+    //
+    // We dedupe in-memory before the upsert so each conflict target is touched once.
+    const toUpsertByConflictKey = new Map<string, QueryDeepPartialEntity<Invoice>>();
+    let duplicateConflictTargets = 0;
     const syncTime = new Date();
 
     for (const [key, invoices] of sourceMap) {
-      const client =
-        erp === 'IXC' ? byClientId.get(String(key)) : byDocument.get(String(key).replace(/\D/g, ''));
-
+      const client = erp === 'SGP' ? byDocument.get(String(key)) : byClientId.get(String(key));
       if (!client) continue;
 
       for (const invoice of invoices) {
-        const mapped = this.mapInvoiceSnapshot(company.id, client.cnpj_cpf, invoice, erp, syncTime);
+        const mapped = this.mapInvoiceSnapshot(company.id, client.id, invoice, erp, syncTime);
         if (!mapped?.id_fatura) continue;
-
+        
+        if (typeof mapped.id_fatura !== 'string') continue;
         fetchedInvoiceIds.add(mapped.id_fatura);
-        toUpsert.push(mapped);
+
+        // Conflict target used by Postgres/TypeORM: (id_fatura, companyId)
+        // Here companyId is constant within this persistSnapshot, so we can
+        // safely dedupe by id_fatura.
+        const conflictKey = mapped.id_fatura;
+        const existing = toUpsertByConflictKey.get(conflictKey);
+        if (existing) {
+          duplicateConflictTargets++;
+
+          const existingClientId = String((existing as any).clientId ?? '');
+          const incomingClientId = String((mapped as any).clientId ?? '');
+
+          if (
+            existingClientId &&
+            incomingClientId &&
+            existingClientId !== incomingClientId
+          ) {
+            this.logger.warn(
+              `[InvoiceSync] ${erp} ${company.name}: fatura id_fatura=${mapped.id_fatura} apareceu para clientId diferente no mesmo snapshot (existing=${existingClientId}, incoming=${incomingClientId}). ` +
+                `Mantendo a primeira ocorrência para evitar erro do Postgres no upsert.`,
+            );
+          }
+          // Keep the first occurrence to make the dedupe deterministic.
+        } else {
+          toUpsertByConflictKey.set(conflictKey, mapped);
+        }
       }
+    }
+
+    const toUpsert = Array.from(toUpsertByConflictKey.values());
+
+    if (duplicateConflictTargets > 0) {
+      this.logger.warn(
+        `[InvoiceSync] ${erp} ${company.name}: detectadas ${duplicateConflictTargets} fatura(s) duplicada(s) no mesmo snapshot (id_fatura repetido). ` +
+          `Para evitar erro do Postgres no upsert, apenas 1 versão por id_fatura foi mantida.`,
+      );
     }
 
     if (existingOpenInvoices > 0 && toUpsert.length === 0) {
@@ -326,9 +371,8 @@ export class InvoiceSyncCron {
       );
     }
 
-    for (const chunk of toChunks(toUpsert, CHUNK_SIZE)) {
-      await this.invoiceRepo.upsert(chunk, ['id_fatura', 'company']);
-    }
+    for (const chunk of toChunks(toUpsert, CHUNK_SIZE))
+      await this.invoiceRepo.upsert(chunk, ['id_fatura', 'companyId']);
 
     await this.closeMissingOpenInvoices(company.id, fetchedInvoiceIds, syncTime);
     await this.markClientsAsChecked(clients.map((client) => client.id), syncTime);
@@ -342,51 +386,63 @@ export class InvoiceSyncCron {
 
   private mapInvoiceSnapshot(
     companyId: string,
-    clientDocument: string,
+    clientId: string,
     invoice: any,
     erp: 'IXC' | 'SGP',
     syncTime: Date,
-  ): DeepPartial<Invoice> | null {
-    if (erp === 'IXC') {
-      const dueDate = parseDate(invoice.data_vencimento);
-      if (!dueDate) return null;
-
-      const contractId =
-        invoice.id_contrato ||
-        invoice.id_contrato_principal ||
-        invoice.id_contrato_avulso ||
-        null;
-
-      return {
-        id_fatura: String(invoice.id),
-        contractId: contractId ? String(contractId) : undefined,
-        value: String(invoice.valor_aberto ?? invoice.valor ?? '0'),
-        status: 'A Receber',
-        expiration: invoice.data_vencimento,
-        ticketDigitableLine: null,
-        ticketPdfLink: null,
-        pixCode: null,
-        lastSyncAt: syncTime,
-        client: { cnpj_cpf: clientDocument } as Client,
-        company: { id: companyId } as Company,
-      };
+  ): QueryDeepPartialEntity<Invoice> | null {
+  
+    switch (erp) {
+      case 'IXC': {
+        const dueDate = parseDate(invoice.data_vencimento);
+        if (!dueDate) return null;
+  
+        const contractId =
+          invoice.id_contrato ||
+          invoice.id_contrato_principal ||
+          invoice.id_contrato_avulso ||
+          null;
+  
+        return {
+          id_fatura: String(invoice.id),
+          contractId: contractId ? String(contractId) : undefined,
+          value: String(invoice.valor_aberto ?? invoice.valor ?? '0'),
+          status: 'A Receber',
+          expiration: invoice.data_vencimento,
+          ticketDigitableLine: null,
+          ticketPdfLink: null,
+          pixCode: null,
+          lastSyncAt: syncTime,
+          clientId: clientId,
+          companyId: companyId,
+        };
+      }
+  
+      case 'SGP': {
+        const dueDate = parseDate(invoice.dataVencimento);
+        if (!dueDate) return null;
+  
+        return {
+          id_fatura: String(invoice.id),
+          contractId: invoice.clienteContrato
+            ? String(invoice.clienteContrato)
+            : undefined,
+          value: String(invoice.valorCorrigido ?? invoice.valor ?? '0'),
+          status: 'A Receber',
+          expiration: invoice.dataVencimento,
+          ticketDigitableLine:
+            invoice.linhaDigitavel || invoice.codigoBarras || null,
+          ticketPdfLink: invoice.link || null,
+          pixCode: invoice.codigoPix || null,
+          lastSyncAt: syncTime,
+          clientId: clientId,
+          companyId: companyId,
+        };
+      }
+  
+      default:
+        throw new Error(`ERP não suportado: ${erp}`);
     }
-
-    if (!invoice.dataVencimento) return null;
-
-    return {
-      id_fatura: String(invoice.id),
-      contractId: invoice.clienteContrato ? String(invoice.clienteContrato) : undefined,
-      value: String(invoice.valorCorrigido ?? invoice.valor ?? '0'),
-      status: 'A Receber',
-      expiration: invoice.dataVencimento,
-      ticketDigitableLine: invoice.linhaDigitavel || invoice.codigoBarras || null,
-      ticketPdfLink: invoice.link || null,
-      pixCode: invoice.codigoPix || null,
-      lastSyncAt: syncTime,
-      client: { cnpj_cpf: clientDocument } as Client,
-      company: { id: companyId } as Company,
-    };
   }
 
   private async closeMissingOpenInvoices(

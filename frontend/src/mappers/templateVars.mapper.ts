@@ -164,10 +164,12 @@ export function mapRecipientsToTemplateVars(
       ? pickTemplateVars(templateVars, allVars)
       : (allVars as Record<string, string>);
 
+    const invoice = getInvoice(recipient);
     return {
       clientId: recipient.id,
       cnpj_cpf: allVars.cnpj_cpf,
       whatsapp: allVars.whatsapp,
+      invoice_id: invoice?.invoice_id ? String(invoice.invoice_id) : undefined,
       ...varsForMessage,
       mensagem: compilarTemplate(template.message, template.variables, varsForMessage),
     } as mappedVars;

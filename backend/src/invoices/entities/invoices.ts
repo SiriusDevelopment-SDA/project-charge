@@ -13,9 +13,9 @@ import {
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
 
-@Entity()
-@Unique(['id_fatura', 'company'])
+@Index(['id_fatura', 'companyId'], { unique: true })
 @Index(['status', 'expiration'])
+@Entity()
 export class Invoice {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -58,18 +58,18 @@ export class Invoice {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToOne(() => Client, (client) => client.invoices, { nullable: false })
+  @Column()
+  clientId!: string;
+
+  @ManyToOne(() => Client, (client) => client.invoices)
   @JoinColumn({
-    name: 'client',
-    referencedColumnName: 'cnpj_cpf',
+    name: 'clientId',
+    referencedColumnName: 'id',
   })
   client!: Client;
-  // @ManyToOne(() => Service, (service) => service.invoices)
-  // @JoinColumn({
-  //   name: 'serviceId',
-  //   referencedColumnName: 'id',
-  // })
-  // service?: Service;
+
+  @Column()
+  companyId!: string;
 
   @ManyToOne(() => Company, (company) => company.invoices)
   @JoinColumn({

@@ -14,7 +14,6 @@ import type { InvoiceRuleOperator } from "../../../types/invoiceApiTypes";
 import { CampaignService } from "../../../services/campaign/campaign.service";
 import { useClient } from "../../useCliente";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
-import { buildTemplateRecipient } from "../../../mappers/templateRecipient.builder";
 import {
   areOnlyAttendantFieldsMissing,
   getMissingTemplateVariables,
@@ -402,37 +401,28 @@ export function useCampaignFormController() {
       }
 
       const templateMapVarsForSubmit = mappedVarsForSubmit
-        .map((item) => {
-          const recipient = buildTemplateRecipient(selectedTemplate, item);
-          if (!recipient) return null;
-
-          return {
-            clientId: String(item.clientId ?? "").trim(),
-            dispatchDate: item.dispatchDate,
-            cnpj_cpf: String(item.cnpj_cpf ?? "").trim(),
-            whatsapp: String(item.whatsapp ?? "").trim(),
-            nome_cliente: item.nome_cliente,
-            nome_atendente: item.nome_atendente || attendantName || "",
-            data_vencimento_fatura: item.data_vencimento_fatura,
-            nome_empresa: item.nome_empresa,
-            numero_contrato: item.numero_contrato,
-            valor_fatura: item.valor_fatura,
-            code_pix: item.code_pix,
-            linha_digitavel_boleto: item.linha_digitavel_boleto,
-            link_boleto_pdf: item.link_boleto_pdf,
-            mensagem: item.mensagem,
-            order_reference_id: item.order_reference_id,
-            order_item_name: item.order_item_name,
-            order_item_description: item.order_item_description,
-            order_pix_merchant_name: item.order_pix_merchant_name,
-            order_pix_key: item.order_pix_key,
-            order_pix_key_type: item.order_pix_key_type,
-            components: recipient.components,
-          };
-        })
+        .map((item) => ({
+          clientId: String(item.clientId ?? "").trim(),
+          dispatchDate: item.dispatchDate,
+          cnpj_cpf: String(item.cnpj_cpf ?? "").trim(),
+          whatsapp: String(item.whatsapp ?? "").trim(),
+          invoice_id: item.invoice_id ? String(item.invoice_id).trim() : undefined,
+          nome_cliente: item.nome_cliente,
+          nome_atendente: item.nome_atendente || attendantName || "",
+          data_vencimento_fatura: item.data_vencimento_fatura,
+          nome_empresa: item.nome_empresa,
+          numero_contrato: item.numero_contrato,
+          valor_fatura: item.valor_fatura,
+          mensagem: item.mensagem,
+          order_reference_id: item.order_reference_id,
+          order_item_name: item.order_item_name,
+          order_item_description: item.order_item_description,
+          order_pix_merchant_name: item.order_pix_merchant_name,
+          order_pix_key: item.order_pix_key,
+          order_pix_key_type: item.order_pix_key_type,
+        }))
         .filter(
-          (item): item is NonNullable<typeof item> =>
-            item !== null &&
+          (item) =>
             item.clientId.length > 0 &&
             item.cnpj_cpf.length > 0 &&
             item.whatsapp.length > 0,
@@ -627,10 +617,17 @@ export function useCampaignFormController() {
       };
     }
 
+    // Campos de invoice/PIX (INVOICE_DEPENDENT_FIELDS) sao preenchidos pelo backend
+    // no momento do disparo — nunca devem bloquear a criacao da campanha.
+    // Isso se aplica tanto ao modo single quanto ao modo recorrente (usesInvoiceRule).
     const incompleteRecipients = getIncompleteTemplateRecipients(
       selectedTemplate,
       effectiveMapVars,
-    );
+    ).map((r) => ({
+      ...r,
+      missingFields: r.missingFields.filter((f) => !INVOICE_DEPENDENT_FIELDS.has(f)),
+    })).filter((r) => r.missingNumber || r.missingFields.length > 0);
+
 
     if (incompleteRecipients.length) {
       if (

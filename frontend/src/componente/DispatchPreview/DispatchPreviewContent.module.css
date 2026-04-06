@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  width: 100% !important;
 }
 
 .hero{
@@ -144,9 +143,10 @@
 
 .detailsGrid{
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
 }
+
 
 .detailCard{
   display: flex;
@@ -236,9 +236,10 @@
   }
 
   .detailsGrid{
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
+
 
   .detailCard{
     padding: 12px 14px;
@@ -254,11 +255,6 @@
   }
 }
 
-@media (max-width: 980px), (max-height: 820px) {
-  .detailsGrid{
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
 
 @media (max-width: 720px) {
   .hero{

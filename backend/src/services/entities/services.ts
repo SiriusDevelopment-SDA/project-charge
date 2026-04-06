@@ -38,10 +38,13 @@ export class Service {
   @UpdateDateColumn()
   updatedAt!: Date;
 
+  @Column()
+  clientId!: string;
+
   @ManyToOne(() => Client, (client) => client.services, { nullable: false })
   @JoinColumn({
-    name: 'cnpj_cpf',
-    referencedColumnName: 'cnpj_cpf',
+    name: 'clientId',
+    referencedColumnName: 'id',
   })
   client!: Client;
   

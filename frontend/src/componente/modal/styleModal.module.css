@@ -56,6 +56,14 @@
   min-height: 0;
 }
 
+.modal-compact {
+  width: min(560px, calc(100vw - 32px));
+  max-width: 560px;
+  max-height: min(90dvh, 700px);
+  overflow-y: auto;
+}
+
+
 .modal-success {
   background: linear-gradient(180deg, #15803d, #166534);
 }

@@ -75,10 +75,7 @@ export class HubsoftInvoicesService {
       invoice_status: 'A Receber',
       ticket_digitable_line: t.codigo_barras ?? null,
       ticket_pdf_link: t.link ?? null,
-      code_pix: {
-        status: t.pix_copia_cola !== "" ? "success" : "error",
-        pix: String(t.pix_copia_cola) ?? null
-      }
+      code_pix: String(t.pix_copia_cola)
     })).sort((a: any, b: any) => {
       const parseDate = (str?: string) => {
         if (!str) return 0;

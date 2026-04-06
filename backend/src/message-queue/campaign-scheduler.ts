@@ -4,9 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DateTime } from 'luxon';
 import { In, Repository } from 'typeorm';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
+import { Templates } from '../templates/entities/templatesMeta';
 import { MessageQueueService } from './message-queue.service';
-import type { MessageQueuePayload } from './entities/message-queue.entity';
 import { isBusinessDay } from '../common/utils/business-day.util';
+import { TemplateDispatchPayloadService } from '../templates/template-dispatch-payload.service';
 
 @Injectable()
 export class CampaignScheduler {
@@ -16,7 +17,12 @@ export class CampaignScheduler {
     @InjectRepository(Campaign)
     private readonly campaignRepository: Repository<Campaign>,
 
+    @InjectRepository(Templates)
+    private readonly templateRepository: Repository<Templates>,
+
     private readonly messageQueueService: MessageQueueService,
+
+    private readonly templateDispatchPayload: TemplateDispatchPayloadService,
   ) {}
 
   /**
@@ -25,38 +31,61 @@ export class CampaignScheduler {
    */
   @Cron('* * * * *')
   async checkAndDispatchCampaigns(): Promise<void> {
-    const now = new Date();
+    try {
+      const now = new Date();
 
-    const campaigns = await this.campaignRepository.find({
-      where: {
-        isEnabled: true,
-        status: In(['queue', 'pending']),
-      },
-      relations: ['company', 'template'],
-      select: {
-        id: true,
-        startDate: true,
-        endDate: true,
-        dispatchTime: true,
-        timezone: true,
-        recurring: true,
-        recurringType: true,
-        recurringDays: true,
-        lastDispatchedAt: true,
-        templateMapVars: true,
-        company: { id: true },
-        template: { id: true },
-      },
-    });
+      const campaigns = await this.campaignRepository.find({
+        where: {
+          isEnabled: true,
+          status: In(['queue', 'pending']),
+        },
+        relations: ['company', 'template'],
+        select: {
+          id: true,
+          status: true,
+          isEnabled: true,
+          startDate: true,
+          endDate: true,
+          dispatchTime: true,
+          timezone: true,
+          recurring: true,
+          recurringType: true,
+          recurringDays: true,
+          lastDispatchedAt: true,
+          templateMapVars: true,
+          company: { id: true },
+          template: { id: true },
+        },
+      });
 
-    for (const campaign of campaigns) {
-      if (!this.isCampaignActiveOnDate(campaign, now)) {
-        continue;
+      this.logger.log(`[CampaignScheduler] Found ${campaigns.length} active campaign(s) to check`);
+
+      for (const campaign of campaigns) {
+        const nowInTz = this.toDateTimeInZone(now, campaign.timezone);
+        const todayStr = this.toDateOnly(now, campaign.timezone);
+        const startStr = this.toDateOnly(campaign.startDate, campaign.timezone);
+        const endStr = this.toDateOnly(campaign.endDate, campaign.timezone);
+        const scheduledAt = this.getScheduledDispatchDateTime(campaign, now);
+        this.logger.log(
+          `[CampaignScheduler] campaign=${campaign.id} status=${campaign.status} recurring=${campaign.recurring} ` +
+          `today=${todayStr} start=${startStr} end=${endStr} ` +
+          `nowInTz=${nowInTz.toISO()} scheduledAt=${scheduledAt?.toISO() ?? 'null'} ` +
+          `lastDispatchedAt=${campaign.lastDispatchedAt?.toISOString() ?? 'null'}`,
+        );
+
+        if (!this.isCampaignActiveOnDate(campaign, now)) {
+          this.logger.warn(`[CampaignScheduler] campaign=${campaign.id} NOT active on date`);
+          continue;
+        }
+
+        if (this.shouldDispatchNow(campaign, now)) {
+          await this.enqueueCampaign(campaign, now);
+        } else {
+          this.logger.warn(`[CampaignScheduler] campaign=${campaign.id} shouldDispatchNow=false`);
+        }
       }
-
-      if (this.shouldDispatchNow(campaign, now)) {
-        await this.enqueueCampaign(campaign, now);
-      }
+    } catch (err) {
+      this.logger.error(`[CampaignScheduler] Unhandled error in checkAndDispatchCampaigns`, err);
     }
   }
 
@@ -64,6 +93,10 @@ export class CampaignScheduler {
     const nowInTz = this.toDateTimeInZone(now, campaign.timezone);
     const scheduledAt = this.getScheduledDispatchDateTime(campaign, now);
     if (!scheduledAt || nowInTz.toMillis() < scheduledAt.toMillis()) return false;
+
+    // Campanhas com status 'pending' foram manualmente re-enfileiradas pelo usuário
+    // e devem disparar independentemente de já terem sido enviadas hoje.
+    if (campaign.status === 'pending') return true;
 
     // Avoid re-dispatching if already sent today
     if (campaign.lastDispatchedAt) {
@@ -109,11 +142,44 @@ export class CampaignScheduler {
         campaign,
         now,
       );
-      const recipients: MessageQueuePayload[] = scopedTemplateMapVars.map((v) => ({
-        number: String(v.whatsapp ?? ''),
-        name: String(v.nome_cliente ?? ''),
-        components: this.buildComponents(v),
-      }));
+
+      const templateEntity = await this.templateRepository.findOne({
+        where: { id: campaign.template.id },
+        relations: ['company'],
+      });
+
+      if (!templateEntity) {
+        this.logger.error(`Campaign ${campaign.id}: template ${campaign.template.id} not found`);
+        return;
+      }
+
+      const { recipients, skips } =
+        await this.templateDispatchPayload.buildQueueRecipients(
+          templateEntity,
+          campaign.company.id,
+          scopedTemplateMapVars as Record<string, unknown>[],
+        );
+
+      let batchId: string | null = null;
+      if (recipients.length > 0) {
+        const { batch } = await this.messageQueueService.enqueueBatch({
+          companyId: campaign.company.id,
+          templateId: campaign.template.id,
+          campaignId: campaign.id,
+          recipients,
+          scope: 'campaign',
+          scheduledAt: now,
+        });
+        batchId = batch.id;
+      }
+
+      await this.templateDispatchPayload.persistDispatchSkips(
+        templateEntity,
+        campaign.company.id,
+        campaign.id,
+        batchId,
+        skips,
+      );
 
       if (recipients.length === 0) {
         this.logger.warn(
@@ -126,15 +192,6 @@ export class CampaignScheduler {
         return;
       }
 
-      await this.messageQueueService.enqueueBatch({
-        companyId: campaign.company.id,
-        templateId: campaign.template.id,
-        campaignId: campaign.id,
-        recipients,
-        scope: 'campaign',
-        scheduledAt: now,
-      });
-
       // Mark as dispatched today
       await this.campaignRepository.update(campaign.id, {
         lastDispatchedAt: now,
@@ -142,7 +199,8 @@ export class CampaignScheduler {
       });
 
       this.logger.log(
-        `Enqueued ${recipients.length} messages for campaign ${campaign.id}`,
+        `Enqueued ${recipients.length} message(s) for campaign ${campaign.id}` +
+          (skips.length ? `; ${skips.length} skipped (see relatório)` : ''),
       );
     } catch (err) {
       this.logger.error(`Failed to enqueue campaign ${campaign.id}`, err);
@@ -169,47 +227,6 @@ export class CampaignScheduler {
     );
   }
 
-  private buildComponents(vars: Record<string, unknown>): MessageQueuePayload['components'] {
-    // Extract text parameters from template vars into WhatsApp component format.
-    // The actual component structure was saved in templateMapVars by the frontend.
-    const components = this.normalizeStoredComponents(vars['components']);
-    if (components.length) return components;
-
-    // Fallback: build a simple BODY component with non-empty string values
-    const parameters = Object.entries(vars)
-      .filter(([k, v]) => !['clientId', 'dispatchDate', 'cnpj_cpf', 'whatsapp', 'nome_cliente'].includes(k) && typeof v === 'string' && v)
-      .map(([, v]) => ({ type: 'text', text: String(v) }));
-
-    return parameters.length ? [{ type: 'BODY', parameters }] : [];
-  }
-
-  private normalizeStoredComponents(
-    components: unknown,
-  ): MessageQueuePayload['components'] {
-    if (Array.isArray(components)) {
-      return components as MessageQueuePayload['components'];
-    }
-
-    if (
-      components &&
-      typeof components === 'object' &&
-      Array.isArray((components as { components?: unknown }).components)
-    ) {
-      return (components as { components: MessageQueuePayload['components'] })
-        .components;
-    }
-
-    if (typeof components === 'string') {
-      try {
-        return this.normalizeStoredComponents(JSON.parse(components));
-      } catch {
-        return [];
-      }
-    }
-
-    return [];
-  }
-
   private isCampaignActiveOnDate(campaign: Campaign, now: Date): boolean {
     const todayInTimezone = this.toDateOnly(now, campaign.timezone);
     const startDate = this.toDateOnly(campaign.startDate, campaign.timezone);
@@ -218,14 +235,17 @@ export class CampaignScheduler {
     const withinRange = todayInTimezone >= startDate && todayInTimezone <= endDate;
     if (!withinRange) return false;
 
-    // Não disparar em fins de semana nem feriados nacionais
-    const nowInTz = this.toDateTimeInZone(now, campaign.timezone);
-    const localDate = new Date(nowInTz.year, nowInTz.month - 1, nowInTz.day);
-    if (!isBusinessDay(localDate)) {
-      this.logger.debug(
-        `Campaign ${campaign.id} skipped: ${todayInTimezone} is a weekend or national holiday.`,
-      );
-      return false;
+    // Não disparar em fins de semana nem feriados nacionais apenas para campanhas recorrentes.
+    // Campanhas únicas (single) devem disparar independentemente do dia da semana.
+    if (campaign.recurring) {
+      const nowInTz = this.toDateTimeInZone(now, campaign.timezone);
+      const localDate = new Date(nowInTz.year, nowInTz.month - 1, nowInTz.day);
+      if (!isBusinessDay(localDate)) {
+        this.logger.debug(
+          `Campaign ${campaign.id} skipped: ${todayInTimezone} is a weekend or national holiday.`,
+        );
+        return false;
+      }
     }
 
     if (campaign.recurringType === 'monthly_days') {

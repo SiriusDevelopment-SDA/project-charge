@@ -156,20 +156,6 @@ export class InvoiceClientDto {
   company!: InvoiceClientCompanyDto;
 }
 
-class CodePixDto {
-  @ApiProperty()
-  status!: 'success' | 'error';
-
-  @ApiProperty()
-  pix!: string;
-
-  @ApiProperty({ required: false })
-  pix_key?: string;
-
-  @ApiProperty({ required: false })
-  pix_key_type?: string;
-}
-
 export class InvoiceMapResultDto {
   @ApiProperty()
   invoice_id!: string;
@@ -177,8 +163,8 @@ export class InvoiceMapResultDto {
   @ApiProperty()
   contract_id!: string;
 
-  @ApiProperty()
-  invoice_due_date!: string;
+  @ApiProperty({ nullable: true })
+  invoice_due_date!: string | null;
 
   @ApiProperty()
   invoice_amount!: string;
@@ -199,7 +185,7 @@ export class InvoiceMapResultDto {
   ticket_pdf_link!: string | null;
 
   @ApiProperty({ nullable: true })
-  code_pix!: CodePixDto;
+  code_pix!: string;
 }
 
 export class InvoicesResponseDto {

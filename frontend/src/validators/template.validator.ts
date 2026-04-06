@@ -13,6 +13,24 @@ const PIX_TEMPLATE_VARIABLE_KEYS = new Set([
   "codigo_pix",
 ]);
 
+/**
+ * Campos preenchidos pelo backend no momento do disparo (TemplateDispatchPayloadService).
+ * O IXC nao retorna PIX para o frontend — o PIX e buscado via API do ERP no momento do disparo.
+ * Esses campos NAO devem ser considerados "ausentes" na criacao da campanha.
+ */
+export const DISPATCH_TIME_FIELDS = new Set([
+  "data_vencimento_fatura",
+  "numero_contrato",
+  "valor_fatura",
+  "linha_digitavel_boleto",
+  "link_boleto_pdf",
+  "code_pix",
+  "codigo_qr",
+  "codigo_qr_code",
+  "codigo_pix",
+  "order_reference_id",
+]);
+
 function normalizeTemplateComponents(template: Template): Array<Record<string, unknown>> {
   const { components } = template;
 
@@ -144,6 +162,9 @@ export function getMissingTemplateVariables(template: Template, recipient: Recip
 
   return requiredFields.filter((fieldKey) => {
     if (fieldKey === "whatsapp") return false;
+    // Campos de invoice/PIX sao preenchidos pelo backend no momento do disparo.
+    // Nao devem bloquear a criacao da campanha no frontend.
+    if (DISPATCH_TIME_FIELDS.has(fieldKey)) return false;
     return !String(allVars[fieldKey as keyof mappedVars] ?? "").trim();
   });
 }
@@ -178,7 +199,9 @@ export function diagnoseTemplateRecipients(
           (fieldKey) => !String(mappedVar[fieldKey as keyof mappedVars] ?? "").trim(),
         ),
       ]),
-    );
+    // Campos de invoice/PIX sao preenchidos pelo backend no momento do disparo.
+    // Nao devem ser reportados como "ausentes" na criacao da campanha.
+    ).filter((fieldKey) => !DISPATCH_TIME_FIELDS.has(fieldKey));
 
     return {
       index,

@@ -14,9 +14,7 @@ import { Brackets, In, Raw, Repository } from 'typeorm';
 import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
-import { IXCInvoicesService } from '../services/ixcInvoicesService';
-import { HubsoftInvoicesService } from '../services/hubsoftInvoicesService';
-import { SGPInvoicesService } from '../services/sgpInvoicesService';
+import { Invoice } from '../entities/invoices';
 import { InvoiceSyncCron } from '../invoice-sync.cron';
 import {
   InvoiceBatchPartialDto,
@@ -32,6 +30,7 @@ import {
   filterInvoicesByDueDates,
   getInvoiceRuleDueDatesMap,
   getInvoiceRuleReferenceDates,
+  normalizeInvoiceDueDateToIso,
 } from '../utils/invoice-rule';
 
 @ApiTags('Invoices')
@@ -42,11 +41,10 @@ export class InvoicesController {
   constructor(
     @InjectRepository(Client)
     private readonly clientRepo: Repository<Client>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepo: Repository<Invoice>,
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
-    private readonly ixcService: IXCInvoicesService,
-    private readonly hubsoftService: HubsoftInvoicesService,
-    private readonly sgpService: SGPInvoicesService,
     private readonly invoiceSyncCron: InvoiceSyncCron,
   ) {}
 
@@ -91,7 +89,7 @@ export class InvoicesController {
           continue;
         }
 
-        const invoices = await this.fetchInvoicesByClient(cliente, data.filter);
+        const invoices = await this.fetchInvoicesFromLocalSnapshot(cliente, data.filter);
         resultados.push(this.mapResult(cliente, normalizedQuery, invoices));
       } catch {
         errors.push({
@@ -104,48 +102,6 @@ export class InvoicesController {
     return this.buildBatchResponse(resultados, errors);
   }
 
-  @Post('pix/batch')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Busca codigos PIX por lista de invoice IDs (IXC)' })
-  @ApiBody({ type: PixBatchRequestDto })
-  async getPixBatch(@Body() data: PixBatchRequestDto) {
-    const empresa = await this.companyRepo.findOne({
-      where: { id: data.companyId },
-    });
-
-    if (!empresa) {
-      throw new NotFoundException(`Empresa ${data.companyId} nao encontrada`);
-    }
-
-    const authorizationHeader = `Basic ${Buffer.from(empresa.autorization).toString('base64')}`;
-    const ixcUrl = `https://${empresa.url}/webservice/v1/get_pix`;
-
-    const results = await Promise.all(
-      data.invoiceIds.map(async (invoiceId) => {
-        try {
-          const response = await fetch(ixcUrl, {
-            method: 'POST',
-            headers: {
-              Authorization: authorizationHeader,
-              'Content-Type': 'application/json',
-              ixcsoft: 'listar',
-            },
-            body: JSON.stringify({ id_areceber: invoiceId }),
-          });
-          const boletoData = await response.json();
-          const dadosPix = boletoData.pix?.dadosPix ?? {};
-          const pixCode = (dadosPix.pixCopiaECola && dadosPix.status === 'ATIVA')
-            ? dadosPix.pixCopiaECola
-            : boletoData.pix?.qrCode?.qrcode ?? '';
-          return { invoiceId, status: pixCode ? 'success' : 'error', pix: pixCode };
-        } catch {
-          return { invoiceId, status: 'error', pix: '' };
-        }
-      }),
-    );
-
-    return { results };
-  }
 
   @Post('overdue-clients/search')
   @HttpCode(200)
@@ -339,8 +295,6 @@ export class InvoicesController {
               ticket_digitable_line: invoice.ticketDigitableLine ?? null,
               ticket_pdf_link: invoice.ticketPdfLink ?? null,
               code_pix: invoice.pixCode
-                ? { status: 'success', pix: invoice.pixCode }
-                : null,
             })),
           },
         };
@@ -424,15 +378,13 @@ export class InvoicesController {
     filter: InvoiceSearchFilterDto,
   ): Promise<InvoiceBatchResponseDto> {
     const clients = await this.clientRepo.find({
-      where: {
-        company: {
-          id: companyId,
-        },
-      },
+      where: { company: { id: companyId } },
       relations: ['company'],
     });
 
-    this.logger.log(`[InvoiceRule] company=${companyId} erp=${clients[0]?.company?.erp} clientes=${clients.length} operator=${filter.operator} daysFrom=${filter.daysFrom ?? 0} daysTo=${filter.daysTo ?? filter.days ?? 0}`);
+    this.logger.log(
+      `[InvoiceRule] company=${companyId} erp=${clients[0]?.company?.erp} clientes=${clients.length} (snapshot DB) operator=${filter.operator}`,
+    );
 
     if (!clients.length) {
       throw new NotFoundException(
@@ -440,16 +392,14 @@ export class InvoicesController {
       );
     }
 
-
-    if (!['IXC', 'SGP'].includes(clients[0]?.company?.erp)) {
+    const erp = String(clients[0]?.company?.erp ?? '').toUpperCase();
+    if (!['IXC', 'SGP', 'HUBSOFT'].includes(erp)) {
       throw new BadRequestException(
-        'Filtro de régua de cobrança disponível apenas para empresas IXC e SGP.',
+        'Filtro de régua de cobrança disponível apenas para empresas IXC, SGP e HUBSOFT (snapshot).',
       );
     }
 
     const dispatchDates = getInvoiceRuleReferenceDates(filter);
-
-
     if (!dispatchDates.length) {
       throw new BadRequestException(
         'A régua de cobrança precisa receber ao menos uma data de referência.',
@@ -457,143 +407,60 @@ export class InvoicesController {
     }
 
     const dueDatesByDispatchDate = getInvoiceRuleDueDatesMap(filter);
-    dueDatesByDispatchDate.forEach((dates, key) => {
-      const sorted = [...dates].sort((a, b) => a.localeCompare(b));
-      console.log(`[searchInvoicesByCompanyRule] disparo ${key} → janela de vencimento: ${sorted[0]} ~ ${sorted[sorted.length - 1]} (${dates.length} dias)`);
+    const allDueFlat = [...new Set([...dueDatesByDispatchDate.values()].flat())].sort(
+      (a, b) => a.localeCompare(b),
+    );
+    const minDue = allDueFlat[0];
+    const maxDue = allDueFlat[allDueFlat.length - 1];
+
+    const allInvoices = await this.invoiceRepo.find({
+      where: { company: { id: companyId } },
+      relations: ['client'],
     });
 
+    const open = allInvoices.filter(
+      (i) => String(i.status ?? '').trim().toLowerCase() === 'a receber',
+    );
+
+    const inWindow = open.filter((inv) => {
+      const iso = normalizeInvoiceDueDateToIso(inv.expiration);
+      return iso ? iso >= minDue && iso <= maxDue : false;
+    });
+
+    const clientById = new Map(clients.map((c) => [c.id, c]));
+    const listsByClientId = new Map<string, InvoiceMapResultDto[]>();
+
+    for (const inv of inWindow) {
+      const clientEntity = inv.client;
+      if (!clientEntity?.id) continue;
+      const cliente = clientById.get(clientEntity.id);
+      if (!cliente) continue;
+      const dto = this.mapInvoiceEntityToDto(inv);
+      const arr = listsByClientId.get(cliente.id) ?? [];
+      arr.push(dto);
+      listsByClientId.set(cliente.id, arr);
+    }
+
     const resultados: ResultInvoicesDto[] = [];
-    const errors: { document: string; reason: string }[] = [];
-    const company = clients[0].company;
 
-    if (company.erp === 'IXC') {
-      const allDueDates = [...dueDatesByDispatchDate.values()].flat();
-      const sortedDates = [...new Set(allDueDates)].sort((a, b) => a.localeCompare(b));
-      const windowStart = sortedDates[0];
-      const windowEnd = sortedDates[sortedDates.length - 1];
+    for (const [clientId, invoiceList] of listsByClientId) {
+      const cliente = clientById.get(clientId);
+      if (!cliente) continue;
+      const normalizedDocument = String(cliente.cnpj_cpf ?? '').replace(/\D/g, '');
 
-      const invoicesByClientId = await this.ixcService.getInvoicesByDateWindowBatch(
-        company,
-        windowStart,
-        windowEnd,
-      );
-
-      const clientByIxcId = new Map(
-        clients.map((c) => [String(c.clientId), c]),
-      );
-
-      const ixcEntries = [...invoicesByClientId.entries()]
-        .map(([ixcClientId, rawInvoices]) => ({ ixcClientId, rawInvoices }))
-        .filter(({ ixcClientId }) => clientByIxcId.has(ixcClientId));
-
-      const allInvoiceIds = ixcEntries.flatMap(({ rawInvoices }) =>
-        rawInvoices.map((t) => String(t.id)),
-      );
-
-      const pixByInvoiceId = new Map<string, { status: string; pix: string }>();
-      await Promise.allSettled(
-        allInvoiceIds.map(async (invoiceId) => {
-          try {
-            const pix = await this.ixcService.getPixByInvoice({ companyId: company.id, invoiceId });
-            pixByInvoiceId.set(invoiceId, pix);
-          } catch {
-            pixByInvoiceId.set(invoiceId, { status: 'error', pix: '' });
-          }
-        }),
-      );
-
-      ixcEntries.forEach(({ ixcClientId, rawInvoices }) => {
-        const cliente = clientByIxcId.get(ixcClientId);
-        if (!cliente) return;
-
-        const normalizedDocument = String(cliente.cnpj_cpf ?? '').replace(/\D/g, '');
-        const invoiceList: InvoiceMapResultDto[] = rawInvoices.map((t) => {
-          const contractId =
-            t.id_contrato && t.id_contrato !== '' && t.id_contrato !== '0'
-              ? t.id_contrato
-              : t.id_contrato_principal && t.id_contrato_principal !== '' && t.id_contrato_principal !== '0'
-              ? t.id_contrato_principal
-              : t.id_contrato_avulso ?? null;
-
-          return {
-            invoice_id: String(t.id),
-            contract_id: String(contractId),
-            invoice_due_date: t.data_vencimento,
-            invoice_amount: String(t.valor_aberto ?? t.valor),
-            invoice_status: 'A Receber',
-            ticket_digitable_line: null,
-            ticket_pdf_link: null,
-            code_pix: pixByInvoiceId.get(String(t.id)) ?? { status: 'error', pix: '' },
-          } as InvoiceMapResultDto;
-        });
-
-        dispatchDates.forEach((dispatchDate) => {
-          const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
-          const filteredInvoices = filterInvoicesByDueDates(invoiceList, dueDates);
-
-    
-          if (!filteredInvoices.length) return;
-
-          resultados.push(
-            this.mapResult(
-              cliente,
-              normalizedDocument,
-              { status: 'success', message: 'ok', list: filteredInvoices },
-              dispatchDate,
-            ),
-          );
-        });
+      dispatchDates.forEach((dispatchDate) => {
+        const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
+        const filteredInvoices = filterInvoicesByDueDates(invoiceList, dueDates);
+        if (!filteredInvoices.length) return;
+        resultados.push(
+          this.mapResult(
+            cliente,
+            normalizedDocument,
+            { status: 'success', message: 'ok', list: filteredInvoices },
+            dispatchDate,
+          ),
+        );
       });
-    } else if (company.erp === 'SGP') {
-      const allDueDates = [...dueDatesByDispatchDate.values()].flat();
-      const sortedDates = [...new Set(allDueDates)].sort((a, b) => a.localeCompare(b));
-      const windowStart = sortedDates[0];
-      const windowEnd = sortedDates[sortedDates.length - 1];
-
-      const invoicesByCpf = await this.sgpService.getInvoicesByDateWindowBatch(
-        company,
-        windowStart,
-        windowEnd,
-      );
-
-      const clientByCpf = new Map(
-        clients.map((c) => [String(c.cnpj_cpf ?? '').replace(/\D/g, ''), c]),
-      );
-
-      invoicesByCpf.forEach((rawInvoices, cpf) => {
-        const cliente = clientByCpf.get(cpf);
-        if (!cliente) return;
-
-        const invoiceList: InvoiceMapResultDto[] = rawInvoices.map((t) => ({
-          invoice_id: String(t.id),
-          contract_id: String(t.clienteContrato ?? ''),
-          invoice_due_date: t.dataVencimento ?? '',
-          invoice_amount: String(t.valorCorrigido ?? t.valor ?? ''),
-          invoice_status: 'A Receber',
-          ticket_digitable_line: t.linhaDigitavel || t.codigoBarras || null,
-          ticket_pdf_link: t.link || null,
-          code_pix: { status: t.codigoPix ? 'success' : 'error', pix: t.codigoPix ?? '' },
-        } as InvoiceMapResultDto));
-
-        dispatchDates.forEach((dispatchDate) => {
-          const dueDates = dueDatesByDispatchDate.get(dispatchDate) ?? [];
-          const filteredInvoices = filterInvoicesByDueDates(invoiceList, dueDates);
-
-
-          if (!filteredInvoices.length) return;
-
-          resultados.push(
-            this.mapResult(
-              cliente,
-              cpf,
-              { status: 'success', message: 'ok', list: filteredInvoices },
-              dispatchDate,
-            ),
-          );
-        });
-      });
-    } else {
-      throw new BadRequestException('Filtro de régua de cobrança disponível apenas para empresas IXC e SGP.');
     }
 
     const uniqueResults = [
@@ -607,35 +474,53 @@ export class InvoicesController {
 
     return this.buildBatchResponse(
       uniqueResults,
-      errors,
-      'Clientes encontrados pela régua de cobrança.',
+      [],
+      'Clientes encontrados pela régua de cobrança (snapshot).',
       'Nenhum cliente encontrado para os filtros informados.',
     );
   }
 
-  private async fetchInvoicesByClient(
+  private mapInvoiceEntityToDto(inv: Invoice): InvoiceMapResultDto {
+    const brDate = this.toBrDate(inv.expiration);
+    return {
+      invoice_id: String(inv.id_fatura ?? ''),
+      contract_id: String(inv.contractId ?? ''),
+      invoice_due_date: brDate,
+      invoice_amount: String(inv.value ?? ''),
+      invoice_status: inv.status as InvoiceMapResultDto['invoice_status'],
+      ticket_digitable_line: inv.ticketDigitableLine ?? null,
+      ticket_pdf_link: inv.ticketPdfLink ?? null,
+      code_pix: String(inv.pixCode) ,
+    };
+  }
+
+  private async fetchInvoicesFromLocalSnapshot(
     cliente: Client,
     filter?: InvoiceSearchFilterDto,
   ): Promise<InvoicesResponseDto> {
-    switch (cliente.company.erp) {
-      case 'IXC':
-        return this.ixcService.getInvoices(cliente, filter);
+    const full = await this.clientRepo.findOne({
+      where: { id: cliente.id },
+      relations: ['invoices'],
+    });
 
-      case 'HUBSOFT':
-        if (filter) {
-          throw new BadRequestException(
-            'Filtro de régua de cobrança indisponível para empresas HUBSOFT.',
-          );
-        }
+    const rows = (full?.invoices ?? []).filter(
+      (i) => String(i.status ?? '').trim().toLowerCase() === 'a receber',
+    );
 
-        return this.hubsoftService.getInvoices(cliente);
+    let list: InvoiceMapResultDto[] = rows.map((inv) => this.mapInvoiceEntityToDto(inv));
 
-      case 'SGP':
-        return this.sgpService.getInvoices(cliente, filter);
-
-      default:
-        throw new BadRequestException(`ERP não suportado: ${cliente.company.erp}`);
+    if (filter) {
+      const allDue = [...new Set([...getInvoiceRuleDueDatesMap(filter).values()].flat())];
+      list = filterInvoicesByDueDates(list, allDue);
     }
+
+    return {
+      status: list.length ? 'success' : 'error',
+      message: list.length
+        ? 'Faturas (snapshot local).'
+        : 'Nenhuma fatura aberta no snapshot para este cliente/filtro.',
+      list,
+    };
   }
 
   private mapResult(

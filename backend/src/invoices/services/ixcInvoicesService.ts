@@ -31,7 +31,7 @@ export class IXCInvoicesService {
     filter?: InvoiceSearchFilterDto,
   ): Promise<InvoicesResponseDto> {
         const fim = new Date()
-        fim.setDate(fim.getDate() + 33)
+        fim.setDate(fim.getDate() + 720)
         const invoiceRuleWindow = getInvoiceRuleQueryWindow(filter);
         const dueDateFilter = invoiceRuleWindow
           ? {
@@ -99,7 +99,7 @@ export class IXCInvoicesService {
                   ? t.id_contrato_avulso
                   : null;
       
-              const pix = await this.getPixByInvoice({
+              const responsePix = await this.getPixByInvoice({
                 companyId: empresa.id,
                 invoiceId: String(t.id),
               })
@@ -111,13 +111,13 @@ export class IXCInvoicesService {
                 invoice_status: 'A Receber',
                 ticket_digitable_line: null,
                 ticket_pdf_link: null,
-                code_pix: pix,
+                code_pix: responsePix.pix,
               };
             })
           );
       
           map.sort((a, b) => {
-            const parseDate = (str?: string) => {
+            const parseDate = (str?: string | null) => {
               if (!str) return 0;
               const [day, month, year] = str.split('/');
               const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);

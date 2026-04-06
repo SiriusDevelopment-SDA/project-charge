@@ -8,6 +8,9 @@ const defaultData: AgingData = {
     { label: "61-90 dias", count: 0, totalValue: 0 },
     { label: "91-120 dias", count: 0, totalValue: 0 },
     { label: "+120 dias", count: 0, totalValue: 0 },
+    { label: "+180 dias", count: 0, totalValue: 0 },
+    { label: "+360 dias", count: 0, totalValue: 0 },
+    { label: "+720 dias", count: 0, totalValue: 0 },
   ],
 };
 

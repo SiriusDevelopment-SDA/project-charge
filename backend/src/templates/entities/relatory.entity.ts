@@ -30,7 +30,15 @@ export class RelatoryDispatchTemplate {
   date_dispatch!: Date;
 
   @Column({ type: 'varchar', default: 'queued' })
-  status_sent!: 'queued' | 'delivered' | 'sent' | 'read' | 'failed' | 'pending' | 'error';
+  status_sent!:
+    | 'queued'
+    | 'delivered'
+    | 'sent'
+    | 'read'
+    | 'failed'
+    | 'pending'
+    | 'error'
+    | 'skipped';
 
   @Column({ type: 'text', nullable: true })
   message?: string | null;

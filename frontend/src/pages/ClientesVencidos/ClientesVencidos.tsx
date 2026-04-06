@@ -53,7 +53,7 @@ import { buildNormalizedSearch } from "../../utils/locationSearch";
 
 import Style from "./Styles/ClientesVencidos.module.css";
 
-type AgingFilter = "1-30" | "31-60" | "61-90" | "90+" | null;
+type AgingFilter = "1-30" | "31-60" | "61-90" | "90+" | "180+" | "360+" | "720+" | null;
 type DebtFilter = "up200" | "200-500" | "500-1k" | "1k+" | null;
 type PromiseFilter = "none" | "pending" | "broken" | null;
 type DispatchFilter = "never" | "1-3" | "4+" | null;
@@ -63,6 +63,9 @@ const AGING_OPTIONS: { id: AgingFilter; label: string }[] = [
   { id: "31-60", label: "31 – 60 dias" },
   { id: "61-90", label: "61 – 90 dias" },
   { id: "90+", label: "+ 90 dias" },
+  { id: "180+", label: "+ 180 dias" },
+  { id: "360+", label: "+ 360 dias" },
+  { id: "720+", label: "+ 720 dias" },
 ];
 
 const DEBT_OPTIONS: { id: DebtFilter; label: string }[] = [
@@ -105,6 +108,9 @@ function agingMatch(dias: number, filter: AgingFilter): boolean {
   if (filter === "31-60") return dias >= 31 && dias <= 60;
   if (filter === "61-90") return dias >= 61 && dias <= 90;
   if (filter === "90+") return dias > 90;
+  if (filter === "180+") return dias > 180;
+  if (filter === "360+") return dias > 360;
+  if (filter === "720+") return dias > 720;
   return true;
 }
 
@@ -123,6 +129,9 @@ function agingToServerParams(filter: AgingFilter): { agingMin?: number; agingMax
   if (filter === "31-60") return { agingMin: 31, agingMax: 60 };
   if (filter === "61-90") return { agingMin: 61, agingMax: 90 };
   if (filter === "90+") return { agingMin: 91 };
+  if (filter === "180+") return { agingMin: 181 };
+  if (filter === "360+") return { agingMin: 361 };
+  if (filter === "720+") return { agingMin: 721 };
   return {};
 }
 

@@ -44,6 +44,10 @@ export class TemplateMapVar {
 
   @IsOptional()
   @IsString()
+  invoice_id?: string;
+
+  @IsOptional()
+  @IsString()
   code_pix?: string;
 
   @IsOptional()

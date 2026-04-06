@@ -61,6 +61,8 @@ export type mappedVars = {
   codigo_pix?: string;
   mensagem?: string;
   cnpj_cpf?: string;
+  clientId?: string;
+  invoice_id?: string;
   /** ORDER_DETAILS button fields */
   order_reference_id?: string;
   order_item_name?: string;

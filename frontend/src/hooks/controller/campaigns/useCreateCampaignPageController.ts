@@ -169,7 +169,7 @@ export function useCreateCampaignPageController() {
 
   const previewDetails = useMemo(
     () => [
-      { label: "Template", value: form.selectedTemplate?.name ?? "--" },
+      
       { label: "Categoria", value: form.selectedCategory?.name ?? "--" },
       { label: "Inicio", value: formatPreviewDate(previewStartDate) },
       {

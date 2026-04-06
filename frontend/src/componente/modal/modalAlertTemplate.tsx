@@ -14,7 +14,8 @@ export type ModalButton = {
 export type DynamicModalProps = {
   open: boolean;
   type: ModalType;
-  size?: "default" | "wide";
+  size?: "default" | "wide" | "compact";
+
   title: string;
   description?: string | ReactNode;
   buttons?: ModalButton[];

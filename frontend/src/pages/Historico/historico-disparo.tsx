@@ -67,6 +67,7 @@ export function HistoricoDisparoPage() {
         if (normalizedStatus === "delivered") accumulator.delivered += 1;
         if (normalizedStatus === "read") accumulator.read += 1;
         if (normalizedStatus === "failed") accumulator.failed += 1;
+        if (normalizedStatus === "skipped") accumulator.skipped += 1;
         if (record.response) accumulator.responded += 1;
 
         return accumulator;
@@ -78,6 +79,7 @@ export function HistoricoDisparoPage() {
         delivered: 0,
         read: 0,
         failed: 0,
+        skipped: 0,
         responded: 0,
       },
     );
@@ -261,6 +263,10 @@ export function HistoricoDisparoPage() {
                   <article>
                     <span>Falhas</span>
                     <strong>{latestDispatchReport.batch.failedCount}</strong>
+                  </article>
+                  <article>
+                    <span>Ignorados</span>
+                    <strong>{latestDispatchStats.skipped}</strong>
                   </article>
                   <article>
                     <span>Em fila</span>

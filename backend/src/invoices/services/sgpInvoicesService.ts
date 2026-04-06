@@ -90,10 +90,7 @@ export class SGPInvoicesService {
         invoice_status: 'A Receber',
         ticket_digitable_line: t.codigoBarras || "",
         ticket_pdf_link: t.link || "",
-        code_pix: {
-          status: t.codigoPix !== "" ? "success": "error",
-          pix: t.codigoPix ?? null
-        }
+        code_pix: t.codigoPix ?? null
       }))
       .sort((a: any, b: any) => {
         const parseDate = (str?: string) => {
