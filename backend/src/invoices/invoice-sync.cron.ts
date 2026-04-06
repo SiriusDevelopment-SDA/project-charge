@@ -13,6 +13,7 @@ import {
   InvoiceSyncStatus,
 } from './entities/invoice-sync-state.entity';
 import { InvoicesSyncGateway } from '../realtime/invoices-sync.gateway';
+import { RedisService } from '../redis/redis.service';
 
 const CHUNK_SIZE = 500;
 const SYNC_LOOKBACK_YEARS = 5;
@@ -58,6 +59,7 @@ export class InvoiceSyncCron {
     private readonly ixcService: IXCInvoicesService,
     private readonly sgpService: SGPInvoicesService,
     private readonly invoicesSyncGateway: InvoicesSyncGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   @Cron('0 */10 * * * *', { timeZone: 'America/Sao_Paulo' })
@@ -183,6 +185,8 @@ export class InvoiceSyncCron {
         message: `Sincronização concluída com ${synced} fatura(s) processada(s).`,
       });
 
+      await this.cacheOpenInvoices(company.id);
+
       return synced;
     } catch (err: any) {
       const finishedAt = new Date();
@@ -236,6 +240,29 @@ export class InvoiceSyncCron {
       durationMs: saved.durationMs ? Number(saved.durationMs) : null,
       updatedAt: saved.updatedAt?.toISOString() ?? new Date().toISOString(),
     });
+  }
+
+  private async cacheOpenInvoices(companyId: string): Promise<void> {
+    try {
+      const openInvoices = await this.invoiceRepo.find({
+        where: { company: { id: companyId }, status: 'A Receber' },
+        select: {
+          id_fatura: true,
+          contractId: true,
+          value: true,
+          expiration: true,
+          status: true,
+          ticketDigitableLine: true,
+          ticketPdfLink: true,
+          pixCode: true,
+          clientId: true,
+          companyId: true,
+        },
+      });
+      await this.redisService.set(`invoices:${companyId}:open`, openInvoices, 720);
+    } catch (err) {
+      this.logger.warn(`[InvoiceSync] Falha ao cachear faturas em aberto: ${(err as Error)?.message}`);
+    }
   }
 
   private getSyncWindow() {
@@ -306,13 +333,7 @@ export class InvoiceSyncCron {
     );
 
     const fetchedInvoiceIds = new Set<string>();
-    // Postgres error guard:
-    // "ON CONFLICT DO UPDATE command cannot affect row a second time" happens when
-    // the same conflict target (id_fatura+companyId) appears multiple times in the
-    // same INSERT ... ON CONFLICT statement.
-    // TypeORM's Repository.upsert(VALUES...) does not automatically deduplicate.
-    //
-    // We dedupe in-memory before the upsert so each conflict target is touched once.
+
     const toUpsertByConflictKey = new Map<string, QueryDeepPartialEntity<Invoice>>();
     let duplicateConflictTargets = 0;
     const syncTime = new Date();
@@ -328,9 +349,6 @@ export class InvoiceSyncCron {
         if (typeof mapped.id_fatura !== 'string') continue;
         fetchedInvoiceIds.add(mapped.id_fatura);
 
-        // Conflict target used by Postgres/TypeORM: (id_fatura, companyId)
-        // Here companyId is constant within this persistSnapshot, so we can
-        // safely dedupe by id_fatura.
         const conflictKey = mapped.id_fatura;
         const existing = toUpsertByConflictKey.get(conflictKey);
         if (existing) {
@@ -374,8 +392,8 @@ export class InvoiceSyncCron {
     for (const chunk of toChunks(toUpsert, CHUNK_SIZE))
       await this.invoiceRepo.upsert(chunk, ['id_fatura', 'companyId']);
 
-    await this.closeMissingOpenInvoices(company.id, fetchedInvoiceIds, syncTime);
-    await this.markClientsAsChecked(clients.map((client) => client.id), syncTime);
+      await this.closeMissingOpenInvoices(company.id, fetchedInvoiceIds, syncTime);
+      await this.markClientsAsChecked(clients.map((client) => client.id), syncTime);
 
     this.logger.log(
       `[InvoiceSync] ${erp} ${company.name}: ${toUpsert.length} faturas sincronizadas`,
@@ -432,7 +450,7 @@ export class InvoiceSyncCron {
           expiration: invoice.dataVencimento,
           ticketDigitableLine:
             invoice.linhaDigitavel || invoice.codigoBarras || null,
-          ticketPdfLink: invoice.link || null,
+          ticketPdfLink: invoice.link ? invoice.link.replace(/\/+$/, '') + '.pdf' : null,
           pixCode: invoice.codigoPix || null,
           lastSyncAt: syncTime,
           clientId: clientId,

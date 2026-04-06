@@ -85,4 +85,8 @@ export class ClientService {
       `/invoices/sync/company/${companyId}`,
     );
   }
+
+  static async getOpenClientIds(account: string) {
+    return Api.get<{ clientIds: string[] }>(`/invoices/open-client-ids/${account}`);
+  }
 }

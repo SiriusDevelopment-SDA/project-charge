@@ -62,6 +62,7 @@ export class AppServiceTemplate {
       company: {
         account_chatwoot: String(account),
       },
+      meta_status: 'APPROVED',
     };
 
     if (query) where.name = ILike(`%${query}%`);
@@ -255,7 +256,7 @@ export class AppServiceTemplate {
         const plain = { ...r } as Record<string, unknown>;
         plain.whatsapp = r.number;
         if (r.name) plain.nome_cliente = r.name;
-        else if (r.name) plain.nome_cliente = r.name;
+        if (r.templateVars) Object.assign(plain, r.templateVars);
         return plain;
       });
       const built = await this.templateDispatchPayload.buildQueueRecipients(
@@ -296,6 +297,7 @@ export class AppServiceTemplate {
       campaignId: campaignId ?? null,
       recipients,
       scope: campaignId ? 'campaign' : 'manual',
+      disableDailyDedup: !campaignId,
     });
 
     if (useServerBuild && dispatchSkips.length) {

@@ -41,7 +41,7 @@ export interface Invoice {
   invoice_status: InvoiceStatus;
   ticket_digitable_line: string | null;
   ticket_pdf_link: string | null;
-  code_pix: CodePix | null;
+  code_pix: string | null;
 }
 
 export interface InvoicesResponse {

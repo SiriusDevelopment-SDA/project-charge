@@ -151,11 +151,12 @@ export function useChatwootPageController() {
             : null,
         );
         setSelectedAgentId(bootstrap.chatwoot.realtime?.userId ?? null);
-        setBootErr(
-          !realtimeMatchesAccount
-            ? `O token Maestro deste agente pertence à account ${realtimeAccountId}, mas esta empresa usa a account ${normalizedAccount}. Atualize o token individual do agente.`
-            : null,
-        );
+        console.log('realtimeAccountId', realtimeAccountId);
+        // setBootErr(
+        //   !realtimeMatchesAccount
+        //     ? `O token Maestro deste agente pertence à account ${realtimeAccountId}, mas esta empresa usa a account ${normalizedAccount}. Atualize o token individual do agente.`
+        //     : null,
+        // );
         setRealtimeConfig(
           realtimeMatchesAccount &&
             bootstrap.chatwoot.realtime?.enabled &&

@@ -119,6 +119,7 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
                     onClick={() => {
                       onDelete(campaign);
                       toggleActionsMenu();
+                      console.log('campaign', campaign);
                     }}
                   >
                     <Trash2 size={14} />

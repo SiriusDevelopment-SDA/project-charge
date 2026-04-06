@@ -75,6 +75,16 @@ export class CampaignScheduler {
 
         if (!this.isCampaignActiveOnDate(campaign, now)) {
           this.logger.warn(`[CampaignScheduler] campaign=${campaign.id} NOT active on date`);
+          // Auto-finish any campaign (recurring or not) whose end date has passed
+          // to prevent them from being fetched every minute indefinitely.
+          const todayStr = this.toDateOnly(now, campaign.timezone);
+          const endStr = this.toDateOnly(campaign.endDate, campaign.timezone);
+          if (todayStr > endStr) {
+            this.logger.warn(
+              `[CampaignScheduler] campaign=${campaign.id} endDate=${endStr} has passed, marking as finished`,
+            );
+            await this.campaignRepository.update(campaign.id, { status: 'finished' });
+          }
           continue;
         }
 

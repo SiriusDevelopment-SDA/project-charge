@@ -95,6 +95,9 @@ export type TemplateRecipient = {
   name: string;
   number: string;
   components: TemplateComponent[];
+  clientId?: string;
+  invoice_id?: string;
+  templateVars?: Record<string, string>;
 };
 
 export type SendTemplate = {
@@ -150,10 +153,14 @@ export type TemplateCreateRequest = {
 
 export type TemplateCreateInput = Omit<TemplateCreateRequest, "companyId">;
 
+export type TemplateTypeFilter = 'cobranca' | 'outros' | null;
+
 export interface ITemplatesContext {
   templates: Template[];
   categoryTemplateFilter: string | null;
   setCategoryTemplateFilter: React.Dispatch<SetStateAction<string | null>>;
+  templateTypeFilter: TemplateTypeFilter;
+  setTemplateTypeFilter: React.Dispatch<SetStateAction<TemplateTypeFilter>>;
   searchTemplateName: string;
   setSearchTemplateName: React.Dispatch<SetStateAction<string>>;
   setQuery: React.Dispatch<SetStateAction<string>>;

@@ -2,10 +2,13 @@ import { useMemo, useState } from "react";
 import { useTemplatesQuery } from "./queries/useTemplatesQuery";
 import { useDeleteTemplateMutation } from "./mutations/useTemplateMutations";
 import type { ITemplatesContext } from "../types";
+import type { TemplateTypeFilter } from "../types/templateApiTypes";
+import { templateRequiresInvoiceData } from "../utils/templateRequirements";
 
 export function useTemplate(): ITemplatesContext {
   const [searchTemplateName, setSearchTemplateName] = useState("");
   const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null);
+  const [templateTypeFilter, setTemplateTypeFilter] = useState<TemplateTypeFilter>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC");
@@ -22,9 +25,13 @@ export function useTemplate(): ITemplatesContext {
           .includes(searchTemplateName.toLowerCase());
         const matchCategory =
           !categoryTemplateFilter || template.category === categoryTemplateFilter;
-        return matchName && matchCategory;
+        const requiresInvoice = templateRequiresInvoiceData(template);
+        const matchType =
+          !templateTypeFilter ||
+          (templateTypeFilter === 'cobranca' ? requiresInvoice : !requiresInvoice);
+        return matchName && matchCategory && matchType;
       }),
-    [templates, searchTemplateName, categoryTemplateFilter],
+    [templates, searchTemplateName, categoryTemplateFilter, templateTypeFilter],
   );
 
   const categories = useMemo(
@@ -47,6 +54,8 @@ export function useTemplate(): ITemplatesContext {
     filteredTemplates,
     categoryTemplateFilter,
     setCategoryTemplateFilter,
+    templateTypeFilter,
+    setTemplateTypeFilter,
     searchTemplateName,
     setSearchTemplateName,
     setQuery,

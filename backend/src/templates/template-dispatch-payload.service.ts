@@ -111,7 +111,7 @@ export class TemplateDispatchPayloadService {
       clientIds.length > 0
         ? await this.clientRepo.find({
             where: { id: In(clientIds) },
-            relations: {company: true, invoices: true},
+            relations: { company: true },
           })
         : [];
 
@@ -123,31 +123,33 @@ export class TemplateDispatchPayloadService {
 
     if (requiresInvoice) {
       const uniqueClients = [...new Set(clients.map((c) => c.id))];
-      for (const cid of uniqueClients) {
-        const client = clientById.get(cid);
-        if (!client?.company) continue;
-        const erp = String(client.company.erp ?? '').toUpperCase();
-        try {
-          if (erp === 'IXC') {
-            const response = await this.ixcService.getInvoices(client);
-            const m = new Map<string, InvoiceMapResultDto>();
-            for (const t of (response.list ?? [])) {
-              m.set(String(t.invoice_id), t);
+      await Promise.allSettled(
+        uniqueClients.map(async (cid) => {
+          const client = clientById.get(cid);
+          if (!client?.company) return;
+          const erp = String(client.company.erp ?? '').toUpperCase();
+          try {
+            if (erp === 'IXC') {
+              const response = await this.ixcService.getInvoices(client);
+              const m = new Map<string, InvoiceMapResultDto>();
+              for (const t of (response.list ?? [])) {
+                m.set(String(t.invoice_id), t);
+              }
+              ixcByClient.set(cid, m);
+            } else if (erp === 'HUBSOFT') {
+              const res = await this.hubsoftService.getInvoices(client);
+              hubsoftByClient.set(cid, res.list ?? []);
+            } else if (erp === 'SGP') {
+              const res = await this.sgpService.getInvoices(client);
+              sgpByClient.set(cid, res.list ?? []);
             }
-            ixcByClient.set(cid, m);
-          } else if (erp === 'HUBSOFT') {
-            const res = await this.hubsoftService.getInvoices(client);
-            hubsoftByClient.set(cid, res.list ?? []);
-          } else if (erp === 'SGP') {
-            const res = await this.sgpService.getInvoices(client);
-            sgpByClient.set(cid, res.list ?? []);
+          } catch (e) {
+            this.logger.warn(
+              `ERP preload falhou client=${cid} erp=${erp}: ${e instanceof Error ? e.message : e}`,
+            );
           }
-        } catch (e) {
-          this.logger.warn(
-            `ERP preload falhou client=${cid} erp=${erp}: ${e instanceof Error ? e.message : e}`,
-          );
-        }
-      }
+        }),
+      );
     }
 
     const templateVars = this.parseTemplateVars(template.variables);
@@ -190,23 +192,25 @@ export class TemplateDispatchPayloadService {
 
         if (!invoiceId) {
           skips.push({
-            reason: 'invoice_not_open_in_erp',
+            reason: 'missing_client_or_invoice',
             number,
             name,
             clientId,
-            detail: 'Nenhuma fatura em aberto encontrada no ERP para este cliente.',
+            detail: 'Fatura de referência ausente no snapshot da campanha.',
           });
           continue;
         }
 
-        const fresh = this.buildDispatchScalars(
-          client,
-          erp,
-          invoiceId,
-          ixcByClient.get(client.id),
-          hubsoftByClient.get(client.id),
-          sgpByClient.get(client.id),
+        const ixcMap = ixcByClient.get(client.id);
+        const hubList = hubsoftByClient.get(client.id);
+        const sgpList = sgpByClient.get(client.id);
+
+        this.logger.log(
+          `[Dispatch] erp=${erp} clientId=${client.id} invoiceId=${invoiceId} ` +
+          `ixcMapSize=${ixcMap?.size ?? 'no-entry'} hubListLen=${hubList?.length ?? 'no-entry'} sgpListLen=${sgpList?.length ?? 'no-entry'}`,
         );
+
+        const fresh = this.buildDispatchScalars(client, erp, invoiceId, ixcMap, hubList, sgpList);
         if (!fresh) {
           skips.push({
             reason: 'invoice_not_open_in_erp',
@@ -215,7 +219,7 @@ export class TemplateDispatchPayloadService {
             clientId,
             invoiceId,
             detail:
-              'Fatura não encontrada ou não está mais em aberto no ERP no momento do disparo.',
+              'Nenhuma fatura em aberto encontrada no ERP para este cliente no momento do disparo.',
           });
           continue;
         }
@@ -317,27 +321,35 @@ export class TemplateDispatchPayloadService {
     sgpList: InvoiceMapResultDto[] | undefined,
   ): MappedScalar | null {
     if (erp === 'IXC') {
-      const inv = ixcMap?.get(invoiceId);
+      // Try exact match first; fall back to first available open invoice for the client.
+      // This handles cases where the snapshot invoice_id differs slightly from what the
+      // ERP returns (e.g. due to date-window differences) without skipping valid recipients.
+      const inv = ixcMap?.get(invoiceId) ?? (ixcMap && ixcMap.size > 0 ? ixcMap.values().next().value : undefined);
       if (!inv) return null;
 
+      this.logger.log(
+        `[Dispatch] IXC invoice resolved: requested=${invoiceId} resolved=${inv.invoice_id} ` +
+        `code_pix="${inv.code_pix ?? 'NULL'}" contract_id="${inv.contract_id}" amount="${inv.invoice_amount}"`,
+      );
 
+      const pixCode = String(inv.code_pix ?? '');
       return {
-        invoice_id: invoiceId,
+        invoice_id: String(inv.invoice_id ?? invoiceId),
         numero_contrato: String(inv.contract_id ?? ''),
         data_vencimento_fatura: String(inv.invoice_due_date ?? ''),
         valor_fatura: String(inv.invoice_amount ?? ''),
         linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ''),
         link_boleto_pdf: String(inv.ticket_pdf_link ?? ''),
-        code_pix: inv.code_pix,
-        codigo_qr: inv.code_pix,
-        codigo_qr_code: inv.code_pix,
-        codigo_pix: inv.code_pix,
+        code_pix: pixCode,
+        codigo_qr: pixCode,
+        codigo_qr_code: pixCode,
+        codigo_pix: pixCode,
         order_reference_id: String(inv.contract_id ?? ''),
       };
     }
 
     if (erp === 'HUBSOFT') {
-      const inv = hubList?.find((x) => String(x.invoice_id) === invoiceId);
+      const inv = hubList?.find((x) => String(x.invoice_id) === invoiceId) ?? hubList?.[0];
       if (!inv) return null;
       
       return {
@@ -356,7 +368,7 @@ export class TemplateDispatchPayloadService {
     }
 
     if (erp === 'SGP') {
-      const inv = sgpList?.find((x) => String(x.invoice_id) === invoiceId);
+      const inv = sgpList?.find((x) => String(x.invoice_id) === invoiceId) ?? sgpList?.[0];
       if (!inv) return null;
 
       return {
@@ -366,10 +378,10 @@ export class TemplateDispatchPayloadService {
         valor_fatura: String(inv.invoice_amount ?? ''),
         linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ''),
         link_boleto_pdf: String(inv.ticket_pdf_link ?? ''),
-        code_pix: inv.code_pix,
-        codigo_qr: inv.code_pix,
-        codigo_qr_code: inv.code_pix,
-        codigo_pix: inv.code_pix,
+        code_pix: inv.code_pix ?? undefined,
+        codigo_qr: inv.code_pix ?? undefined,
+        codigo_qr_code: inv.code_pix ?? undefined,
+        codigo_pix: inv.code_pix ?? undefined,
         order_reference_id: String(inv.contract_id ?? ''),
       };
     }
@@ -456,14 +468,24 @@ export class TemplateDispatchPayloadService {
       text: String(mapped[varKey] ?? ''),
     }));
 
-    if (bodyParameters.some((p) => !p.text.trim())) return null;
+    const emptyParam = bodyParameters.find((p) => !p.text.trim());
+    if (emptyParam) {
+      const emptyKey = orderedKeys[bodyParameters.indexOf(emptyParam)];
+      this.logger.log(
+        `[Dispatch] buildRecipient body param vazio: key=${emptyKey} ` +
+        `mapped_keys=${JSON.stringify(Object.keys(mapped))} ` +
+        `code_pix="${mapped.code_pix}" numero_contrato="${mapped.numero_contrato}"`,
+      );
+      return null;
+    }
 
-    const components: MessageQueuePayload['components'] = [
-      { type: 'BODY', parameters: bodyParameters },
-    ];
+    const components: MessageQueuePayload['components'] = [];
+    if (bodyParameters.length > 0) {
+      components.push({ type: 'BODY', parameters: bodyParameters });
+    }
 
     if (hasDocumentHeader) {
-      const pdfLink = String(mapped.link_boleto_pdf ?? '').trim();
+      const pdfLink = String(mapped.link_boleto_pdf ?? '').trim().replace(/\/+$/, '');
       if (pdfLink) {
         components.push({
           type: 'HEADER',
@@ -510,7 +532,13 @@ export class TemplateDispatchPayloadService {
         '',
     ).trim();
 
-    if (!referenceId || !pixCode) return null;
+    if (!referenceId || !pixCode) {
+      this.logger.log(
+        `[Dispatch] ORDER_DETAILS falhou: referenceId="${referenceId}" pixCode="${pixCode}" ` +
+        `code_pix="${mapped.code_pix}" codigo_qr="${mapped.codigo_qr}" valor_fatura="${mapped.valor_fatura}"`,
+      );
+      return null;
+    }
 
     const merchantName = String(
       mapped.order_pix_merchant_name ?? mapped.nome_empresa ?? '',

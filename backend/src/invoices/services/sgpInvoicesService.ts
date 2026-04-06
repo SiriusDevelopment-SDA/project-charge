@@ -89,7 +89,7 @@ export class SGPInvoicesService {
         invoice_amount: String(t.valorCorrigido),
         invoice_status: 'A Receber',
         ticket_digitable_line: t.codigoBarras || "",
-        ticket_pdf_link: t.link || "",
+        ticket_pdf_link: t.link ? t.link.replace(/\/+$/, '') + '.pdf' : '',
         code_pix: t.codigoPix ?? null
       }))
       .sort((a: any, b: any) => {

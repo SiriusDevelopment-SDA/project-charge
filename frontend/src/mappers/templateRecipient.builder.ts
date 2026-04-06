@@ -242,10 +242,13 @@ function buildTemplateRecipientFromBlueprint(
 
   if (bodyParameters.some((p) => !p.text.trim())) return null;
 
-  const components: BuiltComponent[] = [{ type: "BODY", parameters: bodyParameters }];
+  const components: BuiltComponent[] = [];
+  if (bodyParameters.length > 0) {
+    components.push({ type: "BODY", parameters: bodyParameters });
+  }
 
   if (hasDocumentHeader) {
-    const pdfLink = String(mappedVar.link_boleto_pdf ?? "").trim();
+    const pdfLink = String(mappedVar.link_boleto_pdf ?? "").trim().replace(/\/+$/, "");
     if (pdfLink) {
       components.push({
         type: "HEADER",

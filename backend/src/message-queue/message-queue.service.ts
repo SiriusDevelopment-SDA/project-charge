@@ -285,6 +285,21 @@ export class MessageQueueService {
     };
   }
 
+  /**
+   * Resets jobs stuck in 'processing' back to 'pending' so they are retried.
+   * Called on startup to recover from crash/hot-reload mid-job.
+   */
+  async resetStuckProcessingJobs(): Promise<number> {
+    const result = await this.queueRepository.manager.query(
+      `UPDATE message_queue
+       SET status = 'pending'
+       WHERE status = 'processing'
+         AND attempts < $1`,
+      [MAX_ATTEMPTS],
+    );
+    return Number(result[1] ?? 0);
+  }
+
   async reconcileCampaignStatuses(account?: string): Promise<string[]> {
     const params: string[] = [];
     const accountFilter = account

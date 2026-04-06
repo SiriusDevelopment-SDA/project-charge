@@ -38,8 +38,11 @@ export default function EfetuarDisparo() {
     setSearchTemplateName,
     categoryTemplateFilter,
     setCategoryTemplateFilter,
+    templateTypeFilter,
+    setTemplateTypeFilter,
     filteredTemplates,
     categories,
+    isClientDisabled,
     clients,
     handleClientSearch,
     handleCloseFloatingMenus,
@@ -60,12 +63,12 @@ export default function EfetuarDisparo() {
       <TitlePage
         title={
           dispatch.modoPage === "clientes"
-            ? "Disparo clientes ativos"
+            ? "Disparo Manual"
             : "Disparo para leads"
         }
         subtitle={
           dispatch.modoPage === "clientes"
-            ? "Envie mensagens para clientes ativos com controle total"
+            ? "Envie mensagens para clientes com controle total"
             : "Envie mensagens diretas para leads com template validado"
         }
         className={Style.navTitlePage}
@@ -73,7 +76,7 @@ export default function EfetuarDisparo() {
         text={
           dispatch.modoPage === "clientes"
             ? "Disparo para leads"
-            : "Disparo clientes ativos"
+            : "Disparo Manual"
         }
       />
 
@@ -92,9 +95,19 @@ export default function EfetuarDisparo() {
               searchValue={searchTemplateName}
               searchPlaceholder="Buscar template pelo nome"
               onSearchTermChange={setSearchTemplateName}
-              filterOptions={categories}
-              filterValue={categoryTemplateFilter}
-              onFilterChange={setCategoryTemplateFilter}
+              filterOptions={['Cobrança', 'Outros']}
+              filterValue={
+                templateTypeFilter === 'cobranca'
+                  ? 'Cobrança'
+                  : templateTypeFilter === 'outros'
+                  ? 'Outros'
+                  : null
+              }
+              onFilterChange={(v) =>
+                setTemplateTypeFilter(
+                  v === 'Cobrança' ? 'cobranca' : v === 'Outros' ? 'outros' : null,
+                )
+              }
               isOptionDisabled={(template) => !isTemplateApproved(template.meta_status)}
             />
 
@@ -110,6 +123,7 @@ export default function EfetuarDisparo() {
                 onOpen={() => setOpenDropdown("clientes")}
                 onClose={() => setOpenDropdown(null)}
                 onSearchTermChange={handleClientSearch}
+                isOptionDisabled={isClientDisabled}
               />
             ) : (
               <InputFields
