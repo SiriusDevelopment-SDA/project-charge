@@ -4,7 +4,7 @@ import { Type } from "class-transformer";
 
 class ComponentExampleDto {
   @IsArray()
-  body_text!: string[];
+  body_text!: string[][];
 }
 
 class CreateComponentDto {
@@ -24,7 +24,7 @@ class CreateComponentDto {
 
   @ApiProperty({
     example: {
-      body_text: ['template'],
+      body_text: [['template']],
     },
     required: false,
   })
@@ -44,7 +44,7 @@ class CreateComponentDto {
   index?: number;
 
   @ApiProperty({
-    example: [{ type: "URL", text: "Pagar agora" }, { type: "COPY_CODE", text: "Copiar codigo" }],
+    example: [{ type: "URL", text: "Pagar agora" }, { type: "ORDER_DETAILS", text: "Copy Pix code" }],
     required: false,
   })
   @IsOptional()
@@ -103,6 +103,15 @@ export class CreateTemplateDTO {
   category!: string;
 
   @ApiProperty({
+    description: 'Categoria exibida no sistema',
+    example: 'Cobrança preventiva',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  displayCategory?: string;
+
+  @ApiProperty({
     description: 'Componentes do template',
     type: [CreateComponentDto],
     required: true
@@ -114,9 +123,9 @@ export class CreateTemplateDTO {
 
   @ApiProperty({
     description: 'envie as variaveis',
-    example: ["nome_cliente, nome_empresa"],
+    example: { "1": "nome_cliente", "2": "valor_fatura" },
   })
-  @IsArray()
+  @IsObject()
   variables!: Variables
 
 }

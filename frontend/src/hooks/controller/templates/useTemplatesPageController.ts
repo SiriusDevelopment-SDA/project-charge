@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { toast } from "react-toastify";
 import type { Template } from "../../../types";
 
 const PAGE_SIZE = 8;
@@ -11,7 +10,7 @@ type Params = {
 
 export function useTemplatesPageController({ templates, deleteTemplate }: Params) {
   const [page, setPage] = useState(1);
-  const [openTemplateId, setOpenTemplateId] = useState<string | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [searchTemplateName, setSearchTemplateName] = useState("");
   const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -50,10 +49,6 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
     return filteredTemplates.slice(start, start + PAGE_SIZE);
   }, [filteredTemplates, safePage]);
 
-  const handleToggle = (templateId: string) => {
-    setOpenTemplateId((prev) => (prev === templateId ? null : templateId));
-  };
-
   const handleSearchChange = (value: string) => {
     setSearchTemplateName(value);
     setPage(1);
@@ -70,6 +65,14 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
     setOpenDeleteModal(true);
   };
 
+  const openPreview = (template: Template) => {
+    setPreviewTemplate(template);
+  };
+
+  const closePreview = () => {
+    setPreviewTemplate(null);
+  };
+
   const closeDeleteConfirmation = () => {
     setOpenDeleteModal(false);
     setTemplateToDelete(null);
@@ -83,14 +86,8 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
       const result = await deleteTemplate(templateToDelete.id);
 
       if (result.success) {
-        toast.success("Template deletado com sucesso!");
         closeDeleteConfirmation();
-        return;
       }
-
-      toast.error("Erro ao deletar template");
-    } catch {
-      toast.error("Erro inesperado ao deletar template");
     } finally {
       setLoadingDelete(false);
     }
@@ -99,7 +96,7 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
   return {
     page: safePage,
     totalPages,
-    openTemplateId,
+    previewTemplate,
     searchTemplateName,
     categoryTemplateFilter,
     openDeleteModal,
@@ -111,9 +108,10 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
     paginatedTemplates,
     setPage,
     setOpenCategoryDropdown,
-    handleToggle,
     handleSearchChange,
     handleCategoryChange,
+    openPreview,
+    closePreview,
     openDeleteConfirmation,
     closeDeleteConfirmation,
     confirmDelete,

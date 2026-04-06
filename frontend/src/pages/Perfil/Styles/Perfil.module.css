@@ -1,0 +1,155 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: #fff8dd;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 28px 30px;
+  border-radius: 24px;
+  border: 1px solid rgba(212, 166, 0, 0.34);
+  background:
+    radial-gradient(circle at top right, rgba(255, 214, 74, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(27, 22, 8, 0.96) 0%, rgba(12, 11, 8, 0.98) 100%);
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.32),
+    inset 0 0 0 1px rgba(245, 208, 51, 0.08);
+}
+
+.hero h1 {
+  margin: 10px 0 8px;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.05;
+}
+
+.hero p {
+  margin: 0;
+  max-width: 720px;
+  color: rgba(255, 240, 196, 0.78);
+  font-size: 1rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 208, 51, 0.42);
+  background: rgba(245, 208, 51, 0.1);
+  color: #f6d86b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 30px;
+  border-radius: 24px;
+  border: 1px solid rgba(212, 166, 0, 0.32);
+  background: linear-gradient(180deg, rgba(15, 14, 10, 0.98) 0%, rgba(10, 10, 10, 0.98) 100%);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(245, 208, 51, 0.06);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #fff0b3;
+}
+
+.sectionHeader p {
+  margin: 0;
+  color: rgba(255, 239, 192, 0.68);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.readOnlyField {
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(245, 208, 51, 0.28);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.readOnlyField span {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(245, 208, 51, 0.72);
+}
+
+.readOnlyField strong {
+  color: #fff9dc;
+  font-size: 1rem;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.loadingState {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.loadingState p {
+  margin: 0;
+  color: rgba(255, 239, 192, 0.72);
+}
+
+.loadingBadge {
+  color: #f6d86b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions :global(button) {
+    width: 100%;
+  }
+}

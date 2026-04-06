@@ -59,6 +59,7 @@ import type {
   OrderDetailsPixPayment,
   OrderDetailsItem,
   OrderDetailsAction,
+  TemplateUsageMetric,
 } from "./templateApiTypes";
 
 import type {
@@ -101,6 +102,7 @@ export type
   TemplateParameter,
   TemplateRecipient,
   TemplateSearchResponse,
+  TemplateUsageMetric,
   OrderDetailsData,
   OrderDetailsPixPayment,
   OrderDetailsItem,

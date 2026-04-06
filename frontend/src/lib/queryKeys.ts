@@ -13,6 +13,8 @@ export const queryKeys = {
   templates: {
     list: (account: string, params: object) =>
       ["templates", account, params] as const,
+    usage: (account: string) =>
+      ["templates", account, "usage"] as const,
   },
   clients: {
     list: (account: string, params: object) =>

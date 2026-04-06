@@ -234,6 +234,15 @@
   overflow: visible;
 }
 
+.templateWrapper {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.templateWrapperDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Responsivo */
 @media (max-width: 1400px) {
   .listaTemplates {

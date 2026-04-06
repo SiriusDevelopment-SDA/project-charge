@@ -27,8 +27,7 @@ export type PaginationProps = {
 
 export type PropsCardTemplates = {
   template: Template;
-  isOpen: boolean;
-  onToggle: (id: string) => void;
+  onPreview: (template: Template) => void;
   onDelete: (template: Template) => void;
   onUse?: (template: Template) => void;
 };

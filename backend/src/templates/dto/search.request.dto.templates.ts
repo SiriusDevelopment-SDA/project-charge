@@ -60,6 +60,17 @@ export class SearchRequestDtoTemplates {
   sortorder?: "ASC" | "DESC";
 }
 
+export class TemplateUsageRequestDto {
+  @ApiProperty({
+    description: "Account é obrigatório, envie o id da account do sistema que está utilizando.",
+    example: 4,
+  })
+  @Type(() => Number)
+  @IsNumber({}, { message: "O account deve ser um número" })
+  @IsNotEmpty({ message: "O account é obrigatório" })
+  account!: number;
+}
+
 export class OrderDetailsPixPaymentDto {
   @ApiProperty({ example: "pix_dynamic_code" })
   @IsString()

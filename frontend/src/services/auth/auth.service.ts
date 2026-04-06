@@ -23,6 +23,7 @@ type LoginResponse = {
   agent?: {
     id: string;
     name: string | null;
+    email: string | null;
   } | null;
 };
 
@@ -38,7 +39,24 @@ type MeResponse = {
   agent?: {
     id: string;
     name: string | null;
+    email: string | null;
   } | null;
+};
+
+type UpdateProfilePayload = {
+  name?: string;
+  currentPassword?: string;
+  newPassword?: string;
+};
+
+type UpdateProfileResponse = {
+  success: boolean;
+  message: string;
+  agent: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  };
 };
 
 export class AuthService {
@@ -65,6 +83,13 @@ export class AuthService {
 
   static async me(): Promise<MeResponse> {
     const { data } = await Api.get<MeResponse>("/auth/me");
+    return data;
+  }
+
+  static async updateProfile(
+    payload: UpdateProfilePayload,
+  ): Promise<UpdateProfileResponse> {
+    const { data } = await Api.patch<UpdateProfileResponse>("/auth/me", payload);
     return data;
   }
 }

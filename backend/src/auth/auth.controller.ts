@@ -1,6 +1,11 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Patch, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { CreateAgentDto, EmbedLoginDto, LoginAgentDto } from './dto/auth.dto';
+import {
+  CreateAgentDto,
+  EmbedLoginDto,
+  LoginAgentDto,
+  UpdateProfileDto,
+} from './dto/auth.dto';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
 
@@ -37,5 +42,15 @@ export class AuthController {
   @ApiOperation({ summary: 'Retorna empresa/agente do token atual' })
   me(@Headers('authorization') authorization?: string) {
     return this.authService.me(authorization);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Atualiza o perfil do agente autenticado' })
+  @ApiBody({ type: UpdateProfileDto })
+  updateProfile(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(authorization, dto);
   }
 }

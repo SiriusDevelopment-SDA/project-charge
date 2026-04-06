@@ -3,6 +3,7 @@ import { gerarModeloClientes } from "./gerarModeloPlanilhaClientes";
 import { gerarModeloLeads } from "./gerarModeloPlanilhaLeads";
 import { toast } from "react-toastify";
 import { normalizeDoc } from "./document";
+import { templateRequiresInvoiceData } from "./templateRequirements";
 
 type SpreadsheetRow = Record<string, string | number | null | undefined>;
 
@@ -110,7 +111,7 @@ export function buildTemplateParams(
 }
 
 export function validarSelecaoCliente(cliente: Cliente, template?: Template) {
-  if (template?.category !== "Cobrança") {
+  if (!templateRequiresInvoiceData(template)) {
     return true;
   }
 

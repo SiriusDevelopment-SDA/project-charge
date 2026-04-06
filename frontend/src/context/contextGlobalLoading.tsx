@@ -1,6 +1,7 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -61,6 +62,34 @@ export function GlobalLoadingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const activeEntry = entries[entries.length - 1] ?? null;
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const { body, documentElement } = document;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyPaddingRight = body.style.paddingRight;
+    const previousHtmlOverflow = documentElement.style.overflow;
+
+    if (entries.length > 0) {
+      const scrollbarWidth = window.innerWidth - documentElement.clientWidth;
+
+      body.style.overflow = "hidden";
+      documentElement.style.overflow = "hidden";
+
+      if (scrollbarWidth > 0) {
+        body.style.paddingRight = `${scrollbarWidth}px`;
+      }
+    }
+
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      body.style.paddingRight = previousBodyPaddingRight;
+      documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [entries.length]);
 
   const value = useMemo(
     () => ({

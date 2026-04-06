@@ -5,6 +5,8 @@ type TemplateButtonBlueprint = {
   type?: string;
   sub_type?: string;
   index?: string | number;
+  text?: string;
+  url?: string;
 };
 
 type TemplateComponentBlueprint = {
@@ -70,7 +72,7 @@ function buildOrderDetailsComponent(
   mappedVar: mappedVars
 ): BuiltComponent | null {
   const referenceId = String(
-    mappedVar.order_reference_id ?? mappedVar.numero_contrato ?? ""
+    mappedVar.numero_contrato ?? mappedVar.order_reference_id ?? ""
   ).trim();
   const pixCode = String(
     mappedVar.code_pix ??
@@ -231,12 +233,6 @@ function buildTemplateRecipientFromBlueprint(
 
   const buttonsBlueprint = extractButtonsBlueprint(templateComponents);
 
-  console.log("[templateRecipient debug]", {
-    whatsapp: mappedVar.whatsapp,
-    templateComponentsRaw: templateComponents,
-    buttonsBlueprint,
-  });
-
   const bodyParameters = Object.keys(templateVars)
     .sort((a, b) => Number(a) - Number(b))
     .map((key) => ({
@@ -279,6 +275,19 @@ function buildTemplateRecipientFromBlueprint(
     }
 
     const component = buildButtonComponent(button, i, buttonType, mappedVar);
+    if (!component && buttonType === "URL") {
+      console.warn(
+        "[templateRecipient] botao URL ignorado para destinatario",
+        mappedVar.whatsapp,
+        "- verifique se link_boleto_pdf foi preenchido",
+        {
+          boletoLink: mappedVar.link_boleto_pdf,
+          templateUrl: button?.url,
+        },
+      );
+      return null;
+    }
+
     if (component) components.push(component);
   }
 

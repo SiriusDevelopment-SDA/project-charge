@@ -5,6 +5,7 @@ import { campaignSchema } from "../../../schemas/campaign.schema";
 import type {
   Category,
   Cliente,
+  Invoice,
   InvoiceRuleClientsByDate,
   mappedVars,
   Template,
@@ -12,19 +13,20 @@ import type {
 import type { RecurringType } from "../../../types/champaignApiTypes";
 import type { InvoiceRuleOperator } from "../../../types/invoiceApiTypes";
 import { CampaignService } from "../../../services/campaign/campaign.service";
-import { ClientService } from "../../../services/client/client.service";
 import { useClient } from "../../useCliente";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import { buildTemplateRecipient } from "../../../mappers/templateRecipient.builder";
 import {
   areOnlyAttendantFieldsMissing,
+  getMissingTemplateVariables,
   getIncompleteTemplateRecipients,
   templateRequiresAttendantName,
-  templateRequiresPix,
 } from "../../../validators/template.validator";
 import { AppStorage } from "../../../services/storage/storage.service";
 import { validarSelecaoCliente } from "../../../utils/validation";
 import { getErrorMessage } from "../../../utils/error";
+import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
+import { templateRequiresInvoiceData } from "../../../utils/templateRequirements";
 
 type ValidationResult =
   | { success: true }
@@ -46,6 +48,19 @@ type CampaignCreateResponse = {
   };
   warnings?: CampaignCreateWarning[];
 };
+
+const INVOICE_DEPENDENT_FIELDS = new Set([
+  "data_vencimento_fatura",
+  "numero_contrato",
+  "valor_fatura",
+  "linha_digitavel_boleto",
+  "link_boleto_pdf",
+  "code_pix",
+  "codigo_qr",
+  "codigo_qr_code",
+  "codigo_pix",
+  "order_reference_id",
+]);
 
 function normalizeSelectedCalendarDate(date: Date): Date {
   const normalized = new Date(date);
@@ -79,6 +94,33 @@ function getUniqueClientsFromInvoiceRuleSelections(
       .flat()
       .map((client) => [client.id, client]),
   ).values()];
+}
+
+function getClientIdentity(client: Cliente) {
+  return String(client.id ?? client.cnpj_cpf ?? "").trim();
+}
+
+function mergeSelectedInvoiceData(
+  selectedInvoice: Invoice | undefined,
+  fetchedInvoice: Invoice | undefined,
+) {
+  if (!selectedInvoice) {
+    return fetchedInvoice;
+  }
+
+  if (!fetchedInvoice) {
+    return selectedInvoice;
+  }
+
+  return {
+    ...selectedInvoice,
+    ...fetchedInvoice,
+    ticket_digitable_line:
+      fetchedInvoice.ticket_digitable_line ?? selectedInvoice.ticket_digitable_line,
+    ticket_pdf_link:
+      fetchedInvoice.ticket_pdf_link ?? selectedInvoice.ticket_pdf_link,
+    code_pix: fetchedInvoice.code_pix ?? selectedInvoice.code_pix,
+  };
 }
 
 export function useCampaignFormController() {
@@ -183,10 +225,86 @@ export function useCampaignFormController() {
   const mergeFetchedInvoices = useCallback(
     (baseClients: Cliente[], fetchedClients: Cliente[]) => {
       const fetchedById = new Map(
-        fetchedClients.map((client) => [client.id, client]),
+        fetchedClients.map((client) => [getClientIdentity(client), client]),
       );
 
-      return baseClients.map((client) => fetchedById.get(client.id) ?? client);
+      return baseClients.map(
+        (client) => fetchedById.get(getClientIdentity(client)) ?? client,
+      );
+    },
+    [],
+  );
+
+  const clientNeedsTemplateInvoiceHydration = useCallback(
+    (client: Cliente, template: Template) => {
+      if (!templateRequiresInvoiceData(template)) {
+        return false;
+      }
+
+      const missingFields = getMissingTemplateVariables(template, client);
+      return missingFields.some((fieldKey) =>
+        INVOICE_DEPENDENT_FIELDS.has(fieldKey),
+      );
+    },
+    [],
+  );
+
+  const hydrateSelectedClientsForTemplate = useCallback(
+    async (template: Template, clients: Cliente[]) => {
+      if (!templateRequiresInvoiceData(template) || !clients.length) {
+        return clients;
+      }
+
+      const clientsToHydrate = clients.filter((client) =>
+        clientNeedsTemplateInvoiceHydration(client, template),
+      );
+
+      if (!clientsToHydrate.length) {
+        return clients;
+      }
+
+      const fetchedClients = await fetchInvoicesRef.current(clientsToHydrate);
+      return mergeFetchedInvoices(clients, fetchedClients);
+    },
+    [clientNeedsTemplateInvoiceHydration, mergeFetchedInvoices],
+  );
+
+  const mergeFetchedInvoiceRuleClient = useCallback(
+    (selectedClient: Cliente, fetchedClient?: Cliente) => {
+      if (!fetchedClient?.invoices) {
+        return selectedClient;
+      }
+
+      const selectedInvoices = selectedClient.invoices?.list ?? [];
+      const selectedInvoice = selectedInvoices[0];
+
+      if (!selectedInvoice) {
+        return {
+          ...selectedClient,
+          invoices: fetchedClient.invoices,
+        };
+      }
+
+      const matchedInvoice = fetchedClient.invoices.list.find(
+        (invoice) =>
+          String(invoice.invoice_id ?? "").trim() ===
+          String(selectedInvoice.invoice_id ?? "").trim(),
+      );
+
+      const mergedInvoice = mergeSelectedInvoiceData(selectedInvoice, matchedInvoice);
+
+      if (!mergedInvoice) {
+        return selectedClient;
+      }
+
+      return {
+        ...selectedClient,
+        invoices: {
+          ...(selectedClient.invoices ?? fetchedClient.invoices),
+          ...fetchedClient.invoices,
+          list: [mergedInvoice, ...selectedInvoices.slice(1)],
+        },
+      };
     },
     [],
   );
@@ -228,58 +346,30 @@ export function useCampaignFormController() {
   }, [resetInvoiceRuleConsultation]);
 
   useEffect(() => {
-    const mapVars = async () => {
-      try {
-        if (!selectedTemplate || selectedClients.length === 0) {
-          setTemplateMapsVars([]);
-          return;
-        }
+    if (!selectedTemplate || selectedClients.length === 0) {
+      setTemplateMapsVars([]);
+      return;
+    }
 
-        if (recurringType !== "single" && Object.keys(invoiceRuleClientsByDate).length) {
-          setTemplateMapsVars(
-            buildMappedVarsFromInvoiceRuleSelections(selectedTemplate, true),
-          );
-          return;
-        }
+    if (recurringType !== "single" && Object.keys(invoiceRuleClientsByDate).length) {
+      setTemplateMapsVars(
+        buildMappedVarsFromInvoiceRuleSelections(selectedTemplate, true),
+      );
+      return;
+    }
 
-        let source = selectedClients;
+    const validClients = selectedClients.filter((client) =>
+      validarSelecaoCliente(client, selectedTemplate),
+    );
 
-        if (selectedTemplate.category.toLowerCase().includes("cobr")) {
-          const hasPendingInvoices = selectedClients.some(
-            (client) => client.invoices?.status !== "success",
-          );
-
-          if (hasPendingInvoices) {
-            const needInvoices = selectedClients.filter(
-              (client) => !client.invoices || client.invoices.status === "error",
-            );
-
-            const fetchedClients = await fetchInvoicesRef.current(needInvoices);
-            source = mergeFetchedInvoices(selectedClients, fetchedClients);
-          }
-        }
-
-        const validClients = source.filter((client) =>
-          validarSelecaoCliente(client, selectedTemplate),
-        );
-
-        const mapped = mapRecipientsToTemplateVars(validClients, selectedTemplate, {
-          filterByTemplateVars: true,
-        });
-
-        setTemplateMapsVars(mapped);
-      } catch {
-        setSelectedTemplate(undefined);
-        toast.error("Este template nao pode ser utilizado, contate o suporte.");
-        setTemplateMapsVars([]);
-      }
-    };
-
-    void mapVars();
+    setTemplateMapsVars(
+      mapRecipientsToTemplateVars(validClients, selectedTemplate, {
+        filterByTemplateVars: true,
+      }),
+    );
   }, [
     buildMappedVarsFromInvoiceRuleSelections,
     invoiceRuleClientsByDate,
-    mergeFetchedInvoices,
     recurringType,
     selectedClients,
     selectedTemplate,
@@ -313,6 +403,13 @@ export function useCampaignFormController() {
         return { success: false };
       }
 
+      if (!isTemplateApproved(selectedTemplate.meta_status)) {
+        toast.warning(
+          `O template ${selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
+        );
+        return { success: false };
+      }
+
       if (recurringType === "monthly_days" && !selectedDays.length) {
         return { success: false };
       }
@@ -334,72 +431,17 @@ export function useCampaignFormController() {
       let mappedVarsForSubmit: mappedVars[] = [];
 
       if (usesInvoiceRule) {
-        let clientsByDateWithPix = invoiceRuleClientsByDate;
-
-        if (templateRequiresPix(selectedTemplate)) {
-          const companyId = selectedTemplate.company.id;
-          const allClients = Object.values(invoiceRuleClientsByDate).flat();
-          const invoiceIdsToFetch = [
-            ...new Set(
-              allClients
-                .map((c) => c.invoices?.list?.[0])
-                .filter((inv): inv is NonNullable<typeof inv> =>
-                  !!inv && inv.code_pix?.status !== "success" && !!inv.invoice_id,
-                )
-                .map((inv) => inv.invoice_id!),
-            ),
-          ];
-
-          if (invoiceIdsToFetch.length && companyId) {
-            try {
-              const response = await ClientService.fetchPixCodes(companyId, invoiceIdsToFetch);
-              const pixById = new Map(
-                response.data.results
-                  .filter((r) => r.pix)
-                  .map((r) => [r.invoiceId, r]),
-              );
-
-              if (pixById.size > 0) {
-                const updated: InvoiceRuleClientsByDate = {};
-                Object.entries(invoiceRuleClientsByDate).forEach(([date, clients]) => {
-                  updated[date] = clients.map((client) => {
-                    const invoice = client.invoices?.list?.[0];
-                    if (!invoice?.invoice_id) return client;
-                    const fetchedPix = pixById.get(invoice.invoice_id);
-                    if (!fetchedPix) return client;
-                    return {
-                      ...client,
-                      invoices: {
-                        ...client.invoices!,
-                        list: [
-                          { ...invoice, code_pix: { status: fetchedPix.status, pix: fetchedPix.pix } },
-                          ...(client.invoices?.list ?? []).slice(1),
-                        ],
-                      },
-                    };
-                  });
-                });
-                clientsByDateWithPix = updated;
-              }
-            } catch {
-              toast.warning("Não foi possível buscar códigos PIX. Clientes sem PIX serão excluídos da campanha.");
-            }
-          }
-        }
-
         mappedVarsForSubmit = buildMappedVarsFromInvoiceRuleSelections(
           selectedTemplate,
           false,
-          clientsByDateWithPix,
         );
-      } else if (selectedTemplate.category.toLowerCase().includes("cobr")) {
-        const needInvoices = selectedClients.filter(
-          (client) => !client.invoices || client.invoices.status === "error",
+      } else if (templateRequiresInvoiceData(selectedTemplate)) {
+        source = await hydrateSelectedClientsForTemplate(
+          selectedTemplate,
+          selectedClients,
         );
 
-        if (needInvoices.length) {
-          const fetchedClients = await fetchInvoices(needInvoices);
-          source = mergeFetchedInvoices(selectedClients, fetchedClients);
+        if (source !== selectedClients) {
           setSelectedClientsState(source);
         }
 
@@ -521,11 +563,10 @@ export function useCampaignFormController() {
     buildMappedVarsFromInvoiceRuleSelections,
     dateRange,
     dispatchTime,
-    fetchInvoices,
     getMonthlyDateRange,
     getRecurringDays,
+    hydrateSelectedClientsForTemplate,
     isSubmitting,
-    mergeFetchedInvoices,
     name,
     recurringType,
     resetForm,
@@ -536,7 +577,7 @@ export function useCampaignFormController() {
     toCampaignDateIso,
   ]);
 
-  const validateForm = useCallback((): ValidationResult => {
+  const validateForm = useCallback(async (): Promise<ValidationResult> => {
     const usesInvoiceRule = recurringType !== "single";
 
     if (usesInvoiceRule && !hasConsultedInvoiceRule) {
@@ -558,6 +599,19 @@ export function useCampaignFormController() {
                 usesInvoiceRule
                   ? "Nenhum cliente foi encontrado para a regua de cobranca informada."
                   : "Selecione ao menos um cliente",
+            },
+          ],
+        },
+      };
+    }
+
+    if (selectedTemplate && !isTemplateApproved(selectedTemplate.meta_status)) {
+      return {
+        success: false,
+        error: {
+          issues: [
+            {
+              message: `O template ${selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
             },
           ],
         },
@@ -600,16 +654,22 @@ export function useCampaignFormController() {
       };
     }
 
-    const effectiveMapVars =
-      usesInvoiceRule && selectedTemplate
-        ? buildMappedVarsFromInvoiceRuleSelections(selectedTemplate, true)
-        : templateMapVars.length && selectedTemplate
-          ? templateMapVars
-          : selectedTemplate
-            ? mapRecipientsToTemplateVars(selectedClients, selectedTemplate, {
-                filterByTemplateVars: true,
-              })
-            : [];
+    let effectiveMapVars: mappedVars[] = [];
+
+    if (selectedTemplate) {
+      if (usesInvoiceRule) {
+        effectiveMapVars = buildMappedVarsFromInvoiceRuleSelections(
+          selectedTemplate,
+          false,
+        );
+      } else {
+        effectiveMapVars = mapRecipientsToTemplateVars(
+          selectedClients,
+          selectedTemplate,
+          { filterByTemplateVars: false },
+        );
+      }
+    }
 
     if (!selectedTemplate || !effectiveMapVars.length) {
       return {
@@ -648,27 +708,27 @@ export function useCampaignFormController() {
         };
       }
 
-      const invalidNames = incompleteRecipients
-        .slice(0, 3)
-        .map(
-          (recipient) =>
-            effectiveMapVars[recipient.index]?.nome_cliente ||
-            selectedClients[recipient.index]?.name ||
-            `Cliente ${recipient.index + 1}`,
+      incompleteRecipients.forEach((r) => {
+        const clientName =
+          effectiveMapVars[r.index]?.nome_cliente ||
+          selectedClients[r.index]?.name ||
+          `Cliente ${r.index + 1}`;
+        toast.warning(
+          `Cliente "${clientName}" retirado da campanha. Campos ausentes: ${r.missingFields.join(", ")}.`,
         );
+      });
 
-      return {
-        success: false,
-        error: {
-          issues: [
-            {
-              message:
-                `Preencha todas as variaveis obrigatorias antes do preview. ` +
-                `Pendencias encontradas em ${incompleteRecipients.length} cliente(s): ${invalidNames.join(", ")}.`,
-            },
-          ],
-        },
-      };
+      const incompleteIndexes = new Set(incompleteRecipients.map((r) => r.index));
+      effectiveMapVars = effectiveMapVars.filter((_, i) => !incompleteIndexes.has(i));
+
+      if (!effectiveMapVars.length) {
+        return {
+          success: false,
+          error: {
+            issues: [{ message: "Nenhum cliente valido para envio apos remover pendencias." }],
+          },
+        };
+      }
     }
 
     setTemplateMapsVars(effectiveMapVars);
@@ -687,15 +747,14 @@ export function useCampaignFormController() {
     selectedClients,
     selectedDays,
     selectedTemplate,
-    templateMapVars,
   ]);
 
   const handleSubmit = useCallback(
-    (
+    async (
       setOpenModal: (value: boolean) => void,
       onRequireAttendantModal?: () => void,
     ) => {
-      const result = validateForm();
+      const result = await validateForm();
 
       if (!result.success) {
         if (result.error.code === "ATTENDANT_MODAL_REQUIRED") {

@@ -229,19 +229,41 @@ export class SGPInvoicesService {
     const invoicesByCpf = new Map<string, SGPTitleRecord[]>();
 
 
+    const timeoutMs = Number((company.config as any)?.timeoutMs ?? 90_000);
+    const maxRetries = Number((company.config as any)?.retries ?? 3);
+
     const fetchPage = async (offset: number): Promise<{ titulos: SGPTitleRecord[]; total?: number }> => {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'abertos',
-          data_vencimento_inicio: startDate,
-          data_vencimento_fim: endDate,
-          offset,
-          limit,
-        }),
-        signal: AbortSignal.timeout(45_000),
-      });
+      let response: Response | undefined;
+      let lastErr: unknown;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          response = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: 'abertos',
+              data_vencimento_inicio: startDate,
+              data_vencimento_fim: endDate,
+              offset,
+              limit,
+            }),
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          lastErr = undefined;
+          break;
+        } catch (err: any) {
+          lastErr = err;
+          if (attempt >= maxRetries || !this.isRetryableNetworkError(err)) break;
+          await this.sleep(800 * (attempt + 1) ** 2);
+        }
+      }
+
+      if (!response) {
+        const error = new Error(`SGP titulos — falha de rede ao acessar ${url}`);
+        (error as any).cause = lastErr;
+        throw error;
+      }
       if (!response.ok) {
         const err = await response.text();
         throw new Error(`SGP titulos erro ${response.status}: ${err.slice(0, 300)}`);

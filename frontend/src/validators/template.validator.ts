@@ -6,6 +6,13 @@ import {
   getOrderedTemplateVariableKeys,
 } from "../mappers/templateVars.mapper";
 
+const PIX_TEMPLATE_VARIABLE_KEYS = new Set([
+  "code_pix",
+  "codigo_qr",
+  "codigo_qr_code",
+  "codigo_pix",
+]);
+
 function normalizeTemplateComponents(template: Template): Array<Record<string, unknown>> {
   const { components } = template;
 
@@ -44,6 +51,56 @@ function normalizeTemplateComponents(template: Template): Array<Record<string, u
   return [];
 }
 
+function getComponentRequiredFields(template: Template): string[] {
+  const components = normalizeTemplateComponents(template);
+  const requiredFields = new Set<string>();
+
+  components.forEach((component) => {
+    const componentType = String(component?.type ?? "").toUpperCase();
+
+    if (
+      componentType === "HEADER" &&
+      String(component?.format ?? "").toUpperCase() === "DOCUMENT"
+    ) {
+      requiredFields.add("link_boleto_pdf");
+    }
+
+    if (componentType !== "BUTTON" && componentType !== "BUTTONS") {
+      return;
+    }
+
+    const buttons: Array<Record<string, unknown>> = Array.isArray(component?.buttons)
+      ? (component.buttons as Array<Record<string, unknown>>)
+      : component?.sub_type
+        ? [{ type: component.sub_type, text: component.text }]
+        : [];
+
+    buttons.forEach((button) => {
+      const buttonType = String(button?.type ?? button?.sub_type ?? "").toUpperCase();
+
+      if (buttonType === "ORDER_DETAILS") {
+        requiredFields.add("code_pix");
+        requiredFields.add("valor_fatura");
+        requiredFields.add("numero_contrato");
+        return;
+      }
+
+      if (buttonType === "COPY_CODE") {
+        requiredFields.add("code_pix");
+        return;
+      }
+
+      if (buttonType !== "URL") {
+        return;
+      }
+
+      requiredFields.add("link_boleto_pdf");
+    });
+  });
+
+  return Array.from(requiredFields);
+}
+
 function hasOrderDetailsButton(template: Template): boolean {
   const components = normalizeTemplateComponents(template);
 
@@ -63,7 +120,9 @@ function hasOrderDetailsButton(template: Template): boolean {
 
 export function templateRequiresPix(template: Template): boolean {
   const vars = normalizeTemplateVars(template.variables);
-  const hasPixVar = Object.values(vars).some((v) => String(v) === "code_pix");
+  const hasPixVar = Object.values(vars).some((v) =>
+    PIX_TEMPLATE_VARIABLE_KEYS.has(String(v)),
+  );
   return hasPixVar || hasOrderDetailsButton(template);
 }
 
@@ -79,7 +138,11 @@ export function templateRequiresCompanyName(template: Template): boolean {
 
 export function getMissingTemplateVariables(template: Template, recipient: Recipient): string[] {
   const allVars = buildTemplateVars(recipient, template, { skipStorage: true });
-  return getOrderedTemplateVariableKeys(template).filter((fieldKey) => {
+  const requiredFields = Array.from(
+    new Set([...getOrderedTemplateVariableKeys(template), ...getComponentRequiredFields(template)]),
+  );
+
+  return requiredFields.filter((fieldKey) => {
     if (fieldKey === "whatsapp") return false;
     return !String(allVars[fieldKey as keyof mappedVars] ?? "").trim();
   });
@@ -98,6 +161,7 @@ export function diagnoseTemplateRecipients(
   mappedVarsList: mappedVars[]
 ): TemplateRecipientDiagnostic[] {
   const templateVars = normalizeTemplateVars(template.variables);
+  const componentRequiredFields = getComponentRequiredFields(template);
 
   return mappedVarsList.map((mappedVar, index) => {
     const bodyPreview = Object.keys(templateVars)
@@ -107,11 +171,20 @@ export function diagnoseTemplateRecipients(
         value: String(mappedVar[templateVars[key] as keyof mappedVars] ?? ""),
       }));
 
+    const missingFields = Array.from(
+      new Set([
+        ...bodyPreview.filter((item) => !item.value.trim()).map((item) => item.key),
+        ...componentRequiredFields.filter(
+          (fieldKey) => !String(mappedVar[fieldKey as keyof mappedVars] ?? "").trim(),
+        ),
+      ]),
+    );
+
     return {
       index,
       number: String(mappedVar.whatsapp ?? ""),
       missingNumber: !String(mappedVar.whatsapp ?? "").trim(),
-      missingFields: bodyPreview.filter((item) => !item.value.trim()).map((item) => item.key),
+      missingFields,
       bodyPreview,
     };
   });

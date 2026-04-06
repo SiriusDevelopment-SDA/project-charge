@@ -8,10 +8,10 @@
 /*CARD FIXO*/
 .TemplateCard {
   width: 100%;
-  height: 180px;
+  height: 170px;
   background: linear-gradient(180deg, #0f1117 0%, #0a0c10 100%) !important;
   border-radius: 14px;
-  padding: 14px;
+  padding: 22px 20px !important;
   color: #fff !important;
   border: 1px solid rgba(255, 255, 255, 0.06);
   position: relative;
@@ -137,6 +137,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 10px;
+  border-bottom: 1px solid #f4d03f;
 }
 
 .ContainerCatogoria {
@@ -146,6 +147,13 @@
   width: 100%;
 }
 
+.BadgesRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: max-content;
+}
+
 .CardBadge {
   background: #1b1b1b;
   color: #f2c010;
@@ -153,6 +161,38 @@
   padding: 4px 8px;
   border-radius: 999px;
   font-weight: 600;
+}
+
+.StatusBadge {
+  font-size: 0.68rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.StatusApproved {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.StatusWarning {
+  background: rgba(242, 192, 16, 0.12);
+  color: #f4d03f;
+  border-color: rgba(242, 192, 16, 0.24);
+}
+
+.StatusDanger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.24);
+}
+
+.StatusNeutral {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.24);
 }
 
 /*BOTÕES BASE*/
@@ -249,9 +289,24 @@
   overflow: hidden;
 }
 
+.StatusHint {
+  font-size: 0.72rem;
+  color: #f4d03f;
+  margin-bottom: 6px;
+}
+
 /*VER MAIS*/
 .VerMais {
   font-size: 0.75rem;
   color: #f2c010;
   cursor: pointer;
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 20px;
+  transition: ease-in-out 0.3s;
+}
+.VerMais:hover{
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.25);
 }

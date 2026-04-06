@@ -4,34 +4,59 @@ import { Play, Trash2 } from "lucide-react";
 import { BaseCard } from "../Index";
 import Style from "./CardTemplates.module.css";
 import type { PropsCardTemplates } from "../../types";
+import {
+  getTemplateStatusLabel,
+  getTemplateStatusTone,
+  isTemplateApproved,
+} from "../../utils/templateStatus";
 
 export function CardTemplates({
   template,
-  isOpen,
-  onToggle,
+  onPreview,
   onDelete,
   onUse,
 }: PropsCardTemplates) {
+  const canUseTemplate = isTemplateApproved(template.meta_status);
+  const statusTone = getTemplateStatusTone(template.meta_status);
+  const statusLabel = getTemplateStatusLabel(template.meta_status);
+
   return (
     <>
       <div className={Style.CardWrap}>
         <BaseCard classname={Style.TemplateCard}>
-          {isOpen && (
-            <div className={Style.Balloon}>
-              <span className={Style.BalloonTitle}>{template.name}</span>
-              <p className={Style.BalloonMessage}>{template.message}</p>
-            </div>
-          )}
-
           <div className={Style.CardInner}>
             <div className={Style.CardHeader}>
               <span className={Style.CardTitle}>{template.name}</span>
 
               <div className={Style.ContainerCatogoria}>
-                <span className={Style.CardBadge}>{template.category}</span>
+                <div className={Style.BadgesRow}>
+                  <span className={Style.CardBadge}>{template.category}</span>
+                  <span
+                    className={`${Style.StatusBadge} ${
+                      statusTone === "approved"
+                        ? Style.StatusApproved
+                        : statusTone === "warning"
+                          ? Style.StatusWarning
+                          : statusTone === "danger"
+                            ? Style.StatusDanger
+                            : Style.StatusNeutral
+                    }`}
+                  >
+                    {statusLabel}
+                  </span>
+                </div>
 
                 <div className={Style.CardIcons}>
-                  <button className={Style.BtnUse} onClick={() => onUse?.(template)}>
+                  <button
+                    className={Style.BtnUse}
+                    onClick={() => onUse?.(template)}
+                    disabled={!canUseTemplate}
+                    title={
+                      canUseTemplate
+                        ? "Usar template"
+                        : `Template indisponivel enquanto estiver com status ${statusLabel}.`
+                    }
+                  >
                     <Play size={16} />
                   </button>
 
@@ -44,8 +69,8 @@ export function CardTemplates({
 
             <p className={Style.CardMessage}>{template.message}</p>
 
-            <span className={Style.VerMais} onClick={() => onToggle(template.id)}>
-              {isOpen ? "Fechar" : "Ver mais"}
+            <span className={Style.VerMais} onClick={() => onPreview(template)}>
+              Ver mais
             </span>
           </div>
         </BaseCard>

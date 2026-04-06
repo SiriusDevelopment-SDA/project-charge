@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import { toast } from "react-toastify";
+import type { Template } from "../../types";
 import { Pagination } from "../../componente/global/Pagination/Pagination";
 import {
   PageContainer,
@@ -12,19 +13,86 @@ import {
 import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates";
 import { CardTemplates } from "../../componente/Card/CardTemplates";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
-import { useTemplate } from "../../hooks";
+import { useDispatchTemplate, useTemplate } from "../../hooks";
+import { useTemplateUsageQuery } from "../../hooks/queries/useTemplatesQuery";
 import { useTemplatesPageController } from "../../hooks/controller/templates/useTemplatesPageController";
+import { getTemplateStatusLabel, isTemplateApproved } from "../../utils/templateStatus";
 import Style from "./Styles/TemplatesMeta.module.css";
+
+function normalizeTemplateComponents(components: Template["components"]) {
+  if (Array.isArray(components)) {
+    return components as Array<Record<string, unknown>>;
+  }
+
+  if (typeof components === "string") {
+    try {
+      return normalizeTemplateComponents(JSON.parse(components) as Template["components"]);
+    } catch {
+      return [];
+    }
+  }
+
+  if (
+    components &&
+    typeof components === "object" &&
+    Array.isArray((components as { components?: unknown }).components)
+  ) {
+    return (components as { components: Array<Record<string, unknown>> }).components;
+  }
+
+  return [];
+}
+
+function extractTemplatePreviewSections(template: Template) {
+  const components = normalizeTemplateComponents(template.components);
+
+  const header = components.find(
+    (component) => String(component?.type ?? "").toUpperCase() === "HEADER",
+  );
+  const body = components.find(
+    (component) => String(component?.type ?? "").toUpperCase() === "BODY",
+  );
+  const footer = components.find(
+    (component) => String(component?.type ?? "").toUpperCase() === "FOOTER",
+  );
+
+  return {
+    header: String(header?.text ?? "").trim(),
+    body: String(body?.text ?? template.message ?? "").trim(),
+    footer: String(footer?.text ?? "").trim(),
+  };
+}
 
 export default function TemplatesMeta() {
   const navigate = useNavigate();
   const location = useLocation();
   const { templates, deleteTemplate } = useTemplate();
+  const dispatch = useDispatchTemplate();
+  const {
+    data: templateUsage = [],
+    isLoading: isTemplateUsageLoading,
+    isError: isTemplateUsageError,
+  } = useTemplateUsageQuery();
+
+  const renderTemplateMessage = (message: string) => {
+    const parts = message.split(/(\{\{\d+\}\})/g);
+    return parts.map((part, index) => {
+      if (/^\{\{\d+\}\}$/.test(part)) {
+        return (
+          <span key={`${part}-${index}`} className={Style.templateVar}>
+            {part}
+          </span>
+        );
+      }
+
+      return <span key={`text-${index}`}>{part}</span>;
+    });
+  };
 
   const {
     page,
     totalPages,
-    openTemplateId,
+    previewTemplate,
     searchTemplateName,
     categoryTemplateFilter,
     openDeleteModal,
@@ -35,9 +103,10 @@ export default function TemplatesMeta() {
     paginatedTemplates,
     setPage,
     setOpenCategoryDropdown,
-    handleToggle,
     handleSearchChange,
     handleCategoryChange,
+    openPreview,
+    closePreview,
     openDeleteConfirmation,
     closeDeleteConfirmation,
     confirmDelete,
@@ -46,37 +115,36 @@ export default function TemplatesMeta() {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const filterIconRef = useRef<HTMLDivElement | null>(null);
 
-  const graphData = Object.values(
-    templates.reduce<Record<string, { id: number; nome: string; quantidade: number }>>(
-      (acc, template, index) => {
-        const category = template.category || "Outros";
-        if (!acc[category]) {
-          acc[category] = { id: index + 1, nome: category, quantidade: 0 };
-        }
-        acc[category].quantidade += 1;
-        return acc;
-      },
-      {}
-    )
-  );
+  const graphData = templateUsage.slice(0, 3).map((item) => ({
+    id: item.templateId,
+    nome: item.templateName,
+    quantidade: item.totalUsage,
+    percentual: item.usagePercentage,
+  }));
+
+  const previewSections = previewTemplate
+    ? extractTemplatePreviewSections(previewTemplate)
+    : null;
 
   return (
     <PageContainer className={Style.TemplatesContainer}>
       <div className={Style.Grafico}>
         <TitlePage title="Templates META" subtitle="Gerencie modelos oficiais para disparos e campanhas" className={Style.TitlePage} />
-        <TemplatesUsageCard data={graphData} />
+        <TemplatesUsageCard
+          data={graphData}
+          loading={isTemplateUsageLoading}
+          error={isTemplateUsageError}
+        />
       </div>
 
       <div className={Style.ContainerSubMenu}>
-        <div className={Style.ContainerFiltro}>
-          <MyButton
-            text="Criar Template"
-            variant="secondary"
-            className={Style.BtnCriarTemplate}
-            onClick={() => navigate(`/CreateTemplate${location.search}`)}
-          />
-
           <div className={Style.ContainerFiltros}>
+            <MyButton
+              text="Criar Template"
+              variant="secondary"
+              className={Style.BtnCriarTemplate}
+              onClick={() => navigate(`/CreateTemplate${location.search}`)}
+             />
             <InputFields
               className={Style.InputFiltro}
               placeholder="Buscar template pelo nome"
@@ -95,15 +163,15 @@ export default function TemplatesMeta() {
                 }
               }}
             >
-              <FilterAltOutlinedIcon
-                className={`${Style.iconFilterDropdownTemplate} ${
-                  categoryTemplateFilter ? Style.activeFilter : ""
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpenCategoryDropdown((prev) => !prev);
-                }}
-              />
+            <FilterAltOutlinedIcon
+              className={`${Style.iconFilterDropdownTemplate} ${
+                categoryTemplateFilter ? Style.activeFilter : ""
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenCategoryDropdown((prev) => !prev);
+              }}
+            />
 
               {openCategoryDropdown && (
                 <div ref={dropdownRef} className={Style.CategoryDropdown}>
@@ -131,7 +199,7 @@ export default function TemplatesMeta() {
               )}
             </div>
           </div>
-        </div>
+          
       </div>
 
       <div className={Style.Cards}>
@@ -139,13 +207,64 @@ export default function TemplatesMeta() {
           <CardTemplates
             key={template.id}
             template={template}
-            isOpen={openTemplateId === template.id}
-            onToggle={handleToggle}
+            onPreview={openPreview}
             onDelete={openDeleteConfirmation}
-            onUse={() => toast.info("Ação de usar template (implementar)")}
+            onUse={(selectedTemplate) => {
+              if (!isTemplateApproved(selectedTemplate.meta_status)) {
+                toast.warning(
+                  `O template ${selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
+                );
+                return;
+              }
+
+              dispatch.setSelectedTemplate(selectedTemplate);
+              toast.success(`Template ${selectedTemplate.name} selecionado para disparo.`);
+              navigate(location.search ? `/${location.search}` : "/");
+            }}
           />
         ))}
       </div>
+
+      {previewTemplate && (
+        <DynamicModal
+          open
+          type="custom"
+          title={previewTemplate.name}
+          onClose={closePreview}
+          containerClassName={Style.previewModalContainer}
+          customContent={
+            <div className={Style.templateModalContent}>
+              <h4>TEMPLATE COMPLETO</h4>
+              <div className={Style.templateModalBody}>
+                <div className={Style.templatePreviewFrame}>
+                  {previewSections?.header && (
+                    <div className={Style.templatePreviewHeader}>
+                      {renderTemplateMessage(previewSections.header)}
+                    </div>
+                  )}
+
+                  <div className={Style.templatePreviewMain}>
+                    {renderTemplateMessage(previewSections?.body ?? previewTemplate.message)}
+                  </div>
+
+                  {previewSections?.footer && (
+                    <div className={Style.templatePreviewFooter}>
+                      {renderTemplateMessage(previewSections.footer)}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={Style.templateModalClose}
+                onClick={closePreview}
+              >
+                Fechar
+              </button>
+            </div>
+          }
+        />
+      )}
 
       {openDeleteModal && templateToDelete && (
         <DynamicModal

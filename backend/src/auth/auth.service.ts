@@ -1,4 +1,5 @@
-﻿import {
+import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -7,7 +8,12 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
-import { CreateAgentDto, EmbedLoginDto, LoginAgentDto } from './dto/auth.dto';
+import {
+  CreateAgentDto,
+  EmbedLoginDto,
+  LoginAgentDto,
+  UpdateProfileDto,
+} from './dto/auth.dto';
 import { JwtService } from '@nestjs/jwt';
 import { Agent } from '../agents/entities/agent.entity';
 import { compare, hash } from 'bcryptjs';
@@ -18,6 +24,7 @@ type JwtPayload = {
   name: string;
   agentId?: string;
   agentName?: string;
+  agentEmail?: string;
 };
 
 @Injectable()
@@ -65,6 +72,7 @@ export class AuthService {
       {
         agentId: agent.id,
         agentName: agent.name ?? agent.email,
+        agentEmail: agent.email,
       },
     );
   }
@@ -87,7 +95,12 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais de embed invalidas');
     }
 
-    return this.buildAuthResponse(company.id, company.name, company.account_chatwoot, company.active);
+    return this.buildAuthResponse(
+      company.id,
+      company.name,
+      company.account_chatwoot,
+      company.active,
+    );
   }
 
   async createAgent(dto: CreateAgentDto) {
@@ -131,28 +144,43 @@ export class AuthService {
   }
 
   async me(authorization?: string) {
-    const token = String(authorization ?? '')
-      .replace(/^Bearer\s+/i, '')
-      .trim();
-
-    if (!token) {
-      throw new UnauthorizedException('Token nao informado');
-    }
-
-    let payload: JwtPayload;
-    try {
-      payload = await this.jwtService.verifyAsync<JwtPayload>(token);
-    } catch {
-      throw new UnauthorizedException('Token invalido');
-    }
+    const payload = await this.getTokenPayload(authorization);
 
     const company = await this.companyRepository.findOne({
       where: { id: payload.sub, account_chatwoot: String(payload.account) },
-      select: { id: true, name: true, account_chatwoot: true, cnpj: true, active: true },
+      select: {
+        id: true,
+        name: true,
+        account_chatwoot: true,
+        cnpj: true,
+        active: true,
+      },
     });
 
     if (!company) {
       throw new UnauthorizedException('Empresa nao encontrada');
+    }
+
+    const agent = payload.agentId
+      ? await this.agentRepository.findOne({
+          where: {
+            id: payload.agentId,
+            company: { id: company.id },
+          },
+          relations: ['company'],
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            company: {
+              id: true,
+            },
+          },
+        })
+      : null;
+
+    if (payload.agentId && !agent) {
+      throw new UnauthorizedException('Agente nao encontrado');
     }
 
     return {
@@ -164,12 +192,96 @@ export class AuthService {
         cnpj: company.cnpj ?? '',
         active: company.active,
       },
-      agent: payload.agentId
+      agent: agent
         ? {
-            id: payload.agentId,
-            name: payload.agentName ?? null,
+            id: agent.id,
+            name: agent.name ?? null,
+            email: agent.email,
           }
         : null,
+    };
+  }
+
+  async updateProfile(authorization: string | undefined, dto: UpdateProfileDto) {
+    const payload = await this.getTokenPayload(authorization);
+
+    if (!payload.agentId) {
+      throw new UnauthorizedException(
+        'Perfil disponivel apenas para usuarios autenticados.',
+      );
+    }
+
+    const agent = await this.agentRepository.findOne({
+      where: {
+        id: payload.agentId,
+        company: { id: payload.sub },
+      },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        passwordHash: true,
+        company: {
+          id: true,
+        },
+      },
+    });
+
+    if (!agent) {
+      throw new UnauthorizedException('Agente nao encontrado.');
+    }
+
+    const nextName = dto.name?.trim();
+    const wantsPasswordChange = Boolean(dto.currentPassword || dto.newPassword);
+
+    if (!nextName && !wantsPasswordChange) {
+      throw new BadRequestException(
+        'Informe ao menos um dado para atualizar o perfil.',
+      );
+    }
+
+    if (nextName) {
+      agent.name = nextName;
+    }
+
+    if (wantsPasswordChange) {
+      if (!dto.currentPassword?.trim()) {
+        throw new BadRequestException(
+          'Informe a senha atual para alterar a senha.',
+        );
+      }
+
+      if (!dto.newPassword?.trim()) {
+        throw new BadRequestException('Informe a nova senha.');
+      }
+
+      const passwordOk = await compare(dto.currentPassword, agent.passwordHash);
+      if (!passwordOk) {
+        throw new BadRequestException(
+          'A senha atual informada esta incorreta.',
+        );
+      }
+
+      if (dto.currentPassword === dto.newPassword) {
+        throw new BadRequestException(
+          'A nova senha precisa ser diferente da senha atual.',
+        );
+      }
+
+      agent.passwordHash = await hash(dto.newPassword, 10);
+    }
+
+    const saved = await this.agentRepository.save(agent);
+
+    return {
+      success: true,
+      message: 'Perfil atualizado com sucesso.',
+      agent: {
+        id: saved.id,
+        name: saved.name ?? null,
+        email: saved.email,
+      },
     };
   }
 
@@ -178,7 +290,11 @@ export class AuthService {
     companyName: string,
     companyAccount: string,
     companyActive: boolean,
-    agent?: { agentId?: string; agentName?: string },
+    agent?: {
+      agentId?: string;
+      agentName?: string;
+      agentEmail?: string;
+    },
   ) {
     const payload: JwtPayload = {
       sub: companyId,
@@ -186,6 +302,7 @@ export class AuthService {
       name: companyName,
       agentId: agent?.agentId,
       agentName: agent?.agentName,
+      agentEmail: agent?.agentEmail,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -203,8 +320,25 @@ export class AuthService {
         ? {
             id: agent.agentId,
             name: agent.agentName ?? null,
+            email: agent.agentEmail ?? null,
           }
         : null,
     };
+  }
+
+  private async getTokenPayload(authorization?: string) {
+    const token = String(authorization ?? '')
+      .replace(/^Bearer\s+/i, '')
+      .trim();
+
+    if (!token) {
+      throw new UnauthorizedException('Token nao informado');
+    }
+
+    try {
+      return await this.jwtService.verifyAsync<JwtPayload>(token);
+    } catch {
+      throw new UnauthorizedException('Token invalido');
+    }
   }
 }

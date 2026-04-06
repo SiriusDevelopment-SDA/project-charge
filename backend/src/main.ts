@@ -14,6 +14,8 @@ async function bootstrap() {
         : ['log', 'warn', 'error', 'verbose'],
   });
   const configService = app.get(ConfigService);
+  app.use(require('express').json({ limit: '10mb' }));
+  app.use(require('express').urlencoded({ limit: '10mb', extended: true }));
   app.enableCors({
     // origin: configService.get<string>('NODE_ENV') === 'production'
     //   ? ['https://cobranca.coraxy.com.br']

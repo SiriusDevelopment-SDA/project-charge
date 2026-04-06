@@ -29,7 +29,6 @@ export function useFetchInvoicesMutation() {
         {},
       );
 
-      if (status === "success") toast.success(message);
       if (status === "partial") toast.warning(message);
       if (status === "error") toast.error(message);
 

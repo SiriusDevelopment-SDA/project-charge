@@ -86,10 +86,11 @@ export function AccountLayout() {
         if (!isMounted) return;
 
         setAccount(result.company.account);
+        AppStorage.setCompanyName(result.company.name);
         AppStorage.setCompanyCnpj(result.company.cnpj ?? '');
         AppStorage.setCompanyActive(result.company.active);
-        if (result.agent?.name) {
-          AppStorage.setAgentName(result.agent.name);
+        if (result.agent?.id) {
+          AppStorage.setAgentName(result.agent.name ?? "");
           AppStorage.setAuthMode("agent");
         } else {
           // Sessão embed sem token na URL = acesso direto indevido

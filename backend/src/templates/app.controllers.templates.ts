@@ -10,6 +10,7 @@ import {
   SearchRequestDtoRelatories,
   SearchRequestDtoTemplates,
   SendTemplateDto,
+  TemplateUsageRequestDto,
 } from './dto/search.request.dto.templates';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
@@ -32,6 +33,13 @@ export class ControllerTemplates {
   @ApiBody({ type: SendTemplateDto })
   sendTemplate(@Body() sendTemplateDto: SendTemplateDto) {
     return this.appService.sendTemplate(sendTemplateDto);
+  }
+
+  @Post('usage')
+  @ApiOperation({ summary: 'Retorna o uso agregado dos templates por account' })
+  @ApiBody({ type: TemplateUsageRequestDto })
+  getTemplateUsage(@Body() dto: TemplateUsageRequestDto) {
+    return this.appService.getTemplateUsage(dto);
   }
 
   @Post('batches/latest-report')

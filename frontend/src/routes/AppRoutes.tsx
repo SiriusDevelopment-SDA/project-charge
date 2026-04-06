@@ -13,6 +13,8 @@ import { ChatwootPage } from "../pages/Chatwoot/Chatwoot";
 import { DashboardProvider } from "../context/contextDashboard";
 import { NotFoundPage } from "../pages/NotFound/NotFound";
 import { BlockedRoute } from "./BlockedRoute";
+import { AgentOnlyRoute } from "./AgentOnlyRoute";
+import { PerfilPage } from "../pages/Perfil/Perfil";
 
 export function AppRoutes() {
   return (
@@ -27,6 +29,14 @@ export function AppRoutes() {
         <Route path="historico" element={<HistoricoDisparoPage />} />
         <Route path="campanhas" element={<Campanhas />} />
         <Route path="createCampanha" element={<CriarCampanha />} />
+        <Route
+          path="perfil"
+          element={
+            <AgentOnlyRoute>
+              <PerfilPage />
+            </AgentOnlyRoute>
+          }
+        />
 
         {/* rotas bloqueadas quando a empresa está inativa */}
         <Route path="templates" element={<BlockedRoute><Templates /></BlockedRoute>} />

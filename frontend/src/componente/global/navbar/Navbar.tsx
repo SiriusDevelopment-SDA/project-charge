@@ -18,8 +18,9 @@ export function Navbar() {
 
   return (
     <div className={styles.navbar}>
-      <NavLink to={`/${search}`}>
+      <NavLink to={`/${search}`} className={styles.brand}>
         <img src={logo} alt="Coraxy" />
+        <span className={styles.brandProduct}>VITAL</span>
       </NavLink>
 
       <div className={styles.navbarMenu}>
@@ -62,15 +63,6 @@ export function Navbar() {
           Templates
         </NavLink>
 
-        {!isEmbed && (
-          <NavLink
-            to={`/chat${search}`}
-            className={({ isActive }) => (isActive ? styles.active : "")}
-          >
-            Chat
-          </NavLink>
-        )}
-
         <NavLink
           to={`/${search}`}
           className={() =>
@@ -82,6 +74,22 @@ export function Navbar() {
         >
           Disparo Ativo
         </NavLink>
+        {!isEmbed && (
+          <NavLink
+            to={`/chat${search}`}
+            className={({ isActive }) => (isActive ? styles.active : "")}
+          >
+            Chat
+          </NavLink>
+        )}
+        {!isEmbed && (
+          <NavLink
+            to={`/perfil${search}`}
+            className={({ isActive }) => (isActive ? styles.active : "")}
+          >
+            Perfil
+          </NavLink>
+        )}
       </div>
     </div>
   );
