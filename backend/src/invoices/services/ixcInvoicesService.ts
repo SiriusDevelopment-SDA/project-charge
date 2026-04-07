@@ -99,10 +99,17 @@ export class IXCInvoicesService {
                   ? t.id_contrato_avulso
                   : null;
       
-              const responsePix = await this.getPixByInvoice({
-                companyId: empresa.id,
-                invoiceId: String(t.id),
-              })
+              let pixCode = '';
+              try {
+                const responsePix = await this.getPixByInvoice({
+                  companyId: empresa.id,
+                  invoiceId: String(t.id),
+                });
+                pixCode = responsePix.pix ?? '';
+              } catch {
+                // PIX indisponível para esta fatura — continua sem bloquear o disparo
+              }
+
               return {
                 invoice_id: String(t.id) ?? null,
                 contract_id: String(contractId),
@@ -111,7 +118,7 @@ export class IXCInvoicesService {
                 invoice_status: 'A Receber',
                 ticket_digitable_line: null,
                 ticket_pdf_link: null,
-                code_pix: responsePix.pix,
+                code_pix: pixCode,
               };
             })
           );

@@ -92,8 +92,9 @@ export function buildTemplateVars(
     (skipStorage ? "" : AppStorage.getDispatchCompanyName()) ||
     template.company?.name?.trim() ||
     "";
+  const rawPix = invoice?.code_pix;
   const pixCode =
-    (invoice?.code_pix?.status === "success" ? invoice.code_pix.pix : undefined) ||
+    (typeof rawPix === "string" && rawPix && rawPix !== "null" ? rawPix : undefined) ||
     recipient.code_pix ||
     recipient.codigo_qr ||
     recipient.codigo_qr_code ||

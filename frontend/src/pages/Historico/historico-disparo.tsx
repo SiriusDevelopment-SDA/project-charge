@@ -163,7 +163,7 @@ export function HistoricoDisparoPage() {
         )}
         {isDispatchHistory && (
           <MyButton
-          text="Voltar para disparo ativo"
+          text="Voltar para disparo manual"
           variant="secondary"
           onClick={() => navigate(`/`)}
           />

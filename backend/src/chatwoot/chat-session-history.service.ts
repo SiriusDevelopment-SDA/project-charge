@@ -56,6 +56,45 @@ export class ChatSessionHistoryService {
     private readonly sessionMessageRepository: Repository<ChatSessionMessage>,
   ) {}
 
+  async listConversations(input: {
+    companyId: string;
+    status?: string | null;
+    teamId?: string | number | null;
+  }): Promise<ChatSession[]> {
+    const where: Record<string, unknown> = { companyId: input.companyId };
+
+    if (input.status && input.status !== 'all') {
+      where.status = input.status;
+    }
+
+    if (input.teamId != null) {
+      const numericTeamId = Number(input.teamId);
+      if (Number.isFinite(numericTeamId) && numericTeamId > 0) {
+        where.externalTeamId = numericTeamId;
+      }
+    }
+
+    return this.sessionRepository.find({
+      where: where as any,
+      order: { lastExternalUpdatedAt: 'DESC', createdAt: 'DESC' },
+      take: 200,
+    });
+  }
+
+  async listMessagesByConversation(input: {
+    companyId: string;
+    conversationId: number;
+  }): Promise<ChatSessionMessage[]> {
+    return this.sessionMessageRepository.find({
+      where: {
+        companyId: input.companyId,
+        externalConversationId: input.conversationId,
+      },
+      order: { externalCreatedAt: 'ASC', createdAt: 'ASC' },
+      take: 500,
+    });
+  }
+
   async syncAttendances(input: {
     companyId: string;
     account: string;

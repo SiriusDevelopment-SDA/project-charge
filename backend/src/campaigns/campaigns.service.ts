@@ -147,23 +147,31 @@ export class CampaignsService {
   async remove(id: string) {
     const campaign = await this.findOne(id);
     const account = campaign.company?.account_chatwoot ?? null;
+    const manager = this.campaignRepository.manager;
 
-    try {
-      await this.campaignRepository.remove(campaign);
-      await this.invalidateCampaignCache(account);
-      this.notifyMetricsRefresh(account);
-      return {
-        campaignId: campaign.id,
-        message: 'Campanha deletada com sucesso!',
-        status: 'success',
-      };
-    } catch {
-      return {
-        campaignId: campaign.id,
-        message: 'Erro ao deletar campanha',
-        status: 'error',
-      };
-    }
+    await manager.transaction(async (em) => {
+      await em.query(
+        `UPDATE relatory_dispatch_template SET "campaignId" = NULL WHERE "campaignId" = $1`,
+        [id],
+      );
+      await em.query(
+        `UPDATE dispatch_batch SET "campaignId" = NULL WHERE "campaignId" = $1`,
+        [id],
+      );
+      await em.query(
+        `UPDATE message_queue SET "campaignId" = NULL WHERE "campaignId" = $1`,
+        [id],
+      );
+      await em.remove(campaign);
+    });
+
+    await this.invalidateCampaignCache(account);
+    this.notifyMetricsRefresh(account);
+    return {
+      campaignId: id,
+      message: 'Campanha deletada com sucesso!',
+      status: 'success',
+    };
   }
 
   async update(id: string, updateDto: UpdateCampaignDto): Promise<Campaign> {

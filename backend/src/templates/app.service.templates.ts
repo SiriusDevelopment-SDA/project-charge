@@ -62,6 +62,7 @@ export class AppServiceTemplate {
       company: {
         account_chatwoot: String(account),
       },
+      meta_status: 'APPROVED',
     };
 
     if (query) where.name = ILike(`%${query}%`);
@@ -255,7 +256,7 @@ export class AppServiceTemplate {
         const plain = { ...r } as Record<string, unknown>;
         plain.whatsapp = r.number;
         if (r.name) plain.nome_cliente = r.name;
-        else if (r.name) plain.nome_cliente = r.name;
+        if (r.templateVars) Object.assign(plain, r.templateVars);
         return plain;
       });
       const built = await this.templateDispatchPayload.buildQueueRecipients(
@@ -290,12 +291,13 @@ export class AppServiceTemplate {
       }));
     }
 
-    const { batch, skipped } = await this.messageQueueService.enqueueBatch({
+    const { batch, skipped, dedupedRecipients } = await this.messageQueueService.enqueueBatch({
       companyId: template.company.id,
       templateId,
       campaignId: campaignId ?? null,
       recipients,
       scope: campaignId ? 'campaign' : 'manual',
+      disableDailyDedup: !campaignId,
     });
 
     if (useServerBuild && dispatchSkips.length) {
@@ -305,6 +307,22 @@ export class AppServiceTemplate {
         campaignId ?? null,
         batch.id,
         dispatchSkips,
+      );
+    }
+
+    if (dedupedRecipients.length > 0) {
+      const dedupSkips = dedupedRecipients.map((r) => ({
+        reason: 'duplicate_dispatch_today' as const,
+        number: r.number,
+        name: r.name,
+        detail: 'Mensagem não enviada: destinatário já recebeu disparo hoje.',
+      }));
+      await this.templateDispatchPayload.persistDispatchSkips(
+        template,
+        template.company.id,
+        campaignId ?? null,
+        batch.id,
+        dedupSkips,
       );
     }
 

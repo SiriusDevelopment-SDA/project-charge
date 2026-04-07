@@ -261,6 +261,21 @@ export class ToComponentDto {
   @ValidateNested({ each: true })
   @Type(() => TemplateComponentDto)
   components!: TemplateComponentDto[];
+
+  @ApiProperty({ description: 'UUID do cliente (server-side build)', required: false })
+  @IsOptional()
+  @IsString()
+  clientId?: string;
+
+  @ApiProperty({ description: 'ID da fatura de referência (server-side build)', required: false })
+  @IsOptional()
+  @IsString()
+  invoice_id?: string;
+
+  @ApiProperty({ description: 'Variáveis do template para montagem server-side', required: false })
+  @IsOptional()
+  @IsObject()
+  templateVars?: Record<string, string>;
 }
 
 export class SendTemplateDto {

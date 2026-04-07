@@ -113,22 +113,85 @@ export const campaignFormSchema = z
       .min(10, "Data de finalização da campanha é obrigatória para alteração!"),
     dispatchTime: z
       .string()
-      .min(4, "Horário de disparo é obrigatório para alteração!"),
+      .min(4, "Horário de disparo é obrigatório para alteração!")
+      .regex(/^([0-1]\d|2[0-3]):([0-5]\d)$/, "Horário inválido"),
     note: z.string().optional(),
   })
-  .refine(
-    (data) => {
-      if (!data.dispatchDate || !data.endDate) return true;
-      const [d1, m1, y1] = data.dispatchDate.split("/");
-      const [d2, m2, y2] = data.endDate.split("/");
-      return new Date(+y2, +m2 - 1, +d2) >= new Date(+y1, +m1 - 1, +d1);
-    },
-    {
-      message:
-        "Data de finalização deve ser igual ou maior que a data de início!",
-      path: ["endDate"],
-    },
-  );
+  .superRefine((data, ctx) => {
+    const parseBR = (val: string) => {
+      const [d, m, y] = val.split("/").map(Number);
+      if (!d || !m || !y) return null;
+      const dt = new Date(y, m - 1, d);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    };
+
+    const startDate = parseBR(data.dispatchDate);
+    if (!startDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dispatchDate"],
+        message: "Data de disparo inválida.",
+      });
+      return;
+    }
+
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const startDay = new Date(startDate);
+    startDay.setHours(0, 0, 0, 0);
+
+    // Não pode ser anterior a hoje
+    if (startDay < today) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dispatchDate"],
+        message: "A data de disparo não pode ser anterior à data atual.",
+      });
+    }
+
+    // Data final para recorrente
+    if (data.isRecurring) {
+      const endDate = parseBR(data.endDate);
+      if (!endDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "Data de finalização inválida.",
+        });
+      } else {
+        const endDay = new Date(endDate);
+        endDay.setHours(0, 0, 0, 0);
+        if (endDay < startDay) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["endDate"],
+            message:
+              "Data de finalização deve ser igual ou maior que a data de início!",
+          });
+        }
+      }
+    }
+
+    // Horário: se for hoje, deve ser ao menos 1 hora à frente
+    if (/^([0-1]\d|2[0-3]):([0-5]\d)$/.test(data.dispatchTime)) {
+      const [hour, minute] = data.dispatchTime.split(":").map(Number);
+      const dispatchAt = new Date(startDate);
+      dispatchAt.setHours(hour, minute, 0, 0);
+
+      const isToday = startDay.getTime() === today.getTime();
+      const minTime = new Date(now.getTime() + 60 * 60 * 1000);
+
+      if (isToday && dispatchAt < minTime) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["dispatchTime"],
+          message:
+            "Para disparos no mesmo dia, o horário deve ser ao menos 1 hora à frente do horário atual.",
+        });
+      }
+    }
+  });
 
 export type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 

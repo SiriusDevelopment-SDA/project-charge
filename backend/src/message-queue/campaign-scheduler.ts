@@ -75,6 +75,16 @@ export class CampaignScheduler {
 
         if (!this.isCampaignActiveOnDate(campaign, now)) {
           this.logger.warn(`[CampaignScheduler] campaign=${campaign.id} NOT active on date`);
+          // Auto-finish any campaign (recurring or not) whose end date has passed
+          // to prevent them from being fetched every minute indefinitely.
+          const todayStr = this.toDateOnly(now, campaign.timezone);
+          const endStr = this.toDateOnly(campaign.endDate, campaign.timezone);
+          if (todayStr > endStr) {
+            this.logger.warn(
+              `[CampaignScheduler] campaign=${campaign.id} endDate=${endStr} has passed, marking as finished`,
+            );
+            await this.campaignRepository.update(campaign.id, { status: 'finished' });
+          }
           continue;
         }
 
@@ -162,7 +172,7 @@ export class CampaignScheduler {
 
       let batchId: string | null = null;
       if (recipients.length > 0) {
-        const { batch } = await this.messageQueueService.enqueueBatch({
+        const { batch, dedupedRecipients } = await this.messageQueueService.enqueueBatch({
           companyId: campaign.company.id,
           templateId: campaign.template.id,
           campaignId: campaign.id,
@@ -171,6 +181,22 @@ export class CampaignScheduler {
           scheduledAt: now,
         });
         batchId = batch.id;
+
+        if (dedupedRecipients.length > 0) {
+          const dedupSkips = dedupedRecipients.map((r) => ({
+            reason: 'duplicate_dispatch_today' as const,
+            number: r.number,
+            name: r.name,
+            detail: 'Mensagem não enviada: destinatário já recebeu disparo hoje para esta empresa.',
+          }));
+          await this.templateDispatchPayload.persistDispatchSkips(
+            templateEntity,
+            campaign.company.id,
+            campaign.id,
+            batchId,
+            dedupSkips,
+          );
+        }
       }
 
       await this.templateDispatchPayload.persistDispatchSkips(

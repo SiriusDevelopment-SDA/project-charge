@@ -58,6 +58,7 @@ import { ChatSession } from './chatwoot/entities/chat-session.entity';
 import { ChatSessionMessage } from './chatwoot/entities/chat-session-message.entity';
 import { ChatSessionHistoryService } from './chatwoot/chat-session-history.service';
 import { MessageQueueService } from './message-queue/message-queue.service';
+import { MessageQueueWorker } from './message-queue/message-queue.worker';
 import { TemplateDispatchPayloadService } from './templates/template-dispatch-payload.service';
 import { MessageQueue } from './message-queue/entities/message-queue.entity';
 import { CampaignScheduler } from './message-queue/campaign-scheduler';
@@ -126,6 +127,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     PaymentPromiseService,
     ClientInteractionService,
     MessageQueueService,
+    MessageQueueWorker,
     IXCInvoicesService,
     HubsoftInvoicesService,
     SGPInvoicesService,

@@ -1,28 +1,117 @@
-/* ESTRUTURA GERAL */
-/* Linhas da tabela */
-table{
+/* ======================================================
+   OVERRIDE PRIMEREACT LARA-DARK-INDIGO BLUE → GOLD
+====================================================== */
+:root {
+  --primary-color: #d4a600 !important;
+  --primary-color-text: #0d0b00 !important;
+  --highlight-bg: rgba(212, 166, 0, 0.16) !important;
+  --highlight-text-color: #fff7d1 !important;
+  --focus-ring: 0 0 0 2px rgba(212, 166, 0, 0.4) !important;
+}
+
+/* Remove todas as bordas azuis/índigo do PrimeReact */
+.p-datatable *:focus,
+.p-datatable *:focus-visible,
+.p-inputtext:focus,
+.p-inputtext:focus-visible,
+.p-button:focus,
+.p-button:focus-visible,
+.p-paginator *:focus,
+.p-paginator *:focus-visible,
+.p-dropdown:focus,
+.p-dropdown:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(212, 166, 0, 0.4) !important;
+  border-color: rgba(212, 166, 0, 0.6) !important;
+}
+
+/* Borda azul do input de busca global */
+.p-inputtext:enabled:focus {
+  border-color: rgba(212, 166, 0, 0.7) !important;
+  box-shadow: 0 0 0 2px rgba(212, 166, 0, 0.25) !important;
+}
+
+/* Borda azul dos dropdowns */
+.p-dropdown:not(.p-disabled).p-focus {
+  border-color: rgba(212, 166, 0, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(212, 166, 0, 0.25) !important;
+}
+
+/* Borda azul dos botões de paginação selecionados */
+.p-paginator .p-paginator-page.p-highlight,
+.p-paginator .p-highlight {
+  background: rgba(212, 166, 0, 0.25) !important;
+  border-color: rgba(212, 166, 0, 0.5) !important;
+  color: #fff7d1 !important;
+  box-shadow: none !important;
+}
+
+/* Borda azul dos botões ao focar */
+.p-paginator .p-paginator-page:focus,
+.p-paginator .p-paginator-prev:focus,
+.p-paginator .p-paginator-next:focus,
+.p-paginator .p-paginator-first:focus,
+.p-paginator .p-paginator-last:focus {
+  box-shadow: 0 0 0 2px rgba(212, 166, 0, 0.4) !important;
+}
+
+/* Highlight de linha selecionada */
+.p-datatable .p-datatable-tbody > tr.p-highlight {
+  background: rgba(212, 166, 0, 0.14) !important;
+  color: #fff7d1 !important;
+}
+
+/* Scrollbar da tabela */
+.p-datatable-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+.p-datatable-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+.p-datatable-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(212, 166, 0, 0.35);
+  border-radius: 999px;
+}
+.p-datatable-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 166, 0, 0.6);
+}
+
+/* ======================================================
+   ESTRUTURA GERAL
+====================================================== */
+table {
   height: auto;
 }
+
 .p-datatable tbody tr {
-  background-color: #111827;
+  background-color: rgba(10, 9, 4, 0.97);
   transition: background-color 0.2s ease;
 }
+
+.p-datatable tbody tr:nth-child(even) {
+  background-color: rgba(18, 15, 6, 0.97);
+}
+
 /* Hover das linhas */
 .p-datatable tbody tr:hover {
-  background-color: #006aff75;
+  background-color: rgba(212, 166, 0, 0.08) !important;
 }
+
 /* Células */
 .p-datatable tbody td {
   padding: 12px 10px;
   text-align: center;
-  border-bottom: 1px solid rgba(255, 247, 0, 0.27);
+  border-bottom: 1px solid rgba(212, 166, 0, 0.14);
+  color: rgba(255, 244, 209, 0.88);
 }
+
 /* Cabeçalho das colunas */
 .p-datatable thead th {
-  background-color: #1f2937 !important;
-  color: #f9fafb !important;
+  background: linear-gradient(180deg, rgba(28, 23, 9, 1) 0%, rgba(20, 16, 5, 1) 100%) !important;
+  color: rgba(229, 201, 117, 0.9) !important;
   font-weight: 600;
   text-align: center;
+  border-bottom: 1px solid rgba(212, 166, 0, 0.3) !important;
 }
 
 .p-datatable thead th .p-column-header-content {
@@ -76,7 +165,7 @@ table{
 }
 /* Container do menu */
 .p-column-filter-overlay {
-  background: #0f172a !important;
+  background: #0d0b04 !important;
   border: 1px solid #ffdd00 !important;
   border-radius: 14px;
   padding: 12px !important;
@@ -95,7 +184,7 @@ table{
 
 /* Inputs do filtro */
 .p-column-filter-overlay .p-inputtext {
-  background: #020617;
+  background: #0a0800;
   border: 0px solid #554e33;
   color: #ffffff;
 }
@@ -182,7 +271,7 @@ button.p-button {
 }
 
 .p-dropdown-panel {
-  background: #1f2937 !important;
+  background: #0d0b04 !important;
   border: 1px solid #ffdd00 !important;
   border-radius: 12px !important;
   overflow: hidden;
@@ -310,8 +399,8 @@ svg {
 ====================================================== */
 
 .p-datatable-header {
-  background-color: #1f2937 !important;
-  border-bottom: 2px solid #ffee00;
+  background: linear-gradient(180deg, rgba(22, 18, 7, 1) 0%, rgba(14, 12, 5, 1) 100%) !important;
+  border-bottom: 2px solid rgba(212, 166, 0, 0.4);
   padding: 10px;
   margin-bottom: 10px;
   border-radius: 0;
@@ -357,7 +446,7 @@ svg {
 
 /* Input padrão (PrimeReact) */
 .p-inputtext {
-  background-color: #0f172a;
+  background-color: #0a0800;
   border: 2px solid #ffdd00;
   color: #e5e7eb;
   border-radius: 100px;
@@ -483,12 +572,22 @@ svg {
   color: #000000 !important;
   box-shadow: none !important;
 }
-.p-datatable{
+.p-datatable {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: transparent !important;
 }
-.p-datatable-wrapper{
+
+.p-datatable-wrapper {
   flex: 1;
   overflow-y: auto;
+  background: rgba(8, 7, 3, 0.98);
+  border: 1px solid rgba(212, 166, 0, 0.2);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+}
+
+.p-datatable .p-datatable-scrollable-body {
+  background: transparent !important;
 }

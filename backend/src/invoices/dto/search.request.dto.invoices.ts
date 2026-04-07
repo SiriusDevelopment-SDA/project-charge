@@ -185,7 +185,7 @@ export class InvoiceMapResultDto {
   ticket_pdf_link!: string | null;
 
   @ApiProperty({ nullable: true })
-  code_pix!: string;
+  code_pix!: string | null;
 }
 
 export class InvoicesResponseDto {

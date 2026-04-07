@@ -3,8 +3,13 @@
 :root {
   --app-navbar-height: 14vh;
   --app-shell-bg:
-    radial-gradient(circle at top center, rgba(245, 208, 51, 0.16) 0%, transparent 26%),
-    linear-gradient(180deg, #4a3a0a 0%, #2d240c 14%, #121212 42%, #090909 100%);
+  linear-gradient(186deg, rgba(13, 13, 13, 0.98) 0%, rgba(25, 21, 12, 0.96) 100%);
+    /* radial-gradient(circle at top center, rgba(245, 208, 51, 0.16) 0%, transparent 26%),
+    linear-gradient(180deg, #4a3a0a 0%, #2d240c 14%, #121212 42%, #090909 100%); */
+
+    
+    /* radial-gradient(circle at top center, rgba(245, 208, 51, 0.16) 0%, transparent -57%), */
+    /* linear-gradient(177deg, #4a3a0a 0%, #2d240c 12%, #121212 30%, #090909 100%); */
   --app-scrollbar-size: 10px;
   --app-scrollbar-track: rgba(255, 255, 255, 0.035);
   --app-scrollbar-thumb: rgba(245, 208, 51, 0.34);

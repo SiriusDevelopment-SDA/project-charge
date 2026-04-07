@@ -117,6 +117,7 @@ export function useDispatchTemplateController() {
 
       // Always recompute fresh so AppStorage values set just before dispatch
       // (e.g. attendant name confirmed in modal) are picked up correctly.
+      // selectedClientes already has PIX codes merged by handleOpenDispatchPreview.
       const source =
         modoPage === "leads" && Array.isArray(extraLeads) && extraLeads.length > 0
           ? [...selectedLeads, ...extraLeads]
@@ -128,24 +129,13 @@ export function useDispatchTemplateController() {
         filterByTemplateVars: false,
       });
 
+      // Build all components (body params + ORDER_DETAILS button with PIX) in the frontend.
       const recipients = buildTemplateRecipients(selectedTemplate, freshMappedVars);
 
-      console.log("[sendTemplate debug]", {
-        sourceCount: source.length,
-        freshMappedVarsCount: freshMappedVars.length,
-        recipientsCount: recipients.length,
-        firstMappedVar: freshMappedVars[0]
-          ? {
-              whatsapp: freshMappedVars[0].whatsapp,
-              code_pix: freshMappedVars[0].code_pix,
-              valor_fatura: freshMappedVars[0].valor_fatura,
-              order_reference_id: freshMappedVars[0].order_reference_id,
-              numero_contrato: freshMappedVars[0].numero_contrato,
-            }
-          : null,
-      });
-
-      if (!recipients.length) return;
+      if (!recipients.length) {
+        toast.warning('Nenhum destinatario valido encontrado para envio. Verifique se os dados de fatura e PIX estao disponiveis.');
+        return;
+      }
 
       try {
         setIsSubmitting(true);

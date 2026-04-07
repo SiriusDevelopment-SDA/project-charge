@@ -43,10 +43,10 @@ export class MessageQueueService {
     private readonly campaignRepository: Repository<Campaign>,
   ) {}
 
-  async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number }> {
+  async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number; dedupedRecipients: MessageQueuePayload[] }> {
     const scheduledAt = params.scheduledAt ?? new Date();
     let uniqueRecipients = params.recipients;
-    let deduped = 0;
+    let dedupedRecipients: MessageQueuePayload[] = [];
 
     if (!params.disableDailyDedup) {
       // Deduplicação: remove destinatários cujo telefone já foi despachado hoje para a mesma empresa
@@ -65,11 +65,13 @@ export class MessageQueueService {
       uniqueRecipients = params.recipients.filter(
         (r) => !alreadyQueuedSet.has(r.number),
       );
+      dedupedRecipients = params.recipients.filter(
+        (r) => alreadyQueuedSet.has(r.number),
+      );
 
-      deduped = params.recipients.length - uniqueRecipients.length;
-      if (deduped > 0) {
+      if (dedupedRecipients.length > 0) {
         this.logger.log(
-          `Deduplication: ${deduped} recipient(s) already dispatched today for company ${params.companyId} — skipped.`,
+          `Deduplication: ${dedupedRecipients.length} recipient(s) already dispatched today for company ${params.companyId} — skipped.`,
         );
       }
     }
@@ -105,7 +107,7 @@ export class MessageQueueService {
       await this.queueRepository.save(jobs.slice(i, i + BATCH_INSERT_SIZE));
     }
 
-    return { batch, skipped: deduped };
+    return { batch, skipped: dedupedRecipients.length, dedupedRecipients };
   }
 
   /**
@@ -283,6 +285,21 @@ export class MessageQueueService {
       sent: parseInt(row.sent ?? '0'),
       failed: parseInt(row.failed ?? '0'),
     };
+  }
+
+  /**
+   * Resets jobs stuck in 'processing' back to 'pending' so they are retried.
+   * Called on startup to recover from crash/hot-reload mid-job.
+   */
+  async resetStuckProcessingJobs(): Promise<number> {
+    const result = await this.queueRepository.manager.query(
+      `UPDATE message_queue
+       SET status = 'pending'
+       WHERE status = 'processing'
+         AND attempts < $1`,
+      [MAX_ATTEMPTS],
+    );
+    return Number(result[1] ?? 0);
   }
 
   async reconcileCampaignStatuses(account?: string): Promise<string[]> {

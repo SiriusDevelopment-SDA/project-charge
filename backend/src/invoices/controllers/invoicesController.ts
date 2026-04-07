@@ -16,6 +16,8 @@ import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
 import { Invoice } from '../entities/invoices';
 import { InvoiceSyncCron } from '../invoice-sync.cron';
+import { RedisService } from '../../redis/redis.service';
+import { IXCInvoicesService } from '../services/ixcInvoicesService';
 import {
   InvoiceBatchPartialDto,
   InvoiceBatchResponseDto,
@@ -46,6 +48,8 @@ export class InvoicesController {
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
     private readonly invoiceSyncCron: InvoiceSyncCron,
+    private readonly redisService: RedisService,
+    private readonly ixcService: IXCInvoicesService,
   ) {}
 
   @Post('search')
@@ -293,7 +297,7 @@ export class InvoicesController {
               invoice_amount: String(invoice.value ?? ''),
               invoice_status: invoice.status,
               ticket_digitable_line: invoice.ticketDigitableLine ?? null,
-              ticket_pdf_link: invoice.ticketPdfLink ?? null,
+              ticket_pdf_link: this.normalizeDocumentUrl(invoice.ticketPdfLink),
               code_pix: invoice.pixCode
             })),
           },
@@ -321,6 +325,36 @@ export class InvoicesController {
         clientsWithOpenInvoices,
       },
     };
+  }
+
+  @Get('open-client-ids/:account')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Retorna clientIds com faturas em aberto (lê do cache Redis)' })
+  async getOpenClientIds(@Param('account') account: string) {
+    const company = await this.companyRepo.findOne({
+      where: { account_chatwoot: account },
+    });
+
+    if (!company) {
+      return { clientIds: [] };
+    }
+
+    const cacheKey = `invoices:${company.id}:open`;
+    const cached = await this.redisService.get<{ clientId: string }[]>(cacheKey);
+
+    if (cached) {
+      const clientIds = [...new Set(cached.map((inv) => inv.clientId).filter(Boolean))];
+      return { clientIds };
+    }
+
+    const rows = await this.invoiceRepo
+      .createQueryBuilder('invoice')
+      .select('DISTINCT invoice."clientId"', 'clientId')
+      .where('invoice."companyId" = :companyId', { companyId: company.id })
+      .andWhere("LOWER(TRIM(invoice.status)) = 'a receber'")
+      .getRawMany<{ clientId: string }>();
+
+    return { clientIds: rows.map((r) => r.clientId).filter(Boolean) };
   }
 
   @Get('sync-state/:account')
@@ -373,6 +407,59 @@ export class InvoicesController {
     };
   }
 
+  /**
+   * Busca códigos PIX pelo ERP para uma lista de invoiceIds.
+   * Para IXC: chama o ERP (pixCode não é armazenado no snapshot local).
+   * Para SGP/HUBSOFT: lê do snapshot local (pixCode já está no banco).
+   */
+  @Post('pix/batch')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Busca códigos PIX em lote pelo ERP ou snapshot local' })
+  @ApiBody({ type: PixBatchRequestDto })
+  async getPixBatch(@Body() data: PixBatchRequestDto) {
+    const company = await this.companyRepo.findOne({ where: { id: data.companyId } });
+    if (!company) throw new NotFoundException(`Empresa ${data.companyId} não encontrada.`);
+
+    const erp = String(company.erp ?? '').toUpperCase();
+
+    if (erp === 'IXC') {
+      const settled = await Promise.allSettled(
+        data.invoiceIds.map(async (invoiceId) => {
+          try {
+            const result = await this.ixcService.getPixByInvoice({
+              companyId: data.companyId,
+              invoiceId,
+            });
+            return { invoiceId, status: result.status ?? 'success', pix: result.pix ?? '' };
+          } catch {
+            return { invoiceId, status: 'error', pix: '' };
+          }
+        }),
+      );
+      return {
+        results: settled.map((r) =>
+          r.status === 'fulfilled' ? r.value : { invoiceId: '', status: 'error', pix: '' },
+        ),
+      };
+    }
+
+    // SGP / HUBSOFT: PIX already in local snapshot
+    const invoices = await this.invoiceRepo.find({
+      where: { id_fatura: In(data.invoiceIds), company: { id: data.companyId } },
+      select: { id_fatura: true, pixCode: true },
+    });
+    const pixByInvoiceId = new Map(
+      invoices.map((inv) => [String(inv.id_fatura), inv.pixCode ?? '']),
+    );
+    return {
+      results: data.invoiceIds.map((invoiceId) => ({
+        invoiceId,
+        status: pixByInvoiceId.has(invoiceId) ? 'success' : 'error',
+        pix: pixByInvoiceId.get(invoiceId) ?? '',
+      })),
+    };
+  }
+
   private async searchInvoicesByCompanyRule(
     companyId: string,
     filter: InvoiceSearchFilterDto,
@@ -413,14 +500,16 @@ export class InvoicesController {
     const minDue = allDueFlat[0];
     const maxDue = allDueFlat[allDueFlat.length - 1];
 
-    const allInvoices = await this.invoiceRepo.find({
-      where: { company: { id: companyId } },
-      relations: ['client'],
-    });
-
-    const open = allInvoices.filter(
-      (i) => String(i.status ?? '').trim().toLowerCase() === 'a receber',
-    );
+    const cacheKey = `invoices:${companyId}:open`;
+    const cached = await this.redisService.get<Invoice[]>(cacheKey);
+    let open: Invoice[];
+    if (cached) {
+      open = cached;
+    } else {
+      open = await this.invoiceRepo.find({
+        where: { company: { id: companyId }, status: 'A Receber' },
+      });
+    }
 
     const inWindow = open.filter((inv) => {
       const iso = normalizeInvoiceDueDateToIso(inv.expiration);
@@ -431,14 +520,14 @@ export class InvoicesController {
     const listsByClientId = new Map<string, InvoiceMapResultDto[]>();
 
     for (const inv of inWindow) {
-      const clientEntity = inv.client;
-      if (!clientEntity?.id) continue;
-      const cliente = clientById.get(clientEntity.id);
+      const clientId = inv.clientId;
+      if (!clientId) continue;
+      const cliente = clientById.get(clientId);
       if (!cliente) continue;
       const dto = this.mapInvoiceEntityToDto(inv);
-      const arr = listsByClientId.get(cliente.id) ?? [];
+      const arr = listsByClientId.get(clientId) ?? [];
       arr.push(dto);
-      listsByClientId.set(cliente.id, arr);
+      listsByClientId.set(clientId, arr);
     }
 
     const resultados: ResultInvoicesDto[] = [];
@@ -480,6 +569,13 @@ export class InvoicesController {
     );
   }
 
+  private normalizeDocumentUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    const clean = url.replace(/\/+$/, '');
+    const last = clean.split('?')[0].split('/').pop() ?? '';
+    return last.includes('.') ? clean : `${clean}.pdf`;
+  }
+
   private mapInvoiceEntityToDto(inv: Invoice): InvoiceMapResultDto {
     const brDate = this.toBrDate(inv.expiration);
     return {
@@ -489,8 +585,8 @@ export class InvoicesController {
       invoice_amount: String(inv.value ?? ''),
       invoice_status: inv.status as InvoiceMapResultDto['invoice_status'],
       ticket_digitable_line: inv.ticketDigitableLine ?? null,
-      ticket_pdf_link: inv.ticketPdfLink ?? null,
-      code_pix: String(inv.pixCode) ,
+      ticket_pdf_link: this.normalizeDocumentUrl(inv.ticketPdfLink),
+      code_pix: inv.pixCode ?? null,
     };
   }
 
@@ -498,14 +594,18 @@ export class InvoicesController {
     cliente: Client,
     filter?: InvoiceSearchFilterDto,
   ): Promise<InvoicesResponseDto> {
-    const full = await this.clientRepo.findOne({
-      where: { id: cliente.id },
-      relations: ['invoices'],
-    });
+    const companyId = cliente.company?.id ?? (cliente as any).companyId;
+    const cacheKey = `invoices:${companyId}:open`;
+    const cached = await this.redisService.get<Invoice[]>(cacheKey);
 
-    const rows = (full?.invoices ?? []).filter(
-      (i) => String(i.status ?? '').trim().toLowerCase() === 'a receber',
-    );
+    let rows: Invoice[];
+    if (cached) {
+      rows = cached.filter((inv) => inv.clientId === cliente.id);
+    } else {
+      rows = await this.invoiceRepo.find({
+        where: { clientId: cliente.id, status: 'A Receber' },
+      });
+    }
 
     let list: InvoiceMapResultDto[] = rows.map((inv) => this.mapInvoiceEntityToDto(inv));
 
@@ -513,6 +613,13 @@ export class InvoicesController {
       const allDue = [...new Set([...getInvoiceRuleDueDatesMap(filter).values()].flat())];
       list = filterInvoicesByDueDates(list, allDue);
     }
+
+    // Sort oldest first so list[0] is always the earliest open invoice
+    list.sort((a, b) => {
+      const aTime = this.parseInvoiceDate(a.invoice_due_date ?? '')?.getTime() ?? 0;
+      const bTime = this.parseInvoiceDate(b.invoice_due_date ?? '')?.getTime() ?? 0;
+      return aTime - bTime;
+    });
 
     return {
       status: list.length ? 'success' : 'error',

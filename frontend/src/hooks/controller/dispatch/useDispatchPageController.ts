@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import type { Cliente } from "../../../types";
@@ -18,6 +18,7 @@ import { AppStorage } from "../../../services/storage/storage.service";
 import { useAccountParam } from "../../useAccountParam";
 import { getTemplateStatusLabel, isTemplateApproved } from "../../../utils/templateStatus";
 import { templateRequiresInvoiceData } from "../../../utils/templateRequirements";
+import { ClientService } from "../../../services/client/client.service";
 
 function getDispatchBatchLabel(status: string) {
   if (status === "queued") return "Na fila";
@@ -34,6 +35,8 @@ export function useDispatchPageController() {
   const [openDropdown, setOpenDropdown] = useState<"template" | "clientes" | null>(null);
   const [isDispatchPreviewOpen, setIsDispatchPreviewOpen] = useState(false);
   const [openDispatchAttendantModal, setOpenDispatchAttendantModal] = useState(false);
+  const [openClientIds, setOpenClientIds] = useState<Set<string> | null>(null);
+  const openClientIdsFetchedForRef = useRef<string | null>(null);
   const [previewMapOverride, setPreviewMapOverride] = useState<{
     selectionKey: string;
     mappedVars: import("../../../types").mappedVars[];
@@ -187,12 +190,77 @@ export function useDispatchPageController() {
           currentInvoice?.ticket_digitable_line !== nextInvoice?.ticket_digitable_line ||
           currentInvoice?.invoice_amount !== nextInvoice?.invoice_amount ||
           currentInvoice?.contract_id !== nextInvoice?.contract_id ||
-          currentInvoice?.code_pix?.pix !== nextInvoice?.code_pix?.pix
+          currentInvoice?.code_pix !== nextInvoice?.code_pix
         );
       });
     },
     [],
   );
+
+  /**
+   * Para templates de cobrança, busca o código PIX do ERP para clientes cujo
+   * snapshot local não tem pixCode (ex: IXC). Para SGP, o pixCode já vem do banco.
+   * Retorna a mesma referência se nenhum PIX precisou ser buscado.
+   */
+  const fetchAndMergePixCodes = useCallback(async (targetClients: Cliente[]): Promise<Cliente[]> => {
+    const needsPix: { idx: number; companyId: string; invoiceId: string }[] = [];
+
+    targetClients.forEach((client, idx) => {
+      const invoice = client.invoices?.list?.[0];
+      if (!invoice?.invoice_id) return;
+      // Treat falsy OR the legacy "null" string as missing PIX
+      const pix = invoice.code_pix;
+      if (pix && pix !== 'null') return; // already has a real PIX code
+      const companyId = client.company?.id;
+      if (!companyId) return;
+      needsPix.push({ idx, companyId, invoiceId: invoice.invoice_id });
+    });
+
+    if (!needsPix.length) return targetClients;
+
+    // Group by companyId to batch calls
+    const byCompany = new Map<string, { companyId: string; entries: typeof needsPix }>();
+    for (const entry of needsPix) {
+      const group = byCompany.get(entry.companyId) ?? { companyId: entry.companyId, entries: [] };
+      group.entries.push(entry);
+      byCompany.set(entry.companyId, group);
+    }
+
+    const updated = [...targetClients];
+    let changed = false;
+
+    await Promise.allSettled(
+      [...byCompany.values()].map(async ({ companyId, entries }) => {
+        const invoiceIds = [...new Set(entries.map((e) => e.invoiceId))];
+        try {
+          const res = await ClientService.fetchPixCodes(companyId, invoiceIds);
+          const pixByInvoiceId = new Map(
+            res.data.results
+              .filter((r) => r.pix && r.pix !== 'null')
+              .map((r) => [r.invoiceId, r.pix]),
+          );
+          for (const { idx, invoiceId } of entries) {
+            const pix = pixByInvoiceId.get(invoiceId);
+            if (!pix) continue;
+            const client = updated[idx];
+            const list = client.invoices?.list ?? [];
+            updated[idx] = {
+              ...client,
+              invoices: {
+                ...client.invoices!,
+                list: list.map((inv, i) => (i === 0 ? { ...inv, code_pix: pix } : inv)),
+              },
+            };
+            changed = true;
+          }
+        } catch {
+          // silently skip — dispatch will warn if PIX is still missing
+        }
+      }),
+    );
+
+    return changed ? updated : targetClients;
+  }, []);
 
   useEffect(() => {
     if (dispatch.modoPage !== "clientes") {
@@ -248,6 +316,32 @@ export function useDispatchPageController() {
     hasInvoiceUpdates,
     mergeFetchedClients,
   ]);
+
+  useEffect(() => {
+    if (!account || !templateRequiresInvoiceData(dispatch.selectedTemplate)) {
+      setOpenClientIds(null);
+      openClientIdsFetchedForRef.current = null;
+      return;
+    }
+
+    if (openClientIdsFetchedForRef.current === account) return;
+
+    openClientIdsFetchedForRef.current = account;
+
+    void ClientService.getOpenClientIds(account).then((res) => {
+      setOpenClientIds(new Set(res.data.clientIds));
+    }).catch(() => {
+      setOpenClientIds(null);
+    });
+  }, [account, dispatch.selectedTemplate]);
+
+  const isClientDisabled = useCallback(
+    (cliente: { id: string }) => {
+      if (!openClientIds) return false;
+      return !openClientIds.has(cliente.id);
+    },
+    [openClientIds],
+  );
 
   const handleCloseFloatingMenus = useCallback(() => {
     setOpenDropdown(null);
@@ -406,8 +500,16 @@ export function useDispatchPageController() {
           dispatch.selectedClientes,
           fetchedClients,
         );
-        dispatch.setSelectedClientes(hydratedSelectedClients);
       }
+
+      // Fetch PIX codes from ERP for clients missing them (e.g. IXC has no PIX in local snapshot).
+      // SGP already has pixCode in the local DB — those will be skipped automatically.
+      const withPix = await fetchAndMergePixCodes(hydratedSelectedClients);
+      if (withPix !== hydratedSelectedClients) {
+        hydratedSelectedClients = withPix;
+      }
+
+      dispatch.setSelectedClientes(hydratedSelectedClients);
     }
 
     const freshSource =
@@ -470,6 +572,7 @@ export function useDispatchPageController() {
     manualLead.prepareDispatchPreview();
   }, [
     dispatch,
+    fetchAndMergePixCodes,
     fetchInvoices,
     manualLead,
     mergeFetchedClients,
@@ -584,8 +687,11 @@ export function useDispatchPageController() {
     setSearchTemplateName: templates.setSearchTemplateName,
     categoryTemplateFilter: templates.categoryTemplateFilter,
     setCategoryTemplateFilter: templates.setCategoryTemplateFilter,
+    templateTypeFilter: templates.templateTypeFilter,
+    setTemplateTypeFilter: templates.setTemplateTypeFilter,
     filteredTemplates: templates.filteredTemplates,
     categories: templates.categories,
+    isClientDisabled,
     handleClientSearch: setQuery,
     handleCloseFloatingMenus,
     handleClientsChange,

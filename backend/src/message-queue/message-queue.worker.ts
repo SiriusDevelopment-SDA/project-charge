@@ -39,6 +39,10 @@ export class MessageQueueWorker implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    const stuck = await this.messageQueueService.resetStuckProcessingJobs();
+    if (stuck > 0) {
+      this.logger.warn(`[Recovery] ${stuck} job(s) presos em 'processing' resetados para 'pending'`);
+    }
     await this.messageQueueService.reconcileCampaignStatuses();
     this.logger.log('MessageQueueWorker inicializado — intervalo: 1s');
   }
@@ -161,7 +165,7 @@ export class MessageQueueWorker implements OnModuleInit {
         );
       } else {
         this.logger.log(
-          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} — id: ${result.id ?? 'sem id'}, status: ${result.status ?? 'sem status'}`,
+          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} — resposta completa: ${JSON.stringify(result)}`,
         );
       }
 

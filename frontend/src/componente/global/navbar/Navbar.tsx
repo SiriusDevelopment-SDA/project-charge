@@ -73,7 +73,7 @@ export function Navbar() {
               : ""
           }
         >
-          Disparo Ativo
+          Disparo Manual
         </NavLink>
         {!isEmbed && (
           <NavLink

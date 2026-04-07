@@ -1306,7 +1306,7 @@ export function ClientesVencidos() {
             onClose={() => setOpenProsseguirModal(false)}
             buttons={[
               {
-                label: "Fazer disparo ativo",
+                label: "Fazer disparo manual",
                 variant: "BtnOpcoes",
                 onClick: () => {
                   setOpenProsseguirModal(false);

@@ -18,6 +18,8 @@ import {
 } from "../../componente/Index";
 import { useDispatchPageController } from "../../hooks/controller/dispatch/useDispatchPageController";
 import { isTemplateApproved } from "../../utils/templateStatus";
+import { createNormalizedSearchParams } from "../../utils/locationSearch";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export default function EfetuarDisparo() {
   const [isBatchCardDismissed, setIsBatchCardDismissed] = useState(false);
@@ -38,8 +40,11 @@ export default function EfetuarDisparo() {
     setSearchTemplateName,
     categoryTemplateFilter,
     setCategoryTemplateFilter,
+    templateTypeFilter,
+    setTemplateTypeFilter,
     filteredTemplates,
     categories,
+    isClientDisabled,
     clients,
     handleClientSearch,
     handleCloseFloatingMenus,
@@ -50,6 +55,14 @@ export default function EfetuarDisparo() {
     handleOpenBatchHistory,
     handleConfirmAttendant,
   } = useDispatchPageController();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const buildHistorySearch = () => {
+    const searchParams = createNormalizedSearchParams(location.search);
+    searchParams.set("scope", "manual");
+    const nextSearch = searchParams.toString();
+    return nextSearch ? `?${nextSearch}` : "";
+  };
 
   useEffect(() => {
     setIsBatchCardDismissed(false);
@@ -60,21 +73,16 @@ export default function EfetuarDisparo() {
       <TitlePage
         title={
           dispatch.modoPage === "clientes"
-            ? "Disparo clientes ativos"
+            ? "Disparo Manual"
             : "Disparo para leads"
         }
         subtitle={
           dispatch.modoPage === "clientes"
-            ? "Envie mensagens para clientes ativos com controle total"
+            ? "Envie mensagens para clientes com controle total"
             : "Envie mensagens diretas para leads com template validado"
         }
         className={Style.navTitlePage}
-        setModoPage={dispatch.setModoPage}
-        text={
-          dispatch.modoPage === "clientes"
-            ? "Disparo para leads"
-            : "Disparo clientes ativos"
-        }
+        
       />
 
       <div className={Style.containerCenter} onClick={handleCloseFloatingMenus}>
@@ -92,9 +100,19 @@ export default function EfetuarDisparo() {
               searchValue={searchTemplateName}
               searchPlaceholder="Buscar template pelo nome"
               onSearchTermChange={setSearchTemplateName}
-              filterOptions={categories}
-              filterValue={categoryTemplateFilter}
-              onFilterChange={setCategoryTemplateFilter}
+              filterOptions={['Cobrança', 'Outros']}
+              filterValue={
+                templateTypeFilter === 'cobranca'
+                  ? 'Cobrança'
+                  : templateTypeFilter === 'outros'
+                  ? 'Outros'
+                  : null
+              }
+              onFilterChange={(v) =>
+                setTemplateTypeFilter(
+                  v === 'Cobrança' ? 'cobranca' : v === 'Outros' ? 'outros' : null,
+                )
+              }
               isOptionDisabled={(template) => !isTemplateApproved(template.meta_status)}
             />
 
@@ -110,6 +128,7 @@ export default function EfetuarDisparo() {
                 onOpen={() => setOpenDropdown("clientes")}
                 onClose={() => setOpenDropdown(null)}
                 onSearchTermChange={handleClientSearch}
+                isOptionDisabled={isClientDisabled}
               />
             ) : (
               <InputFields
@@ -240,6 +259,11 @@ export default function EfetuarDisparo() {
 
         <section className={Style.containerButtonSend}>
           <MyButton
+              text={"Histórico"}
+              variant="btn-norm"
+              onClick={() => navigate(`/historico${buildHistorySearch()}`)}
+            />
+          <MyButton
             text={dispatch.isSending ? "Enviando..." : "Enviar disparo"}
             variant="btn-enviar"
             className={Style.submitButton}
@@ -365,6 +389,7 @@ export default function EfetuarDisparo() {
                   }
                 />
               ))}
+            
             <MyButton
               text={
                 manualLead.manualLeadFlowAction === "preview"

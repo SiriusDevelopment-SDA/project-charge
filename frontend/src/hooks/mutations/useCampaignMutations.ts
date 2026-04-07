@@ -21,6 +21,9 @@ export function useDeleteCampaignMutation() {
         (prev) => (prev ?? []).filter((c) => c.id !== id),
       );
 
+      console.log('result deletar campanha', result);
+      console.log('id deletar campanha', id);
+
       void queryClient.invalidateQueries({
         queryKey: queryKeys.campaigns.metricsBase(account),
       });
@@ -29,6 +32,7 @@ export function useDeleteCampaignMutation() {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Erro ao deletar campanha."));
+      console.log('error deletar campanha', error);
     },
   });
 }

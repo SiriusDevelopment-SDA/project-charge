@@ -227,6 +227,11 @@ export function useCampaignFormController() {
         return false;
       }
 
+      // Sem faturas carregadas → invoice_id ficará null no snapshot; sempre hidratar.
+      if (!client.invoices?.list?.length) {
+        return true;
+      }
+
       const missingFields = getMissingTemplateVariables(template, client);
       return missingFields.some((fieldKey) =>
         INVOICE_DEPENDENT_FIELDS.has(fieldKey),

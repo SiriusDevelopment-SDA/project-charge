@@ -149,6 +149,15 @@ export function formatConversationProtocol(conversation: ChatwootConversationIte
   return protocol || "AUTO-00000000-000000";
 }
 
+export function deduplicateMessages(messages: ChatwootMessageItem[]): ChatwootMessageItem[] {
+  const seen = new Set<number>();
+  return messages.filter((m) => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  });
+}
+
 export function sortMessagesByTime(messages: ChatwootMessageItem[]) {
   const normalizeTimestamp = (value: number | string | null | undefined) => {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -169,6 +178,105 @@ export function sortMessagesByTime(messages: ChatwootMessageItem[]) {
 
     return Number(left.id ?? 0) - Number(right.id ?? 0);
   });
+}
+
+export function normalizeRealtimeConversation(
+  data: Record<string, unknown>,
+): ChatwootConversationItem | null {
+  // Suporta payloads completos (conversation.created, conversation.status_changed)
+  // e parciais (assignee.changed, team.changed, etc.)
+  const raw = data as Record<string, unknown>;
+
+  // O ID da conversa pode estar em data.id, data.conversation.id ou data.conversation_id
+  const conv = raw.conversation as Record<string, unknown> | undefined;
+  const directId = Number(raw.id ?? null);
+  const nestedId = Number(conv?.id ?? null);
+  const id = Number.isFinite(directId) && directId > 0
+    ? directId
+    : Number.isFinite(nestedId) && nestedId > 0 ? nestedId : null;
+
+  if (!id) return null;
+
+  // Para eventos parciais como assignee.changed, a raiz do payload é o objeto assignee/team/etc.
+  // A conversa completa pode estar em data.conversation ou o próprio data é a conversa.
+  const convObj: Record<string, unknown> = (
+    conv && typeof conv === "object" && Number(conv.id) === id ? conv : raw
+  );
+
+  const meta = convObj.meta as Record<string, unknown> | undefined;
+  const sender = meta?.sender as Record<string, unknown> | undefined;
+  const assignee = meta?.assignee as Record<string, unknown> | undefined;
+  const team = meta?.team as Record<string, unknown> | undefined;
+  const lastMsg = convObj.last_non_activity_message as Record<string, unknown> | undefined;
+  const attrs = (convObj.additional_attributes ?? {}) as Record<string, unknown>;
+
+  const contactName = String(sender?.name ?? "").trim() || `Conversa #${id}`;
+  const status = String(convObj.status ?? raw.status ?? "open");
+  const unreadCount = Number(convObj.unread_count ?? raw.unread_count ?? 0);
+
+  return {
+    id,
+    status,
+    inboxId: Number(convObj.inbox_id ?? null) || null,
+    contactId: Number(sender?.id ?? null) || null,
+    contactName,
+    phone: String(sender?.phone_number ?? "").trim(),
+    labels: Array.isArray(convObj.labels)
+      ? (convObj.labels as unknown[]).map(String)
+      : [],
+    assigneeName: String(assignee?.name ?? "").trim() || null,
+    teamName: String(team?.name ?? "").trim() || null,
+    lastMessage: String(lastMsg?.content ?? "").trim(),
+    protocol: String(attrs.protocol ?? "").trim() || null,
+    report: String(attrs.report ?? "").trim() || null,
+    generatedProtocol: Boolean(attrs.generated_protocol),
+    unreadCount,
+    updatedAt: (convObj.last_activity_at ?? raw.last_activity_at ?? null) as number | string | null,
+    contactIdentifier: String(sender?.identifier ?? "").trim() || null,
+    inboxIdentifier: null,
+  };
+}
+
+export function normalizeRealtimeMessage(
+  data: Record<string, unknown>,
+): ChatwootMessageItem | null {
+  const id = Number(data.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+
+  const content = String(data.content ?? "");
+  const rawCreatedAt = data.created_at;
+  const createdAt: number | string | null =
+    typeof rawCreatedAt === "number" || typeof rawCreatedAt === "string"
+      ? rawCreatedAt
+      : null;
+
+  const senderRaw = data.sender as Record<string, unknown> | null | undefined;
+  const senderType = (() => {
+    const raw = String(
+      data.sender_type ?? senderRaw?.type ?? senderRaw?.role ?? "",
+    ).toLowerCase();
+    if (raw === "agent_bot" || raw === "bot") return "agent_bot";
+    if (
+      raw === "agent" ||
+      raw === "user" ||
+      raw === "administrator" ||
+      raw === "admin"
+    )
+      return "agent";
+    if (Number(data.message_type) === 1) return "agent";
+    return "contact";
+  })();
+
+  const senderName =
+    String(
+      senderRaw?.name ??
+        senderRaw?.available_name ??
+        senderRaw?.display_name ??
+        senderRaw?.email ??
+        "",
+    ).trim() || null;
+
+  return { id, content, senderType, senderName, createdAt };
 }
 
 function normalizeConversationTimestamp(value: number | string | null | undefined) {

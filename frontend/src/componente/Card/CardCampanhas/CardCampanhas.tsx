@@ -119,6 +119,7 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
                     onClick={() => {
                       onDelete(campaign);
                       toggleActionsMenu();
+                      console.log('campaign', campaign);
                     }}
                   >
                     <Trash2 size={14} />
@@ -229,6 +230,11 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
           <MyCalendar
             mode="single"
             selectedSingle={parseDateBr(form.watch("dispatchDate"))}
+            disabledDays={(date) => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              return date < today;
+            }}
             onSelectSingle={(date) => {
               if (!date) return;
 
@@ -252,6 +258,14 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
           <MyCalendar
             mode="single"
             selectedSingle={parseDateBr(form.watch("endDate"))}
+            disabledDays={(date) => {
+              const startDate = parseDateBr(form.watch("dispatchDate"));
+              const minDate = startDate ?? new Date();
+              minDate.setHours(0, 0, 0, 0);
+              const d = new Date(date);
+              d.setHours(0, 0, 0, 0);
+              return d < minDate;
+            }}
             onSelectSingle={(date) => {
               if (!date) return;
 

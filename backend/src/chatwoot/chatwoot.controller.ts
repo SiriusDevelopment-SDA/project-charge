@@ -125,6 +125,21 @@ export class ChatwootController {
     );
   }
 
+  @Post('ws-sync')
+  @ApiOperation({ summary: 'Sync a realtime WebSocket event to the local DB' })
+  wsSyncEvent(
+    @Headers('authorization') authorization: string | undefined,
+    @Query() query: ChatwootAccountQueryDto,
+    @Body() body: { event: string; data: Record<string, any> },
+  ) {
+    return this.chatwootService.syncRealtimeEvent(
+      query.account,
+      body.event,
+      body.data ?? {},
+      authorization,
+    );
+  }
+
   @Post('conversations/:id/messages')
   @ApiOperation({ summary: 'Send a message to conversation' })
   sendMessage(

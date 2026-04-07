@@ -38,7 +38,7 @@ export const TitlePage = ({
       </div>
 
       <div className={S.buttons_container_title}>
-        {setModoPage && text && (
+        {setModoPage && text && text === "Disparo Manual" && (
           <MyButton
             text={text}
             onClick={() =>
