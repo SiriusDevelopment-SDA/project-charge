@@ -29,7 +29,13 @@ export function useHistoricoQuery(params: HistoryQueryParams) {
         campaignOnly: params.scope === "campaigns",
         batchId: params.batchId || undefined,
       });
-      return response.data.data ?? [];
+      const body = response.data;
+      return {
+        data: body.data ?? [],
+        total: body.total ?? 0,
+        page: body.page ?? params.page,
+        limit: body.limit ?? params.limit,
+      };
     },
     refetchInterval: 10_000,
     enabled: Boolean(account),

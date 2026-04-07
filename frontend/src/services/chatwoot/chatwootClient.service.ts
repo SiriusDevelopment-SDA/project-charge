@@ -134,6 +134,10 @@ export class ChatwootClientService {
     await Api.patch(`/chatwoot/contacts/${contactId}/labels?account=${account}`, { labels });
   }
 
+  static async deleteLocalConversation(account: string, conversationId: number): Promise<void> {
+    await Api.delete(`/chatwoot/conversations/${conversationId}?account=${account}`);
+  }
+
   static async listTeams(account: string): Promise<ChatwootTeam[]> {
     const { data } = await Api.get<{ data: ChatwootTeam[] }>(
       `/chatwoot/teams?account=${account}&_ts=${Date.now()}`,

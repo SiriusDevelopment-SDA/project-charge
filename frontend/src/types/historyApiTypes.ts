@@ -18,6 +18,9 @@ export type history = {
 };
 export interface IHistoricoContext {
     histories: history[] | [];
+    total: number;
+    page: number;
+    limit: number;
     setQuery: React.Dispatch<SetStateAction<string>>;
     setPage: React.Dispatch<SetStateAction<number>>;
     setLimit: React.Dispatch<SetStateAction<number>>;

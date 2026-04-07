@@ -43,6 +43,8 @@ export function useDispatchPageController() {
   } | null>(null);
 
   const { clients, setQuery, fetchInvoices } = useClient();
+  const fetchInvoicesRef = useRef(fetchInvoices);
+  fetchInvoicesRef.current = fetchInvoices;
   const templates = useTemplate();
   const dispatch = useDispatchTemplate();
   const manualLead = useManualLeadDispatchController({
@@ -286,7 +288,7 @@ export function useDispatchPageController() {
     let cancelled = false;
 
     void (async () => {
-      const fetchedClients = await fetchInvoices(needInvoices);
+      const fetchedClients = await fetchInvoicesRef.current(needInvoices);
 
       if (cancelled) {
         return;
@@ -312,7 +314,6 @@ export function useDispatchPageController() {
     dispatch.selectedClientes,
     dispatch.selectedTemplate,
     dispatch.setSelectedClientes,
-    fetchInvoices,
     hasInvoiceUpdates,
     mergeFetchedClients,
   ]);

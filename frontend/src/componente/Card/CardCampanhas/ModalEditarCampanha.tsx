@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Calendar, Clock } from "lucide-react";
-import { Controller, type UseFormReturn } from "react-hook-form";
+import { Controller, useWatch, type UseFormReturn } from "react-hook-form";
 import { Dropdown } from "../../Index";
 import type { CampaignFormValues } from "../../../schemas/campaign.schema";
 import Style from "./CardCampanhas.module.css";
@@ -36,19 +36,19 @@ export function ModalEditarCampanha({
 }: Props) {
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
 
+  const isRecurring = useWatch({ control: form.control, name: "isRecurring" });
+  const dispatchDate = useWatch({ control: form.control, name: "dispatchDate" });
+  const endDate = useWatch({ control: form.control, name: "endDate" });
+  const dispatchTime = useWatch({ control: form.control, name: "dispatchTime" });
+
   if (!open) return null;
 
   const {
     control,
     register,
-    watch,
     handleSubmit,
     formState: { errors },
   } = form;
-  const isRecurring = watch("isRecurring");
-  const dispatchDate = watch("dispatchDate");
-  const endDate = watch("endDate");
-  const dispatchTime = watch("dispatchTime");
 
   return (
     <div className={Style.modalOverlay}>

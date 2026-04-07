@@ -129,6 +129,8 @@ export function isAgentMessage(message: ChatwootMessageItem) {
     normalizedContent.startsWith("conversa foi marcada como resolvida") ||
     normalizedContent.startsWith("conversa desatribuída") ||
     normalizedContent.startsWith("conversa desatribuida") ||
+    normalizedContent.startsWith("atribuído") ||
+    normalizedContent.startsWith("atribuido") ||
     normalizedContent.includes("atribuiu a si mesmo essa conversa") ||
     normalizedContent.includes("adicionou ") ||
     normalizedContent.includes("definiu a prioridade") ||
@@ -226,6 +228,7 @@ export function normalizeRealtimeConversation(
       : [],
     assigneeName: String(assignee?.name ?? "").trim() || null,
     teamName: String(team?.name ?? "").trim() || null,
+    teamId: Number(team?.id ?? null) || null,
     lastMessage: String(lastMsg?.content ?? "").trim(),
     protocol: String(attrs.protocol ?? "").trim() || null,
     report: String(attrs.report ?? "").trim() || null,
@@ -263,7 +266,8 @@ export function normalizeRealtimeMessage(
       raw === "admin"
     )
       return "agent";
-    if (Number(data.message_type) === 1) return "agent";
+    // message_type 1 = outgoing (agente), 2 = activity (automações/eventos de sistema)
+    if (Number(data.message_type) === 1 || Number(data.message_type) === 2) return "agent";
     return "contact";
   })();
 

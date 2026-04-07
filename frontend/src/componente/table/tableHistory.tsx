@@ -78,8 +78,7 @@ export default function Table({ data, className }: TableProps) {
     <div className={className}>
       <DataTable
         value={parsedData}
-        paginator
-        rows={8}
+        paginator={false}
         dataKey="id"
         filters={filters}
         filterDisplay="menu"

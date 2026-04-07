@@ -36,6 +36,7 @@ import {
   maiorAtrasoCliente,
 } from "../../utils/filtrosClientesVencidos";
 import type {
+  CampaignData,
   Cliente,
   InvoiceSyncState,
   OverdueClientsSearchResponse,
@@ -43,6 +44,7 @@ import type {
   Template,
 } from "../../types";
 import { CollectionService } from "../../services/collection/collection.service";
+import { CampaignService } from "../../services/campaign/campaign.service";
 import { ClientService } from "../../services/client/client.service";
 import { AuthService } from "../../services/auth/auth.service";
 import type { PromiseAutomationSettings } from "../../services/auth/auth.service";
@@ -229,6 +231,7 @@ export function ClientesVencidos() {
   const [selectingAll, setSelectingAll] = useState(false);
   const [promisesMap, setPromisesMap] = useState<Map<string, PaymentPromise | null>>(new Map());
   const [dispatchCountMap, setDispatchCountMap] = useState<Map<string, number>>(new Map());
+  const [campaignsMap, setCampaignsMap] = useState<Map<string, CampaignData[]>>(new Map());
   const [currentPage, setCurrentPage] = useState(1);
   const [totalClients, setTotalClients] = useState(0);
   const [snapshotSummary, setSnapshotSummary] = useState<OverdueSnapshotSummary | null>(null);
@@ -325,6 +328,11 @@ export function ClientesVencidos() {
         setSelectedClientes([]);
         setPromisesMap(result.promisesMap);
         setDispatchCountMap(result.dispatchCountMap);
+
+        const campaignsData = await fetchCampaignsForClients(result.clients);
+        if (!cancelled && latestLoadRequestRef.current === requestId) {
+          setCampaignsMap(campaignsData);
+        }
 
         if (syncResponse?.data) {
           setSyncState(syncResponse.data);
@@ -587,6 +595,17 @@ export function ClientesVencidos() {
     }
   }
 
+  async function fetchCampaignsForClients(clients: Cliente[]): Promise<Map<string, CampaignData[]>> {
+    if (!clients.length) return new Map();
+    try {
+      const clientIds = clients.map((c) => c.id);
+      const record = await CampaignService.getByClientIds(clientIds);
+      return new Map(Object.entries(record));
+    } catch {
+      return new Map();
+    }
+  }
+
   async function loadPromiseMetadataForClients(clients: Cliente[]) {
     const promisesMap = new Map<string, PaymentPromise | null>();
     const promiseStatusesMap = new Map<string, Set<PaymentPromise["status"]>>();
@@ -802,6 +821,11 @@ export function ClientesVencidos() {
       setSelectedClientes([]);
       setPromisesMap(result.promisesMap);
       setDispatchCountMap(result.dispatchCountMap);
+
+      const campaignsData = await fetchCampaignsForClients(result.clients);
+      if (latestLoadRequestRef.current === requestId) {
+        setCampaignsMap(campaignsData);
+      }
 
       if (showToast) {
         toast.success("Lista de clientes vencidos atualizada.");
@@ -1128,7 +1152,7 @@ export function ClientesVencidos() {
                 <div className={Style.kpiContent}>
                   <span className={Style.kpiLabel}>Dívida total</span>
                   <span className={Style.kpiValue}>
-                    R$ {totalDivida.toFixed(2).replace(".", ",")}
+                    R$ {totalDivida.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -1285,6 +1309,7 @@ export function ClientesVencidos() {
                   latestPromise={hasPromiseRecord(promisesMap.get(cliente.id)) ? promisesMap.get(cliente.id) ?? null : null}
                   dispatchCount={dispatchCountMap.get(cliente.id) ?? 0}
                   onDispatch={() => handleDispatchIndividual(cliente)}
+                  campaigns={campaignsMap.get(cliente.id) ?? []}
                 />
               ))
             )}

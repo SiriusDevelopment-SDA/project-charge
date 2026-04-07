@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { ExternalLink, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { useWatch } from "react-hook-form";
 import { MyCalendar, MyTimePicker } from "../../Index";
 import DynamicModal from "../../modal/modalAlertTemplate";
 import { ModalEditarCampanha } from "./ModalEditarCampanha";
@@ -42,6 +43,10 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
     editStatusCampaign,
     toggleActionsMenu,
   } = useCampaignEditController(campaign);
+
+  const watchDispatchDate = useWatch({ control: form.control, name: "dispatchDate" });
+  const watchEndDate = useWatch({ control: form.control, name: "endDate" });
+  const watchDispatchTime = useWatch({ control: form.control, name: "dispatchTime" });
 
   const isFinished = isCampaignFinished(campaign);
   const isActive = isCampaignActive(campaign);
@@ -229,7 +234,7 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
         customContent={
           <MyCalendar
             mode="single"
-            selectedSingle={parseDateBr(form.watch("dispatchDate"))}
+            selectedSingle={parseDateBr(watchDispatchDate)}
             disabledDays={(date) => {
               const today = new Date();
               today.setHours(0, 0, 0, 0);
@@ -257,9 +262,9 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
         customContent={
           <MyCalendar
             mode="single"
-            selectedSingle={parseDateBr(form.watch("endDate"))}
+            selectedSingle={parseDateBr(watchEndDate)}
             disabledDays={(date) => {
-              const startDate = parseDateBr(form.watch("dispatchDate"));
+              const startDate = parseDateBr(watchDispatchDate);
               const minDate = startDate ?? new Date();
               minDate.setHours(0, 0, 0, 0);
               const d = new Date(date);
@@ -288,7 +293,7 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
         customContent={
           <div className={Style.timeModalContent}>
             <MyTimePicker
-              selected={form.watch("dispatchTime")}
+              selected={watchDispatchTime}
               onSelect={(time) => {
                 form.setValue("dispatchTime", time, {
                   shouldValidate: true,

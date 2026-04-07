@@ -82,6 +82,7 @@ export type ChatwootConversationItem = {
   labels: string[];
   assigneeName: string | null;
   teamName: string | null;
+  teamId?: number | null;
   lastMessage: string;
   protocol?: string | null;
   report?: string | null;
