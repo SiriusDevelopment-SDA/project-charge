@@ -42,8 +42,9 @@
 }
 
 .modal-wide{
-  width: min(900px, calc(100vw - 32px));
-  max-width: 900px;
+  width: min(880px, calc(100vw - 32px));
+  max-width: 880px;
+  max-height: min(90dvh, 860px);
 }
 
 .modalContainer.modal-wide{
@@ -54,6 +55,7 @@
 
 .modalContainer.modal-wide .modalCustomContent{
   min-height: 0;
+  overflow-y: auto;
 }
 
 .modal-compact {
@@ -126,7 +128,7 @@
   }
 }
 
-@media (max-width: 1600px), (max-height: 980px) {
+@media (max-width: 960px) {
   .modalOverlay {
     padding: 12px;
   }
@@ -134,16 +136,11 @@
   .modal-wide{
     width: calc(100vw - 24px);
     max-width: none;
+    max-height: calc(100dvh - 24px);
   }
 
   .modalContainer.modal-wide{
-    min-height: calc(100dvh - 24px);
-    max-height: none;
     border-radius: 18px;
-  }
-
-  .modalContainer.modal-wide .modalCustomContent{
-    flex: 1;
   }
 }
 

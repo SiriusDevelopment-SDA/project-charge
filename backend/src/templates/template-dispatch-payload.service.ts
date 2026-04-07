@@ -14,7 +14,8 @@ export type DispatchSkipReason =
   | 'missing_contact'
   | 'missing_client_or_invoice'
   | 'invoice_not_open_in_erp'
-  | 'template_variables_incomplete';
+  | 'template_variables_incomplete'
+  | 'duplicate_dispatch_today';
 
 export type DispatchSkipRecord = {
   reason: DispatchSkipReason;
@@ -187,8 +188,11 @@ export class TemplateDispatchPayloadService {
         }
 
         const erp = String(client.company.erp ?? '').toUpperCase();
+        const ixcMap = ixcByClient.get(client.id);
+        const hubList = hubsoftByClient.get(client.id);
+        const sgpList = sgpByClient.get(client.id);
 
-        let invoiceId = String(row.invoice_id ?? '').trim();
+        const invoiceId = String(row.invoice_id ?? '').trim();
 
         if (!invoiceId) {
           skips.push({
@@ -200,10 +204,6 @@ export class TemplateDispatchPayloadService {
           });
           continue;
         }
-
-        const ixcMap = ixcByClient.get(client.id);
-        const hubList = hubsoftByClient.get(client.id);
-        const sgpList = sgpByClient.get(client.id);
 
         this.logger.log(
           `[Dispatch] erp=${erp} clientId=${client.id} invoiceId=${invoiceId} ` +
@@ -224,6 +224,17 @@ export class TemplateDispatchPayloadService {
           continue;
         }
         merged = { ...merged, ...fresh };
+
+        // Garante campos da empresa para montagem do botão ORDER_DETAILS.
+        // Usa como fallback — não sobrescreve valor já presente no snapshot.
+        const companyName = String(client.company?.name ?? '').trim().toLowerCase();
+        const companyCnpj = String(client.company?.cnpj ?? '').replace(/\D/g, '');
+        if (!merged.nome_empresa && companyName) merged.nome_empresa = companyName;
+        if (!merged.order_pix_merchant_name && companyName) merged.order_pix_merchant_name = companyName;
+        if (!merged.order_pix_key && companyCnpj) {
+          merged.order_pix_key = companyCnpj;
+          merged.order_pix_key_type = 'CNPJ';
+        }
       }
 
       const built = this.buildRecipientFromBlueprint(templateVars, templateComponents, merged);
@@ -297,6 +308,8 @@ export class TemplateDispatchPayloadService {
         return `Fatura ${s.invoiceId ?? ''} indisponível ou quitada no ERP.`;
       case 'template_variables_incomplete':
         return 'Destinatário ignorado: dados insuficientes para o template.';
+      case 'duplicate_dispatch_today':
+        return 'Mensagem não enviada: destinatário já recebeu disparo hoje.';
       default:
         return 'Destinatário ignorado.';
     }
@@ -313,7 +326,7 @@ export class TemplateDispatchPayloadService {
   }
 
   private buildDispatchScalars(
-    client: Client,
+    _client: Client,
     erp: string,
     invoiceId: string,
     ixcMap: Map<string, InvoiceMapResultDto> | undefined,
@@ -321,10 +334,7 @@ export class TemplateDispatchPayloadService {
     sgpList: InvoiceMapResultDto[] | undefined,
   ): MappedScalar | null {
     if (erp === 'IXC') {
-      // Try exact match first; fall back to first available open invoice for the client.
-      // This handles cases where the snapshot invoice_id differs slightly from what the
-      // ERP returns (e.g. due to date-window differences) without skipping valid recipients.
-      const inv = ixcMap?.get(invoiceId) ?? (ixcMap && ixcMap.size > 0 ? ixcMap.values().next().value : undefined);
+      const inv = ixcMap?.get(invoiceId);
       if (!inv) return null;
 
       this.logger.log(
@@ -349,7 +359,7 @@ export class TemplateDispatchPayloadService {
     }
 
     if (erp === 'HUBSOFT') {
-      const inv = hubList?.find((x) => String(x.invoice_id) === invoiceId) ?? hubList?.[0];
+      const inv = hubList?.find((x) => String(x.invoice_id) === invoiceId);
       if (!inv) return null;
       
       return {
@@ -368,7 +378,7 @@ export class TemplateDispatchPayloadService {
     }
 
     if (erp === 'SGP') {
-      const inv = sgpList?.find((x) => String(x.invoice_id) === invoiceId) ?? sgpList?.[0];
+      const inv = sgpList?.find((x) => String(x.invoice_id) === invoiceId);
       if (!inv) return null;
 
       return {

@@ -88,6 +88,7 @@
 .containerButtonSend{
   margin-top: 8px;
   display: flex;
+  gap: 20px;
   justify-content: flex-end;
   border-top: 1px solid rgba(245, 208, 51, 0.2);
   padding: 16px 0 4px;

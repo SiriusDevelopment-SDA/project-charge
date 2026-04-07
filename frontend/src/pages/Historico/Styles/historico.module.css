@@ -2,7 +2,8 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    min-height: calc(100vh - 14vh);
+    height: calc(100vh - 14vh);
+    overflow: hidden;
 }
 
 .table{

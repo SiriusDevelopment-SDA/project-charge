@@ -98,6 +98,10 @@ export class ChatwootClientService {
     return data;
   }
 
+  static syncWsEvent(account: string, event: string, data: Record<string, unknown>) {
+    void Api.post(`/chatwoot/ws-sync?account=${account}`, { event, data }).catch(() => {});
+  }
+
   static async updateStatus(
     account: string,
     conversationId: number,

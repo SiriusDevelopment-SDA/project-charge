@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import { MyButton } from "../global/MyButton/MyButton";
 import styles from "./DispatchPreviewContent.module.css";
 
@@ -40,12 +39,6 @@ export function DispatchPreviewContent({
   onCancel,
   onConfirm,
 }: DispatchPreviewContentProps) {
-  const [isMessageExpanded, setIsMessageExpanded] = useState(false);
-  const shouldCollapseMessage = useMemo(
-    () => message.trim().length > 220 || message.includes("\n"),
-    [message],
-  );
-
   return (
     <div className={styles.preview}>
       <section className={styles.hero}>
@@ -71,24 +64,9 @@ export function DispatchPreviewContent({
 
         <div className={styles.messageBox}>
           <span className={styles.sectionLabel}>Mensagem</span>
-          <p
-            className={
-              shouldCollapseMessage && !isMessageExpanded
-                ? styles.messageCollapsed
-                : styles.messageExpanded
-            }
-          >
-            {message}
-          </p>
-          {shouldCollapseMessage && (
-            <button
-              type="button"
-              className={styles.messageToggle}
-              onClick={() => setIsMessageExpanded((previous) => !previous)}
-            >
-              {isMessageExpanded ? "Mostrar menos" : "Ler mensagem completa"}
-            </button>
-          )}
+          <div className={styles.messageScrollArea}>
+            <p>{message}</p>
+          </div>
         </div>
       </section>
 

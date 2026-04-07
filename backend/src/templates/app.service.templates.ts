@@ -291,7 +291,7 @@ export class AppServiceTemplate {
       }));
     }
 
-    const { batch, skipped } = await this.messageQueueService.enqueueBatch({
+    const { batch, skipped, dedupedRecipients } = await this.messageQueueService.enqueueBatch({
       companyId: template.company.id,
       templateId,
       campaignId: campaignId ?? null,
@@ -307,6 +307,22 @@ export class AppServiceTemplate {
         campaignId ?? null,
         batch.id,
         dispatchSkips,
+      );
+    }
+
+    if (dedupedRecipients.length > 0) {
+      const dedupSkips = dedupedRecipients.map((r) => ({
+        reason: 'duplicate_dispatch_today' as const,
+        number: r.number,
+        name: r.name,
+        detail: 'Mensagem não enviada: destinatário já recebeu disparo hoje.',
+      }));
+      await this.templateDispatchPayload.persistDispatchSkips(
+        template,
+        template.company.id,
+        campaignId ?? null,
+        batch.id,
+        dedupSkips,
       );
     }
 

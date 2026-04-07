@@ -44,7 +44,7 @@ export default function Table({ data, className }: TableProps) {
   const dateFilterTemplate = (options: DateFilterOptions) => (
     <Calendar
       value={options.value}
-      onChange={(event) => options.filterCallback(event.value, options.index)}
+      onChange={(event) => options.filterCallback(event.value ?? null, options.index)}
       dateFormat="dd/mm/yy"
       showIcon
       mask="99/99/9999"
@@ -92,6 +92,8 @@ export default function Table({ data, className }: TableProps) {
         ]}
         header={header}
         showGridlines
+        scrollable
+        scrollHeight="flex"
         emptyMessage="Nenhum registro encontrado"
       >
         <Column field="name" header="Cliente" filter />
@@ -112,7 +114,7 @@ export default function Table({ data, className }: TableProps) {
           field="status_sent"
           filterField="status_label"
           body={(row: HistoryTableRow) => (
-            <Tag value={row.status_label} severity={statusSeverity(row.status_sent)} />
+            <Tag value={row.status_label} severity={statusSeverity(row.status_sent ?? "")} />
           )}
           filter
         />

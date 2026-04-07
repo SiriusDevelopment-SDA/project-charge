@@ -1,46 +1,47 @@
 .preview{
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .hero{
   display: flex;
   justify-content: space-between;
-  gap: 18px;
-  padding: 20px;
-  border-radius: 18px;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 16px;
   border: 1px solid rgba(212, 166, 0, 0.22);
   background:
     radial-gradient(circle at top right, rgba(212, 166, 0, 0.16), transparent 34%),
     linear-gradient(145deg, rgba(15, 14, 10, 0.98) 0%, rgba(28, 21, 8, 0.96) 100%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 214, 102, 0.05),
-    0 16px 36px rgba(0, 0, 0, 0.28);
+    0 12px 28px rgba(0, 0, 0, 0.22);
 }
 
 .heroContent{
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 
   strong{
     color: #fff6d1;
-    font-size: 1.45rem;
+    font-size: 1.18rem;
     font-weight: 700;
     line-height: 1.1;
   }
 
   p{
     margin: 0;
+    font-size: 0.88rem;
     color: rgba(255, 238, 188, 0.78);
-    line-height: 1.45;
+    line-height: 1.4;
   }
 }
 
 .eyebrow,
 .sectionLabel{
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -48,27 +49,27 @@
 }
 
 .heroAudience{
-  min-width: 150px;
+  min-width: 130px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  padding: 16px 18px;
-  border-radius: 16px;
+  gap: 4px;
+  padding: 12px 16px;
+  border-radius: 14px;
   background: rgba(255, 214, 102, 0.08);
   border: 1px solid rgba(255, 214, 102, 0.16);
   text-align: left;
 
   span{
     color: rgba(255, 238, 188, 0.72);
-    font-size: 0.82rem;
+    font-size: 0.76rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
 
   strong{
     color: #ffd965;
-    font-size: 2rem;
+    font-size: 1.65rem;
     font-weight: 700;
     line-height: 1;
   }
@@ -77,9 +78,9 @@
 .templateCard{
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 18px;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: 16px;
   background: linear-gradient(180deg, rgba(13, 13, 13, 0.98) 0%, rgba(25, 21, 12, 0.96) 100%);
   border: 1px solid rgba(212, 166, 0, 0.18);
 }
@@ -91,9 +92,9 @@
 
   strong{
     display: block;
-    margin-top: 6px;
+    margin-top: 4px;
     color: #ffffff;
-    font-size: 1.08rem;
+    font-size: 1rem;
     font-weight: 700;
   }
 }
@@ -101,160 +102,103 @@
 .messageBox{
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  border-radius: 16px;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
   background: rgba(255, 214, 102, 0.05);
   border: 1px solid rgba(255, 214, 102, 0.12);
+}
+
+.messageScrollArea{
+  max-height: 120px;
+  overflow-y: auto;
+  padding-right: 6px;
+
+  /* scrollbar elegante */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 214, 102, 0.28) transparent;
 
   p{
     margin: 0;
+    font-size: 0.92rem;
     color: rgba(255, 245, 214, 0.9);
-    line-height: 1.6;
+    line-height: 1.5;
     white-space: pre-wrap;
   }
 }
 
-.messageCollapsed{
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
+.messageScrollArea::-webkit-scrollbar{
+  width: 4px;
 }
 
-.messageExpanded{
-  display: block;
-}
-
-.messageToggle{
-  align-self: flex-start;
-  padding: 0;
-  border: none;
+.messageScrollArea::-webkit-scrollbar-track{
   background: transparent;
-  color: #ffd965;
-  font-size: 0.86rem;
-  font-weight: 700;
-  cursor: pointer;
 }
 
-.messageToggle:hover{
-  color: #fff1b8;
+.messageScrollArea::-webkit-scrollbar-thumb{
+  background: rgba(255, 214, 102, 0.28);
+  border-radius: 999px;
+}
+
+.messageScrollArea::-webkit-scrollbar-thumb:hover{
+  background: rgba(255, 214, 102, 0.5);
 }
 
 .detailsGrid{
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
 }
-
 
 .detailCard{
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  min-width: 0;
   background: linear-gradient(180deg, rgba(17, 14, 8, 0.96) 0%, rgba(12, 12, 12, 0.96) 100%);
   border: 1px solid rgba(255, 214, 102, 0.12);
 
   span{
     color: rgba(255, 238, 188, 0.66);
-    font-size: 0.74rem;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   strong{
     color: #fff5d4;
-    font-size: 0.96rem;
+    font-size: 0.88rem;
     line-height: 1.3;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
 .note{
   margin: 0;
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 8px 12px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 214, 102, 0.12);
   background: rgba(255, 214, 102, 0.04);
-  color: rgba(255, 238, 188, 0.76);
-  line-height: 1.5;
+  color: rgba(255, 238, 188, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .actions{
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 10px;
+  padding-top: 2px;
 }
-
-@media (max-width: 1200px), (max-height: 900px) {
-  .preview{
-    gap: 14px;
-  }
-
-  .hero{
-    padding: 16px;
-  }
-
-  .heroContent{
-    gap: 6px;
-
-    strong{
-      font-size: 1.22rem;
-    }
-
-    p{
-      font-size: 0.95rem;
-      line-height: 1.35;
-    }
-  }
-
-  .heroAudience{
-    min-width: 132px;
-    padding: 14px 16px;
-
-    strong{
-      font-size: 1.6rem;
-    }
-  }
-
-  .templateCard{
-    gap: 12px;
-    padding: 14px;
-  }
-
-  .messageBox{
-    padding: 14px;
-
-    p{
-      font-size: 0.96rem;
-      line-height: 1.45;
-    }
-  }
-
-  .detailsGrid{
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-
-  .detailCard{
-    padding: 12px 14px;
-
-    strong{
-      font-size: 0.9rem;
-    }
-  }
-
-  .note{
-    padding: 10px 12px;
-    font-size: 0.94rem;
-  }
-}
-
 
 @media (max-width: 720px) {
   .hero{

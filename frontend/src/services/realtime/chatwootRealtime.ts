@@ -85,7 +85,7 @@ export function createChatwootRealtimeConnection(
       try {
         const payload = JSON.parse(String(rawEvent.data ?? "{}")) as {
           type?: string;
-          message?: { event?: string; data?: Record<string, unknown> | null };
+          message?: unknown;
         };
 
         if (payload.type === "confirm_subscription") {
@@ -96,12 +96,24 @@ export function createChatwootRealtimeConnection(
           return;
         }
 
-        const eventName = payload.message?.event;
+        // message pode ser objeto ou string JSON serializada
+        let msgObj: { event?: string; data?: Record<string, unknown> | null } | null = null;
+        if (payload.message && typeof payload.message === "object") {
+          msgObj = payload.message as { event?: string; data?: Record<string, unknown> | null };
+        } else if (payload.message && typeof payload.message === "string") {
+          try {
+            msgObj = JSON.parse(payload.message);
+          } catch {
+            // ignore
+          }
+        }
+
+        const eventName = msgObj?.event;
         if (!eventName) return;
 
         handlers.onEvent?.({
           event: eventName,
-          data: payload.message?.data ?? null,
+          data: msgObj?.data ?? null,
         });
       } catch {
         // Ignore malformed frames to keep the connection resilient.

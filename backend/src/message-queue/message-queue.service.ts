@@ -43,10 +43,10 @@ export class MessageQueueService {
     private readonly campaignRepository: Repository<Campaign>,
   ) {}
 
-  async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number }> {
+  async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number; dedupedRecipients: MessageQueuePayload[] }> {
     const scheduledAt = params.scheduledAt ?? new Date();
     let uniqueRecipients = params.recipients;
-    let deduped = 0;
+    let dedupedRecipients: MessageQueuePayload[] = [];
 
     if (!params.disableDailyDedup) {
       // Deduplicação: remove destinatários cujo telefone já foi despachado hoje para a mesma empresa
@@ -65,11 +65,13 @@ export class MessageQueueService {
       uniqueRecipients = params.recipients.filter(
         (r) => !alreadyQueuedSet.has(r.number),
       );
+      dedupedRecipients = params.recipients.filter(
+        (r) => alreadyQueuedSet.has(r.number),
+      );
 
-      deduped = params.recipients.length - uniqueRecipients.length;
-      if (deduped > 0) {
+      if (dedupedRecipients.length > 0) {
         this.logger.log(
-          `Deduplication: ${deduped} recipient(s) already dispatched today for company ${params.companyId} — skipped.`,
+          `Deduplication: ${dedupedRecipients.length} recipient(s) already dispatched today for company ${params.companyId} — skipped.`,
         );
       }
     }
@@ -105,7 +107,7 @@ export class MessageQueueService {
       await this.queueRepository.save(jobs.slice(i, i + BATCH_INSERT_SIZE));
     }
 
-    return { batch, skipped: deduped };
+    return { batch, skipped: dedupedRecipients.length, dedupedRecipients };
   }
 
   /**

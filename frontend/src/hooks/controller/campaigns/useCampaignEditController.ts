@@ -139,6 +139,45 @@ export function useCampaignEditController(campaign?: CampaignData) {
       return { success: false };
     }
 
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+
+    const startDay = new Date(startDate);
+    startDay.setHours(0, 0, 0, 0);
+
+    if (startDay < today) {
+      toast.error("A data de disparo não pode ser anterior à data atual.");
+      return { success: false };
+    }
+
+    if (values.endDate) {
+      const endDay = new Date(endDate);
+      endDay.setHours(0, 0, 0, 0);
+      if (endDay < startDay) {
+        toast.error("A data de finalização não pode ser anterior à data de início.");
+        return { success: false };
+      }
+    }
+
+    const timeMatch = /^(\d{2}):(\d{2})$/.exec(values.dispatchTime);
+    if (timeMatch) {
+      const hour = Number(timeMatch[1]);
+      const minute = Number(timeMatch[2]);
+      const dispatchAt = new Date(startDate);
+      dispatchAt.setHours(hour, minute, 0, 0);
+
+      const isToday = startDay.getTime() === today.getTime();
+      const minTime = new Date(now.getTime() + 60 * 60 * 1000);
+
+      if (isToday && dispatchAt < minTime) {
+        toast.error(
+          "Para disparos no mesmo dia, o horário deve ser ao menos 1 hora à frente do horário atual.",
+        );
+        return { success: false };
+      }
+    }
+
     const payload: CampaignUpdate = {
       startDate,
       endDate,

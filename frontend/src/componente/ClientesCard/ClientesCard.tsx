@@ -96,10 +96,12 @@ export function ClientesCard({ cliente, checked, onToggle, companyId, latestProm
   return (
     <>
       <div className={Styles.Cards}>
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           className={`${Styles.card} ${checked ? Styles.cardSelected : ""}`}
           onClick={onToggle}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle()}
           aria-pressed={checked}
         >
           <div className={Styles.cardContent}>
@@ -215,7 +217,7 @@ export function ClientesCard({ cliente, checked, onToggle, companyId, latestProm
             </div>
 
           </div>
-        </button>
+        </div>
       </div>
 
       <ClientDetailModal

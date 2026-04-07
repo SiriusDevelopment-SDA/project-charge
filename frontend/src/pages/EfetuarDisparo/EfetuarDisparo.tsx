@@ -18,6 +18,8 @@ import {
 } from "../../componente/Index";
 import { useDispatchPageController } from "../../hooks/controller/dispatch/useDispatchPageController";
 import { isTemplateApproved } from "../../utils/templateStatus";
+import { createNormalizedSearchParams } from "../../utils/locationSearch";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export default function EfetuarDisparo() {
   const [isBatchCardDismissed, setIsBatchCardDismissed] = useState(false);
@@ -53,6 +55,14 @@ export default function EfetuarDisparo() {
     handleOpenBatchHistory,
     handleConfirmAttendant,
   } = useDispatchPageController();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const buildHistorySearch = () => {
+    const searchParams = createNormalizedSearchParams(location.search);
+    searchParams.set("scope", "manual");
+    const nextSearch = searchParams.toString();
+    return nextSearch ? `?${nextSearch}` : "";
+  };
 
   useEffect(() => {
     setIsBatchCardDismissed(false);
@@ -72,12 +82,7 @@ export default function EfetuarDisparo() {
             : "Envie mensagens diretas para leads com template validado"
         }
         className={Style.navTitlePage}
-        setModoPage={dispatch.setModoPage}
-        text={
-          dispatch.modoPage === "clientes"
-            ? "Disparo para leads"
-            : "Disparo Manual"
-        }
+        
       />
 
       <div className={Style.containerCenter} onClick={handleCloseFloatingMenus}>
@@ -254,6 +259,11 @@ export default function EfetuarDisparo() {
 
         <section className={Style.containerButtonSend}>
           <MyButton
+              text={"Histórico"}
+              variant="btn-norm"
+              onClick={() => navigate(`/historico${buildHistorySearch()}`)}
+            />
+          <MyButton
             text={dispatch.isSending ? "Enviando..." : "Enviar disparo"}
             variant="btn-enviar"
             className={Style.submitButton}
@@ -379,6 +389,7 @@ export default function EfetuarDisparo() {
                   }
                 />
               ))}
+            
             <MyButton
               text={
                 manualLead.manualLeadFlowAction === "preview"
