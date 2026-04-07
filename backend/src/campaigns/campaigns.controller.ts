@@ -33,6 +33,13 @@ export class CampaignsController {
     return this.campaignsService.create(createDto);
   }
 
+  @Post('by-clients')
+  @ApiOperation({ summary: 'Retorna campanhas vinculadas a uma lista de IDs de clientes' })
+  @ApiBody({ schema: { type: 'object', properties: { clientIds: { type: 'array', items: { type: 'string' } } } } })
+  getByClientIds(@Body('clientIds') clientIds: string[]) {
+    return this.campaignsService.findByClientIds(clientIds ?? []);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Lista campanhas por account' })
   @ApiQuery({ name: 'account', required: true, type: String })
