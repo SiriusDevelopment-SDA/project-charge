@@ -31,7 +31,7 @@ function formatBatchDate(value?: string | Date) {
 }
 
 export function HistoricoDisparoPage() {
-  const { histories } = useHistorico();
+  const { histories, total, page, limit, setPage } = useHistorico();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = createNormalizedSearchParams(location.search);
@@ -211,6 +211,30 @@ export function HistoricoDisparoPage() {
       )}
 
       <Table data={histories} className={S.table} />
+
+      {total > limit && (
+        <div className={S.pagination}>
+          <button
+            type="button"
+            className={S.paginationBtn}
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ← Anterior
+          </button>
+          <span className={S.paginationInfo}>
+            {(page - 1) * limit + 1}–{Math.min(page * limit, total)} de {total}
+          </span>
+          <button
+            type="button"
+            className={S.paginationBtn}
+            disabled={page * limit >= total}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Próxima →
+          </button>
+        </div>
+      )}
 
       <DynamicModal
         open={isLatestReportOpen}

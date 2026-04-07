@@ -22,7 +22,6 @@
   justify-content: flex-end;
   display: flex;
   align-items: center;
-  margin-top: 10px;
   
 }
 .TitlePage {
@@ -135,7 +134,7 @@
 .Cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 28px;
+  gap: 16px;
   align-items: start;
   align-content: start;
   flex: 1 0 auto;

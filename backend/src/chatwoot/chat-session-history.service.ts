@@ -81,6 +81,20 @@ export class ChatSessionHistoryService {
     });
   }
 
+  async deleteConversation(companyId: string, conversationId: number): Promise<void> {
+    await this.sessionMessageRepository
+      .createQueryBuilder()
+      .delete()
+      .where('company_id = :companyId AND external_conversation_id = :conversationId', { companyId, conversationId })
+      .execute();
+
+    await this.sessionRepository
+      .createQueryBuilder()
+      .delete()
+      .where('company_id = :companyId AND external_conversation_id = :conversationId', { companyId, conversationId })
+      .execute();
+  }
+
   async listMessagesByConversation(input: {
     companyId: string;
     conversationId: number;

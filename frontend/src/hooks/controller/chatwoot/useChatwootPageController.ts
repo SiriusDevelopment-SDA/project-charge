@@ -46,6 +46,7 @@ export function useChatwootPageController() {
   const myName = AppStorage.getAgentName();
   const bottomRef = useRef<HTMLDivElement>(null);
   const activeIdRef = useRef<number | null>(null);
+  const teamIdRef = useRef<string | null>(null);
   const fetchConversationsRef = useRef<(options?: { silent?: boolean; showErrorToast?: boolean }) => Promise<void>>(() => Promise.resolve());
   const loadMessagesRef = useRef<(conversationId: number) => Promise<void>>(() => Promise.resolve());
   const resolvedAccountRef = useRef<string>("");
@@ -98,6 +99,7 @@ export function useChatwootPageController() {
 
   const resolvedAccount = chatAccount || account;
   resolvedAccountRef.current = resolvedAccount;
+  teamIdRef.current = teamId;
 
   const notifySuccess = useCallback((message: string) => {
     toast.success(message);
@@ -252,13 +254,7 @@ export function useChatwootPageController() {
 
       try {
         const teamScoped = await loadConversationsByTeam(resolvedAccount, teamId);
-        if (teamScoped.length || !teamId) {
-          setConversations(mergeLocalReadState(teamScoped));
-          return;
-        }
-
-        const unfiltered = await loadConversationsByTeam(resolvedAccount, null);
-        setConversations(mergeLocalReadState(unfiltered));
+        setConversations(mergeLocalReadState(teamScoped));
       } catch (error: unknown) {
         if (showErrorToast) {
           notifyError(error, "Nao foi possivel atualizar os atendimentos.");
@@ -557,6 +553,7 @@ export function useChatwootPageController() {
                         status: updatedConv.status,
                         assigneeName: updatedConv.assigneeName ?? c.assigneeName,
                         teamName: updatedConv.teamName ?? c.teamName,
+                        teamId: updatedConv.teamId ?? c.teamId,
                         labels: updatedConv.labels.length > 0 ? updatedConv.labels : c.labels,
                         unreadCount: updatedConv.unreadCount,
                         updatedAt: updatedConv.updatedAt ?? c.updatedAt,
@@ -565,7 +562,11 @@ export function useChatwootPageController() {
                     : c,
                 );
               }
-              // Nova conversa: adiciona no topo
+              // Nova conversa: só adiciona se pertencer ao time configurado
+              const numericTeamId = teamIdRef.current ? Number(teamIdRef.current) : null;
+              if (numericTeamId && updatedConv.teamId !== numericTeamId) {
+                return prev;
+              }
               return [updatedConv, ...prev];
             });
 
@@ -1103,6 +1104,20 @@ export function useChatwootPageController() {
     void fetchConversations({ silent: true, showErrorToast: true });
   }, [fetchConversations]);
 
+  const handleDeleteFromQueue = useCallback(async (conversationId: number) => {
+    if (!resolvedAccount) return;
+    try {
+      await ChatwootClientService.deleteLocalConversation(resolvedAccount, conversationId);
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (activeConversationId === conversationId) {
+        setActiveConversationId(null);
+        setMessages([]);
+      }
+    } catch (error: unknown) {
+      notifyError(error, "Erro ao remover conversa da fila local.");
+    }
+  }, [activeConversationId, notifyError, resolvedAccount]);
+
   return {
     sidebar: {
       queue,
@@ -1138,6 +1153,7 @@ export function useChatwootPageController() {
       onResolve: () => void handleStatusChange("resolved"),
       onReopen: () => void handleStatusChange("open"),
       onOpenDetails: openDetailsModal,
+      onDeleteFromQueue: handleDeleteFromQueue,
       assumeLoading: busyAction === "assume",
       resolveLoading: busyAction === "resolve",
       reopenLoading: busyAction === "reopen",

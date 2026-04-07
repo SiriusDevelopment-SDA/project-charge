@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useHistoricoQuery } from "./queries/useHistoricoQuery";
 import type { IHistoricoContext } from "../types";
@@ -6,7 +6,7 @@ import type { IHistoricoContext } from "../types";
 export function useHistorico(): IHistoricoContext {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(50);
   const [order, setOrder] = useState<"DESC" | "ASC">("DESC");
 
   const { search } = useLocation();
@@ -14,7 +14,12 @@ export function useHistorico(): IHistoricoContext {
   const scope = searchParams.get("scope");
   const batchId = searchParams.get("batchId");
 
-  const { data: histories = [] } = useHistoricoQuery({
+  // Reset to page 1 whenever the filter context changes
+  useEffect(() => {
+    setPage(1);
+  }, [scope, batchId, query]);
+
+  const { data } = useHistoricoQuery({
     query,
     page,
     limit,
@@ -23,5 +28,8 @@ export function useHistorico(): IHistoricoContext {
     batchId,
   });
 
-  return { histories, setQuery, setPage, setLimit, setOrder };
+  const histories = data?.data ?? [];
+  const total = data?.total ?? 0;
+
+  return { histories, total, page, limit, setQuery, setPage, setLimit, setOrder };
 }

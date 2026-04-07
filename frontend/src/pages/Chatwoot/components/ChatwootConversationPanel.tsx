@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Bot, Check, Send, UserCheck } from "lucide-react";
+import { Bot, Check, Send, Trash2, UserCheck } from "lucide-react";
 import type {
   ChatwootConversationItem,
   ChatwootMessageItem,
@@ -31,6 +31,7 @@ type ChatwootConversationPanelProps = {
   onResolve: () => void;
   onReopen: () => void;
   onOpenDetails: () => void;
+  onDeleteFromQueue: (conversationId: number) => void;
 };
 
 export function ChatwootConversationPanel({
@@ -53,6 +54,7 @@ export function ChatwootConversationPanel({
   onResolve,
   onReopen,
   onOpenDetails,
+  onDeleteFromQueue,
 }: ChatwootConversationPanelProps) {
   if (!activeConversation) {
     return (
@@ -152,6 +154,14 @@ export function ChatwootConversationPanel({
           )}
           <button type="button" className={Style.btnGhost} onClick={onOpenDetails}>
             Detalhes
+          </button>
+          <button
+            type="button"
+            className={Style.btnDanger}
+            title="Remover conversa da fila local"
+            onClick={() => onDeleteFromQueue(activeConversation.id)}
+          >
+            <Trash2 size={13} />
           </button>
         </div>
       </div>

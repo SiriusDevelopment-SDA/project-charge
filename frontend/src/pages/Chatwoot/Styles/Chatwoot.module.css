@@ -474,6 +474,23 @@
 }
 .btnGhost:hover { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); }
 
+.btnDanger {
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(239,68,68,0.3);
+  background: transparent;
+  color: rgba(239,68,68,0.5);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.btnDanger:hover { border-color: rgba(239,68,68,0.6); color: rgba(239,68,68,0.9); background: rgba(239,68,68,0.08); }
+
 /* messages */
 .msgs {
   flex: 1;

@@ -109,6 +109,12 @@ export class CampaignService {
     return normalizeCampaignMetrics(data);
   }
 
+  static async getByClientIds(clientIds: string[]): Promise<Record<string, CampaignData[]>> {
+    if (!clientIds.length) return {};
+    const { data } = await Api.post<Record<string, CampaignData[]>>('/campaigns/by-clients', { clientIds });
+    return data;
+  }
+
   static async collectionsMetrics(account: string | null): Promise<CollectionsMetrics> {
     const query = account ? `?account=${account}` : "";
     const { data } = await Api.get<CollectionsMetrics>(`/campaigns/collections/metrics${query}`);

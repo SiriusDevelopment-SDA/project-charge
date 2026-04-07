@@ -10,6 +10,7 @@ import { Agent, type AgentRole } from '../agents/entities/agent.entity';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { ChatSessionHistoryService } from './chat-session-history.service';
+import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 
 type ChatwootInbox = {
   id: number;
@@ -57,6 +58,8 @@ export class ChatwootService {
     private readonly agentRepository: Repository<Agent>,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
+    @InjectRepository(RelatoryDispatchTemplate)
+    private readonly relatoryRepository: Repository<RelatoryDispatchTemplate>,
     private readonly redisService: RedisService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -188,7 +191,11 @@ export class ChatwootService {
     if (event === 'message.created') {
       const convId = data.conversation_id ?? data.conversation?.id ?? null;
       if (!convId) return { ok: true };
-      const normalized = this.normalizeMessage(data);
+      const systemAgentId = await this.resolveSystemAgentChatwootId(
+        account,
+        (context.company as any).token_system_coraxy,
+      );
+      const normalized = this.normalizeMessage(data, systemAgentId);
       await this.syncAttendanceMessagesSafely(context.company.id, account, [{
         conversationId: Number(convId),
         snapshot: normalized,
@@ -202,6 +209,14 @@ export class ChatwootService {
         updatedAt: normalized.createdAt ?? new Date(),
       });
       await this.redisService.delByPrefix(`chatwoot:${account}:msg:`);
+
+      // Mensagem incoming de contato: marca disparos desse número como respondidos
+      const isIncoming = Number(data.message_type) === 0 ||
+        String(data.sender_type ?? '').toLowerCase() === 'contact';
+      const senderPhone = String(data.sender?.phone_number ?? '').trim();
+      if (isIncoming && senderPhone) {
+        await this.markRelatoriesAsResponded(context.company.id, senderPhone);
+      }
     } else {
       // Eventos de conversa: conversation.created, conversation.status_changed, etc.
       const convId = data.id ?? data.conversation?.id ?? null;
@@ -279,7 +294,11 @@ export class ChatwootService {
             : Array.isArray(data?.data)
               ? data.data
               : [];
-        const normalizedRows = rawRows.map((item: any) => this.normalizeMessage(item));
+        const systemAgentId = await this.resolveSystemAgentChatwootId(
+          readCtx.account,
+          (context.company as any).token_system_coraxy,
+        );
+        const normalizedRows = rawRows.map((item: any) => this.normalizeMessage(item, systemAgentId));
 
         await this.syncAttendanceMessagesSafely(
           context.company.id,
@@ -419,6 +438,18 @@ export class ChatwootService {
       senderType: normalizedMessage.senderType ?? 'agent',
       createdAt: normalizedMessage.createdAt ?? null,
     };
+  }
+
+  async deleteLocalConversation(account: string, conversationId: number, authorization?: string) {
+    const context = await this.resolveAgentContext(account, authorization);
+    try {
+      await this.chatSessionHistoryService.deleteConversation(context.company.id, conversationId);
+    } catch (err: any) {
+      this.logger.error(`Erro ao deletar conversa local ${conversationId}: ${err?.message ?? err}`);
+      throw err;
+    }
+    await this.redisService.delByPrefix(`chatwoot:${account}:`);
+    return { ok: true };
   }
 
   async updateStatus(
@@ -767,11 +798,11 @@ export class ChatwootService {
       .filter((item: MaestroWebhookAgent | null): item is MaestroWebhookAgent => Boolean(item));
   }
 
-  private normalizeMessage(item: any) {
+  private normalizeMessage(item: any, systemAgentChatwootId?: number | null) {
     return {
       id: this.toNumericId(item?.id),
       content: item?.content ?? '',
-      senderType: this.normalizeMessageSenderType(item),
+      senderType: this.normalizeMessageSenderType(item, systemAgentChatwootId),
       senderName: this.extractMessageSenderName(item),
       createdAt: item?.created_at ?? null,
       messageType: this.toIntegerOrNull(item?.message_type),
@@ -791,6 +822,7 @@ export class ChatwootService {
         account_chatwoot: true,
         config: true,
         teamChargeId: true,
+        token_system_coraxy: true,
       },
     });
 
@@ -799,6 +831,22 @@ export class ChatwootService {
     }
 
     return { company, account: safeAccount };
+  }
+
+  private async resolveSystemAgentChatwootId(account: string, token: string | null | undefined): Promise<number | null> {
+    const safeToken = String(token ?? '').trim();
+    if (!safeToken) return null;
+
+    const cacheKey = `chatwoot:${account}:system_agent_id`;
+    const cached = await this.redisService.get<number>(cacheKey);
+    if (cached != null) return cached;
+
+    const profile = await this.chatwootProfileRequest(safeToken, true);
+    const agentId = profile?.id ? Number(profile.id) : null;
+    if (agentId) {
+      await this.redisService.set(cacheKey, agentId, 3600);
+    }
+    return agentId;
   }
 
   private async resolveProvisioningContext(companyId: string) {
@@ -1125,7 +1173,31 @@ export class ChatwootService {
     );
   }
 
-  private normalizeMessageSenderType(item: any) {
+  private async markRelatoriesAsResponded(companyId: string, rawPhone: string): Promise<void> {
+    const normalizedPhone = rawPhone.replace(/\D/g, '');
+    if (!normalizedPhone) return;
+
+    try {
+      await this.relatoryRepository
+        .createQueryBuilder()
+        .update(RelatoryDispatchTemplate)
+        .set({ response: true, response_at: new Date() })
+        .where('company_id = :companyId', { companyId })
+        .andWhere('response = false')
+        .andWhere("regexp_replace(number, '[^0-9]', '', 'g') = :phone", { phone: normalizedPhone })
+        .execute();
+
+      await this.redisService.delByPrefix(`graphics:${companyId}:`);
+    } catch (err: any) {
+      this.logger.error(`Erro ao marcar retorno no relatory para ${normalizedPhone}: ${err?.message ?? err}`);
+    }
+  }
+
+  private normalizeMessageSenderType(item: any, systemAgentChatwootId?: number | null) {
+    if (systemAgentChatwootId && Number(item?.sender?.id) === systemAgentChatwootId) {
+      return 'agent_bot';
+    }
+
     const rawSenderType = String(
       item?.sender_type ??
       item?.sender?.type ??
@@ -1152,6 +1224,11 @@ export class ChatwootService {
     }
 
     if (Number(item?.message_type) === 1) {
+      return 'agent';
+    }
+
+    // message_type 2 = activity (automações, atribuições, eventos de sistema do Chatwoot)
+    if (Number(item?.message_type) === 2) {
       return 'agent';
     }
 

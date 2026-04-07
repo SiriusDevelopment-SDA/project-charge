@@ -275,6 +275,50 @@
   margin-top: 6px;
 }
 
+.campaignEmpty {
+  margin: 6px 0 0;
+  opacity: 0.5;
+  font-size: 11px;
+}
+
+.campaignList {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.campaignItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.campaignName {
+  font-size: 11px;
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.campaignBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.campaignQueue   { background: rgba(245, 176, 20, 0.18); color: #f5b014; }
+.campaignPending { background: rgba(156, 163, 175, 0.18); color: #9ca3af; }
+.campaignRunning { background: rgba(34, 197, 94, 0.18); color: #6ee7a0; }
+.campaignFinished { background: rgba(107, 114, 128, 0.18); color: #6b7280; }
+
 /* EXTRA ROW */
 .extraRow {
   display: flex;

@@ -6,7 +6,7 @@
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, ILike, Not, Repository } from 'typeorm';
+import { Between, ILike, In, Not, Repository } from 'typeorm';
 import { DateTime } from 'luxon';
 import { Campaign } from './entities/campanhas.entity';
 import { CreateCampaignDto } from './dto/create-campanhas.dto';
@@ -142,6 +142,39 @@ export class CampaignsService {
 
     await this.redisService.set(cacheKey, campaigns, 20);
     return campaigns;
+  }
+
+  async findByClientIds(
+    clientIds: string[],
+  ): Promise<Record<string, Campaign[]>> {
+    if (!clientIds.length) return {};
+
+    const rows: { campaignId: string; clientId: string }[] =
+      await this.campaignRepository.manager.query(
+        `SELECT "campaignId", "clientId" FROM campaign_clients WHERE "clientId" = ANY($1)`,
+        [clientIds],
+      );
+
+    if (!rows.length) return {};
+
+    const uniqueCampaignIds = [...new Set(rows.map((r) => r.campaignId))];
+
+    const campaigns = await this.campaignRepository.find({
+      where: { id: In(uniqueCampaignIds) },
+      relations: ['template', 'category'],
+    });
+
+    const campaignById = new Map(campaigns.map((c) => [c.id, c]));
+    const result: Record<string, Campaign[]> = {};
+
+    for (const row of rows) {
+      const campaign = campaignById.get(row.campaignId);
+      if (!campaign) continue;
+      if (!result[row.clientId]) result[row.clientId] = [];
+      result[row.clientId].push(campaign);
+    }
+
+    return result;
   }
 
   async remove(id: string) {

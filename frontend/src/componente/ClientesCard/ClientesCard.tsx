@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { Cliente, PaymentPromise } from "../../types";
+import type { CampaignData, Cliente, PaymentPromise } from "../../types";
 import { ClientDetailModal } from "../ClientDetailModal/ClientDetailModal";
 import Styles from "./ClientesCard.module.css";
 import {
@@ -29,6 +29,7 @@ type Props = {
   latestPromise?: PaymentPromise | null;
   dispatchCount?: number;
   onDispatch?: () => void;
+  campaigns?: CampaignData[];
 };
 
 const PROMISE_STATUS_LABEL: Record<string, string> = {
@@ -45,7 +46,21 @@ const PROMISE_STATUS_CLASS: Record<string, string> = {
   cancelled: Styles.promiseCancelled,
 };
 
-export function ClientesCard({ cliente, checked, onToggle, companyId, latestPromise, dispatchCount = 0, onDispatch }: Props) {
+const CAMPAIGN_STATUS_LABEL: Record<string, string> = {
+  queue: "Na fila",
+  pending: "Pendente",
+  running: "Em andamento",
+  finished: "Concluída",
+};
+
+const CAMPAIGN_STATUS_CLASS: Record<string, string> = {
+  queue: Styles.campaignQueue,
+  pending: Styles.campaignPending,
+  running: Styles.campaignRunning,
+  finished: Styles.campaignFinished,
+};
+
+export function ClientesCard({ cliente, checked, onToggle, companyId, latestPromise, dispatchCount = 0, onDispatch, campaigns = [] }: Props) {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const invoices = cliente.invoices?.list ?? [];
@@ -123,10 +138,21 @@ export function ClientesCard({ cliente, checked, onToggle, companyId, latestProm
                 >
                   <CircleQuestionMark size={16} className={Styles.iconInfo} />
                   <div className={Styles.infoBalloon}>
-                    <strong>Campanhas ativas do cliente</strong>
-                    <div>
-                      <span>campanhas:</span>
-                    </div>
+                    <strong>Campanhas vinculadas</strong>
+                    {campaigns.length === 0 ? (
+                      <p className={Styles.campaignEmpty}>Nenhuma campanha</p>
+                    ) : (
+                      <ul className={Styles.campaignList}>
+                        {campaigns.map((c) => (
+                          <li key={c.id} className={Styles.campaignItem}>
+                            <span className={Styles.campaignName}>{c.name}</span>
+                            <span className={`${Styles.campaignBadge} ${CAMPAIGN_STATUS_CLASS[c.status] ?? ""}`}>
+                              {CAMPAIGN_STATUS_LABEL[c.status] ?? c.status}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </div>
               </div>
@@ -147,7 +173,7 @@ export function ClientesCard({ cliente, checked, onToggle, companyId, latestProm
 
                 <p className={Styles.message}>
                   <CircleDollarSign className={Styles.IconCircleDollar} />
-                  R$ {totalDivida.toFixed(2).replace(".", ",")}
+                  R$ {totalDivida.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
 

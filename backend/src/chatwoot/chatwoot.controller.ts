@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Headers, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Headers, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ChatwootService } from './chatwoot.service';
 import {
@@ -138,6 +138,16 @@ export class ChatwootController {
       body.data ?? {},
       authorization,
     );
+  }
+
+  @Delete('conversations/:id')
+  @ApiOperation({ summary: 'Delete an orphan conversation from local DB' })
+  deleteLocalConversation(
+    @Param('id', ParseIntPipe) conversationId: number,
+    @Headers('authorization') authorization: string | undefined,
+    @Query() query: ChatwootAccountQueryDto,
+  ) {
+    return this.chatwootService.deleteLocalConversation(query.account, conversationId, authorization);
   }
 
   @Post('conversations/:id/messages')

@@ -176,7 +176,7 @@ export function ClientDetailModal({ cliente, companyId, open, onClose }: Props) 
             <div className={styles.headerMeta}>
               <span><IdCard size={13} /> {cliente.cnpj_cpf}</span>
               <span><Phone size={13} /> {cliente.whatsapp ?? "—"}</span>
-              <span><CircleDollarSign size={13} /> R$ {totalDebt.toFixed(2).replace(".", ",")}</span>
+              <span><CircleDollarSign size={13} /> R$ {totalDebt.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span><MessageSquareText size={13} /> {overdueInvoices.length || invoices.length} fatura(s) em aberto</span>
             </div>
           </div>
@@ -249,7 +249,7 @@ export function ClientDetailModal({ cliente, companyId, open, onClose }: Props) 
                       <tr key={inv.invoice_id}>
                         <td>{inv.contract_id}</td>
                         <td>{inv.invoice_due_date}</td>
-                        <td>R$ {Number(inv.invoice_amount).toFixed(2).replace(".", ",")}</td>
+                        <td>R$ {Number(inv.invoice_amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td>
                           <span className={`${styles.badge} ${styles[`badge_${inv.invoice_status?.replace(/\s/g, "_").toLowerCase()}`] ?? ""}`}>
                             {inv.invoice_status}
@@ -313,7 +313,7 @@ export function ClientDetailModal({ cliente, companyId, open, onClose }: Props) 
                         <span className={styles.listItemDate}>
                           <CalendarClock size={13} /> {new Date(p.promised_payment_date).toLocaleDateString("pt-BR")}
                         </span>
-                        <span>R$ {Number(p.promised_amount ?? p.total_debt).toFixed(2).replace(".", ",")}</span>
+                        <span>R$ {Number(p.promised_amount ?? p.total_debt).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         <span className={`${styles.promiseBadge} ${styles[`promise_${p.status}`]}`}>
                           {PROMISE_STATUS_LABEL[p.status] ?? p.status}
                         </span>
