@@ -15,6 +15,9 @@ const initialCollectionsMetrics: CollectionsMetrics = {
   openFollowups: 0,
   noResponseOver24h: 0,
   lastResponseAt: null,
+  recoveredAmount: 0,
+  convertedCount: 0,
+  respondedAndPaid: 0,
 };
 
 export { initialCollectionsMetrics };
@@ -130,6 +133,20 @@ export function useDashboardDebtConversionQuery() {
   return useQuery({
     queryKey: queryKeys.dashboard.debtConversion(companyId ?? ""),
     queryFn: () => DashboardService.getDebtConversion(companyId!),
+    enabled: Boolean(companyId),
+    staleTime: 1000 * 25,
+    refetchInterval: REFETCH_INTERVAL,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useDashboardPaymentProfileQuery() {
+  const { data: me } = useMeQuery();
+  const companyId = me?.company?.id;
+
+  return useQuery({
+    queryKey: queryKeys.dashboard.paymentProfile(companyId ?? ""),
+    queryFn: () => DashboardService.getPaymentProfile(companyId!),
     enabled: Boolean(companyId),
     staleTime: 1000 * 25,
     refetchInterval: REFETCH_INTERVAL,

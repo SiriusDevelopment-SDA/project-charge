@@ -4,16 +4,18 @@ import {
   GraficoDisparo,
   GraficoRelatorio,
   GraficoCampanhas,
+  GraficoConversao,
   GraficoFunil,
+  GraficoPaymentProfile,
   GraficoPromessas,
   GraficoPrevisao,
   GraficoAging,
-  GraficoConversao,
   PageContainer,
   TitlePage,
 } from "../../componente/Index";
 import Style from "./Styles/Dashboard.module.css";
 import { useDashboardCollectionsMetrics } from "../../hooks/controller/dashboard/useDashboardCollectionsMetrics";
+import { useDashboardGraphics } from "../../hooks/controller/dashboard/useDashboardGraphics";
 import { Users, MessageSquareText, TrendingUp, AlertTriangle, Clock, BarChart2, Megaphone, TrendingDown, HandCoins, CalendarCheck } from "lucide-react";
 
 // ─── counter animation ───────────────────────────────────────────
@@ -42,36 +44,46 @@ function useCountUp(target: number, duration = 1100) {
 // ─── KPI card ────────────────────────────────────────────────────
 type KpiCardProps = {
   label: string; rawValue: number; suffix?: string;
-  icon: React.ReactNode; isAlert?: boolean; isFloat?: boolean; delay?: number;
+  icon: React.ReactNode; isAlert?: boolean; isFloat?: boolean; isCurrency?: boolean; delay?: number;
+  subLabel?: string; subValue?: string;
 };
-function KpiCard({ label, rawValue, suffix = "", icon, isAlert, isFloat, delay = 0 }: KpiCardProps) {
-  const count = useCountUp(isFloat ? 0 : rawValue);
-  const display = isFloat ? rawValue.toFixed(1).replace(".", ",") : count.toLocaleString("pt-BR");
+function KpiCard({ label, rawValue, suffix = "", icon, isAlert, isFloat, isCurrency, delay = 0, subLabel, subValue }: KpiCardProps) {
+  const count = useCountUp(isFloat || isCurrency ? 0 : rawValue);
+  const display = isCurrency
+    ? rawValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })
+    : isFloat
+      ? rawValue.toFixed(1).replace(".", ",")
+      : count.toLocaleString("pt-BR");
   return (
     <div className={`${Style.kpiCard} ${isAlert ? Style.kpi_alert : ""}`} style={{ animationDelay: `${delay}ms` }}>
       <div className={`${Style.kpiIcon} ${isAlert ? Style.kpiIcon_alert : ""}`}>{icon}</div>
       <div className={Style.kpiTexts}>
         <span className={Style.kpiLabel}>{label}</span>
         <span className={`${Style.kpiValue} ${isAlert ? Style.kpiValue_alert : ""}`}>{display}{suffix}</span>
+        {subLabel && subValue && (
+          <span className={Style.kpiSub}>{subLabel}: {subValue}</span>
+        )}
       </div>
     </div>
   );
 }
 
 // ─── tab config ──────────────────────────────────────────────────
-type TabId = "inadimplencia" | "promessas" | "recuperacao" | "disparos" | "campanhas";
+type TabId = "inadimplencia" | "promessas" | "recuperacao" | "analise" | "disparos" | "campanhas";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: "inadimplencia", label: "Inadimplência",        icon: <TrendingDown size={14} /> },
-  { id: "promessas",     label: "Promessas",             icon: <HandCoins size={14} /> },
-  { id: "recuperacao",   label: "Recuperação",           icon: <CalendarCheck size={14} /> },
-  { id: "disparos",      label: "Disparos & Retorno",   icon: <BarChart2 size={14} /> },
-  { id: "campanhas",     label: "Campanhas",             icon: <Megaphone size={14} /> },
+  { id: "inadimplencia", label: "Inadimplência",       icon: <TrendingDown size={14} /> },
+  { id: "promessas",     label: "Promessas",            icon: <HandCoins size={14} /> },
+  { id: "recuperacao",   label: "Recuperação",          icon: <CalendarCheck size={14} /> },
+  { id: "disparos",      label: "Disparos & Respostas",  icon: <BarChart2 size={14} /> },
+  { id: "campanhas",     label: "Campanhas",            icon: <Megaphone size={14} /> },
+  { id: "analise",       label: "Análise",              icon: <BarChart2 size={14} /> },
 ];
 
 // ─── main component ───────────────────────────────────────────────
 export default function Dashboard() {
   const { metrics } = useDashboardCollectionsMetrics();
+  const { delinquencyRate } = useDashboardGraphics();
   const [activeTab, setActiveTab] = useState<TabId>("inadimplencia");
 
   return (
@@ -80,10 +92,10 @@ export default function Dashboard() {
 
       {/* KPI cards */}
       <div className={Style.kpiGrid}>
-        <KpiCard label="Cobrados (30d)"     rawValue={metrics.chargedCustomers30d}     icon={<Users size={17} />}             delay={0}   />
+        <KpiCard label="Inadimplência"      rawValue={delinquencyRate}                  icon={<Users size={17} />}             delay={0}   isFloat suffix="%" />
         <KpiCard label="Responderam"        rawValue={metrics.respondedAfterCharge30d} icon={<MessageSquareText size={17} />} delay={60}  />
-        <KpiCard label="Taxa de Retorno"    rawValue={metrics.responseRate30d}          icon={<TrendingUp size={17} />}        delay={120} isFloat suffix="%" />
-        <KpiCard label="Sem retorno +24h"   rawValue={metrics.noResponseOver24h}        icon={<AlertTriangle size={17} />}     delay={180} isAlert />
+        <KpiCard label="Retorno em Cobrança" rawValue={metrics.recoveredAmount}           icon={<TrendingUp size={17} />}        delay={120} isCurrency subLabel="Responderam e pagaram" subValue={`${metrics.chargedCustomers30d > 0 ? ((metrics.respondedAndPaid / metrics.chargedCustomers30d) * 100).toFixed(1).replace(".", ",") : "0,0"}%`} />
+        <KpiCard label="Sem resposta +24h"  rawValue={metrics.noResponseOver24h}        icon={<AlertTriangle size={17} />}     delay={180} isAlert />
         <KpiCard label="Follow-ups Abertos" rawValue={metrics.openFollowups}            icon={<Clock size={17} />}             delay={240} />
       </div>
 
@@ -122,6 +134,12 @@ export default function Dashboard() {
           <div className={Style.grid2col}>
             <div className={Style.cell}><GraficoAging /></div>
             <div className={Style.cell}><GraficoConversao /></div>
+          </div>
+        )}
+
+        {activeTab === "analise" && (
+          <div className={Style.grid1col}>
+            <div className={Style.cell}><GraficoPaymentProfile /></div>
           </div>
         )}
 

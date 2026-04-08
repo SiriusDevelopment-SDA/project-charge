@@ -48,4 +48,9 @@ export class GraphicsController{
     async getDebtConversion(@Param('companyId') companyId: string){
         return await this.graphicsService.getDebtConversion(companyId);
     }
+
+    @Post('payment-profile/:companyId')
+    async getPaymentProfile(@Param('companyId') companyId: string){
+        return await this.graphicsService.getPaymentProfile(companyId);
+    }
 }

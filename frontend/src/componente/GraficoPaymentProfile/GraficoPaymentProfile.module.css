@@ -1,0 +1,220 @@
+.container {
+  padding: 20px 22px 16px;
+  border-radius: 16px;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  background: linear-gradient(180deg, rgba(10,10,10,0.94) 0%, rgba(7,18,11,0.94) 100%);
+  border: 1px solid rgba(74,222,128,0.18);
+  box-shadow: 0 0 10px rgba(74,222,128,0.06), 0 0 28px rgba(74,222,128,0.03);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skeleton {
+  border-radius: 16px;
+  width: 100%;
+  height: 280px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── HEADER ─────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0 0 3px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #b7ffd0;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+}
+
+.totalBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.totalVal {
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(74,222,128,0.9);
+  line-height: 1;
+}
+
+.totalLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(74,222,128,0.35);
+  font-weight: 600;
+}
+
+/* ── BODY (2 colunas) ────────────────────── */
+.body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── DISTRIBUIÇÃO ────────────────────────── */
+.distribution {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rowLabel {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  flex: 1;
+}
+
+.rowCount {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rowPct {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  margin-left: 3px;
+}
+
+.barTrack {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.9s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── TREND ───────────────────────────────── */
+.trendPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.trendLabel {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.trendChart {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── TOOLTIP ─────────────────────────────── */
+.tooltip {
+  background: rgba(7,18,11,0.97);
+  border: 1px solid rgba(74,222,128,0.18);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.tooltipLabel {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  margin: 0 0 3px;
+}
+
+.tooltipVal {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4ade80;
+  margin: 0;
+}
+
+/* ── FOOTER ─────────────────────────────── */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+
+.footerItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.footerLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(74,222,128,0.35);
+  font-weight: 600;
+}
+
+.footerVal {
+  font-size: 15px;
+  font-weight: 700;
+  color: #b7ffd0;
+}
+
+.footerDivider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}

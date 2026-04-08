@@ -1,0 +1,77 @@
+# Arquitetura Frontend - Regras Obrigatórias
+
+## Arquitetura (OBRIGATÓRIO)
+- Organização por módulos (modules/)
+- Cada módulo é independente
+- pages/views: composição da tela
+- components: UI reutilizável (sem regra de negócio)
+- context: states global e atualizacao de estado (sem regra de negócio e sem chamadas a api)
+- types: recebe todos os tipos globais
+
+## Estrutura por módulo
+- components → UI pura
+- pages → UI pura
+- hooks → lógica
+- services → regras de negócio
+- api → chamadas HTTP
+
+## Components
+- Apenas receber props e renderizar UI
+- NÃO conter lógica de negócio
+- NÃO fazer fetch/axios direto
+- Apenas renderizar
+
+## Hooks / Services / Controllers
+- Centralizar lógica
+- Centralizar chamadas de API
+- Reutilizar sempre que possível
+- NÃO duplicar hooks
+
+## API
+- Todas chamadas devem ficar em camada separada (api/)
+- NÃO chamar fetch/axios direto no componente
+
+## Estado
+- Evitar estado duplicado
+- Preferir centralização (hooks ou store)
+
+## Reutilização
+- Sempre verificar se já existe component/hook antes de criar novo
+- Preferir extender ao invés de duplicar
+
+## Organização
+- Separar claramente:
+  - UI (components)
+  - lógica (hooks/services)
+  - dados (api)
+
+## Obrigatório
+- Separar responsabilidade
+- Manter padrão existente
+- Preferir refatoração
+- Já existe lógica semelhante → reutilizar
+- NÃO criar novo hook
+- NÃO duplicar API
+
+## Proibições
+- ❌ lógica dentro de component
+- ❌ fetch/axios dentro de component
+- ❌ duplicação de hooks
+- ❌ duplicação de components semelhantes
+- ❌ lógica de negócio misturada com UI
+
+## Boas práticas
+- Components pequenos e reutilizáveis
+- Hooks bem definidos
+- Código legível e consistente
+- Se precisar mudar retorno:
+    → alterar hook existente
+    → NÃO criar outro
+
+## Modelo exemplo certo de componente
+// ✅ CERTO (modelo ideal)
+export function UserPage() {
+  const { users } = useUsers();
+
+  return <UserList users={users} />;
+}

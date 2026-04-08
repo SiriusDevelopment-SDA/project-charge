@@ -11,6 +11,7 @@ import {
   Legend,
 } from "recharts";
 import { useDashboardPromises } from "../../hooks/controller/dashboard/useDashboardPromises";
+import { useDashboardCollectionsMetrics } from "../../hooks/controller/dashboard/useDashboardCollectionsMetrics";
 import styles from "./GraficoPromessas.module.css";
 
 type CustomTooltipProps = { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string };
@@ -31,6 +32,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 
 const GraficoPromessas: React.FC = () => {
   const { promises, loading } = useDashboardPromises();
+  const { metrics } = useDashboardCollectionsMetrics();
 
   if (loading) return <div className={styles.skeleton} />;
 
@@ -41,7 +43,7 @@ const GraficoPromessas: React.FC = () => {
     { label: "Canceladas", value: promises.cancelled, color: "rgba(148,163,184,0.7)", bg: "rgba(148,163,184,0.07)" },
   ];
 
-  const keptAmountFormatted = promises.keptAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  const recoveredAmountFormatted = metrics.recoveredAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
   return (
     <div className={styles.container}>
@@ -100,7 +102,7 @@ const GraficoPromessas: React.FC = () => {
         <div className={styles.footerDivider} />
         <div className={styles.footerItem}>
           <span className={styles.footerLabel}>Valor recuperado</span>
-          <span className={styles.footerVal}>{keptAmountFormatted}</span>
+          <span className={styles.footerVal}>{recoveredAmountFormatted}</span>
         </div>
       </div>
     </div>

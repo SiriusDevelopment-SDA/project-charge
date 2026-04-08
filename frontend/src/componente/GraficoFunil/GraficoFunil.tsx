@@ -7,11 +7,17 @@ const GraficoFunil: React.FC = () => {
 
   const total = metrics.chargedCustomers30d;
   const responded = metrics.respondedAfterCharge30d;
-  const noResponse = metrics.noResponseOver24h;
+  const converted = metrics.convertedCount;
   const rate = metrics.responseRate30d;
 
   const respondedPct = total > 0 ? Math.round((responded / total) * 100) : 0;
-  const noResponsePct = total > 0 ? Math.round((noResponse / total) * 100) : 0;
+  const convertedPct = total > 0 ? Math.round((converted / total) * 100) : 0;
+
+  const recoveredFormatted = metrics.recoveredAmount.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  });
 
   const steps = [
     {
@@ -31,12 +37,12 @@ const GraficoFunil: React.FC = () => {
       bg: "rgba(212,166,0,0.07)",
     },
     {
-      label: "Sem retorno +24h",
-      value: noResponse,
-      pct: noResponsePct,
+      label: "Convertidos",
+      value: converted,
+      pct: convertedPct,
       icon: <TrendingUp size={13} />,
-      color: "rgba(239,68,68,0.65)",
-      bg: "rgba(239,68,68,0.07)",
+      color: "rgba(74,222,128,0.75)",
+      bg: "rgba(74,222,128,0.08)",
     },
   ];
 
@@ -89,10 +95,15 @@ const GraficoFunil: React.FC = () => {
         </div>
         <div className={styles.footerDivider} />
         <div className={styles.footerItem}>
-          <span className={styles.footerLabel}>Taxa de retorno</span>
+          <span className={styles.footerLabel}>Taxa de resposta</span>
           <span className={styles.footerVal}>
             {rate.toFixed(1).replace(".", ",")}%
           </span>
+        </div>
+        <div className={styles.footerDivider} />
+        <div className={styles.footerItem}>
+          <span className={styles.footerLabel}>Valor recuperado</span>
+          <span className={styles.footerVal}>{recoveredFormatted}</span>
         </div>
       </div>
     </div>

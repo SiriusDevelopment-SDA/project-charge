@@ -68,10 +68,21 @@ export interface DebtConversionData {
     brackets: DebtConversionBracket[];
 }
 
+export interface PaymentProfileBucket {
+    label: string;
+    count: number;
+    pct: number;
+}
+
+export interface PaymentProfileData {
+    distribution: PaymentProfileBucket[];
+    trend: { month: string; onTimePct: number }[];
+}
+
 export class DashboardService{
-    static async getCharges(companyId: string): Promise<ChargesData[]> {
+    static async getCharges(companyId: string): Promise<{ months: ChargesData[]; inadimplentes: number; pagamentos: number }> {
         const { data } = await Api.post<{inadimplentes: number; pagamentos: number; months: ChargesData[]}>(`/graphics/charges/${companyId}`);
-        return data.months
+        return { months: data.months, inadimplentes: data.inadimplentes, pagamentos: data.pagamentos };
     }
 
     static async getMonthlyDispatches(companyId: string): Promise<MonthlyDispatchData[]> {
@@ -106,6 +117,11 @@ export class DashboardService{
 
     static async getDebtConversion(companyId: string): Promise<DebtConversionData> {
         const { data } = await Api.post<DebtConversionData>(`/graphics/debt-conversion/${companyId}`);
+        return data;
+    }
+
+    static async getPaymentProfile(companyId: string): Promise<PaymentProfileData> {
+        const { data } = await Api.post<PaymentProfileData>(`/graphics/payment-profile/${companyId}`);
         return data;
     }
 }

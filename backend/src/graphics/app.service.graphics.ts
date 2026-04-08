@@ -51,6 +51,8 @@ export class AppServiceGraphics {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // 1-12
 
     const dueDateSql = `CASE
       WHEN invoice.expiration ~ '^\\d{2}/\\d{2}/\\d{4}$' THEN TO_DATE(invoice.expiration, 'DD/MM/YYYY')
@@ -58,11 +60,13 @@ export class AppServiceGraphics {
       ELSE NULL
     END`;
 
-    const [clients, overdueRows] = await Promise.all([
+    const [clients, overdueRows, paidRows] = await Promise.all([
       this.clientRepo.find({
         where: { company: { id: companyId } },
         select: ['cnpj_cpf'],
       }),
+
+      // Monthly overdue count grouped by due date month (current year, up to current month)
       this.invoiceRepo
         .createQueryBuilder('invoice')
         .innerJoin('invoice.client', 'client')
@@ -70,39 +74,64 @@ export class AppServiceGraphics {
         .where('company.id = :companyId', { companyId })
         .andWhere("LOWER(TRIM(invoice.status)) = 'a receber'")
         .andWhere(`${dueDateSql} < :today`, { today: todayStr })
-        .select(`regexp_replace(COALESCE(client.cnpj_cpf, ''), '\\D', '', 'g')`, 'cnpj_cpf')
-        .addSelect(dueDateSql, 'dueDate')
-        .getRawMany<{ cnpj_cpf: string; dueDate: string | null }>(),
+        .andWhere(`EXTRACT(YEAR FROM ${dueDateSql}) = :year`, { year: currentYear })
+        .andWhere(`EXTRACT(MONTH FROM ${dueDateSql}) <= :month`, { month: currentMonth })
+        .select(`EXTRACT(MONTH FROM ${dueDateSql})`, 'monthNum')
+        .addSelect(`regexp_replace(COALESCE(client.cnpj_cpf, ''), '\\D', '', 'g')`, 'cnpj_cpf')
+        .getRawMany<{ monthNum: string; cnpj_cpf: string }>(),
+
+      // Monthly paid invoice count grouped by lastSyncAt month (current year, up to current month)
+      this.invoiceRepo
+        .createQueryBuilder('invoice')
+        .innerJoin('invoice.company', 'company')
+        .where('company.id = :companyId', { companyId })
+        .andWhere("LOWER(TRIM(invoice.status)) = 'pago'")
+        .andWhere('invoice.lastSyncAt IS NOT NULL')
+        .andWhere('EXTRACT(YEAR FROM invoice.lastSyncAt) = :year', { year: currentYear })
+        .andWhere('EXTRACT(MONTH FROM invoice.lastSyncAt) <= :month', { month: currentMonth })
+        .select('EXTRACT(MONTH FROM invoice.lastSyncAt)', 'monthNum')
+        .addSelect('COUNT(invoice.id)', 'count')
+        .groupBy('EXTRACT(MONTH FROM invoice.lastSyncAt)')
+        .getRawMany<{ monthNum: string; count: string }>(),
     ]);
 
-    const overdueSet = new Set(overdueRows.map(r => r.cnpj_cpf));
-
+    // Totals for KPI delinquency rate
+    const overdueDocSet = new Set(overdueRows.map(r => r.cnpj_cpf));
     let defaultCount = 0;
     let paymentsCount = 0;
-
     for (const client of clients) {
-      if (overdueSet.has(this.normalizeDoc(client.cnpj_cpf))) {
+      if (overdueDocSet.has(this.normalizeDoc(client.cnpj_cpf))) {
         defaultCount++;
       } else {
         paymentsCount++;
       }
     }
 
-    const monthsMap: Record<string, { default: number; payments: number }> = {};
-
+    // Monthly inadimplência: distinct clients per month
+    const monthlyOverdueMap = new Map<number, Set<string>>();
     for (const row of overdueRows) {
-      if (!row.dueDate) continue;
-      const date = new Date(row.dueDate);
-      const month = this.getMonthName(date.getUTCMonth() + 1);
-      if (!monthsMap[month]) monthsMap[month] = { default: 0, payments: 0 };
-      monthsMap[month].default++;
+      const m = Math.round(parseFloat(row.monthNum));
+      if (!monthlyOverdueMap.has(m)) monthlyOverdueMap.set(m, new Set());
+      if (row.cnpj_cpf) monthlyOverdueMap.get(m)!.add(row.cnpj_cpf);
     }
 
-    const months = Object.entries(monthsMap).map(([month, values]) => ({
-      month,
-      default: values.default,
-      payments: paymentsCount,
-    }));
+    // Monthly pagamentos from paidRows
+    const monthlyPaidMap = new Map<number, number>();
+    for (const row of paidRows) {
+      const m = Math.round(parseFloat(row.monthNum));
+      monthlyPaidMap.set(m, parseInt(row.count) || 0);
+    }
+
+    // Build months array Jan..currentMonth
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const months = [];
+    for (let m = 1; m <= currentMonth; m++) {
+      months.push({
+        month: monthNames[m - 1],
+        default: monthlyOverdueMap.get(m)?.size ?? 0,
+        payments: monthlyPaidMap.get(m) ?? 0,
+      });
+    }
 
     return { inadimplentes: defaultCount, pagamentos: paymentsCount, months };
   }
@@ -163,21 +192,25 @@ export class AppServiceGraphics {
 
     const disparos = await this.relatoryRepo
       .createQueryBuilder('r')
-      .select('EXTRACT(MONTH FROM r.createdAt)', 'month')
+      .innerJoin('r.template', 't')
+      .select('EXTRACT(MONTH FROM r.date_dispatch)', 'month')
       .addSelect('COUNT(r.id)', 'total')
       .where('r.company = :companyId', { companyId })
-      .andWhere('EXTRACT(YEAR FROM r.createdAt) = :year', { year: currentYear })
-      .groupBy('EXTRACT(MONTH FROM r.createdAt)')
+      .andWhere('EXTRACT(YEAR FROM r.date_dispatch) = :year', { year: currentYear })
+      .andWhere("LOWER(t.category) LIKE '%cobr%'")
+      .groupBy('EXTRACT(MONTH FROM r.date_dispatch)')
       .getRawMany();
 
     const retornos = await this.relatoryRepo
       .createQueryBuilder('r')
-      .select('EXTRACT(MONTH FROM r.createdAt)', 'month')
+      .innerJoin('r.template', 't')
+      .select('EXTRACT(MONTH FROM r.date_dispatch)', 'month')
       .addSelect('COUNT(r.id)', 'total')
       .where('r.company = :companyId', { companyId })
       .andWhere('r.response = true')
-      .andWhere('EXTRACT(YEAR FROM r.createdAt) = :year', { year: currentYear })
-      .groupBy('EXTRACT(MONTH FROM r.createdAt)')
+      .andWhere('EXTRACT(YEAR FROM r.date_dispatch) = :year', { year: currentYear })
+      .andWhere("LOWER(t.category) LIKE '%cobr%'")
+      .groupBy('EXTRACT(MONTH FROM r.date_dispatch)')
       .getRawMany();
 
     const monthsMap = new Map(
@@ -443,6 +476,88 @@ export class AppServiceGraphics {
     return { brackets: Array.from(map.values()) };
   }
 
+  async getPaymentProfile(companyId: string) {
+    const cacheKey = `graphics:${companyId}:payment-profile`;
+    const cached = await this.redisService.get<Awaited<ReturnType<typeof this._computePaymentProfile>>>(cacheKey);
+    if (cached) return cached;
+    const result = await this._computePaymentProfile(companyId);
+    await this.redisService.set(cacheKey, result, CACHE_TTL);
+    return result;
+  }
+
+  private async _computePaymentProfile(companyId: string) {
+    const expSql = `CASE
+      WHEN i.expiration ~ '^\\d{2}/\\d{2}/\\d{4}$' THEN TO_TIMESTAMP(i.expiration, 'DD/MM/YYYY')
+      WHEN i.expiration ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN TO_TIMESTAMP(i.expiration, 'YYYY-MM-DD')
+      ELSE NULL
+    END`;
+
+    const [distRows, trendRows] = await Promise.all([
+      this.invoiceRepo.manager.query<{ bucket: string; count: string }[]>(
+        `WITH client_avg AS (
+          SELECT
+            i."clientId",
+            AVG(EXTRACT(EPOCH FROM (i."lastSyncAt" - (${expSql}))) / 86400) AS avg_days_late
+          FROM invoice i
+          WHERE i."companyId" = $1
+            AND LOWER(TRIM(i.status)) = 'pago'
+            AND i."lastSyncAt" IS NOT NULL
+            AND (${expSql}) IS NOT NULL
+          GROUP BY i."clientId"
+        )
+        SELECT
+          CASE
+            WHEN avg_days_late <= 0 THEN 'Pontual'
+            WHEN avg_days_late <= 15 THEN 'Atrasa 1-15d'
+            WHEN avg_days_late <= 30 THEN 'Atrasa 15-30d'
+            ELSE 'Crônico +30d'
+          END AS bucket,
+          COUNT(*)::text AS count
+        FROM client_avg
+        GROUP BY bucket`,
+        [companyId],
+      ),
+
+      this.invoiceRepo.manager.query<{ month: Date; on_time_pct: string }[]>(
+        `WITH paid AS (
+          SELECT
+            DATE_TRUNC('month', i."lastSyncAt") AS month,
+            EXTRACT(EPOCH FROM (i."lastSyncAt" - (${expSql}))) / 86400 AS days_late
+          FROM invoice i
+          WHERE i."companyId" = $1
+            AND LOWER(TRIM(i.status)) = 'pago'
+            AND i."lastSyncAt" IS NOT NULL
+            AND (${expSql}) IS NOT NULL
+            AND i."lastSyncAt" >= NOW() - INTERVAL '6 months'
+        )
+        SELECT
+          month,
+          ROUND(100.0 * COUNT(CASE WHEN days_late <= 0 THEN 1 END) / NULLIF(COUNT(*), 0), 1)::text AS on_time_pct
+        FROM paid
+        GROUP BY month
+        ORDER BY month ASC`,
+        [companyId],
+      ),
+    ]);
+
+    const bucketOrder = ['Pontual', 'Atrasa 1-15d', 'Atrasa 15-30d', 'Crônico +30d'];
+    const totalClients = distRows.reduce((s, r) => s + parseInt(r.count), 0);
+
+    const distribution = bucketOrder.map((label) => {
+      const row = distRows.find((r) => r.bucket === label);
+      const count = row ? parseInt(row.count) : 0;
+      return { label, count, pct: totalClients > 0 ? Math.round((count / totalClients) * 100) : 0 };
+    });
+
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const trend = trendRows.map((r) => ({
+      month: monthNames[new Date(r.month).getUTCMonth()],
+      onTimePct: parseFloat(r.on_time_pct) || 0,
+    }));
+
+    return { distribution, trend };
+  }
+
   async invalidateDashboardCache(companyId: string) {
     await this.redisService.delByPrefix(`graphics:${companyId}:`);
   }
@@ -451,8 +566,4 @@ export class AppServiceGraphics {
     return doc.replace(/\D/g, '');
   }
 
-  private getMonthName(monthNumber: number): string {
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return months[monthNumber - 1];
-  }
 }

@@ -67,6 +67,7 @@
 
 .kpiValue       { font-size: 20px; font-weight: 700; color: #f4df9e; line-height: 1.1; }
 .kpiValue_alert { color: #ff9e9e; }
+.kpiSub         { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 2px; }
 
 /* ============================================
    TAB BAR
@@ -123,6 +124,23 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   height: 100%;
+}
+
+.gridStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+}
+
+.gridStackMain {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.gridStackSub {
+  flex: 0 0 220px;
 }
 
 .grid1col {

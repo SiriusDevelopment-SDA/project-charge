@@ -16,6 +16,7 @@ import { AppServiceClient } from '../clients/app.service.clients';
 import { TemplateMapVar } from './types/index';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import { Company } from '../companies/entities/companies';
+import { PaymentPromise } from '../payment-promise/entities/payment-promise.entity';
 import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 import { RedisService } from '../redis/redis.service';
 import { MessageQueueService } from '../message-queue/message-queue.service';
@@ -33,6 +34,9 @@ export class CampaignsService {
 
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+
+    @InjectRepository(PaymentPromise)
+    private readonly paymentPromiseRepository: Repository<PaymentPromise>,
 
     private readonly templatesService: AppServiceTemplate,
     private readonly clientService: AppServiceClient,
@@ -401,6 +405,50 @@ export class CampaignsService {
       .filter((date): date is Date => date instanceof Date)
       .sort((a, b) => b.getTime() - a.getTime())[0];
 
+    // Clientes que pagaram a fatura após disparo de cobrança (cron confirmou via ERP)
+    const invoicePaidPhones = new Set(
+      collectionRelatories
+        .filter((r) => r.recovered_amount != null)
+        .map((r) => this.normalizePhone(r.number))
+        .filter(Boolean),
+    );
+
+    const recoveredAmount = collectionRelatories
+      .filter((r) => r.recovered_amount != null)
+      .reduce((sum, r) => sum + Number(r.recovered_amount), 0);
+
+    const respondedNumbers = new Set(
+      collectionRelatories
+        .filter((r) => r.response === true)
+        .map((r) => this.normalizePhone(r.number))
+        .filter(Boolean),
+    );
+
+    const company = await this.companyRepository.findOne({
+      where: { account_chatwoot: safeAccount },
+      select: ['id'],
+    });
+
+    const keptPhones = new Set<string>();
+
+    if (company) {
+      const keptPromises = await this.paymentPromiseRepository.find({
+        where: { company_id: company.id, status: 'kept' },
+        select: ['phone'],
+      });
+      for (const p of keptPromises) {
+        const normalized = this.normalizePhone(p.phone);
+        if (normalized) keptPhones.add(normalized);
+      }
+    }
+
+    // convertedCount: pagou fatura após cobrança (via cron/ERP) OU cumpriu promessa
+    const convertedPhones = new Set([...invoicePaidPhones, ...keptPhones]);
+    const convertedCount = convertedPhones.size;
+
+    // respondedAndPaid: respondeu ao disparo E foi convertido (por qualquer via)
+    const respondedAndPaid = [...respondedNumbers].filter((n) => convertedPhones.has(n)).length;
+
     const payload = {
       chargedCustomers30d,
       respondedAfterCharge30d,
@@ -408,6 +456,9 @@ export class CampaignsService {
       openFollowups,
       noResponseOver24h,
       lastResponseAt: lastResponse ? lastResponse.toISOString() : null,
+      recoveredAmount,
+      convertedCount,
+      respondedAndPaid,
     };
 
     await this.redisService.set(cacheKey, payload, 10);

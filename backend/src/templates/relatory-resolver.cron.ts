@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RelatoryDispatchTemplate } from './entities/relatory.entity';
 import { Client } from '../clients/entities.ts/clients';
+import { Invoice } from '../invoices/entities/invoices';
 import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from '../invoices/services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
@@ -21,6 +22,9 @@ export class RelatoryResolverCron {
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
 
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
+
     private readonly ixcService: IXCInvoicesService,
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
@@ -36,7 +40,7 @@ export class RelatoryResolverCron {
        FROM relatory_dispatch_template r
        JOIN templates t ON t.id = r."templateId"
        WHERE r.resolved = false
-         AND LOWER(t.category) = 'cobrança'`,
+         AND LOWER(t.category) LIKE '%cobr%'`,
     );
 
     if (groups.length === 0) {
@@ -90,19 +94,42 @@ export class RelatoryResolverCron {
 
     if (hasPending) return false;
 
+    const [dateRow]: [{ min_dispatch: Date | null }] =
+      await this.relatoryRepository.manager.query(
+        `SELECT MIN(r.date_dispatch) AS min_dispatch
+         FROM relatory_dispatch_template r
+         JOIN templates t ON t.id = r."templateId"
+         WHERE r.number = $1 AND r."companyId" = $2
+           AND r.resolved = false AND LOWER(t.category) LIKE '%cobr%'`,
+        [number, companyId],
+      );
+
+    const minDispatch = dateRow?.min_dispatch ?? null;
+
+    const [sumRow]: [{ total: string | null }] = await this.invoiceRepository.manager.query(
+      `SELECT COALESCE(SUM(CAST(i.value AS NUMERIC)), 0)::text AS total
+       FROM invoice i
+       WHERE i."clientId" = $1
+         AND i.status = 'Pago'
+         AND ($2::timestamp IS NULL OR i."lastSyncAt" >= $2::timestamp)`,
+      [client.id, minDispatch],
+    );
+
+    const recoveredAmount = sumRow?.total ? parseFloat(sumRow.total) : 0;
+
     await this.relatoryRepository.manager.query(
       `UPDATE relatory_dispatch_template r
-       SET resolved = true
+       SET resolved = true, recovered_amount = $3
        FROM templates t
        WHERE r."templateId" = t.id
          AND r.number = $1
          AND r."companyId" = $2
          AND r.resolved = false
-         AND LOWER(t.category) = 'cobrança'`,
-      [number, companyId],
+         AND LOWER(t.category) LIKE '%cobr%'`,
+      [number, companyId, recoveredAmount],
     );
 
-    this.logger.log(`[RelatoryResolver] ${number} resolvido — sem faturas pendentes`);
+    this.logger.log(`[RelatoryResolver] ${number} resolvido — sem faturas pendentes (recuperado: R$ ${recoveredAmount.toFixed(2)})`);
     return true;
   }
 }
