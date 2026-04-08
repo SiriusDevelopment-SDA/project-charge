@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "../lib/queryClient";
 import { DispatchTemplateProvider } from "./contextDisparo";
 import { CampaignProvider } from "./contextCampaigns";
+import { InvoiceProvider } from "./contextInvoices";
 import { GlobalLoadingProvider } from "./contextGlobalLoading";
 
 export function RootProviders({ children }: { children: ReactNode }) {
@@ -11,7 +12,9 @@ export function RootProviders({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <GlobalLoadingProvider>
         <DispatchTemplateProvider>
-          <CampaignProvider>{children}</CampaignProvider>
+          <CampaignProvider>
+            <InvoiceProvider>{children}</InvoiceProvider>
+          </CampaignProvider>
         </DispatchTemplateProvider>
       </GlobalLoadingProvider>
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}

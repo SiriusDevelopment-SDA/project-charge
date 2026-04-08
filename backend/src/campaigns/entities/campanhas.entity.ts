@@ -72,6 +72,9 @@ export class Campaign {
   @Column({ type: 'jsonb', nullable: true })
   templateMapVars!: TemplateMapVar[];
 
+  @Column({ type: 'jsonb', nullable: true })
+  invoiceRule?: { operator: string; daysFrom: number; daysTo: number } | null;
+
   @Column({ type: 'varchar', default: 'queue' })
   status!: 'queue' | 'pending' | 'running' | 'finished';
 

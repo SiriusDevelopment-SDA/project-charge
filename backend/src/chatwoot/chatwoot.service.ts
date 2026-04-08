@@ -1182,7 +1182,7 @@ export class ChatwootService {
         .createQueryBuilder()
         .update(RelatoryDispatchTemplate)
         .set({ response: true, response_at: new Date() })
-        .where('company_id = :companyId', { companyId })
+        .where('"companyId" = :companyId', { companyId })
         .andWhere('response = false')
         .andWhere("regexp_replace(number, '[^0-9]', '', 'g') = :phone", { phone: normalizedPhone })
         .execute();

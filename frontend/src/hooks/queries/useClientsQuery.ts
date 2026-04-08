@@ -38,6 +38,7 @@ export function useClientsQuery(params: ClientQueryParams) {
     },
     enabled: Boolean(account),
     placeholderData: keepPreviousData,
+    refetchInterval: 30_000,
   });
 }
 

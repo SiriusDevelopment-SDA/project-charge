@@ -11,7 +11,6 @@ import {
   Legend,
 } from "recharts";
 import { useDashboardPromises } from "../../hooks/controller/dashboard/useDashboardPromises";
-import { useDashboardCollectionsMetrics } from "../../hooks/controller/dashboard/useDashboardCollectionsMetrics";
 import styles from "./GraficoPromessas.module.css";
 
 type CustomTooltipProps = { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string };
@@ -32,7 +31,6 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 
 const GraficoPromessas: React.FC = () => {
   const { promises, loading } = useDashboardPromises();
-  const { metrics } = useDashboardCollectionsMetrics();
 
   if (loading) return <div className={styles.skeleton} />;
 
@@ -43,7 +41,7 @@ const GraficoPromessas: React.FC = () => {
     { label: "Canceladas", value: promises.cancelled, color: "rgba(148,163,184,0.7)", bg: "rgba(148,163,184,0.07)" },
   ];
 
-  const recoveredAmountFormatted = metrics.recoveredAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  const recoveredAmountFormatted = (promises.keptAmount ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
   return (
     <div className={styles.container}>

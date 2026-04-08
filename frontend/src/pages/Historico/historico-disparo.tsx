@@ -5,7 +5,7 @@ import "primeflex/primeflex.css";
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAccountParam } from "../../hooks/useAccountParam";
-import { DynamicModal, MyButton, PageContainer, TitlePage } from "../../componente/Index";
+import { DynamicModal, MyButton, PageContainer, Pagination, TitlePage } from "../../componente/Index";
 import Table from "../../componente/table/tableHistory";
 import { useHistorico } from "../../hooks/useHistorico";
 import { useLatestDispatchReportController } from "../../hooks/controller/history/useLatestDispatchReportController";
@@ -212,29 +212,13 @@ export function HistoricoDisparoPage() {
 
       <Table data={histories} className={S.table} />
 
-      {total > limit && (
-        <div className={S.pagination}>
-          <button
-            type="button"
-            className={S.paginationBtn}
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            ← Anterior
-          </button>
-          <span className={S.paginationInfo}>
-            {(page - 1) * limit + 1}–{Math.min(page * limit, total)} de {total}
-          </span>
-          <button
-            type="button"
-            className={S.paginationBtn}
-            disabled={page * limit >= total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Próxima →
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        onPrev={() => setPage((p) => Math.max(p - 1, 1))}
+        onNext={() => setPage((p) => p + 1)}
+        disablePrev={page <= 1}
+        disableNext={page * limit >= total}
+      />
 
       <DynamicModal
         open={isLatestReportOpen}

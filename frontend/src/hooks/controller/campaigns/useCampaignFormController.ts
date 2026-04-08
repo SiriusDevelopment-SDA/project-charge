@@ -463,6 +463,11 @@ export function useCampaignFormController() {
         recurringDays: recurringType === "monthly_days" ? getRecurringDays() : undefined,
         clients: [...new Set(templateMapVarsForSubmit.map((item) => item.clientId))],
         templateMapVars: templateMapVarsForSubmit,
+        invoiceRule: {
+          operator: invoiceRuleOperatorState,
+          daysFrom: Math.max(0, Number(invoiceRuleDaysFromState) || 0),
+          daysTo: Math.max(0, Number(invoiceRuleDaysToState) || 0),
+        },
       };
 
       const response = await CampaignService.createCampaignRequest(payload);

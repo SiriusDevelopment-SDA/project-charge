@@ -3,6 +3,18 @@ export type CampaignStatus = "queue" | "pending" | "running" | "finished";
 
 export type RecurringType = "single" | "range" | "monthly_days";
 
+export type InvoiceRuleOperator =
+  | 'greater_than'
+  | 'less_than'
+  | 'greater_or_equal'
+  | 'less_or_equal';
+
+export type CampaignInvoiceRule = {
+  operator: InvoiceRuleOperator;
+  daysFrom: number;
+  daysTo: number;
+};
+
 export type CampaignData = {
   id: string;
   name: string;
@@ -18,6 +30,7 @@ export type CampaignData = {
   updatedAt?: string;
   isEnabled?: boolean;
   message?: string;
+  invoiceRule?: CampaignInvoiceRule | null;
   category?: { id: string; name: string } | null;
   template?: { id: string; name: string; message?: string } | null;
   company?: { id: string; name: string } | null;

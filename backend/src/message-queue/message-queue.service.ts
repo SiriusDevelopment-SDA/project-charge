@@ -5,6 +5,7 @@ import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { MessageQueue } from './entities/message-queue.entity';
 import { DispatchBatch } from './entities/dispatch-batch.entity';
 import type { MessageQueuePayload } from './entities/message-queue.entity';
+import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 
 type EnqueueBatchParams = {
   companyId: string;
@@ -41,6 +42,8 @@ export class MessageQueueService {
 
     @InjectRepository(Campaign)
     private readonly campaignRepository: Repository<Campaign>,
+
+    private readonly campaignMetricsGateway: CampaignMetricsGateway,
   ) {}
 
   async enqueueBatch(params: EnqueueBatchParams): Promise<{ batch: DispatchBatch; skipped: number; dedupedRecipients: MessageQueuePayload[] }> {
@@ -228,24 +231,45 @@ export class MessageQueueService {
   private async syncCampaignStatusFromBatch(batchId: string): Promise<void> {
     const batch = await this.batchRepository.findOne({
       where: { id: batchId },
-      relations: ['campaign'],
+      relations: ['company', 'campaign', 'campaign.company'],
       select: {
         id: true,
         campaignId: true,
+        company: { account_chatwoot: true },
         campaign: {
           id: true,
           recurring: true,
+          endDate: true,
+          company: { account_chatwoot: true },
         },
       },
     });
 
-    if (!batch?.campaignId) {
-      return;
+    if (!batch) return;
+
+    // Emite para histórico e templates independente de ser campanha ou manual
+    const account = batch.campaign?.company?.account_chatwoot ?? batch.company?.account_chatwoot;
+    if (account) {
+      this.campaignMetricsGateway.emitCampaignsSync(account);
     }
 
+    if (!batch.campaignId) return;
+
+    const campaign = batch.campaign;
+    const isFinished = !campaign?.recurring || this.isEndDateReached(campaign.endDate);
+
     await this.campaignRepository.update(batch.campaignId, {
-      status: batch.campaign?.recurring ? 'queue' : 'finished',
+      status: isFinished ? 'finished' : 'queue',
+      ...(!isFinished ? { lastDispatchedAt: new Date() } : {}),
     });
+  }
+
+  private isEndDateReached(endDate: Date): boolean {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    return today >= end;
   }
 
   async getLatestBatchByAccount(
@@ -312,9 +336,9 @@ export class MessageQueueService {
       params.push(account);
     }
 
-    const rows: Array<{ campaignId: string; recurring: boolean }> =
+    const rows: Array<{ campaignId: string; recurring: boolean; endDate: Date; account: string }> =
       await this.batchRepository.manager.query(
-        `SELECT DISTINCT b."campaignId" AS "campaignId", c.recurring AS recurring
+        `SELECT DISTINCT b."campaignId" AS "campaignId", c.recurring AS recurring, c."endDate" AS "endDate", comp.account_chatwoot AS account
          FROM dispatch_batch b
          INNER JOIN campaigns c ON c.id = b."campaignId"
          INNER JOIN company comp ON comp.id = c.company
@@ -332,9 +356,14 @@ export class MessageQueueService {
       );
 
     for (const row of rows) {
+      const isFinished = !row.recurring || this.isEndDateReached(row.endDate);
       await this.campaignRepository.update(row.campaignId, {
-        status: row.recurring ? 'queue' : 'finished',
+        status: isFinished ? 'finished' : 'queue',
+        ...(!isFinished ? { lastDispatchedAt: new Date() } : {}),
       });
+      if (row.account) {
+        this.campaignMetricsGateway.emitCampaignsSync(row.account);
+      }
     }
 
     return rows.map((row) => row.campaignId);

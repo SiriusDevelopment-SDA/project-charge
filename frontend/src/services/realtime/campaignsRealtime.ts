@@ -43,6 +43,14 @@ export function setupCampaignsSocket(account: string): () => void {
         exact: true,
         refetchType: "all",
       }),
+      queryClient.invalidateQueries({
+        queryKey: ["templates", account],
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["history", account],
+        refetchType: "all",
+      }),
       // Dashboard charts also depend on dispatch/campaign data — refresh them too
       queryClient.invalidateQueries({
         queryKey: ["dashboard"],

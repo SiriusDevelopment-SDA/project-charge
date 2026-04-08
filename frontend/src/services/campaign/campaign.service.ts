@@ -16,6 +16,11 @@ type CampaignCreatePayload = {
   recurringDays?: Array<number | string>;
   clients: string[];
   templateMapVars: Record<string, unknown>[];
+  invoiceRule?: {
+    operator: "greater_than" | "less_than" | "greater_or_equal" | "less_or_equal";
+    daysFrom: number;
+    daysTo: number;
+  } | null;
 };
 
 type CampaignMetricsFilters = {

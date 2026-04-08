@@ -37,7 +37,7 @@ export function useHistoricoQuery(params: HistoryQueryParams) {
         limit: body.limit ?? params.limit,
       };
     },
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
     enabled: Boolean(account),
     placeholderData: keepPreviousData,
   });

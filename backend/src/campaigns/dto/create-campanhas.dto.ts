@@ -9,12 +9,32 @@ import {
   Matches,
   IsUUID,
   ValidateNested,
+  IsIn,
+  IsInt,
+  Min,
 } from 'class-validator';
 import { Client } from '../../clients/entities.ts/clients';
 import { TemplateMapVar } from '../types';
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/swagger';
 import { ApiProperty } from '@nestjs/swagger';
+
+export class InvoiceRuleDto {
+  @ApiProperty({ enum: ['greater_than', 'less_than', 'greater_or_equal', 'less_or_equal'] })
+  @IsString()
+  @IsIn(['greater_than', 'less_than', 'greater_or_equal', 'less_or_equal'])
+  operator!: 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal';
+
+  @ApiProperty({ example: 0 })
+  @IsInt()
+  @Min(0)
+  daysFrom!: number;
+
+  @ApiProperty({ example: 30 })
+  @IsInt()
+  @Min(0)
+  daysTo!: number;
+}
 
 export class CreateCampaignDto {
   @ApiProperty({ example: 'Campanha cobrança março' })
@@ -84,6 +104,12 @@ export class CreateCampaignDto {
   @ValidateNested({ each: true })
   @Type(() => TemplateMapVar)
   templateMapVars!: TemplateMapVar[];
+
+  @ApiProperty({ type: () => InvoiceRuleDto, required: false })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InvoiceRuleDto)
+  invoiceRule?: InvoiceRuleDto | null;
 }
 
 export class UpdateCampaignDto extends PartialType(CreateCampaignDto) {}

@@ -443,6 +443,8 @@ export class AppServiceTemplate {
   async disableTemplate(templateId: string) {
     const template = await this.templateRepository.findOne({
       where: { id: templateId, isEnabled: true },
+      relations: { company: true },
+      select: { id: true, isEnabled: true, company: { account_chatwoot: true } },
     });
 
     if (!template) {
@@ -455,6 +457,10 @@ export class AppServiceTemplate {
     template.isEnabled = false;
     await this.templateRepository.save(template);
 
+    if (template.company?.account_chatwoot) {
+      this.campaignMetricsGateway.emitCampaignsSync(template.company.account_chatwoot);
+    }
+
     return { statusCode: 204, message: 'Template desativado!' };
   }
 
@@ -465,6 +471,7 @@ export class AppServiceTemplate {
         id: true,
         canalId_notificameHub: true,
         token_notificameHub: true,
+        account_chatwoot: true,
       },
     });
 
@@ -621,6 +628,10 @@ export class AppServiceTemplate {
       company: { id: companyId },
       name: dto.name,
     });
+
+    if (company.account_chatwoot) {
+      this.campaignMetricsGateway.emitCampaignsSync(company.account_chatwoot);
+    }
 
     return responseData;
   }
@@ -812,6 +823,7 @@ export class AppServiceTemplate {
         meta_status: true,
         company: {
           id: true,
+          account_chatwoot: true,
         },
       },
     });
@@ -829,15 +841,26 @@ export class AppServiceTemplate {
 
     await this.syncTemplateStatuses(templates);
 
-    const updated = templates.filter(
-      (template) =>
-        previousStatusById.get(template.id) !==
-        this.normalizeTemplateStatus(template.meta_status),
-    ).length;
+    const changedAccounts = new Set(
+      templates
+        .filter(
+          (template) =>
+            previousStatusById.get(template.id) !==
+            this.normalizeTemplateStatus(template.meta_status),
+        )
+        .map((template) => template.company?.account_chatwoot)
+        .filter(Boolean) as string[],
+    );
+
+    for (const account of changedAccounts) {
+      this.campaignMetricsGateway.emitCampaignsSync(account);
+    }
 
     return {
       total: templates.length,
-      updated,
+      updated: changedAccounts.size > 0 ? templates.filter(
+        (t) => previousStatusById.get(t.id) !== this.normalizeTemplateStatus(t.meta_status),
+      ).length : 0,
     };
   }
 

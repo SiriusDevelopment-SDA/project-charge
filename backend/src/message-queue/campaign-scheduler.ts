@@ -8,6 +8,7 @@ import { Templates } from '../templates/entities/templatesMeta';
 import { MessageQueueService } from './message-queue.service';
 import { isBusinessDay } from '../common/utils/business-day.util';
 import { TemplateDispatchPayloadService } from '../templates/template-dispatch-payload.service';
+import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 
 @Injectable()
 export class CampaignScheduler {
@@ -23,6 +24,8 @@ export class CampaignScheduler {
     private readonly messageQueueService: MessageQueueService,
 
     private readonly templateDispatchPayload: TemplateDispatchPayloadService,
+
+    private readonly campaignMetricsGateway: CampaignMetricsGateway,
   ) {}
 
   /**
@@ -53,7 +56,7 @@ export class CampaignScheduler {
           recurringDays: true,
           lastDispatchedAt: true,
           templateMapVars: true,
-          company: { id: true },
+          company: { id: true, account_chatwoot: true },
           template: { id: true },
         },
       });
@@ -84,6 +87,7 @@ export class CampaignScheduler {
               `[CampaignScheduler] campaign=${campaign.id} endDate=${endStr} has passed, marking as finished`,
             );
             await this.campaignRepository.update(campaign.id, { status: 'finished' });
+            this.campaignMetricsGateway.emitCampaignsSync(campaign.company.account_chatwoot);
           }
           continue;
         }
@@ -171,6 +175,7 @@ export class CampaignScheduler {
         );
 
       let batchId: string | null = null;
+      let actuallyEnqueued = 0;
       if (recipients.length > 0) {
         const { batch, dedupedRecipients } = await this.messageQueueService.enqueueBatch({
           companyId: campaign.company.id,
@@ -181,6 +186,7 @@ export class CampaignScheduler {
           scheduledAt: now,
         });
         batchId = batch.id;
+        actuallyEnqueued = batch.totalRecipients;
 
         if (dedupedRecipients.length > 0) {
           const dedupSkips = dedupedRecipients.map((r) => ({
@@ -207,25 +213,31 @@ export class CampaignScheduler {
         skips,
       );
 
-      if (recipients.length === 0) {
+      const account = campaign.company.account_chatwoot;
+
+      if (recipients.length === 0 || actuallyEnqueued === 0) {
         this.logger.warn(
-          `Campaign ${campaign.id} has no recipients for ${this.toDateOnly(now, campaign.timezone)}, skipping`,
+          `Campaign ${campaign.id} has no recipients for ${this.toDateOnly(now, campaign.timezone)}, skipping` +
+            (recipients.length > 0 ? ' (all deduped)' : ''),
         );
         await this.campaignRepository.update(campaign.id, {
           lastDispatchedAt: now,
           status: campaign.recurring ? 'queue' : 'finished',
         });
+        this.campaignMetricsGateway.emitCampaignsSync(account);
         return;
       }
 
-      // Mark as dispatched today
+      // Campanhas não recorrentes: lastDispatchedAt agora (não voltam para queue).
+      // Recorrentes: lastDispatchedAt é setado ao voltar para queue (conclusão do batch).
       await this.campaignRepository.update(campaign.id, {
-        lastDispatchedAt: now,
-        status: campaign.recurring ? 'queue' : 'running',
+        status: 'running',
+        ...(campaign.recurring ? {} : { lastDispatchedAt: now }),
       });
+      this.campaignMetricsGateway.emitCampaignsSync(account);
 
       this.logger.log(
-        `Enqueued ${recipients.length} message(s) for campaign ${campaign.id}` +
+        `Enqueued ${actuallyEnqueued} message(s) for campaign ${campaign.id}` +
           (skips.length ? `; ${skips.length} skipped (see relatório)` : ''),
       );
     } catch (err) {

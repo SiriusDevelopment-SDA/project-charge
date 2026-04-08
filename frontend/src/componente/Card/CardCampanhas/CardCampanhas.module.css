@@ -440,3 +440,142 @@
   font-size: 0.75rem;
   margin-top: 6px;
 }
+
+/* ===========================
+   MODAL DE DETALHES — RÉGUA
+=========================== */
+.detailsModalContent {
+  background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);
+  border: 1px solid rgba(199, 160, 47, 0.35);
+  border-radius: 20px;
+  max-width: 440px;
+  min-width: 320px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detailsModalHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailsModalTitle {
+  color: #d8ad36;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.detailsModalSubtitle {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.8rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.ruleTypeBadge {
+  align-self: flex-start;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 14px;
+  background: transparent;
+}
+
+.ruleTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ruleTimelineBar {
+  height: 28px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.ruleTimelineWindow {
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  border: 1px solid;
+}
+
+.ruleTimelineLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 600;
+}
+
+.ruleTimelineDue {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-weight: 700 !important;
+}
+
+.ruleDetails {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  border-top: 1px solid rgba(199, 160, 47, 0.15);
+  padding-top: 16px;
+}
+
+.ruleDetailsItem {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ruleDetailsItem span {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ruleDetailsItem strong {
+  color: #f0e8cc;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ruleNotSaved {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  text-align: center;
+  padding: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin: 0;
+}
+
+.detailsModalClose {
+  background: transparent;
+  border: 1px solid rgba(199, 160, 47, 0.4);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 11px 20px;
+  width: 100%;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.detailsModalClose:hover {
+  border-color: rgba(230, 188, 57, 0.9);
+  color: #fff;
+}

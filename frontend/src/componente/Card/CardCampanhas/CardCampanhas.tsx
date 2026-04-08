@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { ExternalLink, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Info, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useWatch } from "react-hook-form";
 import { MyCalendar, MyTimePicker } from "../../Index";
 import DynamicModal from "../../modal/modalAlertTemplate";
@@ -18,6 +18,108 @@ type Props = {
   onStatusChanged: (id: string, isEnabled: boolean) => void;
 };
 
+const OPERATOR_LABELS: Record<string, { type: string; direction: string; color: string }> = {
+  less_than:      { type: "Cobrança preventiva",    direction: "antes do vencimento", color: "#4ade80" },
+  less_or_equal:  { type: "Cobrança preventiva",    direction: "até o vencimento",    color: "#4ade80" },
+  greater_than:   { type: "Cobrança em atraso",     direction: "após o vencimento",   color: "#f87171" },
+  greater_or_equal: { type: "Cobrança em atraso",   direction: "a partir do vencimento", color: "#f87171" },
+};
+
+function CampaignDetailsContent({
+  campaign,
+  onClose,
+}: {
+  campaign: CampaignData;
+  onClose: () => void;
+}) {
+  const rule = campaign.invoiceRule;
+  const meta = rule ? (OPERATOR_LABELS[rule.operator] ?? null) : null;
+
+  const isPreventive = rule?.operator === "less_than" || rule?.operator === "less_or_equal";
+  const daysFrom = rule?.daysFrom ?? 0;
+  const daysTo = rule?.daysTo ?? 0;
+
+  const windowDescription = rule
+    ? daysFrom === daysTo
+      ? `Exatamente ${daysFrom} dia${daysFrom !== 1 ? "s" : ""} ${meta?.direction}`
+      : `De ${daysFrom} a ${daysTo} dias ${meta?.direction}`
+    : null;
+
+  return (
+    <div className={Style.detailsModalContent}>
+      <div className={Style.detailsModalHeader}>
+        <h4 className={Style.detailsModalTitle}>Régua de Cobrança</h4>
+        <p className={Style.detailsModalSubtitle}>
+          Critério usado para selecionar os destinatários desta campanha
+        </p>
+      </div>
+
+      {rule ? (
+        <>
+          <div className={Style.ruleTypeBadge} style={{ borderColor: meta?.color, color: meta?.color }}>
+            {meta?.type ?? rule.operator}
+          </div>
+
+          <div className={Style.ruleTimeline}>
+            {isPreventive ? (
+              <>
+                <div className={Style.ruleTimelineBar}>
+                  <div
+                    className={Style.ruleTimelineWindow}
+                    style={{ background: "rgba(74,222,128,0.15)", borderColor: "rgba(74,222,128,0.35)" }}
+                  />
+                </div>
+                <div className={Style.ruleTimelineLabels}>
+                  <span>‑{daysTo}d</span>
+                  <span>‑{daysFrom}d</span>
+                  <span className={Style.ruleTimelineDue}>Vencimento</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={Style.ruleTimelineBar}>
+                  <div
+                    className={Style.ruleTimelineWindow}
+                    style={{ background: "rgba(248,113,113,0.15)", borderColor: "rgba(248,113,113,0.35)" }}
+                  />
+                </div>
+                <div className={Style.ruleTimelineLabels}>
+                  <span className={Style.ruleTimelineDue}>Vencimento</span>
+                  <span>+{daysFrom}d</span>
+                  <span>+{daysTo}d</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className={Style.ruleDetails}>
+            <div className={Style.ruleDetailsItem}>
+              <span>JANELA</span>
+              <strong>{windowDescription}</strong>
+            </div>
+            <div className={Style.ruleDetailsItem}>
+              <span>DIAS INÍCIO</span>
+              <strong>{daysFrom} dia{daysFrom !== 1 ? "s" : ""}</strong>
+            </div>
+            <div className={Style.ruleDetailsItem}>
+              <span>DIAS FIM</span>
+              <strong>{daysTo} dia{daysTo !== 1 ? "s" : ""}</strong>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className={Style.ruleNotSaved}>
+          Régua de cobrança não disponível — campanha criada antes desta funcionalidade.
+        </p>
+      )}
+
+      <button type="button" className={Style.detailsModalClose} onClick={onClose}>
+        Fechar
+      </button>
+    </div>
+  );
+}
+
 function parseDateBr(value?: string) {
   if (!value) return undefined;
 
@@ -32,6 +134,7 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
     ui,
     form,
     openEdit,
+    openDetails,
     openStatusModal,
     openCalendarDisparo,
     openCalendarFinal,
@@ -96,7 +199,15 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
               {statusLabel}
             </button>
 
-            <div className={Style.actionsMenuWrapper}>
+            <div
+              className={Style.actionsMenuWrapper}
+              tabIndex={0}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  if (ui.actionsMenuOpen) toggleActionsMenu();
+                }
+              }}
+            >
               <button
                 type="button"
                 className={Style.actionsMenuButton}
@@ -108,6 +219,16 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
 
               {ui.actionsMenuOpen && (
                 <div className={Style.actionsDropdown}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openDetails();
+                      toggleActionsMenu();
+                    }}
+                  >
+                    <Info size={14} />
+                    Detalhes
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -124,7 +245,6 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
                     onClick={() => {
                       onDelete(campaign);
                       toggleActionsMenu();
-                      console.log('campaign', campaign);
                     }}
                   >
                     <Trash2 size={14} />
@@ -283,6 +403,14 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
             }}
           />
         }
+      />
+
+      <DynamicModal
+        open={ui.activeModal === "DETAILS"}
+        type="custom"
+        title={campaign.name}
+        onClose={closeModal}
+        customContent={<CampaignDetailsContent campaign={campaign} onClose={closeModal} />}
       />
 
       <DynamicModal

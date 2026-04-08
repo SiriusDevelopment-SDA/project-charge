@@ -221,6 +221,31 @@ export class CampaignsService {
       throw new NotFoundException(`Campanha do id ${id} nao encontrada!`);
     }
 
+    if (campaign.status === 'finished') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const newStartDate = new Date(updateDto.startDate ?? campaign.startDate);
+      newStartDate.setHours(0, 0, 0, 0);
+
+      if (campaign.lastDispatchedAt) {
+        const lastDispatch = new Date(campaign.lastDispatchedAt);
+        lastDispatch.setHours(0, 0, 0, 0);
+
+        if (
+          lastDispatch.getTime() === today.getTime() &&
+          newStartDate.getTime() === today.getTime()
+        ) {
+          throw new BadRequestException(
+            'Esta campanha já realizou disparo hoje. Reagende para uma data futura.',
+          );
+        }
+      }
+
+      campaign.status = 'queue';
+      campaign.lastDispatchedAt = null;
+    }
+
     const updatedCampaign = await this.campaignRepository.save(campaign);
     const account = await this.getAccountByCampaignId(updatedCampaign.id);
     await this.invalidateCampaignCache(account);

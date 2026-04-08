@@ -21,7 +21,8 @@ export type ActiveModal =
   | "CAL_DISPARO"
   | "CAL_FINAL"
   | "TIME"
-  | "TEMPLATE_PREVIEW";
+  | "TEMPLATE_PREVIEW"
+  | "DETAILS";
 
 type UiState = {
   activeModal: ActiveModal;
@@ -201,6 +202,9 @@ export function useCampaignEditController(campaign?: CampaignData) {
 
       await Promise.all([
         queryClient.invalidateQueries({
+          queryKey: queryKeys.campaigns.all(account),
+        }),
+        queryClient.invalidateQueries({
           queryKey: queryKeys.campaigns.metricsBase(account),
         }),
         queryClient.invalidateQueries({
@@ -232,6 +236,7 @@ export function useCampaignEditController(campaign?: CampaignData) {
     openTimePicker: () => dispatch({ type: "OPEN_MODAL", modal: "TIME" }),
     openTemplatePreview: () =>
       dispatch({ type: "OPEN_MODAL", modal: "TEMPLATE_PREVIEW" }),
+    openDetails: () => dispatch({ type: "OPEN_MODAL", modal: "DETAILS" }),
     returnToEdit: () => dispatch({ type: "OPEN_MODAL", modal: "EDIT" }),
     saveCampaignEdits,
     closeModal: () => dispatch({ type: "CLOSE_MODAL" }),

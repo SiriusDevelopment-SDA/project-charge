@@ -69,6 +69,7 @@ export function Campanhas() {
     isCampaignActive(campaign),
   ).length;
   const totalCampaignsCount = filteredCampaigns.length;
+  const hasRunningCampaign = filteredCampaigns.some((c) => c.status === "running");
 
   const confirmDelete = async (campaign: CampaignData) => {
     if (!campaign) return;
@@ -214,7 +215,13 @@ export function Campanhas() {
           <p>janela completa</p>
         </article>
 
-        <article className={Style.metricCard}>
+        <article className={`${Style.metricCard} ${Style.metricCardRelative}`}>
+          {hasRunningCampaign && (
+            <div className={Style.runningBadge}>
+              <span className={Style.runningDot} />
+              Enviando agora
+            </div>
+          )}
           <span>PRÓXIMO DISPARO</span>
           <strong>{metrics.nextDispatchTime ?? "--:--"}</strong>
           <p>{metrics.nextDispatchLabel}</p>
