@@ -163,7 +163,9 @@ export function deduplicateMessages(messages: ChatwootMessageItem[]): ChatwootMe
 export function sortMessagesByTime(messages: ChatwootMessageItem[]) {
   const normalizeTimestamp = (value: number | string | null | undefined) => {
     if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
+      // Chatwoot WS envia created_at em segundos Unix; DB retorna ISO string (getTime() = ms).
+      // Números < 10_000_000_000 são segundos → converter para ms para comparação uniforme.
+      return value < 10_000_000_000 ? value * 1000 : value;
     }
 
     const timestamp = new Date(String(value ?? "")).getTime();

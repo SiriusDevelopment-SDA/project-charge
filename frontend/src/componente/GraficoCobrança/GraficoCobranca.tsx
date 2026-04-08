@@ -13,8 +13,6 @@ import {
 import styles from "./GraficoCobranca.module.css";
 import { DashboardContext } from "../../context/contextDashboard";
 
-const ALL_MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-
 type TooltipEntry = { dataKey?: string; color?: string; value?: number };
 type CustomTooltipProps = { active?: boolean; payload?: TooltipEntry[]; label?: string };
 
@@ -40,14 +38,11 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 const GraficoCobranca: React.FC = () => {
   const { charges, loading } = useContext(DashboardContext)!;
 
-  const data = useMemo(() => {
-    const map = new Map(charges.map((c) => [c.month, c]));
-    return ALL_MONTHS.map((month) => ({
-      month,
-      inadimplencia: map.get(month)?.default ?? 0,
-      pagamentos: map.get(month)?.payments ?? 0,
-    }));
-  }, [charges]);
+  const data = useMemo(() => charges.map((c) => ({
+    month: c.month,
+    inadimplencia: c.default,
+    pagamentos: c.payments,
+  })), [charges]);
 
   if (loading) return <div className={styles.skeleton} />;
 

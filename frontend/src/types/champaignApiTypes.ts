@@ -47,6 +47,9 @@ export type CollectionsMetrics = {
   openFollowups: number;
   noResponseOver24h: number;
   lastResponseAt: string | null;
+  recoveredAmount: number;
+  convertedCount: number;
+  respondedAndPaid: number;
 };
 export type CampaignUpdate = {
   name?: string;

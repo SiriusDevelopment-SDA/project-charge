@@ -25,7 +25,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
             style={{ background: entry.color, boxShadow: `0 0 6px ${entry.color}` }}
           />
           <span className={styles.tooltipKey}>
-            {entry.dataKey === "disparo" ? "Disparos" : "Retornos"}
+            {entry.dataKey === "disparo" ? "Disparos" : "Respostas"}
           </span>
           <span className={styles.tooltipVal} style={{ color: entry.color }}>
             {entry.value?.toLocaleString("pt-BR") ?? 0}
@@ -43,8 +43,8 @@ const GraficoRelatorio: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.header}>
         <div>
-          <h2 className={styles.title}>Retorno de Disparos</h2>
-          <p className={styles.subtitle}>Disparos enviados vs respostas recebidas</p>
+          <h2 className={styles.title}>Disparos vs Respostas</h2>
+          <p className={styles.subtitle}>Mensagens enviadas vs clientes que responderam</p>
         </div>
         <div className={styles.legend}>
           <div className={styles.legendItem}>
@@ -53,7 +53,7 @@ const GraficoRelatorio: React.FC = () => {
           </div>
           <div className={styles.legendItem}>
             <span className={styles.legendDot} style={{ background: "rgba(255,255,255,0.35)" }} />
-            <span className={styles.legendText}>Retornos</span>
+            <span className={styles.legendText}>Respostas</span>
           </div>
         </div>
       </div>

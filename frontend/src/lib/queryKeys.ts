@@ -44,6 +44,8 @@ export const queryKeys = {
       ["dashboard", "forecast", companyId] as const,
     debtConversion: (companyId: string) =>
       ["dashboard", "debtConversion", companyId] as const,
+    paymentProfile: (companyId: string) =>
+      ["dashboard", "paymentProfile", companyId] as const,
     all: (companyId: string) =>
       ["dashboard", companyId] as const,
   },

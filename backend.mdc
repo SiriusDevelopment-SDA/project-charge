@@ -1,0 +1,40 @@
+# Arquitetura Backend - Regras Obrigatórias
+
+## Estrutura
+- controllers: lidam apenas com request/response
+- services: contém TODA regra de negócio
+- repositories/models: acesso ao banco
+
+## Controllers
+- NÃO conter lógica de negócio
+- NÃO acessar banco diretamente
+- Apenas chamar services
+
+## Services
+- Centralizar lógica de negócio
+- Reutilizar código existente sempre
+- NÃO duplicar services
+
+## Rotas / Endpoints
+- NÃO criar endpoints duplicados
+- Se houver variação (ex: novo parâmetro), adaptar o service existente
+- NÃO criar novas rotas sem necessidade
+
+## Reutilização
+- Sempre procurar código existente antes de criar novo
+- Preferir refatorar ao invés de duplicar
+
+## Organização
+- Seguir padrão já existente no projeto
+- NÃO criar arquivos novos sem necessidade clara
+
+## Proibições
+- ❌ lógica no controller
+- ❌ duplicação de services
+- ❌ duplicação de endpoints
+- ❌ acesso direto ao banco fora de repository/service
+
+## Boas práticas
+- Código limpo e reutilizável
+- Nomeação consistente
+- Separação clara de responsabilidades

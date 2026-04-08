@@ -78,4 +78,7 @@ export class RelatoryDispatchTemplate {
 
   @Column({ default: false })
   resolved!: boolean;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  recovered_amount?: number | null;
 }
