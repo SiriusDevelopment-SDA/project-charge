@@ -238,6 +238,12 @@ export function ClientesVencidos() {
   const [syncState, setSyncState] = useState<InvoiceSyncState | null>(null);
   const completedSyncTokenRef = useRef<string | null>(null);
   const latestLoadRequestRef = useRef(0);
+  // Cache da lista completa de vencidos para evitar o loop de 38+ requests ao trocar filtros client-side
+  const allOverdueCacheRef = useRef<{
+    key: string;
+    clients: Cliente[];
+    summary: OverdueSnapshotSummary | null;
+  } | null>(null);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
   const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
@@ -329,10 +335,12 @@ export function ClientesVencidos() {
         setPromisesMap(result.promisesMap);
         setDispatchCountMap(result.dispatchCountMap);
 
-        const campaignsData = await fetchCampaignsForClients(result.clients);
-        if (!cancelled && latestLoadRequestRef.current === requestId) {
-          setCampaignsMap(campaignsData);
-        }
+        // Campanhas carregam em background — não bloqueiam a exibição dos clientes
+        void fetchCampaignsForClients(result.clients).then((campaignsData) => {
+          if (!cancelled && latestLoadRequestRef.current === requestId) {
+            setCampaignsMap(campaignsData);
+          }
+        });
 
         if (syncResponse?.data) {
           setSyncState(syncResponse.data);
@@ -516,6 +524,12 @@ export function ClientesVencidos() {
     agingFilter?: AgingFilter,
     debtFilter?: DebtFilter,
   ) {
+    // Cache evita o loop de requests ao trocar entre filtros promise/dispatch com mesmos parâmetros base
+    const cacheKey = `${account}|${query}|${agingFilter ?? ''}|${debtFilter ?? ''}`;
+    if (allOverdueCacheRef.current?.key === cacheKey) {
+      return allOverdueCacheRef.current;
+    }
+
     const allClients: Cliente[] = [];
     let page = 1;
     let total = 0;
@@ -546,7 +560,9 @@ export function ClientesVencidos() {
       page += 1;
     }
 
-    return { clients: allClients, summary };
+    const result = { key: cacheKey, clients: allClients, summary };
+    allOverdueCacheRef.current = result;
+    return result;
   }
 
   async function enrichClients(
@@ -787,6 +803,9 @@ export function ClientesVencidos() {
     const f = latestFiltersRef.current;
     if (!f.account) return;
 
+    // Invalida cache de clientes vencidos para forçar re-fetch com dados atualizados
+    allOverdueCacheRef.current = null;
+
     const requestId = ++latestLoadRequestRef.current;
 
     try {
@@ -822,10 +841,11 @@ export function ClientesVencidos() {
       setPromisesMap(result.promisesMap);
       setDispatchCountMap(result.dispatchCountMap);
 
-      const campaignsData = await fetchCampaignsForClients(result.clients);
-      if (latestLoadRequestRef.current === requestId) {
-        setCampaignsMap(campaignsData);
-      }
+      void fetchCampaignsForClients(result.clients).then((campaignsData) => {
+        if (latestLoadRequestRef.current === requestId) {
+          setCampaignsMap(campaignsData);
+        }
+      });
 
       if (showToast) {
         toast.success("Lista de clientes vencidos atualizada.");

@@ -15,6 +15,7 @@ import { RelatoryDispatchTemplate } from './templates/entities/relatory.entity';
 import { Invoice } from './invoices/entities/invoices';
 import { InvoiceSyncState } from './invoices/entities/invoice-sync-state.entity';
 import { InvoicesController } from './invoices/controllers/invoicesController';
+import { InvoicesService } from './invoices/invoices.service';
 import { Company } from './companies/entities/companies';
 import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from './invoices/services/hubsoftInvoicesService';
@@ -128,6 +129,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     ClientInteractionService,
     MessageQueueService,
     MessageQueueWorker,
+    InvoicesService,
     IXCInvoicesService,
     HubsoftInvoicesService,
     SGPInvoicesService,

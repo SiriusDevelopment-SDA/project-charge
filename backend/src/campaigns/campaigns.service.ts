@@ -6,7 +6,7 @@
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, ILike, In, Not, Repository } from 'typeorm';
+import { Between, ILike, Repository } from 'typeorm';
 import { DateTime } from 'luxon';
 import { Campaign } from './entities/campanhas.entity';
 import { CreateCampaignDto } from './dto/create-campanhas.dto';
@@ -153,6 +153,8 @@ export class CampaignsService {
   ): Promise<Record<string, Campaign[]>> {
     if (!clientIds.length) return {};
 
+    // Single JOIN: resolve campaign↔client associations + campaign data in one round-trip
+    // Explicit select avoids loading heavy fields (e.g. template body) that are unused here
     const rows: { campaignId: string; clientId: string }[] =
       await this.campaignRepository.manager.query(
         `SELECT "campaignId", "clientId" FROM campaign_clients WHERE "clientId" = ANY($1)`,
@@ -163,10 +165,33 @@ export class CampaignsService {
 
     const uniqueCampaignIds = [...new Set(rows.map((r) => r.campaignId))];
 
-    const campaigns = await this.campaignRepository.find({
-      where: { id: In(uniqueCampaignIds) },
-      relations: ['template', 'category'],
-    });
+    const campaigns = await this.campaignRepository
+      .createQueryBuilder('campaign')
+      .leftJoinAndSelect('campaign.template', 'template')
+      .leftJoinAndSelect('campaign.category', 'category')
+      .select([
+        'campaign.id',
+        'campaign.name',
+        'campaign.status',
+        'campaign.startDate',
+        'campaign.endDate',
+        'campaign.dispatchTime',
+        'campaign.timezone',
+        'campaign.recurring',
+        'campaign.recurringType',
+        'campaign.recurringDays',
+        'campaign.isEnabled',
+        'campaign.lastDispatchedAt',
+        'campaign.createdAt',
+        'campaign.templateMapVars',
+        'campaign.invoiceRule',
+        'template.id',
+        'template.name',
+        'category.id',
+        'category.name',
+      ])
+      .where('campaign.id IN (:...ids)', { ids: uniqueCampaignIds })
+      .getMany();
 
     const campaignById = new Map(campaigns.map((c) => [c.id, c]));
     const result: Record<string, Campaign[]> = {};
