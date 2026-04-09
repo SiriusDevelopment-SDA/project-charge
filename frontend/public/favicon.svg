@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="120%" y2="120%">
+      <stop offset="0%" stop-color="#1C2030"/>
+      <stop offset="100%" stop-color="#111520"/>
+    </linearGradient>
+    <linearGradient id="a" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF6A00"/>
+      <stop offset="100%" stop-color="#FFD000"/>
+    </linearGradient>
+    <clipPath id="c"><rect width="64" height="64" rx="12"/></clipPath>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#bg)"/>
+  <g clip-path="url(#c)">
+    <path d="M0,5 C9,11 14,24 20,34 C25,41 29,48 32,54 L0,54 Z" fill="#C01818" opacity="0.85"/>
+    <path d="M32,54 C35,45 41,32 48,20 C53,11 59,6 64,4 L64,54 Z" fill="#C06000" opacity="0.8"/>
+    <path d="M1,6 C10,12 15,25 21,35 C26,42 30,49 32,54 C35,46 41,33 48,20 C53,11 59,6 63,5"
+      fill="none" stroke="url(#a)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  </g>
+  <circle cx="32" cy="54" r="3.5" fill="#FFD000" filter="url(#glow)"/>
+  <circle cx="32" cy="54" r="6.5" fill="none" stroke="#FFD000" stroke-width="1" opacity="0.5"/>
+</svg>
