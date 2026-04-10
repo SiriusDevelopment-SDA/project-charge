@@ -244,6 +244,17 @@ export class InvoiceSyncCron {
 
   private async cacheOpenInvoices(companyId: string): Promise<void> {
     try {
+      const count = await this.invoiceRepo.count({
+        where: { company: { id: companyId }, status: 'A Receber' },
+      });
+
+      if (count > 5000) {
+        this.logger.warn(
+          `[InvoiceSync] Cache de faturas ignorado para empresa ${companyId}: ${count} registros excedem o limite (5000). Consultas usarão o banco diretamente.`,
+        );
+        return;
+      }
+
       const openInvoices = await this.invoiceRepo.find({
         where: { company: { id: companyId }, status: 'A Receber' },
         select: {
@@ -468,29 +479,17 @@ export class InvoiceSyncCron {
     fetchedInvoiceIds: Set<string>,
     syncTime: Date,
   ) {
-    const currentOpenInvoices = await this.invoiceRepo.find({
-      where: {
-        company: { id: companyId },
-        status: 'A Receber',
-      },
-      select: ['id', 'id_fatura'],
-    });
+    const fetchedArray = [...fetchedInvoiceIds];
+    if (!fetchedArray.length) return;
 
-    const staleIds = currentOpenInvoices
-      .filter((invoice) => !fetchedInvoiceIds.has(String(invoice.id_fatura ?? '')))
-      .map((invoice) => invoice.id);
-
-    if (!staleIds.length) return;
-
-    for (const chunk of toChunks(staleIds, CHUNK_SIZE)) {
-      await this.invoiceRepo.update(
-        { id: In(chunk) },
-        {
-          status: 'Pago',
-          lastSyncAt: syncTime,
-        },
-      );
-    }
+    await this.invoiceRepo
+      .createQueryBuilder()
+      .update()
+      .set({ status: 'Pago', lastSyncAt: syncTime })
+      .where('"companyId" = :companyId', { companyId })
+      .andWhere("LOWER(TRIM(status)) = 'a receber'")
+      .andWhere('"id_fatura" NOT IN (:...fetchedIds)', { fetchedIds: fetchedArray })
+      .execute();
   }
 
   private async markClientsAsChecked(clientIds: string[], syncTime: Date) {

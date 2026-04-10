@@ -99,16 +99,8 @@ export class IXCInvoicesService {
                   ? t.id_contrato_avulso
                   : null;
       
-              let pixCode = '';
-              try {
-                const responsePix = await this.getPixByInvoice({
-                  companyId: empresa.id,
-                  invoiceId: String(t.id),
-                });
-                pixCode = responsePix.pix ?? '';
-              } catch {
-                // PIX indisponível para esta fatura — continua sem bloquear o disparo
-              }
+              // PIX é buscado sob demanda via /invoices/pix/batch — não carregado aqui para evitar N chamadas ao ERP por fatura
+              const pixCode = '';
 
               return {
                 invoice_id: String(t.id) ?? null,

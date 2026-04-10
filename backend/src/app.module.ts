@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from './database/database.module';
@@ -66,6 +67,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([Client]),
     TypeOrmModule.forFeature([Templates]),
@@ -135,6 +137,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     TemplateDispatchPayloadService,
     CampaignScheduler,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
   exports: [
     AppServiceTemplate, 

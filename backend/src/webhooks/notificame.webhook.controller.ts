@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import { Public } from '../auth/decorators/public.decorator';
+import { SkipThrottle } from '@nestjs/throttler';
 
 type NotificaMeMessageStatus = {
   timestamp?: string;
@@ -34,6 +35,7 @@ const STATUS_CODE_MAP: Record<string, RelatoryDispatchTemplate['status_sent']> =
   UNDELIVERED: 'failed',
 };
 
+@SkipThrottle()
 @Controller('webhooks')
 export class NotificaMeWebhookController {
   private readonly logger = new Logger(NotificaMeWebhookController.name);
@@ -51,7 +53,7 @@ export class NotificaMeWebhookController {
       return { received: true };
     }
 
-    this.logger.log(`[Webhook] Payload recebido: ${JSON.stringify(body)}`);
+    this.logger.verbose(`[Webhook] type=${body.type ?? 'unknown'} messageId=${body.messageId ?? '-'}`);
 
     if (body.type === 'MESSAGE') {
       return this.handleIncomingMessage(body);

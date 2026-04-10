@@ -53,6 +53,11 @@ export default <TypeOrmModuleAsyncOptions>{
         ChatSessionMessage,
       ],
       synchronize: configService.get('NODE_ENV') !== 'production',
+      extra: {
+        max: 20,
+        min: 2,
+        idleTimeoutMillis: 30000,
+      },
     };
   },
 };

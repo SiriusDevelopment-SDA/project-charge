@@ -10,7 +10,7 @@ import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 import { PaymentPromise } from '../payment-promise/entities/payment-promise.entity';
 import { RedisService } from '../redis/redis.service';
 
-const CACHE_TTL = 30; // seconds
+const CACHE_TTL = 300; // seconds (5 minutes — dados de cobrança não mudam por segundo)
 
 @Injectable()
 export class AppServiceGraphics {
@@ -60,11 +60,12 @@ export class AppServiceGraphics {
       ELSE NULL
     END`;
 
-    const [clients, overdueRows, paidRows] = await Promise.all([
-      this.clientRepo.find({
-        where: { company: { id: companyId } },
-        select: ['cnpj_cpf'],
-      }),
+    const [totalClients, overdueRows, paidRows] = await Promise.all([
+      this.clientRepo
+        .createQueryBuilder('client')
+        .innerJoin('client.company', 'company')
+        .where('company.id = :companyId', { companyId })
+        .getCount(),
 
       // Monthly overdue count grouped by due date month (current year, up to current month)
       this.invoiceRepo
@@ -95,17 +96,9 @@ export class AppServiceGraphics {
         .getRawMany<{ monthNum: string; count: string }>(),
     ]);
 
-    // Totals for KPI delinquency rate
-    const overdueDocSet = new Set(overdueRows.map(r => r.cnpj_cpf));
-    let defaultCount = 0;
-    let paymentsCount = 0;
-    for (const client of clients) {
-      if (overdueDocSet.has(this.normalizeDoc(client.cnpj_cpf))) {
-        defaultCount++;
-      } else {
-        paymentsCount++;
-      }
-    }
+    // Totals for KPI delinquency rate — cnpj_cpf já vem normalizado da query
+    const defaultCount = new Set(overdueRows.map((r) => r.cnpj_cpf).filter(Boolean)).size;
+    const paymentsCount = totalClients - defaultCount;
 
     // Monthly inadimplência: distinct clients per month
     const monthlyOverdueMap = new Map<number, Set<string>>();
@@ -243,16 +236,18 @@ export class AppServiceGraphics {
   private async _computeCampaignsStats(companyId: string) {
     const campaigns = await this.campaignRepo.find({
       where: { company: { id: companyId } },
-      relations: ['clients'],
       order: { createdAt: 'DESC' },
       take: 10,
     });
 
     const stats = await Promise.all(
       campaigns.map(async (campaign, index) => {
-        const totalClients = campaign.clients?.length ?? 0;
-
-        const [totalDispatched, totalResponded] = await Promise.all([
+        const [totalClients, totalDispatched, totalResponded] = await Promise.all([
+          this.campaignRepo
+            .createQueryBuilder('campaign')
+            .innerJoin('campaign.clients', 'client')
+            .where('campaign.id = :id', { id: campaign.id })
+            .getCount(),
           this.relatoryRepo.count({
             where: { campaign: { id: campaign.id } },
           }),

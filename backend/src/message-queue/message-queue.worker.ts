@@ -136,8 +136,8 @@ export class MessageQueueWorker implements OnModuleInit {
         message_send_ttl_seconds: 3600,
       };
 
-      this.logger.log(
-        `[Job ${job.id.slice(0, 8)}] Payload NotificaMe → ${JSON.stringify(requestBody)}`,
+      this.logger.verbose(
+        `[Job ${job.id.slice(0, 8)}] → ${normalizedNumber} template=${template.name}`,
       );
       const response = await fetch(
         `${this.baseUrl}/channels/whatsapp/messages`,
@@ -165,7 +165,7 @@ export class MessageQueueWorker implements OnModuleInit {
         );
       } else {
         this.logger.log(
-          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} — resposta completa: ${JSON.stringify(result)}`,
+          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} id=${typeof result.id === 'string' ? result.id.slice(0, 12) : '-'}`,
         );
       }
 
