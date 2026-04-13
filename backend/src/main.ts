@@ -17,11 +17,7 @@ async function bootstrap() {
   app.use(require('compression')());
   app.use(require('express').json({ limit: '10mb' }));
   app.use(require('express').urlencoded({ limit: '10mb', extended: true }));
-  app.enableCors({
-    // origin: configService.get<string>('NODE_ENV') === 'production'
-    //   ? ['https://cobranca.coraxy.com.br']
-    //   : ""});
-    });
+  app.enableCors();
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   app.setGlobalPrefix('api');

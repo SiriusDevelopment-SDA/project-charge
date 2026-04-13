@@ -121,6 +121,7 @@ export class AuthService {
         account_chatwoot: true,
         token_system_coraxy: true,
         active: true,
+        config: true,
       },
     });
 
@@ -133,6 +134,8 @@ export class AuthService {
       company.name,
       company.account_chatwoot,
       company.active,
+      undefined,
+      this.extractPagePermissions(company.config),
     );
   }
 
@@ -167,6 +170,7 @@ export class AuthService {
       email: normalizedEmail,
       password: dto.password,
       role: normalizedRole,
+      authorization,
     });
 
     let saved: Agent;
@@ -262,6 +266,7 @@ export class AuthService {
         active: company.active,
       },
       promiseAutomation: this.normalizePromiseAutomationSettings(company.config),
+      permissions: this.extractPagePermissions(company.config),
       agent: agent
         ? {
             id: agent.id,
@@ -989,6 +994,7 @@ export class AuthService {
       agentRole?: AgentRole;
       agentActive?: boolean;
     },
+    permissions?: ReturnType<typeof this.extractPagePermissions>,
   ) {
     const payload: JwtPayload = {
       sub: companyId,
@@ -1012,6 +1018,7 @@ export class AuthService {
         account: companyAccount,
         active: companyActive,
       },
+      permissions: permissions ?? this.extractPagePermissions(null),
       agent: agent?.agentId
         ? {
             id: agent.agentId,
@@ -1021,6 +1028,15 @@ export class AuthService {
             active: agent.agentActive ?? true,
           }
         : null,
+    };
+  }
+
+  private extractPagePermissions(config: Record<string, any> | null) {
+    const cfg = (config as Record<string, any>) ?? {};
+    return {
+      dashboard: cfg.page_dashboard !== false,
+      clientesVencidos: cfg.page_clientesVencidos !== false,
+      chat: cfg.page_chat !== false,
     };
   }
 

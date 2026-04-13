@@ -19,6 +19,7 @@ export type TemplateBalloonCardProps = {
 export type PaginationProps = {
   className?: string;
   page: number;
+  totalPages?: number;
   onPrev: () => void;
   onNext: () => void;
   disablePrev?: boolean;

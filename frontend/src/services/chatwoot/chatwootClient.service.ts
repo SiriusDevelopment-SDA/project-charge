@@ -37,11 +37,12 @@ export class ChatwootClientService {
   static async listMessages(
     account: string,
     conversationId: number,
-    options?: { inboxIdentifier?: string | null; contactIdentifier?: string | null }
+    options?: { inboxIdentifier?: string | null; contactIdentifier?: string | null; refresh?: boolean }
   ): Promise<ChatwootMessageItem[]> {
     const query = new URLSearchParams({ account });
     if (options?.inboxIdentifier) query.set("inboxIdentifier", options.inboxIdentifier);
     if (options?.contactIdentifier) query.set("contactIdentifier", options.contactIdentifier);
+    if (options?.refresh) query.set("refresh", "true");
     query.set("_ts", String(Date.now()));
     const { data } = await Api.get<{ data: ChatwootMessageItem[] }>(
       `/chatwoot/conversations/${conversationId}/messages?${query.toString()}`,

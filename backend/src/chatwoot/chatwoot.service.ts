@@ -148,36 +148,152 @@ export class ChatwootService {
     const cached = await this.redisService.get<any>(cacheKey);
     if (cached) return cached;
 
-    const rows = await this.chatSessionHistoryService.listConversations({
-      companyId: context.company.id,
-      status: query.status ?? null,
-      teamId,
-    });
+    // Fetch from Chatwoot API and sync to DB so chat_session stays current
+    let payload: { data: any[] } | null = null;
+    try {
+      const readCtx = await this.resolveReadContext(query.account, authorization);
+      const apiConvs = await this.fetchAllConversationsFromApi(
+        readCtx.account,
+        readCtx.token,
+        query.status ?? null,
+        teamId,
+      );
 
-    const payload = {
-      data: rows.map((s) => ({
-        id: s.externalConversationId,
-        status: s.status,
-        inboxId: s.externalInboxId,
-        contactId: s.externalContactId,
-        contactName: s.contactName ?? `Conversa #${s.externalConversationId}`,
-        phone: s.phone ?? '',
-        labels: s.labels ?? [],
-        assigneeName: s.assigneeName,
-        teamName: s.teamName,
-        lastMessage: s.lastMessage ?? '',
-        protocol: s.protocol,
-        report: s.report,
-        generatedProtocol: s.generatedProtocol,
-        unreadCount: s.unreadCount ?? 0,
-        updatedAt: s.lastExternalUpdatedAt ?? s.updatedAt,
-        contactIdentifier: s.contactIdentifier,
-        inboxIdentifier: s.inboxIdentifier,
-      })),
-    };
+      if (apiConvs.length > 0) {
+        await this.chatSessionHistoryService.syncAttendances({
+          companyId: context.company.id,
+          account: query.account,
+          rows: apiConvs.map((c: any) => ({
+            snapshot: this.mapApiConversationToSnapshot(c),
+            rawPayload: c,
+          })),
+        });
+      }
+
+      payload = {
+        data: apiConvs.map((c: any) => {
+          const snapshot = this.mapApiConversationToSnapshot(c);
+          return {
+            id: snapshot.id,
+            status: snapshot.status,
+            inboxId: snapshot.inboxId,
+            contactId: snapshot.contactId,
+            contactName: snapshot.contactName ?? `Conversa #${snapshot.id}`,
+            phone: snapshot.phone ?? '',
+            labels: snapshot.labels ?? [],
+            assigneeName: snapshot.assigneeName,
+            teamName: snapshot.teamName,
+            lastMessage: snapshot.lastMessage ?? '',
+            protocol: snapshot.protocol,
+            report: snapshot.report,
+            generatedProtocol: snapshot.generatedProtocol,
+            unreadCount: snapshot.unreadCount ?? 0,
+            updatedAt: snapshot.updatedAt,
+            contactIdentifier: snapshot.contactIdentifier,
+            inboxIdentifier: snapshot.inboxIdentifier,
+          };
+        }),
+      };
+    } catch (err: any) {
+      this.logger.warn(`[listConversations] Falha ao buscar da API Chatwoot, usando DB local: ${err?.message}`);
+    }
+
+    // Fallback: read from local DB if API failed
+    if (!payload) {
+      const rows = await this.chatSessionHistoryService.listConversations({
+        companyId: context.company.id,
+        status: query.status ?? null,
+        teamId,
+      });
+      payload = {
+        data: rows.map((s) => ({
+          id: s.externalConversationId,
+          status: s.status,
+          inboxId: s.externalInboxId,
+          contactId: s.externalContactId,
+          contactName: s.contactName ?? `Conversa #${s.externalConversationId}`,
+          phone: s.phone ?? '',
+          labels: s.labels ?? [],
+          assigneeName: s.assigneeName,
+          teamName: s.teamName,
+          lastMessage: s.lastMessage ?? '',
+          protocol: s.protocol,
+          report: s.report,
+          generatedProtocol: s.generatedProtocol,
+          unreadCount: s.unreadCount ?? 0,
+          updatedAt: s.lastExternalUpdatedAt ?? s.updatedAt,
+          contactIdentifier: s.contactIdentifier,
+          inboxIdentifier: s.inboxIdentifier,
+        })),
+      };
+    }
 
     await this.redisService.set(cacheKey, payload, 20);
     return payload;
+  }
+
+  private mapApiConversationToSnapshot(conv: any) {
+    const meta = conv.meta ?? {};
+    const sender = meta.sender ?? {};
+    const assignee = meta.assignee ?? {};
+    const team = meta.team ?? {};
+    const attrs = conv.additional_attributes ?? {};
+
+    return {
+      id: Number(conv.id),
+      status: conv.status ?? null,
+      inboxId: conv.inbox_id ?? null,
+      contactId: sender.id ?? null,
+      assigneeId: assignee.id ?? null,
+      teamId: team.id ?? null,
+      contactName: sender.name ?? null,
+      phone: sender.phone_number ?? null,
+      labels: Array.isArray(conv.labels) ? conv.labels : [],
+      assigneeName: assignee.name ?? null,
+      teamName: team.name ?? null,
+      lastMessage: conv.last_non_activity_message?.content ?? null,
+      protocol: attrs.protocol ?? null,
+      report: attrs.report ?? null,
+      generatedProtocol: Boolean(attrs.generated_protocol),
+      unreadCount: conv.unread_count ?? 0,
+      updatedAt: conv.last_activity_at ?? null,
+      contactIdentifier: sender.identifier ?? null,
+      inboxIdentifier: null as string | null,
+    };
+  }
+
+  private async fetchAllConversationsFromApi(
+    account: string,
+    token: string,
+    status: string | null,
+    teamId: string | number | null,
+  ): Promise<any[]> {
+    const all: any[] = [];
+    const maxPages = 5;
+
+    for (let page = 1; page <= maxPages; page++) {
+      const params = new URLSearchParams({ page: String(page) });
+      if (status) params.set('status', status);
+      if (teamId) params.set('team_id', String(teamId));
+
+      const data = await this.chatwootRequest(
+        account,
+        token,
+        `/conversations?${params.toString()}`,
+        { method: 'GET' },
+        true,
+      );
+
+      const payload = data?.data?.payload ?? data?.payload ?? [];
+      const rows: any[] = Array.isArray(payload) ? payload : [];
+
+      all.push(...rows);
+
+      // If fewer than 25 results, no more pages
+      if (rows.length < 25) break;
+    }
+
+    return all;
   }
 
   async syncRealtimeEvent(
@@ -266,18 +382,24 @@ export class ChatwootService {
     _inboxIdentifier?: string,
     _contactIdentifier?: string,
     authorization?: string,
+    refresh?: boolean,
   ) {
     const context = await this.resolveAgentContext(account, authorization);
     const cacheKey = `chatwoot:${account}:msg:${context.agentId}:${conversationId}`;
-    const cached = await this.redisService.get<any>(cacheKey);
-    if (cached) return cached;
 
-    const rows = await this.chatSessionHistoryService.listMessagesByConversation({
-      companyId: context.company.id,
-      conversationId,
-    });
+    if (!refresh) {
+      const cached = await this.redisService.get<any>(cacheKey);
+      if (cached) return cached;
+    }
 
-    // Conversa órfã: sem mensagens no banco → busca no Chatwoot e sincroniza.
+    const rows = refresh
+      ? []
+      : await this.chatSessionHistoryService.listMessagesByConversation({
+          companyId: context.company.id,
+          conversationId,
+        });
+
+    // Conversa órfã ou refresh forçado: busca no Chatwoot e sincroniza.
     if (rows.length === 0) {
       try {
         const readCtx = await this.resolveReadContext(account, authorization);
@@ -849,37 +971,29 @@ export class ChatwootService {
     return agentId;
   }
 
-  private async resolveProvisioningContext(companyId: string) {
+  private async resolveProvisioningContext(companyId: string, authorization?: string) {
     const baseContext = await this.resolvePlatformAccessContext(companyId);
     const company = baseContext.company;
-    const config = baseContext.config;
     const teamId = this.toNumericId(company.teamChargeId);
 
-    const adminToken = String(
-      config.chatwoot_admin_token ??
-      config.chatwoot_app_token ??
-      config.chatwoot_token_admin ??
-      config.acess_token_admin_chatwoot ??
-      '',
-    ).trim();
+    // Admin token = token do agente admin logado que está fazendo a requisição
+    let adminToken: string | null = null;
+    if (authorization) {
+      try {
+        const agentCtx = await this.resolveAgentContext(company.account_chatwoot, authorization);
+        adminToken = agentCtx.token || null;
+      } catch {
+        // nao bloqueia o provisionamento se nao conseguir resolver o token
+      }
+    }
 
     return {
       account: company.account_chatwoot,
       accountId: baseContext.accountId,
-      adminToken: adminToken || null,
+      adminToken,
       platformToken: baseContext.platformToken,
       teamId,
     };
-  }
-
-  private extractCompanyAdminToken(config: Record<string, any>) {
-    return String(
-      config.chatwoot_admin_token ??
-      config.chatwoot_app_token ??
-      config.chatwoot_token_admin ??
-      config.acess_token_admin_chatwoot ??
-      '',
-    ).trim() || null;
   }
 
   private async resolvePlatformAccessContext(companyId: string) {
@@ -978,15 +1092,7 @@ export class ChatwootService {
   }
 
   private async resolveReadContext(account: string, authorization?: string) {
-    const agentContext = await this.resolveAgentContext(account, authorization);
-    const adminToken = this.extractCompanyAdminToken(
-      ((agentContext.company.config as Record<string, any> | null) ?? {}) as Record<string, any>,
-    );
-
-    return {
-      ...agentContext,
-      token: adminToken || agentContext.token,
-    };
+    return this.resolveAgentContext(account, authorization);
   }
 
   private async resolveManageContext(account: string, authorization?: string) {
@@ -1357,8 +1463,9 @@ export class ChatwootService {
     email: string;
     password: string;
     role: AgentRole;
+    authorization?: string;
   }): Promise<ChatwootProvisionResult> {
-    const context = await this.resolveProvisioningContext(input.companyId);
+    const context = await this.resolveProvisioningContext(input.companyId, input.authorization);
     const user = await this.platformRequest('/platform/api/v1/users', context.platformToken, {
       method: 'POST',
       body: JSON.stringify({
@@ -1390,16 +1497,35 @@ export class ChatwootService {
       },
     );
 
-    if (context.teamId && context.adminToken) {
-      await this.chatwootRequest(
-        context.account,
-        context.adminToken,
-        `/teams/${context.teamId}/team_members`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ user_ids: [userId] }),
-        },
-        true,
+    if (context.teamId) {
+      if (!context.adminToken) {
+        this.logger.warn(
+          `[provisionAgent] teamChargeId=${context.teamId} configurado mas adminToken ausente — agente userId=${userId} nao sera adicionado ao time de cobranca`,
+        );
+      } else {
+        const teamResult = await this.chatwootRequest(
+          context.account,
+          context.adminToken,
+          `/teams/${context.teamId}/team_members`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ user_ids: [userId] }),
+          },
+          true,
+        );
+        if (teamResult !== null) {
+          this.logger.log(
+            `[provisionAgent] userId=${userId} adicionado ao time ${context.teamId} com sucesso`,
+          );
+        } else {
+          this.logger.warn(
+            `[provisionAgent] Falha ao adicionar userId=${userId} ao time ${context.teamId} (chatwoot retornou null)`,
+          );
+        }
+      }
+    } else {
+      this.logger.verbose(
+        `[provisionAgent] teamChargeId nao configurado na empresa — agente userId=${userId} criado sem time de cobranca`,
       );
     }
 

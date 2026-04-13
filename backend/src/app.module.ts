@@ -34,6 +34,7 @@ import { GraphicsController } from './graphics/app.controller.graphics';
 import { TemplateVarsValidator } from './validations';
 import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
 import { InvoicesSyncGateway } from './realtime/invoices-sync.gateway';
+import { ChatGateway } from './realtime/chat.gateway';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { JwtModule } from '@nestjs/jwt';
@@ -118,6 +119,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     TemplateVarsValidator,
     CampaignMetricsGateway,
     InvoicesSyncGateway,
+    ChatGateway,
     AuthService,
     ChatwootService,
     ChatSessionHistoryService,

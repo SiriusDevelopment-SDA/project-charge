@@ -1528,6 +1528,7 @@ export function ClientesVencidos() {
           <Pagination
             className={Style.Pagination}
             page={currentPage}
+            totalPages={totalPages}
             onPrev={() => setCurrentPage((page) => Math.max(page - 1, 1))}
             onNext={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
             disablePrev={currentPage === 1}
