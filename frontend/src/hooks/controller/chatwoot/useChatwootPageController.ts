@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { ChatwootClientService } from "../../../services/chatwoot/chatwootClient.service";
-import {
-  createChatwootRealtimeConnection,
-  type ChatwootRealtimeConfig,
-} from "../../../services/realtime/chatwootRealtime";
+import { setupChatSocket } from "../../../services/realtime/chatRealtime";
 import { AppStorage } from "../../../services/storage/storage.service";
 import { useAccountParam } from "../../useAccountParam";
 import type {
@@ -17,16 +14,12 @@ import type {
 import { getErrorMessage } from "../../../utils/error";
 import {
   areLabelsDifferent,
-  extractConversationId,
   getConversationSearchText,
   groupConversationsByClient,
   isHumanPickupConversation,
   isIaConversation,
   deduplicateMessages,
   normalizeLabels,
-  normalizeRealtimeConversation,
-  normalizeRealtimeMessage,
-  REALTIME_CONVERSATION_EVENTS,
   sortMessagesByTime,
   type ChatwootQueue,
 } from "./chatwootHelpers";
@@ -48,16 +41,15 @@ export function useChatwootPageController() {
   const activeIdRef = useRef<number | null>(null);
   const teamIdRef = useRef<string | null>(null);
   const fetchConversationsRef = useRef<(options?: { silent?: boolean; showErrorToast?: boolean }) => Promise<void>>(() => Promise.resolve());
-  const loadMessagesRef = useRef<(conversationId: number) => Promise<void>>(() => Promise.resolve());
+  const loadMessagesRef = useRef<(conversationId: number, refresh?: boolean) => Promise<void>>(() => Promise.resolve());
   const resolvedAccountRef = useRef<string>("");
 
   const [chatAccount, setChatAccount] = useState("");
   const [apiOk, setApiOk] = useState(false);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [availableLabels, setAvailableLabels] = useState<string[]>([]);
-  const [realtimeConfig, setRealtimeConfig] = useState<ChatwootRealtimeConfig | null>(null);
   const [currentChatwootUserId, setCurrentChatwootUserId] = useState<number | null>(null);
-  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [chatSocketConnected, setChatSocketConnected] = useState(false);
   const [ready, setReady] = useState(false);
   const [bootErr, setBootErr] = useState<string | null>(null);
 
@@ -68,9 +60,6 @@ export function useChatwootPageController() {
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatwootMessageItem[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  // Cache de mensagens recebidas via WS para conversas não ativas.
-  // Quando o agente abre a conversa, as mensagens são mescladas com as do banco.
-  const wsPendingMessagesRef = useRef<Map<number, ChatwootMessageItem[]>>(new Map());
 
   const [teams, setTeams] = useState<ChatwootTeam[]>([]);
   const [agents, setAgents] = useState<ChatwootAgent[]>([]);
@@ -137,13 +126,6 @@ export function useChatwootPageController() {
 
         const normalizedAccount = String(bootstrap.company.account ?? "").trim();
         const targetAccount = normalizedAccount || account;
-        const expectedAccountId = Number(normalizedAccount);
-        const realtimeAccountId = Number(bootstrap.chatwoot.realtime?.accountId ?? 0);
-        const realtimeMatchesAccount =
-          !realtimeAccountId ||
-          !Number.isFinite(expectedAccountId) ||
-          expectedAccountId <= 0 ||
-          realtimeAccountId === expectedAccountId;
 
         setChatAccount(targetAccount);
         setApiOk(bootstrap.chatwoot.permissions?.accountApi ?? false);
@@ -163,27 +145,6 @@ export function useChatwootPageController() {
             : null,
         );
         setSelectedAgentId(bootstrap.chatwoot.realtime?.userId ?? null);
-        console.log('realtimeAccountId', realtimeAccountId);
-        // setBootErr(
-        //   !realtimeMatchesAccount
-        //     ? `O token Maestro deste agente pertence à account ${realtimeAccountId}, mas esta empresa usa a account ${normalizedAccount}. Atualize o token individual do agente.`
-        //     : null,
-        // );
-        setRealtimeConfig(
-          realtimeMatchesAccount &&
-            bootstrap.chatwoot.realtime?.enabled &&
-            bootstrap.chatwoot.realtime.cableUrl &&
-            bootstrap.chatwoot.realtime.pubsubToken &&
-            bootstrap.chatwoot.realtime.accountId &&
-            bootstrap.chatwoot.realtime.userId
-            ? {
-                cableUrl: bootstrap.chatwoot.realtime.cableUrl,
-                pubsubToken: bootstrap.chatwoot.realtime.pubsubToken,
-                accountId: bootstrap.chatwoot.realtime.accountId,
-                userId: bootstrap.chatwoot.realtime.userId,
-              }
-            : null,
-        );
 
         if (bootstrap.chatwoot.permissions?.accountApi) {
           const [nextTeams, nextAgents] = await Promise.all([
@@ -284,22 +245,25 @@ export function useChatwootPageController() {
 
   useEffect(() => {
     if (!ready) return;
-    if (realtimeConfig && realtimeConnected) return;
+    if (chatSocketConnected) return;
 
     const intervalId = window.setInterval(() => {
       void fetchConversations({ silent: true });
     }, 15_000);
 
     return () => window.clearInterval(intervalId);
-  }, [fetchConversations, ready, realtimeConfig, realtimeConnected]);
+  }, [fetchConversations, ready, chatSocketConnected]);
 
   const loadMessages = useCallback(
-    async (conversationId: number) => {
+    async (conversationId: number, refresh?: boolean) => {
       if (!resolvedAccount) return;
 
       const conversation = conversations.find((item) => item.id === conversationId);
-      setLoadingMessages(true);
-      setMessages([]);
+
+      if (!refresh) {
+        setLoadingMessages(true);
+        setMessages([]);
+      }
 
       try {
         const rows = await ChatwootClientService.listMessages(
@@ -308,18 +272,14 @@ export function useChatwootPageController() {
           {
             inboxIdentifier: conversation?.inboxIdentifier ?? null,
             contactIdentifier: conversation?.contactIdentifier ?? null,
+            refresh,
           },
         );
-        // Mescla com mensagens que chegaram via WS enquanto a conversa não estava ativa
-        const pending = wsPendingMessagesRef.current.get(conversationId) ?? [];
-        wsPendingMessagesRef.current.delete(conversationId);
-        const dbIds = new Set(rows.map((m) => m.id));
-        const merged = [...rows, ...pending.filter((m) => !dbIds.has(m.id))];
-        setMessages(sortMessagesByTime(deduplicateMessages(merged)));
+        setMessages(sortMessagesByTime(deduplicateMessages(rows)));
       } catch {
-        setMessages([]);
+        if (!refresh) setMessages([]);
       } finally {
-        setLoadingMessages(false);
+        if (!refresh) setLoadingMessages(false);
       }
     },
     [conversations, resolvedAccount],
@@ -466,122 +426,42 @@ export function useChatwootPageController() {
   }, [locallyReadConversationIds, resolvedAccount]);
 
   useEffect(() => {
-    if (!realtimeConfig) {
-      setRealtimeConnected(false);
-      return;
-    }
+    if (!resolvedAccount) return;
 
-    const connection = createChatwootRealtimeConnection(realtimeConfig, {
-      onOpen: () => setRealtimeConnected(true),
-      onClose: () => setRealtimeConnected(false),
-      onError: () => setRealtimeConnected(false),
-      onEvent: ({ event, data }) => {
-        if (!REALTIME_CONVERSATION_EVENTS.has(event)) return;
+    const teardown = setupChatSocket(resolvedAccount, {
+      onConnect: () => setChatSocketConnected(true),
+      onDisconnect: () => setChatSocketConnected(false),
+      onSync: (data) => {
+        void fetchConversationsRef.current({ silent: true });
 
-        // For message.created, data.id is the MESSAGE id — extract conversation id from
-        // data.conversation_id or data.conversation.id instead.
-        const targetConversationId =
-          event === "message.created" && data
-            ? (() => {
-                const raw = data as Record<string, unknown>;
-                const fromConvId = Number(raw.conversation_id ?? null);
-                if (Number.isFinite(fromConvId) && fromConvId > 0) return fromConvId;
-                const conv = raw.conversation as Record<string, unknown> | undefined;
-                const fromConv = Number(conv?.id ?? null);
-                return Number.isFinite(fromConv) && fromConv > 0 ? fromConv : null;
-              })()
-            : extractConversationId(data);
+        if (data.message && data.conversationId) {
+          const incoming: ChatwootMessageItem = {
+            id: data.message.id,
+            content: data.message.content,
+            senderType: data.message.senderType,
+            senderName: data.message.senderName,
+            createdAt: data.message.createdAt,
+          };
 
-        if (event === "message.created" && data) {
-          const incomingMessage = normalizeRealtimeMessage(data);
-
-          if (incomingMessage && targetConversationId) {
-            if (activeIdRef.current === targetConversationId) {
-              // Conversa ativa: adiciona direto no state
-              setMessages((prev) =>
-                sortMessagesByTime([
-                  ...prev.filter((m) => m.id !== incomingMessage.id),
-                  incomingMessage,
-                ]),
-              );
-            } else {
-              // Conversa não ativa: guarda no cache WS para quando o agente abrir
-              const pending = wsPendingMessagesRef.current;
-              const existing = pending.get(targetConversationId) ?? [];
-              const alreadyIn = existing.some((m) => m.id === incomingMessage.id);
-              if (!alreadyIn) {
-                pending.set(targetConversationId, [...existing, incomingMessage]);
-              }
-            }
-
-            if (incomingMessage.content) {
-              setConversations((prev) =>
-                prev.map((c) =>
-                  c.id === targetConversationId
-                    ? {
-                        ...c,
-                        lastMessage: incomingMessage.content,
-                        unreadCount:
-                          activeIdRef.current === targetConversationId
-                            ? 0
-                            : c.unreadCount + 1,
-                      }
-                    : c,
-                ),
-              );
-            }
-
-            // Persiste a mensagem no banco em background
-            ChatwootClientService.syncWsEvent(resolvedAccountRef.current, event, data);
-          }
-
-          return;
-        }
-
-        // Para eventos de conversa (status, assignee, team, etc.):
-        // atualiza o state diretamente a partir do payload WS — sem chamar API externa.
-        if (data) {
-          const updatedConv = normalizeRealtimeConversation(data);
-          if (updatedConv) {
-            setConversations((prev) => {
-              const exists = prev.some((c) => c.id === updatedConv.id);
-              if (exists) {
-                return prev.map((c) =>
-                  c.id === updatedConv.id
-                    ? {
-                        ...c,
-                        status: updatedConv.status,
-                        assigneeName: updatedConv.assigneeName ?? c.assigneeName,
-                        teamName: updatedConv.teamName ?? c.teamName,
-                        teamId: updatedConv.teamId ?? c.teamId,
-                        labels: updatedConv.labels.length > 0 ? updatedConv.labels : c.labels,
-                        unreadCount: updatedConv.unreadCount,
-                        updatedAt: updatedConv.updatedAt ?? c.updatedAt,
-                        lastMessage: updatedConv.lastMessage || c.lastMessage,
-                      }
-                    : c,
-                );
-              }
-              // Nova conversa: só adiciona se pertencer ao time configurado
-              const numericTeamId = teamIdRef.current ? Number(teamIdRef.current) : null;
-              if (numericTeamId && updatedConv.teamId !== numericTeamId) {
-                return prev;
-              }
-              return [updatedConv, ...prev];
-            });
-
-            // Persiste no banco em background
-            ChatwootClientService.syncWsEvent(resolvedAccountRef.current, event, data);
+          if (activeIdRef.current === data.conversationId) {
+            setMessages((prev) =>
+              sortMessagesByTime([...prev.filter((m) => m.id !== incoming.id), incoming]),
+            );
+          } else {
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === data.conversationId
+                  ? { ...c, lastMessage: incoming.content, unreadCount: c.unreadCount + 1 }
+                  : c,
+              ),
+            );
           }
         }
       },
     });
 
-    return () => {
-      connection.disconnect();
-      setRealtimeConnected(false);
-    };
-  }, [realtimeConfig]);
+    return teardown;
+  }, [resolvedAccount]);
 
   const doneQueue = useMemo(
     () => conversations.filter((conversation) => conversation.status === "resolved"),

@@ -10,6 +10,8 @@ import { isBusinessDay } from '../common/utils/business-day.util';
 import { TemplateDispatchPayloadService } from '../templates/template-dispatch-payload.service';
 import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 import { InvoicesService } from '../invoices/invoices.service';
+import { InvoiceSyncCron } from '../invoices/invoice-sync.cron';
+import { InvoiceSyncState } from '../invoices/entities/invoice-sync-state.entity';
 
 @Injectable()
 export class CampaignScheduler {
@@ -22,6 +24,9 @@ export class CampaignScheduler {
     @InjectRepository(Templates)
     private readonly templateRepository: Repository<Templates>,
 
+    @InjectRepository(InvoiceSyncState)
+    private readonly syncStateRepo: Repository<InvoiceSyncState>,
+
     private readonly messageQueueService: MessageQueueService,
 
     private readonly templateDispatchPayload: TemplateDispatchPayloadService,
@@ -29,6 +34,8 @@ export class CampaignScheduler {
     private readonly campaignMetricsGateway: CampaignMetricsGateway,
 
     private readonly invoicesService: InvoicesService,
+
+    private readonly invoiceSyncCron: InvoiceSyncCron,
   ) {}
 
   /**
@@ -167,6 +174,7 @@ export class CampaignScheduler {
         this.logger.log(
           `[CampaignScheduler] campaign=${campaign.id} modo=dinâmico referenceDate=${referenceDate}`,
         );
+        await this.ensureSyncedToday(campaign.company.id, now, campaign.timezone);
         scopedTemplateMapVars = await this.invoicesService.getRecipientsForDispatchDate(
           campaign.company.id,
           campaign.invoiceRule!,
@@ -344,6 +352,39 @@ export class CampaignScheduler {
       const parsedDay = Number(normalizedValue);
       return Number.isInteger(parsedDay) && parsedDay === dayOfMonth;
     });
+  }
+
+  private async ensureSyncedToday(companyId: string, now: Date, timezone: string): Promise<void> {
+    const todayStr = this.toDateOnly(now, timezone);
+
+    const syncState = await this.syncStateRepo.findOne({
+      where: { company: { id: companyId } },
+    });
+
+    const lastSuccessStr = syncState?.lastSuccessAt
+      ? this.toDateOnly(syncState.lastSuccessAt, timezone)
+      : null;
+
+    if (lastSuccessStr === todayStr) {
+      this.logger.log(
+        `[CampaignScheduler] company=${companyId} sync já realizado hoje (${todayStr}), prosseguindo`,
+      );
+      return;
+    }
+
+    this.logger.warn(
+      `[CampaignScheduler] company=${companyId} sync não realizado hoje (lastSuccess=${lastSuccessStr ?? 'nunca'}), forçando sincronização...`,
+    );
+
+    try {
+      await this.invoiceSyncCron.syncCompanyById(companyId);
+      this.logger.log(`[CampaignScheduler] company=${companyId} sync forçado concluído`);
+    } catch (err) {
+      this.logger.error(
+        `[CampaignScheduler] company=${companyId} falha no sync forçado, prosseguindo com snapshot atual`,
+        err,
+      );
+    }
   }
 
   private toDateOnly(date: Date, timeZone: string): string {

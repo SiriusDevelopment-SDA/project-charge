@@ -14,6 +14,7 @@ import { DashboardProvider } from "../context/contextDashboard";
 import { NotFoundPage } from "../pages/NotFound/NotFound";
 import { BlockedRoute } from "./BlockedRoute";
 import { AgentOnlyRoute } from "./AgentOnlyRoute";
+import { PermissionRoute } from "./PermissionRoute";
 import { PerfilPage } from "../pages/Perfil/Perfil";
 
 export function AppRoutes() {
@@ -40,14 +41,14 @@ export function AppRoutes() {
 
         {/* rotas bloqueadas quando a empresa está inativa */}
         <Route path="templates" element={<BlockedRoute><Templates /></BlockedRoute>} />
-        <Route path="clientesVencidos" element={<BlockedRoute><ClientesVencidos /></BlockedRoute>} />
+        <Route path="clientesVencidos" element={<BlockedRoute><PermissionRoute page="clientesVencidos"><ClientesVencidos /></PermissionRoute></BlockedRoute>} />
         <Route path="createTemplate" element={<BlockedRoute><CreateTemplate /></BlockedRoute>} />
-        <Route path="dashboard" element={<BlockedRoute><DashboardProvider><Dashboard /></DashboardProvider></BlockedRoute>} />
+        <Route path="dashboard" element={<BlockedRoute><PermissionRoute page="dashboard"><DashboardProvider><Dashboard /></DashboardProvider></PermissionRoute></BlockedRoute>} />
         <Route
           path="chat"
           element={
             <AgentOnlyRoute>
-              <BlockedRoute><ChatwootPage /></BlockedRoute>
+              <BlockedRoute><PermissionRoute page="chat"><ChatwootPage /></PermissionRoute></BlockedRoute>
             </AgentOnlyRoute>
           }
         />

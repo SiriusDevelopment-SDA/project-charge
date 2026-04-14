@@ -299,6 +299,7 @@ export default function TemplatesMeta() {
       <Pagination
         className={Style.Pagination}
         page={page}
+        totalPages={totalPages}
         onPrev={() => setPage((prev) => Math.max(prev - 1, 1))}
         onNext={() => setPage((prev) => Math.min(prev + 1, totalPages))}
         disablePrev={page === 1}

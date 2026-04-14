@@ -24,7 +24,22 @@ services:
     image: redis:7-alpine
     container_name: project-charge-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: >
+      redis-server
+      --appendonly yes
+      --auto-aof-rewrite-percentage 100
+      --auto-aof-rewrite-min-size 64mb
+      --aof-rewrite-incremental-fsync yes
+      --activedefrag yes
+      --active-defrag-ignore-bytes 50mb
+      --active-defrag-threshold-lower 10
+      --active-defrag-threshold-upper 100
+      --active-defrag-cycle-min 1
+      --active-defrag-cycle-max 25
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --lazyfree-lazy-eviction yes
+      --lazyfree-lazy-expire yes
     ports:
       - "6379:6379"
     volumes:

@@ -164,14 +164,28 @@ export class InvoicesController {
       );
     }
 
-    const [summaryRow, mappedClients, checkedClients, clientsWithSnapshot, clientsWithOpenInvoices] =
-      await Promise.all([
-        baseQuery
-          .clone()
-          .select('COUNT(DISTINCT client.id)', 'totalClients')
-          .addSelect('COUNT(invoice.id)', 'totalInvoices')
-          .addSelect(`COALESCE(SUM(${amountSql}), 0)`, 'totalDebt')
-          .getRawOne<{ totalClients: string; totalInvoices: string; totalDebt: string }>(),
+    type StaticStats = { mappedClients: number; checkedClients: number; clientsWithSnapshot: number; clientsWithOpenInvoices: number };
+    const staticStatsKey = `invoices:${account}:summary-stats`;
+
+    const [summaryRow, cachedStaticStats] = await Promise.all([
+      baseQuery
+        .clone()
+        .select('COUNT(DISTINCT client.id)', 'totalClients')
+        .addSelect('COUNT(invoice.id)', 'totalInvoices')
+        .addSelect(`COALESCE(SUM(${amountSql}), 0)`, 'totalDebt')
+        .getRawOne<{ totalClients: string; totalInvoices: string; totalDebt: string }>(),
+      this.redisService.get<StaticStats>(staticStatsKey),
+    ]);
+
+    let mappedClients: number;
+    let checkedClients: number;
+    let clientsWithSnapshot: number;
+    let clientsWithOpenInvoices: number;
+
+    if (cachedStaticStats) {
+      ({ mappedClients, checkedClients, clientsWithSnapshot, clientsWithOpenInvoices } = cachedStaticStats);
+    } else {
+      [mappedClients, checkedClients, clientsWithSnapshot, clientsWithOpenInvoices] = await Promise.all([
         this.clientRepo
           .createQueryBuilder('client')
           .innerJoin('client.company', 'company')
@@ -200,6 +214,8 @@ export class InvoicesController {
           .distinct(true)
           .getCount(),
       ]);
+      await this.redisService.set(staticStatsKey, { mappedClients, checkedClients, clientsWithSnapshot, clientsWithOpenInvoices }, 60);
+    }
 
     // Grouped query with optional HAVING for aging/debt filters
     const groupedQuery = baseQuery
@@ -227,9 +243,18 @@ export class InvoicesController {
     let clientIds: string[];
 
     if (hasStructuredFilter) {
-      const allRows = await groupedQuery.getRawMany<{ id: string; oldestExpiration: string }>();
-      total = allRows.length;
-      clientIds = allRows.slice(skip, skip + safeLimit).map((row) => row.id);
+      const cloned = groupedQuery.clone();
+      const [countResult, pageRows] = await Promise.all([
+        this.clientRepo.manager
+          .createQueryBuilder()
+          .select('COUNT(*)', 'cnt')
+          .from(`(${cloned.getQuery()})`, 'sub')
+          .setParameters(cloned.getParameters())
+          .getRawOne<{ cnt: string }>(),
+        groupedQuery.offset(skip).limit(safeLimit).getRawMany<{ id: string; oldestExpiration: string }>(),
+      ]);
+      total = parseInt(countResult?.cnt ?? '0', 10);
+      clientIds = pageRows.map((row) => row.id);
     } else {
       const [count, pageRows] = await Promise.all([
         baseQuery.clone().select('client.id').distinct(true).getCount(),

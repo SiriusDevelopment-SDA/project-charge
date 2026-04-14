@@ -71,6 +71,7 @@ export default function ModalCardCampanhas({
             <Pagination
               className={Style.Pagination}
               page={page}
+              totalPages={totalPages}
               onPrev={() => setPage((prev: number) => Math.max(prev - 1, 1))}
               onNext={() =>
                 setPage((prev: number) => Math.min(prev + 1, totalPages))

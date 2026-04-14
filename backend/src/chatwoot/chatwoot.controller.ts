@@ -56,6 +56,7 @@ export class ChatwootController {
       query.inboxIdentifier,
       query.contactIdentifier,
       authorization,
+      query.refresh === 'true',
     );
   }
 

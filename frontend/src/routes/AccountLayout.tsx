@@ -46,6 +46,7 @@ export function AccountLayout() {
           AppStorage.setAccount(result.company.account);
           AppStorage.setCompanyName(result.company.name);
           AppStorage.setCompanyActive(result.company.active);
+          AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
           AppStorage.setEmbedSignature(embedSignature);
           AppStorage.setAuthMode("embed");
           setAccount(result.company.account);
@@ -92,6 +93,7 @@ export function AccountLayout() {
         AppStorage.setCompanyName(result.company.name);
         AppStorage.setCompanyCnpj(result.company.cnpj ?? '');
         AppStorage.setCompanyActive(result.company.active);
+        AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
         if (result.agent?.id) {
           AppStorage.setAgentName(result.agent.name ?? "");
           AppStorage.setAuthMode("agent");

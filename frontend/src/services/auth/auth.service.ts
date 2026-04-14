@@ -11,6 +11,12 @@ type EmbedLoginPayload = {
   token: string;
 };
 
+export type PagePermissions = {
+  dashboard: boolean;
+  clientesVencidos: boolean;
+  chat: boolean;
+};
+
 type LoginResponse = {
   success: boolean;
   accessToken: string;
@@ -20,6 +26,7 @@ type LoginResponse = {
     account: string;
     active: boolean;
   };
+  permissions?: PagePermissions | null;
   agent?: {
     id: string;
     name: string | null;
@@ -44,6 +51,7 @@ type MeResponse = {
     autoBreakEnabled: boolean;
     checkPaymentBeforeBreak: boolean;
   };
+  permissions?: PagePermissions | null;
   agent?: {
     id: string;
     name: string | null;

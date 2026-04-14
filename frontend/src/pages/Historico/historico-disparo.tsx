@@ -23,7 +23,7 @@ function getBatchStatusLabel(status?: DispatchBatchStatus["status"]) {
   return "Lote";
 }
 
-function formatBatchDate(value?: string | Date) {
+function formatBatchDate(value?: string | Date | null) {
   if (!value) return "-";
 
   const parsedDate = value instanceof Date ? value : new Date(value);
@@ -214,6 +214,7 @@ export function HistoricoDisparoPage() {
 
       <Pagination
         page={page}
+        totalPages={total > 0 ? Math.ceil(total / limit) : undefined}
         onPrev={() => setPage((p) => Math.max(p - 1, 1))}
         onNext={() => setPage((p) => p + 1)}
         disablePrev={page <= 1}

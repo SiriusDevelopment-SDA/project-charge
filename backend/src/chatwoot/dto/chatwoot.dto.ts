@@ -52,6 +52,11 @@ export class ChatwootAccountQueryDto {
   @IsOptional()
   @IsString()
   _ts?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  refresh?: string;
 }
 
 export class ChatwootConversationParamDto {

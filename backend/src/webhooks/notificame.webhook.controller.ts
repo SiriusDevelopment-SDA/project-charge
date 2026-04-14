@@ -2,7 +2,27 @@ import { Body, Controller, Logger, Post } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
+import { ChatSession } from '../chatwoot/entities/chat-session.entity';
+import { Company } from '../companies/entities/companies';
 import { Public } from '../auth/decorators/public.decorator';
+import { ChatGateway } from '../realtime/chat.gateway';
+import { RedisService } from '../redis/redis.service';
+
+type NotificaMeMessageContent = {
+  type: string;
+  text?: string;
+  [key: string]: unknown;
+};
+
+type NotificaMeMessagePayload = {
+  id?: string;
+  from?: string;
+  to?: string;
+  contents?: NotificaMeMessageContent[];
+  timestamp?: string;
+  visitor?: { name?: string; [key: string]: unknown };
+  [key: string]: unknown;
+};
 
 type NotificaMeMessageStatus = {
   timestamp?: string;
@@ -13,13 +33,17 @@ type NotificaMeMessageStatus = {
 
 type NotificaMeWebhookPayload = {
   type?: string;
+  id?: string;
   timestamp?: string;
   subscriptionId?: string;
   channel?: string;
+  direction?: string;
   messageId?: string;
   contentIndex?: number;
   messageStatus?: NotificaMeMessageStatus;
   from?: string;
+  message?: NotificaMeMessagePayload;
+  providerMessageId?: string;
   [key: string]: unknown;
 };
 
@@ -41,6 +65,12 @@ export class NotificaMeWebhookController {
   constructor(
     @InjectRepository(RelatoryDispatchTemplate)
     private readonly relatoryRepository: Repository<RelatoryDispatchTemplate>,
+    @InjectRepository(ChatSession)
+    private readonly chatSessionRepository: Repository<ChatSession>,
+    @InjectRepository(Company)
+    private readonly companyRepository: Repository<Company>,
+    private readonly chatGateway: ChatGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   @Public()
@@ -51,7 +81,7 @@ export class NotificaMeWebhookController {
       return { received: true };
     }
 
-    this.logger.log(`[Webhook] Payload recebido: ${JSON.stringify(body)}`);
+    this.logger.verbose(`[Webhook] type=${body.type ?? 'unknown'} id=${body.id ?? '-'}`);
 
     if (body.type === 'MESSAGE') {
       return this.handleIncomingMessage(body);
@@ -71,31 +101,23 @@ export class NotificaMeWebhookController {
     const rawCode = String(body.messageStatus?.code ?? '').toUpperCase();
 
     if (candidateMessageIds.length === 0) {
-      this.logger.warn(
-        '[Webhook] MESSAGE_STATUS sem identificador de mensagem, ignorando',
-      );
+      this.logger.warn('[Webhook] MESSAGE_STATUS sem identificador de mensagem, ignorando');
       return { received: true };
     }
 
     const newStatus = STATUS_CODE_MAP[rawCode];
     if (!newStatus) {
-      this.logger.warn(
-        `[Webhook] Status desconhecido: "${rawCode}" - ids: ${candidateMessageIds.join(', ')}`,
-      );
+      this.logger.warn(`[Webhook] Status desconhecido: "${rawCode}" - ids: ${candidateMessageIds.join(', ')}`);
       return { received: true };
     }
 
     const relatory = await this.relatoryRepository
       .createQueryBuilder('relatory')
-      .where('relatory.external_message_id IN (:...candidateMessageIds)', {
-        candidateMessageIds,
-      })
+      .where('relatory.external_message_id IN (:...candidateMessageIds)', { candidateMessageIds })
       .getOne();
 
     if (!relatory) {
-      this.logger.warn(
-        `[Webhook] Nenhum relatorio com external_message_id para ids: ${candidateMessageIds.join(', ')}`,
-      );
+      this.logger.warn(`[Webhook] Nenhum relatorio com external_message_id para ids: ${candidateMessageIds.join(', ')}`);
       return { received: true };
     }
 
@@ -103,9 +125,7 @@ export class NotificaMeWebhookController {
 
     await this.relatoryRepository.update(relatory.id, {
       status_sent: newStatus,
-      ...(isResponse && !relatory.response
-        ? { response: true, response_at: new Date() }
-        : {}),
+      ...(isResponse && !relatory.response ? { response: true, response_at: new Date() } : {}),
     });
 
     const isFailed = newStatus === 'error' || newStatus === 'failed';
@@ -118,7 +138,8 @@ export class NotificaMeWebhookController {
   }
 
   private async handleIncomingMessage(body: NotificaMeWebhookPayload) {
-    const rawFrom = String(body.from ?? '').replace(/\D/g, '');
+    const msgPayload = body.message;
+    const rawFrom = String(msgPayload?.from ?? body.from ?? '').replace(/\D/g, '');
     const channelContextIds = this.extractChannelContextIds(body);
 
     if (!rawFrom) {
@@ -133,32 +154,91 @@ export class NotificaMeWebhookController {
       return { received: true };
     }
 
+    // Marca relatorio como respondido
     const relatory = await this.relatoryRepository
       .createQueryBuilder('relatory')
-      .innerJoin('relatory.company', 'company')
+      .innerJoinAndSelect('relatory.company', 'company')
       .where('relatory.number = :number', { number: rawFrom })
       .andWhere('relatory.response = false')
-      .andWhere('company.canalId_notificameHub IN (:...channelContextIds)', {
-        channelContextIds,
-      })
+      .andWhere('company.canalId_notificameHub IN (:...channelContextIds)', { channelContextIds })
       .orderBy('relatory.date_dispatch', 'DESC')
       .getOne();
 
-    if (!relatory) {
+    if (relatory) {
+      await this.relatoryRepository.update(relatory.id, {
+        response: true,
+        response_at: new Date(),
+      });
+      this.logger.log(
+        `[Webhook] Resposta recebida de ${rawFrom} - relatorio ${relatory.id.slice(0, 8)} marcado como respondido`,
+      );
+    } else {
       this.logger.verbose(
         `[Webhook] MESSAGE de ${rawFrom} - nenhum relatorio pendente de resposta para os canais ${channelContextIds.join(', ')}`,
       );
+    }
+
+    // Extrai conteudo da mensagem
+    const contents = Array.isArray(msgPayload?.contents) ? msgPayload.contents : [];
+    const textContent = contents.find((c) => c.type === 'text')?.text ?? null;
+    const senderName = String(msgPayload?.visitor?.name ?? '').trim() || rawFrom;
+    const messageId = String(msgPayload?.id ?? body.id ?? '');
+    const createdAt = String(msgPayload?.timestamp ?? body.timestamp ?? new Date().toISOString());
+
+    if (!textContent) {
+      this.logger.verbose(`[Webhook] MESSAGE de ${rawFrom} sem conteudo de texto, ignorando emissao`);
       return { received: true };
     }
 
-    await this.relatoryRepository.update(relatory.id, {
-      response: true,
-      response_at: new Date(),
-    });
+    // Resolve empresa: primeiro pelo relatorio, depois pelo canal diretamente
+    let account = String((relatory?.company as any)?.account_chatwoot ?? '').trim();
+    let companyId = String((relatory?.company as any)?.id ?? '').trim();
 
-    this.logger.log(
-      `[Webhook] Resposta recebida de ${rawFrom} - relatorio ${relatory.id.slice(0, 8)} marcado como respondido`,
-    );
+    if (!account || !companyId) {
+      const company = await this.companyRepository
+        .createQueryBuilder('company')
+        .where('company.canalId_notificameHub IN (:...channelContextIds)', { channelContextIds })
+        .getOne();
+
+      account = String(company?.account_chatwoot ?? '').trim();
+      companyId = String(company?.id ?? '').trim();
+    }
+
+    if (!account || !companyId) {
+      this.logger.warn(`[Webhook] Nao foi possivel resolver account/company para phone ${rawFrom}`);
+      return { received: true };
+    }
+
+    const session = await this.chatSessionRepository
+      .createQueryBuilder('session')
+      .where('session.companyId = :companyId', { companyId })
+      .andWhere(
+        '(session.normalizedPhone = :phone OR session.phone = :phone)',
+        { phone: rawFrom },
+      )
+      .andWhere('session.status IN (:...statuses)', { statuses: ['open', 'pending'] })
+      .orderBy('session.lastExternalUpdatedAt', 'DESC')
+      .getOne();
+
+    if (!session) {
+      this.logger.verbose(`[Webhook] Nenhuma sessao ativa encontrada para phone ${rawFrom}`);
+      return { received: true };
+    }
+
+    // Limpa cache Redis das mensagens desta conversa
+    void this.redisService.delByPrefix(`chatwoot:${account}:msg:`);
+
+    // Emite para o frontend com dados completos da mensagem
+    this.chatGateway.emitChatSync(account, {
+      conversationId: session.externalConversationId,
+      message: {
+        id: messageId,
+        content: textContent,
+        senderType: 'contact',
+        senderName,
+        createdAt,
+      },
+    });
 
     return { received: true };
   }

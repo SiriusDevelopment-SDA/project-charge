@@ -479,6 +479,19 @@ svg {
    STATUS (TAG)
 ====================================================== */
 
+.p-tag {
+  padding: 3px 10px !important;
+  max-width: 310px;
+}
+
+.p-tag .p-tag-value {
+  display: block;
+  max-width: 40ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .p-tag-success {
   background-color: #16a34a !important;
   color: #ffffff !important;
@@ -516,8 +529,6 @@ svg {
   color: rgba(255, 244, 209, 0.55);
   line-height: 1.3;
   text-align: center;
-  max-width: 220px;
-  word-break: break-word;
 }
 
 /* ======================================================

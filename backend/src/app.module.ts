@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from './database/database.module';
@@ -33,6 +34,7 @@ import { GraphicsController } from './graphics/app.controller.graphics';
 import { TemplateVarsValidator } from './validations';
 import { CampaignMetricsGateway } from './realtime/campaigns-metrics.gateway';
 import { InvoicesSyncGateway } from './realtime/invoices-sync.gateway';
+import { ChatGateway } from './realtime/chat.gateway';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { JwtModule } from '@nestjs/jwt';
@@ -67,6 +69,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([Client]),
     TypeOrmModule.forFeature([Templates]),
@@ -117,6 +120,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     TemplateVarsValidator,
     CampaignMetricsGateway,
     InvoicesSyncGateway,
+    ChatGateway,
     AuthService,
     ChatwootService,
     ChatSessionHistoryService,
@@ -137,6 +141,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     TemplateDispatchPayloadService,
     CampaignScheduler,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
   exports: [
     AppServiceTemplate, 

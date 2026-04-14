@@ -94,7 +94,7 @@ export type ChatwootConversationItem = {
 };
 
 export type ChatwootMessageItem = {
-  id: number;
+  id: number | string;
   content: string;
   senderType: string;
   senderName?: string | null;

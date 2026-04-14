@@ -19,6 +19,8 @@ const KEYS = {
   COMPANY_CNPJ: "company_cnpj",
   /** Status de ativação da empresa no sistema de cobrança */
   COMPANY_ACTIVE: "company_active",
+  /** Permissões de páginas da empresa — JSON serializado */
+  PAGE_PERMISSIONS: "page_permissions",
 } as const;
 
 type AuthMode = "agent" | "embed";
@@ -91,6 +93,23 @@ export const AppStorage = {
   getCompanyActive: (): boolean => get(KEYS.COMPANY_ACTIVE) !== "false",
   setCompanyActive: (active: boolean) => set(KEYS.COMPANY_ACTIVE, String(active)),
 
+  getPagePermissions: (): { dashboard: boolean; clientesVencidos: boolean; chat: boolean } => {
+    try {
+      const raw = get(KEYS.PAGE_PERMISSIONS);
+      if (!raw) return { dashboard: true, clientesVencidos: true, chat: true };
+      const parsed = JSON.parse(raw);
+      return {
+        dashboard: parsed.dashboard !== false,
+        clientesVencidos: parsed.clientesVencidos !== false,
+        chat: parsed.chat !== false,
+      };
+    } catch {
+      return { dashboard: true, clientesVencidos: true, chat: true };
+    }
+  },
+  setPagePermissions: (perms: { dashboard: boolean; clientesVencidos: boolean; chat: boolean }) =>
+    set(KEYS.PAGE_PERMISSIONS, JSON.stringify(perms)),
+
   // --- Session ---
   /** Remove todos os dados de sessão (logout) */
   clearSession: () => {
@@ -104,6 +123,7 @@ export const AppStorage = {
     remove(KEYS.COMPANY_NAME);
     remove(KEYS.COMPANY_CNPJ);
     remove(KEYS.COMPANY_ACTIVE);
+    remove(KEYS.PAGE_PERMISSIONS);
   },
 
   /** Remove dados de sessão + atendente ao fazer login limpo */
