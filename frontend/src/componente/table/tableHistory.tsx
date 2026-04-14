@@ -13,17 +13,12 @@ import { statusSeverity } from "./utils/utilsTable";
 import {
   useHistoryTableController,
   type HistoryRow,
+  type ParsedHistoryRow,
 } from "../../hooks/controller/history/useHistoryTableController";
 
 type TableProps = {
   data: HistoryRow[];
   className: string;
-};
-
-type HistoryTableRow = HistoryRow & {
-  date_dispatch: Date | null;
-  status_label: string;
-  response_label: string;
 };
 
 type DateFilterOptions = {
@@ -102,7 +97,7 @@ export default function Table({ data, className }: TableProps) {
           field="date_dispatch"
           header="Data/Hora"
           dataType="date"
-          body={(row: HistoryTableRow) =>
+          body={(row: ParsedHistoryRow) =>
             row.date_dispatch ? row.date_dispatch.toLocaleString("pt-BR") : "-"
           }
           filter
@@ -112,8 +107,13 @@ export default function Table({ data, className }: TableProps) {
           header="Status"
           field="status_sent"
           filterField="status_label"
-          body={(row: HistoryTableRow) => (
-            <Tag value={row.status_label} severity={statusSeverity(row.status_sent ?? "")} />
+          body={(row: ParsedHistoryRow) => (
+            <div className="status-cell">
+              <Tag value={row.status_label} severity={statusSeverity(row.status_sent ?? "")} />
+              {row.status_detail && (
+                <span className="status-detail-text">{row.status_detail}</span>
+              )}
+            </div>
           )}
           filter
         />
@@ -121,7 +121,7 @@ export default function Table({ data, className }: TableProps) {
           header="Resposta"
           field="response"
           filterField="response_label"
-          body={(row: HistoryTableRow) => row.response_label}
+          body={(row: ParsedHistoryRow) => row.response_label}
           filter
         />
       </DataTable>

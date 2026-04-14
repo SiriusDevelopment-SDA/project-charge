@@ -9,6 +9,7 @@ import { MessageQueueService } from './message-queue.service';
 import { isBusinessDay } from '../common/utils/business-day.util';
 import { TemplateDispatchPayloadService } from '../templates/template-dispatch-payload.service';
 import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
+import { InvoicesService } from '../invoices/invoices.service';
 
 @Injectable()
 export class CampaignScheduler {
@@ -26,6 +27,8 @@ export class CampaignScheduler {
     private readonly templateDispatchPayload: TemplateDispatchPayloadService,
 
     private readonly campaignMetricsGateway: CampaignMetricsGateway,
+
+    private readonly invoicesService: InvoicesService,
   ) {}
 
   /**
@@ -55,7 +58,7 @@ export class CampaignScheduler {
           recurringType: true,
           recurringDays: true,
           lastDispatchedAt: true,
-          templateMapVars: true,
+          invoiceRule: true,
           company: { id: true, account_chatwoot: true },
           template: { id: true },
         },
@@ -152,10 +155,33 @@ export class CampaignScheduler {
 
   private async enqueueCampaign(campaign: Campaign, now: Date): Promise<void> {
     try {
-      const scopedTemplateMapVars = this.getTemplateMapVarsForDispatchDate(
-        campaign,
-        now,
-      );
+      const isRecurringWithRule =
+        campaign.recurring &&
+        campaign.invoiceRule?.operator &&
+        campaign.company?.id;
+
+      let scopedTemplateMapVars: Record<string, unknown>[];
+
+      if (isRecurringWithRule) {
+        const referenceDate = this.toDateOnly(now, campaign.timezone);
+        this.logger.log(
+          `[CampaignScheduler] campaign=${campaign.id} modo=dinâmico referenceDate=${referenceDate}`,
+        );
+        scopedTemplateMapVars = await this.invoicesService.getRecipientsForDispatchDate(
+          campaign.company.id,
+          campaign.invoiceRule!,
+          referenceDate,
+        );
+      } else {
+        const campaignWithVars = await this.campaignRepository.findOne({
+          where: { id: campaign.id },
+          select: { id: true, templateMapVars: true },
+        });
+        scopedTemplateMapVars = this.getTemplateMapVarsForDispatchDate(
+          { ...campaign, templateMapVars: campaignWithVars?.templateMapVars ?? [] },
+          now,
+        );
+      }
 
       const templateEntity = await this.templateRepository.findOne({
         where: { id: campaign.template.id },

@@ -18,7 +18,7 @@ export const traduzirStatus = (status: string) => {
     case 'error':
       return 'Erro';
     case 'skipped':
-      return 'Não enviado (Fatura indisponível)';
+      return 'Não enviado';
     default:
       return status || '-';
   }

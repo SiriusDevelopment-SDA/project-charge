@@ -6,9 +6,17 @@ export type HistoryRow = {
   id: string;
   name?: string;
   number?: string;
+  message?: string | null;
   date_dispatch?: string | Date | null;
   status_sent?: string;
   response?: boolean | null;
+};
+
+export type ParsedHistoryRow = HistoryRow & {
+  date_dispatch: Date | null;
+  status_label: string;
+  status_detail: string | null;
+  response_label: string;
 };
 
 function createInitialFilters() {
@@ -55,6 +63,8 @@ export function useHistoryTableController(data: HistoryRow[]) {
           ...item,
           date_dispatch: item.date_dispatch ? new Date(item.date_dispatch) : null,
           status_label: traduzirStatus(item.status_sent ?? ""),
+          status_detail:
+            item.status_sent === 'skipped' && item.message ? item.message : null,
           response_label: responseLabel,
         };
       }),

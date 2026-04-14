@@ -46,6 +46,7 @@ import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
 import { TemplateStatusSyncCron } from './templates/template-status-sync.cron';
 import { ClientsSyncCron } from './clients/clients-sync.cron';
 import { InvoiceSyncCron } from './invoices/invoice-sync.cron';
+import { InvoicesService } from './invoices/invoices.service';
 import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
 import { PaymentPromise } from './payment-promise/entities/payment-promise.entity';
 import { PaymentPromiseService } from './payment-promise/payment-promise.service';
@@ -123,6 +124,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     TemplateStatusSyncCron,
     ClientsSyncCron,
     InvoiceSyncCron,
+    InvoicesService,
     PaymentPromiseCron,
     PaymentPromiseService,
     ClientInteractionService,
