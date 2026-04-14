@@ -138,11 +138,6 @@ export class IXCInvoicesService {
     startDate: string,
     endDate: string,
   ): Promise<Map<string, ResponseFnAReceber[]>> {
-    const cacheKey = `ixc:invoice-batch:${company.id}:${startDate}:${endDate}`;
-    const cached = await this.redisService.get<[string, ResponseFnAReceber[]][]>(cacheKey);
-    if (cached) {
-      return new Map(cached);
-    }
 
     const authorizationHeader = `Basic ${Buffer.from(company.autorization).toString('base64')}`;
     const url = `https://${company.url}/webservice/v1/fn_areceber`;
@@ -208,8 +203,6 @@ export class IXCInvoicesService {
       totalFetched += registros.length;
       page++;
     }
-
-    await this.redisService.set(cacheKey, [...invoicesByClientId.entries()], INVOICE_BATCH_CACHE_TTL);
 
     return invoicesByClientId;
   }

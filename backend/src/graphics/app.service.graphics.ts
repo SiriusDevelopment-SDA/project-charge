@@ -15,6 +15,9 @@ const CACHE_TTL = 300; // seconds (5 minutes — dados de cobrança não mudam p
 @Injectable()
 export class AppServiceGraphics {
 
+  /** Prevents thundering herd: concurrent requests share one in-flight compute promise per cache key. */
+  private readonly inFlight = new Map<string, Promise<unknown>>();
+
   constructor(
     @InjectRepository(Invoice)
     private readonly invoiceRepo: Repository<Invoice>,
@@ -36,6 +39,16 @@ export class AppServiceGraphics {
 
     private readonly redisService: RedisService,
   ) { }
+
+  /** Ensures only one in-flight compute runs at a time for a given cache key. */
+  private async withSingleFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const existing = this.inFlight.get(key);
+    if (existing) return existing as Promise<T>;
+
+    const promise = fn().finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, promise);
+    return promise;
+  }
 
   async getCharges(companyId: string) {
     const cacheKey = `graphics:${companyId}:charges`;
@@ -228,52 +241,73 @@ export class AppServiceGraphics {
     const cached = await this.redisService.get<Awaited<ReturnType<typeof this._computeCampaignsStats>>>(cacheKey);
     if (cached) return cached;
 
-    const result = await this._computeCampaignsStats(companyId);
-    await this.redisService.set(cacheKey, result, CACHE_TTL);
-    return result;
+    return this.withSingleFlight(cacheKey, async () => {
+      const result = await this._computeCampaignsStats(companyId);
+      await this.redisService.set(cacheKey, result, CACHE_TTL);
+      return result;
+    });
   }
 
   private async _computeCampaignsStats(companyId: string) {
     const campaigns = await this.campaignRepo.find({
       where: { company: { id: companyId } },
+      select: { id: true, name: true },
       order: { createdAt: 'DESC' },
       take: 10,
     });
 
-    const stats = await Promise.all(
-      campaigns.map(async (campaign, index) => {
-        const [totalClients, totalDispatched, totalResponded] = await Promise.all([
-          this.campaignRepo
-            .createQueryBuilder('campaign')
-            .innerJoin('campaign.clients', 'client')
-            .where('campaign.id = :id', { id: campaign.id })
-            .getCount(),
-          this.relatoryRepo.count({
-            where: { campaign: { id: campaign.id } },
-          }),
-          this.relatoryRepo.count({
-            where: { campaign: { id: campaign.id }, response: true },
-          }),
-        ]);
+    if (campaigns.length === 0) return [];
 
-        const usage = totalClients > 0
-          ? Math.min(Math.round((totalDispatched / totalClients) * 100), 100)
-          : 0;
+    const campaignIds = campaigns.map((c) => c.id);
 
-        const response = totalDispatched > 0
-          ? Math.round((totalResponded / totalDispatched) * 100)
-          : 0;
+    // 2 aggregation queries instead of 30 (10 campaigns × 3 per-campaign queries).
+    // Each query fans out over all campaign IDs at once, eliminating connection pool pressure.
+    const [clientRows, dispatchRows] = await Promise.all([
+      this.campaignRepo.manager.query<{ campaignId: string; count: string }[]>(
+        `SELECT "campaignId", COUNT("clientId") AS count
+         FROM campaign_clients
+         WHERE "campaignId" = ANY($1)
+         GROUP BY "campaignId"`,
+        [campaignIds],
+      ),
+      this.relatoryRepo.manager.query<{ campaignId: string; totalDispatched: string; totalResponded: string }[]>(
+        `SELECT "campaignId",
+                COUNT(*) AS "totalDispatched",
+                SUM(CASE WHEN response = true THEN 1 ELSE 0 END) AS "totalResponded"
+         FROM relatory_dispatch_template
+         WHERE "campaignId" = ANY($1)
+         GROUP BY "campaignId"`,
+        [campaignIds],
+      ),
+    ]);
 
-        return {
-          id: String(index + 1).padStart(2, '0'),
-          name: campaign.name,
-          usage,
-          response,
-        };
-      }),
-    );
+    const clientMap = new Map(clientRows.map((r) => [r.campaignId, parseInt(r.count) || 0]));
+    const dispatchMap = new Map(dispatchRows.map((r) => [r.campaignId, {
+      dispatched: parseInt(r.totalDispatched) || 0,
+      responded: parseInt(r.totalResponded) || 0,
+    }]));
 
-    return stats;
+    return campaigns.map((campaign, index) => {
+      const totalClients = clientMap.get(campaign.id) ?? 0;
+      const d = dispatchMap.get(campaign.id);
+      const totalDispatched = d?.dispatched ?? 0;
+      const totalResponded = d?.responded ?? 0;
+
+      const usage = totalClients > 0
+        ? Math.min(Math.round((totalDispatched / totalClients) * 100), 100)
+        : 0;
+
+      const response = totalDispatched > 0
+        ? Math.round((totalResponded / totalDispatched) * 100)
+        : 0;
+
+      return {
+        id: String(index + 1).padStart(2, '0'),
+        name: campaign.name,
+        usage,
+        response,
+      };
+    });
   }
 
   async getPaymentPromisesStats(companyId: string) {

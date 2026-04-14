@@ -179,28 +179,25 @@ export class SGPInvoicesService {
 
     const first = await fetchPage(0);
     const total: number = first.total ?? 0;
-    const allTitulos: SGPTitleRecord[] = [...first.titulos];
 
-
-    if (total > limit) {
-      const offsets: number[] = [];
-      for (let offset = limit; offset < total; offset += limit) offsets.push(offset);
-
-      for (let i = 0; i < offsets.length; i += 20) {
-        const batch = offsets.slice(i, i + 20);
-        const results = await Promise.all(batch.map(fetchPage));
-        results.forEach(r => allTitulos.push(...r.titulos));
-      }
-    }
-
-    for (const titulo of allTitulos) {
+    for (const titulo of first.titulos) {
       const cpf = String(titulo.clienteCpfcnpj ?? '').replace(/\D/g, '');
       if (!cpf) continue;
       if (!invoicesByCpf.has(cpf)) invoicesByCpf.set(cpf, []);
       invoicesByCpf.get(cpf)!.push(titulo);
     }
 
-    await this.redisService.set(cacheKey, [...invoicesByCpf.entries()], INVOICE_BATCH_CACHE_TTL);
+    if (total > limit) {
+      for (let offset = limit; offset < total; offset += limit) {
+        const result = await fetchPage(offset);
+        for (const titulo of result.titulos) {
+          const cpf = String(titulo.clienteCpfcnpj ?? '').replace(/\D/g, '');
+          if (!cpf) continue;
+          if (!invoicesByCpf.has(cpf)) invoicesByCpf.set(cpf, []);
+          invoicesByCpf.get(cpf)!.push(titulo);
+        }
+      }
+    }
 
     return invoicesByCpf;
   }

@@ -16,7 +16,7 @@ import { InvoicesSyncGateway } from '../realtime/invoices-sync.gateway';
 import { RedisService } from '../redis/redis.service';
 
 const CHUNK_SIZE = 500;
-const SYNC_LOOKBACK_YEARS = 5;
+const SYNC_LOOKBACK_YEARS = 1;
 
 function toChunks<T>(arr: T[], size: number): T[][] {
   const result: T[][] = [];
@@ -73,17 +73,14 @@ export class InvoiceSyncCron {
       return;
     }
 
-    const results = await Promise.allSettled(
-      companies.map((company) =>
-        this.runSyncForCompany(company, { reason: 'cron' }),
-      ),
-    );
-
     let synced = 0;
     let failed = 0;
-    for (const result of results) {
-      if (result.status === 'fulfilled') synced += result.value;
-      else failed++;
+    for (const company of companies) {
+      try {
+        synced += await this.runSyncForCompany(company, { reason: 'cron' });
+      } catch {
+        failed++;
+      }
     }
 
     this.logger.log(
@@ -248,7 +245,7 @@ export class InvoiceSyncCron {
         where: { company: { id: companyId }, status: 'A Receber' },
       });
 
-      if (count > 5000) {
+      if (count > 2000) {
         this.logger.warn(
           `[InvoiceSync] Cache de faturas ignorado para empresa ${companyId}: ${count} registros excedem o limite (5000). Consultas usarão o banco diretamente.`,
         );
@@ -302,7 +299,7 @@ export class InvoiceSyncCron {
       fmt(end),
     );
 
-    return this.persistSnapshot(company, byClientId, 'IXC');
+    return this.persistSnapshot(company, byClientId, 'IXC', start, end);
   }
 
   private async syncSGP(company: Company): Promise<number> {
@@ -315,13 +312,15 @@ export class InvoiceSyncCron {
       end.toISOString().split('T')[0],
     );
 
-    return this.persistSnapshot(company, byCpf, 'SGP');
+    return this.persistSnapshot(company, byCpf, 'SGP', start, end);
   }
 
   private async persistSnapshot(
     company: Company,
     sourceMap: Map<string, any[]>,
     erp: 'IXC' | 'SGP',
+    windowStart?: Date,
+    windowEnd?: Date,
   ): Promise<number> {
     const existingOpenInvoices = await this.invoiceRepo.count({
       where: {
@@ -403,7 +402,7 @@ export class InvoiceSyncCron {
     for (const chunk of toChunks(toUpsert, CHUNK_SIZE))
       await this.invoiceRepo.upsert(chunk, ['id_fatura', 'companyId']);
 
-      await this.closeMissingOpenInvoices(company.id, fetchedInvoiceIds, syncTime);
+      await this.closeMissingOpenInvoices(company.id, fetchedInvoiceIds, syncTime, windowStart, windowEnd);
       await this.markClientsAsChecked(clients.map((client) => client.id), syncTime);
 
     this.logger.log(
@@ -478,18 +477,36 @@ export class InvoiceSyncCron {
     companyId: string,
     fetchedInvoiceIds: Set<string>,
     syncTime: Date,
+    windowStart?: Date,
+    windowEnd?: Date,
   ) {
     const fetchedArray = [...fetchedInvoiceIds];
     if (!fetchedArray.length) return;
 
-    await this.invoiceRepo
+    const startIso = windowStart?.toISOString().split('T')[0] ?? null;
+    const endIso = windowEnd?.toISOString().split('T')[0] ?? null;
+
+    const qb = this.invoiceRepo
       .createQueryBuilder()
       .update()
       .set({ status: 'Pago', lastSyncAt: syncTime })
       .where('"companyId" = :companyId', { companyId })
       .andWhere("LOWER(TRIM(status)) = 'a receber'")
-      .andWhere('"id_fatura" NOT IN (:...fetchedIds)', { fetchedIds: fetchedArray })
-      .execute();
+      .andWhere('"id_fatura" NOT IN (:...fetchedIds)', { fetchedIds: fetchedArray });
+
+    // Só fecha faturas dentro da janela de sync — não toca em faturas históricas fora do range
+    if (startIso && endIso) {
+      qb.andWhere(
+        `CASE
+          WHEN expiration ~ '^\\d{2}/\\d{2}/\\d{4}$' THEN to_date(expiration, 'DD/MM/YYYY')
+          WHEN expiration ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN to_date(expiration, 'YYYY-MM-DD')
+          ELSE NULL
+        END BETWEEN :startIso AND :endIso`,
+        { startIso, endIso },
+      );
+    }
+
+    await qb.execute();
   }
 
   private async markClientsAsChecked(clientIds: string[], syncTime: Date) {

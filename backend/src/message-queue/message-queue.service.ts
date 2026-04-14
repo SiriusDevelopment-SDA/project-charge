@@ -313,9 +313,20 @@ export class MessageQueueService {
 
   /**
    * Resets jobs stuck in 'processing' back to 'pending' so they are retried.
+   * Jobs at max attempts are force-failed instead of left stuck forever.
    * Called on startup to recover from crash/hot-reload mid-job.
    */
   async resetStuckProcessingJobs(): Promise<number> {
+    // Force-fail jobs stuck in 'processing' that exhausted all attempts
+    await this.queueRepository.manager.query(
+      `UPDATE message_queue
+       SET status = 'failed',
+           "errorMessage" = COALESCE("errorMessage", 'Terminated: restart after max attempts')
+       WHERE status = 'processing'
+         AND attempts >= $1`,
+      [MAX_ATTEMPTS],
+    );
+
     const result = await this.queueRepository.manager.query(
       `UPDATE message_queue
        SET status = 'pending'

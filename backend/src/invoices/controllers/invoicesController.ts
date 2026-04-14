@@ -273,25 +273,32 @@ export class InvoicesController {
       };
     }
 
-    const clients = await this.clientRepo.find({
-      where: { id: In(clientIds) },
-      relations: ['company', 'services', 'invoices'],
-    });
+    const [clients, overdueInvoiceRows] = await Promise.all([
+      this.clientRepo.find({
+        where: { id: In(clientIds) },
+        relations: ['company', 'services'],
+      }),
+      this.invoiceRepo
+        .createQueryBuilder('invoice')
+        .where('invoice."clientId" IN (:...clientIds)', { clientIds })
+        .andWhere("LOWER(TRIM(invoice.status)) = 'a receber'")
+        .andWhere(`${this.getInvoiceDueDateSql('invoice.expiration')} < :today`, { today: todaySql })
+        .orderBy(this.getInvoiceDueDateSql('invoice.expiration'), 'ASC')
+        .getMany(),
+    ]);
+
+    const overdueByClientId = new Map<string, typeof overdueInvoiceRows>();
+    for (const inv of overdueInvoiceRows) {
+      const list = overdueByClientId.get(inv.clientId) ?? [];
+      list.push(inv);
+      overdueByClientId.set(inv.clientId, list);
+    }
 
     const positionById = new Map(clientIds.map((id, index) => [id, index]));
 
     const data = clients
       .map((client) => {
-        const overdueInvoices = (client.invoices ?? [])
-          .filter((invoice) => {
-            const safeStatus = String(invoice.status ?? '').trim().toLowerCase();
-            return safeStatus === 'a receber' && this.isInvoiceOverdue(invoice.expiration, today);
-          })
-          .sort((a, b) => {
-            const first = this.invoicesService.parseInvoiceDate(a.expiration)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-            const second = this.invoicesService.parseInvoiceDate(b.expiration)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-            return first - second;
-          });
+        const overdueInvoices = overdueByClientId.get(client.id) ?? [];
 
         return {
           ...client,

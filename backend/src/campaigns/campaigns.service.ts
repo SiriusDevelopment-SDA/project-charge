@@ -6,7 +6,7 @@
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, ILike, In, Not, Repository } from 'typeorm';
+import { ILike, In, Repository } from 'typeorm';
 import { DateTime } from 'luxon';
 import { Campaign } from './entities/campanhas.entity';
 import { CreateCampaignDto } from './dto/create-campanhas.dto';
@@ -105,6 +105,14 @@ export class CampaignsService {
   async findAll(): Promise<Campaign[]> {
     return await this.campaignRepository.find({
       relations: ['template', 'category'],
+      select: {
+        id: true, name: true, status: true, isEnabled: true,
+        startDate: true, endDate: true, dispatchTime: true, timezone: true,
+        recurring: true, recurringType: true, recurringDays: true,
+        invoiceRule: true, lastDispatchedAt: true, createdAt: true,
+        template: { id: true, name: true, message: true },
+        category: { id: true, name: true },
+      },
       order: { createdAt: 'DESC' },
     });
   }
@@ -113,6 +121,15 @@ export class CampaignsService {
     const campaign = await this.campaignRepository.findOne({
       where: { id },
       relations: ['template', 'category', 'company'],
+      select: {
+        id: true, name: true, status: true, isEnabled: true,
+        startDate: true, endDate: true, dispatchTime: true, timezone: true,
+        recurring: true, recurringType: true, recurringDays: true,
+        invoiceRule: true, lastDispatchedAt: true, createdAt: true,
+        template: { id: true, name: true, message: true },
+        category: { id: true, name: true },
+        company: { id: true, account_chatwoot: true },
+      },
     });
 
     if (!campaign) {
@@ -141,6 +158,14 @@ export class CampaignsService {
     const campaigns = await this.campaignRepository.find({
       where: { company: { account_chatwoot: String(account) } },
       relations: ['template', 'category'],
+      select: {
+        id: true, name: true, status: true, isEnabled: true,
+        startDate: true, endDate: true, dispatchTime: true, timezone: true,
+        recurring: true, recurringType: true, recurringDays: true,
+        invoiceRule: true, lastDispatchedAt: true, createdAt: true,
+        template: { id: true, name: true, message: true },
+        category: { id: true, name: true },
+      },
       order: { createdAt: 'DESC' },
     });
 
@@ -166,6 +191,14 @@ export class CampaignsService {
     const campaigns = await this.campaignRepository.find({
       where: { id: In(uniqueCampaignIds) },
       relations: ['template', 'category'],
+      select: {
+        id: true, name: true, status: true, isEnabled: true,
+        startDate: true, endDate: true, dispatchTime: true, timezone: true,
+        recurring: true, recurringType: true, recurringDays: true,
+        invoiceRule: true, lastDispatchedAt: true, createdAt: true,
+        template: { id: true, name: true, message: true },
+        category: { id: true, name: true },
+      },
     });
 
     const campaignById = new Map(campaigns.map((c) => [c.id, c]));
@@ -395,95 +428,85 @@ export class CampaignsService {
 
     const now = new Date();
     const start30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const oneDayMs = 24 * 60 * 60 * 1000;
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const relatories = await this.relatoryRepository.find({
-      where: {
-        company: { account_chatwoot: safeAccount },
-        date_dispatch: Between(start30d, now),
-      },
-      relations: ['template', 'campaign', 'campaign.category'],
-      order: { date_dispatch: 'DESC' },
-    });
+    const collectionJoin = `
+      FROM relatory_dispatch_template r
+      INNER JOIN company comp ON comp.id = r."companyId"
+      LEFT JOIN templates t ON t.id = r."templateId"
+      LEFT JOIN campaigns camp ON camp.id = r."campaignId"
+      LEFT JOIN categories cat ON cat.id = camp.category
+      WHERE comp.account_chatwoot = $1
+        AND r.date_dispatch BETWEEN $2 AND $3
+        AND (LOWER(t.category) LIKE '%cobr%' OR LOWER(cat.name) LIKE '%cobr%')
+    `;
 
-    const collectionRelatories = relatories.filter((item) =>
-      this.isCollectionRelatory(item),
-    );
+    // 2 aggregation queries replace loading every row into Node.js memory
+    const [metricsRows, phoneRows, company] = await Promise.all([
+      this.relatoryRepository.manager.query<{
+        charged: string; responded: string; open_followups: string;
+        no_resp_24h: string; last_response_at: string | null; recovered_amount: string;
+      }[]>(
+        `SELECT
+          COUNT(*)                                                                   AS charged,
+          SUM(CASE WHEN r.response = true  THEN 1 ELSE 0 END)                      AS responded,
+          SUM(CASE WHEN r.response = false THEN 1 ELSE 0 END)                      AS open_followups,
+          SUM(CASE WHEN r.response = false AND r.date_dispatch < $4 THEN 1 ELSE 0 END) AS no_resp_24h,
+          MAX(CASE WHEN r.response = true THEN COALESCE(r.response_at, r."updatedAt") END) AS last_response_at,
+          COALESCE(SUM(r.recovered_amount), 0)                                     AS recovered_amount
+        ${collectionJoin}`,
+        [safeAccount, start30d, now, last24h],
+      ),
 
-    const chargedCustomers30d = collectionRelatories.length;
-    const respondedAfterCharge30d = collectionRelatories.filter(
-      (item) => item.response === true,
-    ).length;
-    const responseRate30d = chargedCustomers30d
-      ? Number(((respondedAfterCharge30d / chargedCustomers30d) * 100).toFixed(1))
-      : 0;
+      // Per-phone aggregation — only phone strings loaded, not full rows
+      this.relatoryRepository.manager.query<{ number: string; responded: boolean; invoice_paid: boolean }[]>(
+        `SELECT
+          r.number,
+          BOOL_OR(r.response)                        AS responded,
+          BOOL_OR(r.recovered_amount IS NOT NULL)    AS invoice_paid
+        ${collectionJoin}
+        GROUP BY r.number`,
+        [safeAccount, start30d, now],
+      ),
 
-    const openFollowups = collectionRelatories.filter((item) => !item.response).length;
-    const noResponseOver24h = collectionRelatories.filter((item) => {
-      if (item.response) return false;
-      return now.getTime() - new Date(item.date_dispatch).getTime() >= oneDayMs;
-    }).length;
-
-    const lastResponse = collectionRelatories
-      .filter((item) => item.response)
-      .map((item) => item.response_at ?? item.updatedAt ?? null)
-      .filter((date): date is Date => date instanceof Date)
-      .sort((a, b) => b.getTime() - a.getTime())[0];
-
-    // Clientes que pagaram a fatura após disparo de cobrança (cron confirmou via ERP)
-    const invoicePaidPhones = new Set(
-      collectionRelatories
-        .filter((r) => r.recovered_amount != null)
-        .map((r) => this.normalizePhone(r.number))
-        .filter(Boolean),
-    );
-
-    const recoveredAmount = collectionRelatories
-      .filter((r) => r.recovered_amount != null)
-      .reduce((sum, r) => sum + Number(r.recovered_amount), 0);
-
-    const respondedNumbers = new Set(
-      collectionRelatories
-        .filter((r) => r.response === true)
-        .map((r) => this.normalizePhone(r.number))
-        .filter(Boolean),
-    );
-
-    const company = await this.companyRepository.findOne({
-      where: { account_chatwoot: safeAccount },
-      select: ['id'],
-    });
+      this.companyRepository.findOne({
+        where: { account_chatwoot: safeAccount },
+        select: ['id'],
+      }),
+    ]);
 
     const keptPhones = new Set<string>();
-
     if (company) {
-      const keptPromises = await this.paymentPromiseRepository.find({
+      const keptRows = await this.paymentPromiseRepository.find({
         where: { company_id: company.id, status: 'kept' },
         select: ['phone'],
       });
-      for (const p of keptPromises) {
-        const normalized = this.normalizePhone(p.phone);
-        if (normalized) keptPhones.add(normalized);
+      for (const p of keptRows) {
+        const n = this.normalizePhone(p.phone);
+        if (n) keptPhones.add(n);
       }
     }
 
-    // convertedCount: pagou fatura após cobrança (via cron/ERP) OU cumpriu promessa
-    const convertedPhones = new Set([...invoicePaidPhones, ...keptPhones]);
-    const convertedCount = convertedPhones.size;
+    const m = metricsRows[0] ?? {};
+    const chargedCustomers30d = parseInt(m.charged) || 0;
+    const respondedAfterCharge30d = parseInt(m.responded) || 0;
 
-    // respondedAndPaid: respondeu ao disparo E foi convertido (por qualquer via)
-    const respondedAndPaid = [...respondedNumbers].filter((n) => convertedPhones.has(n)).length;
+    const invoicePaidPhones = new Set(phoneRows.filter((r) => r.invoice_paid).map((r) => this.normalizePhone(r.number)).filter(Boolean));
+    const respondedNumbers   = new Set(phoneRows.filter((r) => r.responded).map((r) => this.normalizePhone(r.number)).filter(Boolean));
+    const convertedPhones    = new Set([...invoicePaidPhones, ...keptPhones]);
 
     const payload = {
       chargedCustomers30d,
       respondedAfterCharge30d,
-      responseRate30d,
-      openFollowups,
-      noResponseOver24h,
-      lastResponseAt: lastResponse ? lastResponse.toISOString() : null,
-      recoveredAmount,
-      convertedCount,
-      respondedAndPaid,
+      responseRate30d: chargedCustomers30d > 0
+        ? Number(((respondedAfterCharge30d / chargedCustomers30d) * 100).toFixed(1))
+        : 0,
+      openFollowups: parseInt(m.open_followups) || 0,
+      noResponseOver24h: parseInt(m.no_resp_24h) || 0,
+      lastResponseAt: m.last_response_at ?? null,
+      recoveredAmount: parseFloat(m.recovered_amount) || 0,
+      convertedCount: convertedPhones.size,
+      respondedAndPaid: [...respondedNumbers].filter((n) => convertedPhones.has(n)).length,
     };
 
     await this.redisService.set(cacheKey, payload, 10);
