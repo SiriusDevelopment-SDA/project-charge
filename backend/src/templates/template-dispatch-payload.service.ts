@@ -309,7 +309,7 @@ export class TemplateDispatchPayloadService {
       case 'template_variables_incomplete':
         return 'Destinatário ignorado: dados insuficientes para o template.';
       case 'duplicate_dispatch_today':
-        return 'Mensagem não enviada: destinatário já recebeu disparo hoje.';
+        return 'Mensagem não enviada: Este destinatário já recebeu disparo hoje.';
       default:
         return 'Destinatário ignorado.';
     }

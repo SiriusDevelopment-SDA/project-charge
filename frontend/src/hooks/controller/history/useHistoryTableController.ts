@@ -16,8 +16,24 @@ export type ParsedHistoryRow = HistoryRow & {
   date_dispatch: Date | null;
   status_label: string;
   status_detail: string | null;
+  status_detail_preview: string | null;
+  status_detail_tooltip: string | null;
   response_label: string;
 };
+
+function buildStatusDetailViews(detail: string | null) {
+  if (!detail) {
+    return { preview: null, tooltip: null };
+  }
+
+  const colonIdx = detail.indexOf(":");
+  const hasSplit = colonIdx >= 0 && colonIdx < detail.length - 1;
+
+  return {
+    preview: hasSplit ? detail.slice(0, colonIdx + 1) : detail,
+    tooltip: hasSplit ? detail : null,
+  };
+}
 
 function createInitialFilters() {
   return {
@@ -59,12 +75,17 @@ export function useHistoryTableController(data: HistoryRow[]) {
             ? "Sem retorno"
             : "-";
 
+        const statusDetail =
+          item.status_sent === 'skipped' && item.message ? item.message : null;
+        const detailViews = buildStatusDetailViews(statusDetail);
+
         return {
           ...item,
           date_dispatch: item.date_dispatch ? new Date(item.date_dispatch) : null,
           status_label: traduzirStatus(item.status_sent ?? ""),
-          status_detail:
-            item.status_sent === 'skipped' && item.message ? item.message : null,
+          status_detail: statusDetail,
+          status_detail_preview: detailViews.preview,
+          status_detail_tooltip: detailViews.tooltip,
           response_label: responseLabel,
         };
       }),

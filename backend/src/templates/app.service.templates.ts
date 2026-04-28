@@ -315,7 +315,7 @@ export class AppServiceTemplate {
         reason: 'duplicate_dispatch_today' as const,
         number: r.number,
         name: r.name,
-        detail: 'Mensagem não enviada: destinatário já recebeu disparo hoje.',
+        detail: 'Mensagem não enviada: Este destinatário já recebeu disparo hoje.',
       }));
       await this.templateDispatchPayload.persistDispatchSkips(
         template,
