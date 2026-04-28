@@ -21,17 +21,30 @@ export type ParsedHistoryRow = HistoryRow & {
   response_label: string;
 };
 
+const STATUS_DETAIL_PREVIEW_MAX = 25;
+
 function buildStatusDetailViews(detail: string | null) {
   if (!detail) {
     return { preview: null, tooltip: null };
   }
 
   const colonIdx = detail.indexOf(":");
-  const hasSplit = colonIdx >= 0 && colonIdx < detail.length - 1;
+  const hasColonSplit = colonIdx >= 0 && colonIdx < detail.length - 1;
+
+  if (hasColonSplit) {
+    return {
+      preview: detail.slice(0, colonIdx + 1),
+      tooltip: detail,
+    };
+  }
+
+  if (detail.length <= STATUS_DETAIL_PREVIEW_MAX) {
+    return { preview: detail, tooltip: null };
+  }
 
   return {
-    preview: hasSplit ? detail.slice(0, colonIdx + 1) : detail,
-    tooltip: hasSplit ? detail : null,
+    preview: detail.slice(0, STATUS_DETAIL_PREVIEW_MAX).trimEnd() + "...",
+    tooltip: detail,
   };
 }
 

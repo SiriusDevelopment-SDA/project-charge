@@ -518,6 +518,12 @@ export class TemplateDispatchPayloadService {
         continue;
       }
 
+      if (buttonType === 'URL') {
+        const urlTemplate = String(button?.url ?? '');
+        const hasPlaceholder = /\{\{\d+\}\}/.test(urlTemplate);
+        if (!hasPlaceholder) continue;
+      }
+
       const bc = this.buildButtonComponent(button, i, buttonType, mapped);
       if (!bc && buttonType === 'URL') return null;
       if (bc) components.push(bc);

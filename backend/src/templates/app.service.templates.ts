@@ -62,7 +62,6 @@ export class AppServiceTemplate {
       company: {
         account_chatwoot: String(account),
       },
-      meta_status: 'APPROVED',
     };
 
     if (query) where.name = ILike(`%${query}%`);
