@@ -86,7 +86,8 @@ export function buildTemplateVars(
   const skipStorage = options?.skipStorage ?? false;
   const invoice = getInvoice(recipient);
   const attendantName =
-    recipient.nome_atendente ?? (skipStorage ? "" : AppStorage.getAttendantName());
+    recipient.nome_atendente
+    ?? (skipStorage ? AppStorage.getAgentName() : AppStorage.getAttendantName());
   const companyName =
     recipient.company?.name?.trim() ||
     (skipStorage ? "" : AppStorage.getDispatchCompanyName()) ||

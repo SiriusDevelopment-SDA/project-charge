@@ -111,9 +111,12 @@ export default function Table({ data, className }: TableProps) {
           body={(row: ParsedHistoryRow) => (
             <div className="status-cell">
               <Tag value={row.status_label} severity={statusSeverity(row.status_sent ?? "")} />
-              {row.status_detail && (
-                <span className="status-detail-text">
-                  {row.status_detail.length > 10 ? row.status_detail.slice(0, 10) + '...' : row.status_detail}
+              {row.status_detail_preview && (
+                <span
+                  className="status-detail-text"
+                  title={row.status_detail_tooltip ?? undefined}
+                >
+                  {row.status_detail_preview}
                 </span>
               )}
             </div>

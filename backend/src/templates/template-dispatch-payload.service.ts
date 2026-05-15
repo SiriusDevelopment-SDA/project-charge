@@ -309,7 +309,7 @@ export class TemplateDispatchPayloadService {
       case 'template_variables_incomplete':
         return 'Destinatário ignorado: dados insuficientes para o template.';
       case 'duplicate_dispatch_today':
-        return 'Mensagem não enviada: destinatário já recebeu disparo hoje.';
+        return 'Mensagem não enviada: Este destinatário já recebeu disparo hoje.';
       default:
         return 'Destinatário ignorado.';
     }
@@ -516,6 +516,12 @@ export class TemplateDispatchPayloadService {
         if (!oc) return null;
         components.push(oc);
         continue;
+      }
+
+      if (buttonType === 'URL') {
+        const urlTemplate = String(button?.url ?? '');
+        const hasPlaceholder = /\{\{\d+\}\}/.test(urlTemplate);
+        if (!hasPlaceholder) continue;
       }
 
       const bc = this.buildButtonComponent(button, i, buttonType, mapped);

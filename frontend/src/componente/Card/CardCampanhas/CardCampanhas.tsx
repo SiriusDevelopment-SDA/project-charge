@@ -337,7 +337,9 @@ export function CardCampaigns({ campaign, onDelete, onStatusChanged }: Props) {
         onClose={closeModal}
         customContent={
           <div className={Style.templateModalContent}>
-            <h4>TEMPLATE COMPLETO</h4>
+            <h4>
+              Template "{campaign.template?.name ?? "—"}" completo
+            </h4>
             <p>{renderTemplateMessage(templateMessage)}</p>
             <button type="button" className={Style.templateModalClose} onClick={closeModal}>
               Fechar
