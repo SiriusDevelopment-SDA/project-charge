@@ -53,6 +53,16 @@ export async function handleUploadPlanilha({
 
       processarDocumentos(documents);
 
+      // Mapa doc → linha original, usado como fonte de verdade quando o cliente
+      // não é encontrado no banco (empresas sem integração ERP).
+      const rowByDoc = new Map<string, Record<string, string>>();
+      for (const row of data) {
+        const doc = normalizeDoc(String(row.cnpj_cpf ?? ""));
+        if (doc.length === 11 || doc.length === 14) {
+          rowByDoc.set(doc, row);
+        }
+      }
+
       const normalizedDocs = documents.map(normalizeDoc).filter(Boolean);
       const fromLoadedClients = clients.filter((client) =>
         normalizedDocs.includes(normalizeDoc(client.cnpj_cpf))
@@ -92,14 +102,47 @@ export async function handleUploadPlanilha({
         });
       }
 
+      // Fallback: para CPFs não encontrados no banco, monta cliente "stateless"
+      // a partir da própria linha da planilha (precisa de whatsapp; nome é opcional).
+      const stillMissing = normalizedDocs.filter((doc) => !foundByDoc.has(doc));
+      const fallbackBuilt: string[] = [];
+      const noFallbackAvailable: string[] = [];
+
+      for (const doc of stillMissing) {
+        const row = rowByDoc.get(doc);
+        const whatsapp = String(row?.whatsapp ?? "").replace(/\D/g, "");
+        if (whatsapp.length >= 10) {
+          const nome = String(row?.nome_cliente ?? "").trim() || `Cliente ${doc}`;
+          foundByDoc.set(doc, {
+            id: `stateless:${doc}`,
+            cnpj_cpf: doc,
+            name: nome,
+            whatsapp,
+            company: account
+              ? { id: "", name: "", account }
+              : undefined,
+          });
+          fallbackBuilt.push(doc);
+        } else {
+          noFallbackAvailable.push(doc);
+        }
+      }
+
+      if (fallbackBuilt.length) {
+        toast.info(
+          `${fallbackBuilt.length} cliente(s) montado(s) a partir da planilha (sem consulta ao ERP).`,
+        );
+      }
+
+      noFallbackAvailable.forEach((doc) =>
+        toast.warning(
+          `Cliente ${doc} nao foi encontrado e nao possui whatsapp na planilha. Preencha a coluna whatsapp ou revise o cpf_cnpj.`,
+        ),
+      );
+
       const finalClients = normalizedDocs
         .map((doc) => foundByDoc.get(doc))
         .filter((client): client is Cliente => Boolean(client));
-
-      const notFound = normalizedDocs.filter((doc) => !foundByDoc.has(doc));
-      notFound.forEach((doc) =>
-        toast.warning(`Cliente ${doc} nao foi encontrado na API. Revise o cpf_cnpj.`)
-      );
 
       if (!finalClients.length) {
         toast.error("Nenhum cliente foi encontrado, revise os documentos enviados!");

@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
 import {
+  ChatwootLoginDto,
   CreateAgentDto,
   EmbedLoginDto,
   LoginAgentDto,
@@ -137,6 +138,137 @@ export class AuthService {
       undefined,
       this.extractPagePermissions(company.config),
     );
+  }
+
+  async loginChatwoot(dto: ChatwootLoginDto) {
+    const company = await this.companyRepository.findOne({
+      where: { account_chatwoot: String(dto.account) },
+      select: {
+        id: true,
+        name: true,
+        account_chatwoot: true,
+        active: true,
+        config: true,
+      },
+    });
+
+    if (!company) {
+      throw new UnauthorizedException('Empresa não encontrada para esta account.');
+    }
+
+    const chatwootBaseUrl = String(
+      this.configService.get<string>('CHATWOOT_BASE_URL') ?? '',
+    ).replace(/\/+$/, '');
+
+    if (!chatwootBaseUrl) {
+      throw new UnauthorizedException('CHATWOOT_BASE_URL não configurada no backend.');
+    }
+
+    const profile = await this.fetchChatwootProfile(chatwootBaseUrl, dto.chatwoot_token);
+
+    // Confere se o usuário pertence à account requisitada (anti-tampering).
+    const userAccountIds = Array.isArray(profile.accounts)
+      ? profile.accounts.map((a: { id: number | string }) => String(a.id))
+      : [];
+    if (!userAccountIds.includes(String(dto.account))) {
+      throw new UnauthorizedException(
+        'Usuário não pertence à account informada.',
+      );
+    }
+
+    const email = String(profile.email ?? '').toLowerCase().trim();
+    const name = String(profile.name ?? '').trim() || email;
+    const chatwootUserId =
+      typeof profile.id === 'number' ? profile.id : Number(profile.id);
+
+    if (!email || !chatwootUserId || Number.isNaN(chatwootUserId)) {
+      throw new UnauthorizedException('Perfil Chatwoot inválido.');
+    }
+
+    // Upsert do agente. Email é UNIQUE global — se existir em outra empresa,
+    // bloqueia (não permitimos um mesmo email autenticar em empresas diferentes).
+    let agent = await this.agentRepository.findOne({
+      where: { email },
+      relations: ['company'],
+    });
+
+    if (agent && agent.company?.id !== company.id) {
+      throw new UnauthorizedException(
+        'Este e-mail já está registrado em outra empresa.',
+      );
+    }
+
+    if (!agent) {
+      agent = this.agentRepository.create({
+        name,
+        email,
+        passwordHash: 'CHATWOOT_AUTH', // placeholder; agente Chatwoot não loga via senha
+        chatwootUserId,
+        chatwootAccessToken: dto.chatwoot_token,
+        role: 'operator',
+        active: true,
+        company: { id: company.id } as Company,
+      });
+      agent = await this.agentRepository.save(agent);
+    } else {
+      agent.name = name;
+      agent.chatwootUserId = chatwootUserId;
+      agent.chatwootAccessToken = dto.chatwoot_token;
+      if (!agent.active) agent.active = true;
+      await this.agentRepository.save(agent);
+    }
+
+    return this.buildAuthResponse(
+      company.id,
+      company.name,
+      company.account_chatwoot,
+      company.active,
+      {
+        agentId: agent.id,
+        agentName: agent.name ?? agent.email,
+        agentEmail: agent.email,
+        agentRole: agent.role,
+        agentActive: agent.active,
+      },
+      this.extractPagePermissions(company.config),
+    );
+  }
+
+  private async fetchChatwootProfile(
+    chatwootBaseUrl: string,
+    chatwootToken: string,
+  ): Promise<Record<string, any>> {
+    let response: Response;
+    try {
+      response = await fetch(`${chatwootBaseUrl}/api/v1/profile`, {
+        method: 'GET',
+        headers: {
+          api_access_token: chatwootToken,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      throw new UnauthorizedException(
+        'Não foi possível conectar ao Chatwoot para validar o token.',
+      );
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new UnauthorizedException('Token Chatwoot inválido.');
+    }
+
+    if (!response.ok) {
+      throw new UnauthorizedException(
+        `Falha ao consultar perfil no Chatwoot (HTTP ${response.status}).`,
+      );
+    }
+
+    try {
+      return (await response.json()) as Record<string, any>;
+    } catch {
+      throw new UnauthorizedException('Resposta do Chatwoot inválida.');
+    }
   }
 
   async createAgent(

@@ -20,6 +20,8 @@ export function AccountLayout() {
   useEffect(() => {
     const accountParam = searchParams.get("account");
     const tokenParam = searchParams.get("token");
+    const chatwootTokenParam = searchParams.get("chatwoot_token");
+    const hasChatwootCredentials = Boolean(accountParam && chatwootTokenParam);
     const hasEmbedCredentials = Boolean(accountParam && tokenParam);
     const accessToken = AppStorage.getAccessToken();
     const normalizedSearch = buildNormalizedSearch(location.search);
@@ -29,6 +31,56 @@ export function AccountLayout() {
 
     setIsAuthorized(false);
     setIsAuthorizing(true);
+
+    // Auth via Chatwoot (user_access_token) — autenticação individual por agente
+    if (hasChatwootCredentials) {
+      const embedSignature = `${window.location.origin}|${accountParam}|chatwoot:${chatwootTokenParam}`;
+      const authenticateChatwoot = async () => {
+        try {
+          const result = await AuthService.chatwootLogin({
+            account: String(accountParam),
+            chatwoot_token: String(chatwootTokenParam),
+          });
+
+          if (!isMounted) return;
+
+          AppStorage.clearOnLogin();
+          AppStorage.setAccessToken(result.accessToken);
+          AppStorage.setAccount(result.company.account);
+          AppStorage.setCompanyName(result.company.name);
+          AppStorage.setCompanyActive(result.company.active);
+          AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
+          AppStorage.setEmbedSignature(embedSignature);
+          AppStorage.setAuthMode("embed");
+          if (result.agent?.name) {
+            AppStorage.setAgentName(result.agent.name);
+          }
+          setAccount(result.company.account);
+          setIsAuthorized(true);
+          setIsAuthorizing(false);
+
+          const params = createNormalizedSearchParams(location.search);
+          params.delete("chatwoot_token");
+          params.delete("token");
+          params.set("account", result.company.account);
+          navigate(`${location.pathname}?${params.toString()}`, {
+            replace: true,
+          });
+        } catch {
+          if (!isMounted) return;
+          AppStorage.clearSession();
+          navigate("/login", {
+            replace: true,
+            state: { from: currentPath },
+          });
+        }
+      };
+
+      void authenticateChatwoot();
+      return () => {
+        isMounted = false;
+      };
+    }
 
     if (hasEmbedCredentials) {
       const embedSignature = `${window.location.origin}|${accountParam}|${tokenParam}`;

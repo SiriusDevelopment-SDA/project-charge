@@ -5,10 +5,30 @@
     font-size: 13px;
     color: #cfcfcf;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px 14px;
     padding: 10px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(242, 192, 16, 0.15);
+  }
+
+  .details > div {
+    min-width: 0;
+    word-break: break-word;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: baseline;
+  }
+
+  .details > div strong {
+    color: #f2c010;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* Item de Categoria (5º) ocupa a linha inteira para evitar coluna órfã */
+  .details > div:nth-child(5) {
+    grid-column: 1 / -1;
   }
