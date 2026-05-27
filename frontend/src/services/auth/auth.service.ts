@@ -11,6 +11,11 @@ type EmbedLoginPayload = {
   token: string;
 };
 
+type ChatwootLoginPayload = {
+  account: string;
+  chatwoot_token: string;
+};
+
 export type PagePermissions = {
   dashboard: boolean;
   clientesVencidos: boolean;
@@ -185,6 +190,11 @@ export class AuthService {
 
       throw error;
     }
+  }
+
+  static async chatwootLogin(payload: ChatwootLoginPayload): Promise<LoginResponse> {
+    const { data } = await Api.post<LoginResponse>("/auth/chatwoot-login", payload);
+    return data;
   }
 
   static async me(): Promise<MeResponse> {
