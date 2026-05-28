@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { FindOptionsSelect, FindOptionsWhere, In, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
 import { CompaniesService } from '../companies/companies.service';
 import {
@@ -397,12 +397,7 @@ export class AuthService {
     }
 
     const agent = payload.agentId
-      ? await this.agentRepository.findOne({
-          where: {
-            id: payload.agentId,
-            company: { id: company.id },
-          },
-          relations: ['company'],
+      ? await this.loadAuthenticatedAgent(payload, company.id, {
           select: {
             id: true,
             name: true,
@@ -413,6 +408,8 @@ export class AuthService {
               id: true,
             },
           },
+          // me() exige agente ativo (mantem o comportamento original).
+          requireActive: false,
         })
       : null;
 
@@ -887,12 +884,7 @@ export class AuthService {
       );
     }
 
-    const agent = await this.agentRepository.findOne({
-      where: {
-        id: payload.agentId,
-        company: { id: payload.sub },
-      },
-      relations: ['company'],
+    const agent = await this.loadAuthenticatedAgent(payload, payload.sub, {
       select: {
         id: true,
         name: true,
@@ -904,6 +896,8 @@ export class AuthService {
           id: true,
         },
       },
+      // updateProfile() original nao exigia agent.active — mantemos.
+      requireActive: false,
     });
 
     if (!agent) {
@@ -1378,6 +1372,57 @@ export class AuthService {
     return company;
   }
 
+  /**
+   * Carga padronizada do Agent autenticado a partir do JWT.
+   *
+   * Para admin/operator amarra `agent.company.id = expectedCompanyId` (mantem
+   * multi-tenancy). Para super_admin (E5) relaxa o filtro para apenas
+   * `id = payload.agentId`, pois o JWT do super_admin pode carregar uma
+   * `companyId` (sub) diferente da `agent.company` natural — ele troca de
+   * empresa via /auth/switch-company sem que o agente seja movido entre
+   * tenants.
+   *
+   * IMPORTANTE: o relaxamento e EXCLUSIVO da carga do Agent em
+   * autenticacao/perfil. Queries de dados (clients, invoices, campaigns,
+   * etc.) continuam exigindo filtro por companyId.
+   */
+  private async loadAuthenticatedAgent(
+    payload: JwtPayload,
+    expectedCompanyId: string,
+    options: {
+      select?: FindOptionsSelect<Agent>;
+      /** Quando true (default), filtra por active=true direto no WHERE. */
+      requireActive?: boolean;
+    } = {},
+  ): Promise<Agent | null> {
+    if (!payload.agentId) {
+      return null;
+    }
+
+    const isSuperAdmin = payload.agentRole === 'super_admin';
+    const requireActive = options.requireActive ?? true;
+
+    const where: FindOptionsWhere<Agent> = isSuperAdmin
+      ? { id: payload.agentId }
+      : { id: payload.agentId, company: { id: expectedCompanyId } };
+
+    if (requireActive) {
+      where.active = true;
+    }
+
+    if (isSuperAdmin) {
+      this.logger.debug(
+        `loadAuthenticatedAgent: relaxando filtro de companyId para super_admin agentId=${payload.agentId} expectedCompanyId=${expectedCompanyId}`,
+      );
+    }
+
+    return this.agentRepository.findOne({
+      where,
+      relations: ['company'],
+      select: options.select,
+    });
+  }
+
   private async requireAdminAgent(authorization?: string) {
     const payload = await this.getTokenPayload(authorization);
 
@@ -1387,12 +1432,7 @@ export class AuthService {
       );
     }
 
-    const agent = await this.agentRepository.findOne({
-      where: {
-        id: payload.agentId,
-        company: { id: payload.sub },
-      },
-      relations: ['company'],
+    const agent = await this.loadAuthenticatedAgent(payload, payload.sub, {
       select: {
         id: true,
         name: true,
