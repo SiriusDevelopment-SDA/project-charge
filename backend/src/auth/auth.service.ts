@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
+import { CompaniesService } from '../companies/companies.service';
 import {
   ChatwootLoginDto,
   CreateAgentDto,
@@ -49,6 +52,8 @@ type JwtPayload = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
@@ -61,6 +66,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly chatwootService: ChatwootService,
     private readonly configService: ConfigService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   async loginAgent(dto: LoginAgentDto) {
@@ -96,11 +102,16 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais invalidas');
     }
 
+    // E5: super_admin sempre cai na empresa default (Fibras do Rio) no
+    // primeiro acesso. Frontend pode trocar via /auth/switch-company (E4).
+    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
+    const targetCompany = defaultCompany ?? agent.company;
+
     return this.buildAuthResponse(
-      agent.company.id,
-      agent.company.name,
-      agent.company.account_chatwoot,
-      agent.company.active,
+      targetCompany.id,
+      targetCompany.name,
+      targetCompany.account_chatwoot,
+      targetCompany.active,
       {
         agentId: agent.id,
         agentName: agent.name ?? agent.email,
@@ -218,11 +229,17 @@ export class AuthService {
       await this.agentRepository.save(agent);
     }
 
+    // E5: super_admin sempre cai na empresa default (Fibras do Rio) no
+    // primeiro acesso, ignorando o `account` da URL. Frontend pode trocar
+    // via /auth/switch-company (E4).
+    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
+    const targetCompany = defaultCompany ?? company;
+
     return this.buildAuthResponse(
-      company.id,
-      company.name,
-      company.account_chatwoot,
-      company.active,
+      targetCompany.id,
+      targetCompany.name,
+      targetCompany.account_chatwoot,
+      targetCompany.active,
       {
         agentId: agent.id,
         agentName: agent.name ?? agent.email,
@@ -230,7 +247,7 @@ export class AuthService {
         agentRole: agent.role,
         agentActive: agent.active,
       },
-      this.extractPagePermissions(company.config),
+      this.extractPagePermissions(targetCompany.config),
     );
   }
 
@@ -295,7 +312,22 @@ export class AuthService {
 
     const passwordHash = await hash(dto.password, 10);
     const normalizedName = dto.name.trim();
-    const normalizedRole = dto.role === 'admin' ? 'admin' : 'operator';
+    // Apenas super_admin pode criar outro super_admin. Admin comum
+    // normaliza qualquer role nao-admin para 'operator'.
+    const isCallerSuperAdmin = actingAgent.role === 'super_admin';
+    let normalizedRole: AgentRole;
+    if (dto.role === 'super_admin') {
+      if (!isCallerSuperAdmin) {
+        throw new ForbiddenException(
+          'Apenas super administradores podem promover usuarios a super_admin.',
+        );
+      }
+      normalizedRole = 'super_admin';
+    } else if (dto.role === 'admin') {
+      normalizedRole = 'admin';
+    } else {
+      normalizedRole = 'operator';
+    }
     const provisionedIdentity = await this.chatwootService.provisionAgentIdentity({
       companyId,
       name: normalizedName,
@@ -622,24 +654,29 @@ export class AuthService {
         }
 
         if (existing.role !== mappedRole) {
-          const shouldDemoteLastAdmin =
-            existing.role === 'admin' &&
-            mappedRole !== 'admin' &&
-            existing.active;
+          // super_admin nao vem do Maestro: nunca deve ser rebaixado por sync.
+          if (existing.role === 'super_admin') {
+            // mantem o super_admin local intacto
+          } else {
+            const shouldDemoteLastAdmin =
+              existing.role === 'admin' &&
+              mappedRole !== 'admin' &&
+              existing.active;
 
-          if (shouldDemoteLastAdmin) {
-            try {
-              await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, existing.id);
+            if (shouldDemoteLastAdmin) {
+              try {
+                await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, existing.id);
+                existing.role = mappedRole;
+                roleUpdated += 1;
+                changed = true;
+              } catch {
+                // Mantem o admin local quando ele e o ultimo administrador ativo.
+              }
+            } else {
               existing.role = mappedRole;
               roleUpdated += 1;
               changed = true;
-            } catch {
-              // Mantem o admin local quando ele e o ultimo administrador ativo.
             }
-          } else {
-            existing.role = mappedRole;
-            roleUpdated += 1;
-            changed = true;
           }
         }
 
@@ -1017,7 +1054,30 @@ export class AuthService {
       throw new BadRequestException('Voce nao pode alterar a propria role.');
     }
 
-    if (agent.role === 'admin' && (nextRole !== 'admin' || nextActive === false)) {
+    const isCallerSuperAdmin = actingAgent.role === 'super_admin';
+
+    // Apenas super_admin pode alterar/rebaixar/bloquear outro super_admin.
+    if (agent.role === 'super_admin' && !isCallerSuperAdmin) {
+      throw new ForbiddenException(
+        'Apenas super administradores podem alterar outro super administrador.',
+      );
+    }
+
+    // Apenas super_admin pode promover alguem a super_admin.
+    if (
+      dto.role === 'super_admin' &&
+      agent.role !== 'super_admin' &&
+      !isCallerSuperAdmin
+    ) {
+      throw new ForbiddenException(
+        'Apenas super administradores podem promover usuarios a super_admin.',
+      );
+    }
+
+    // super_admin conta como admin nas invariantes de "ultimo administrador".
+    const wasAdminLike = agent.role === 'admin' || agent.role === 'super_admin';
+    const willBeAdminLike = nextRole === 'admin' || nextRole === 'super_admin';
+    if (wasAdminLike && (!willBeAdminLike || nextActive === false)) {
       await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
     }
 
@@ -1081,7 +1141,14 @@ export class AuthService {
       throw new NotFoundException('Agente nao encontrado para esta empresa.');
     }
 
-    if (agent.role === 'admin' && agent.active) {
+    // Apenas super_admin pode remover outro super_admin.
+    if (agent.role === 'super_admin' && actingAgent.role !== 'super_admin') {
+      throw new ForbiddenException(
+        'Apenas super administradores podem remover outro super administrador.',
+      );
+    }
+
+    if ((agent.role === 'admin' || agent.role === 'super_admin') && agent.active) {
       await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
     }
 
@@ -1112,6 +1179,109 @@ export class AuthService {
         role: agent.role,
       },
     };
+  }
+
+  /**
+   * Reemite o JWT do super_admin trocando o companyId ativo. O frontend
+   * substitui o token e os endpoints subsequentes operam na nova empresa.
+   *
+   * Defesa em profundidade: alem do SuperAdminGuard no controller,
+   * revalida-se aqui o role do agente (caso o token tenha sido emitido
+   * antes do agente ser rebaixado).
+   */
+  async switchActiveCompany(agentId: string, targetCompanyId: string) {
+    const normalizedAgentId = String(agentId ?? '').trim();
+    const normalizedTargetCompanyId = String(targetCompanyId ?? '').trim();
+
+    if (!normalizedAgentId) {
+      throw new UnauthorizedException('Sessao invalida.');
+    }
+
+    const agent = await this.agentRepository.findOne({
+      where: { id: normalizedAgentId },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        company: { id: true },
+      },
+    });
+
+    if (!agent || !agent.active) {
+      throw new UnauthorizedException('Agente nao encontrado ou bloqueado.');
+    }
+
+    if (agent.role !== 'super_admin') {
+      throw new ForbiddenException(
+        'Apenas super administradores podem trocar de empresa.',
+      );
+    }
+
+    const targetCompany = await this.companiesService.findActiveById(
+      normalizedTargetCompanyId,
+    );
+
+    if (!targetCompany) {
+      throw new NotFoundException(
+        'Empresa nao encontrada ou inativa.',
+      );
+    }
+
+    const fromCompanyId = agent.company?.id ?? null;
+
+    this.logger.log(
+      `super_admin switched company agentId=${agent.id} fromCompanyId=${fromCompanyId} toCompanyId=${targetCompany.id}`,
+    );
+
+    return this.buildAuthResponse(
+      targetCompany.id,
+      targetCompany.name,
+      targetCompany.account_chatwoot,
+      targetCompany.active,
+      {
+        agentId: agent.id,
+        agentName: agent.name ?? agent.email,
+        agentEmail: agent.email,
+        agentRole: agent.role,
+        agentActive: agent.active,
+      },
+    );
+  }
+
+  /**
+   * Default company override do super_admin no login. Spec E5:
+   * todo super_admin, no primeiro acesso (independente do canal de login),
+   * cai na empresa Fibras do Rio (account_chatwoot = '4'). Depois o
+   * frontend pode trocar via POST /auth/switch-company/:id (E4).
+   *
+   * Fallback: se a empresa default nao existir ou estiver inativa,
+   * loga warning e devolve null — o caller cai no comportamento normal
+   * (agent.company natural). Nao quebra o login.
+   */
+  private static readonly SUPER_ADMIN_DEFAULT_ACCOUNT_CHATWOOT = '4';
+
+  private async resolveSuperAdminDefaultCompany(
+    agent: Pick<Agent, 'id' | 'role'>,
+  ): Promise<Company | null> {
+    if (agent.role !== 'super_admin') {
+      return null;
+    }
+
+    const defaultCompany = await this.companiesService.findActiveByChatwootAccount(
+      AuthService.SUPER_ADMIN_DEFAULT_ACCOUNT_CHATWOOT,
+    );
+
+    if (!defaultCompany) {
+      this.logger.warn(
+        `Default company Fibras do Rio (account_chatwoot=${AuthService.SUPER_ADMIN_DEFAULT_ACCOUNT_CHATWOOT}) not found or inactive, falling back to agent.companyId agentId=${agent.id}`,
+      );
+      return null;
+    }
+
+    return defaultCompany;
   }
 
   private async buildAuthResponse(
@@ -1237,7 +1407,7 @@ export class AuthService {
       throw new UnauthorizedException('Agente nao encontrado ou bloqueado.');
     }
 
-    if (agent.role !== 'admin') {
+    if (agent.role !== 'admin' && agent.role !== 'super_admin') {
       throw new UnauthorizedException(
         'Apenas administradores podem gerenciar a equipe.',
       );
@@ -1250,10 +1420,11 @@ export class AuthService {
     companyId: string,
     excludingAgentId: string,
   ) {
+    // super_admin conta como admin para a invariante de "ao menos um admin ativo".
     const adminCount = await this.agentRepository.count({
       where: {
         company: { id: companyId },
-        role: 'admin',
+        role: In(['admin', 'super_admin']),
         active: true,
       },
     });
@@ -1262,7 +1433,7 @@ export class AuthService {
       where: {
         id: excludingAgentId,
         company: { id: companyId },
-        role: 'admin',
+        role: In(['admin', 'super_admin']),
         active: true,
       },
     });

@@ -1492,7 +1492,10 @@ export class ChatwootService {
         method: 'POST',
         body: JSON.stringify({
           user_id: userId,
-          role: input.role === 'admin' ? 'administrator' : 'agent',
+          role:
+            input.role === 'admin' || input.role === 'super_admin'
+              ? 'administrator'
+              : 'agent',
         }),
       },
     );

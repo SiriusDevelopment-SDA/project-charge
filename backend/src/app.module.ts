@@ -65,6 +65,9 @@ import { MessageQueueWorker } from './message-queue/message-queue.worker';
 import { TemplateDispatchPayloadService } from './templates/template-dispatch-payload.service';
 import { MessageQueue } from './message-queue/entities/message-queue.entity';
 import { CampaignScheduler } from './message-queue/campaign-scheduler';
+import { CompaniesController } from './companies/companies.controller';
+import { CompaniesService } from './companies/companies.service';
+import { SuperAdminGuard } from './auth/guards/super-admin.guard';
 
 @Module({
   imports: [
@@ -108,6 +111,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     NotificaMeWebhookController,
     PaymentPromiseController,
     ClientInteractionController,
+    CompaniesController,
 
   ],
   providers: [
@@ -140,6 +144,8 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
     RedisService,
     TemplateDispatchPayloadService,
     CampaignScheduler,
+    CompaniesService,
+    SuperAdminGuard,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
