@@ -1,5 +1,10 @@
 import { Api } from "../api";
+import { AppStorage } from "../storage/storage.service";
 import { getErrorStatus } from "../../utils/error";
+import type {
+  AuthPermissions,
+  LoginResponse,
+} from "../../types/authApiTypes";
 
 type LoginPayload = {
   email: string;
@@ -16,30 +21,11 @@ type ChatwootLoginPayload = {
   chatwoot_token: string;
 };
 
-export type PagePermissions = {
-  dashboard: boolean;
-  clientesVencidos: boolean;
-  chat: boolean;
-};
-
-type LoginResponse = {
-  success: boolean;
-  accessToken: string;
-  company: {
-    id: string;
-    name: string;
-    account: string;
-    active: boolean;
-  };
-  permissions?: PagePermissions | null;
-  agent?: {
-    id: string;
-    name: string | null;
-    email: string | null;
-    role: "admin" | "operator";
-    active: boolean;
-  } | null;
-};
+/**
+ * @deprecated Use `AuthPermissions` de `types/authApiTypes`.
+ * Mantido como alias para compatibilidade com imports existentes.
+ */
+export type PagePermissions = AuthPermissions;
 
 type MeResponse = {
   success: boolean;
@@ -56,12 +42,12 @@ type MeResponse = {
     autoBreakEnabled: boolean;
     checkPaymentBeforeBreak: boolean;
   };
-  permissions?: PagePermissions | null;
+  permissions?: AuthPermissions | null;
   agent?: {
     id: string;
     name: string | null;
     email: string | null;
-    role: "admin" | "operator";
+    role: "admin" | "operator" | "super_admin";
     active: boolean;
   } | null;
 };
@@ -106,7 +92,7 @@ type UpdateProfileResponse = {
     id: string;
     name: string | null;
     email: string | null;
-    role: "admin" | "operator";
+    role: "admin" | "operator" | "super_admin";
     active: boolean;
   };
 };
@@ -169,6 +155,38 @@ type SyncChatwootAgentsResponse = {
   linked: number;
   roleUpdated: number;
 };
+
+const DEFAULT_PERMISSIONS: AuthPermissions = {
+  dashboard: true,
+  clientesVencidos: true,
+  chat: true,
+};
+
+/**
+ * Persiste no `AppStorage` os campos da resposta de login (ou de switch-company,
+ * que tem o mesmo shape).
+ *
+ * Centraliza a logica de persistencia de sessao para evitar duplicacao entre
+ * `Login.tsx`, os fluxos de embed/chatwoot em `AccountLayout.tsx` e o mutation
+ * de troca de empresa do super_admin.
+ *
+ * Importante: nao define `authMode` aqui — cada caller escolhe entre "agent"
+ * (login normal / switch) e "embed" (chatwoot/embed-login).
+ */
+export function applyLoginSession(response: LoginResponse): void {
+  AppStorage.setAccessToken(response.accessToken);
+  AppStorage.setAccount(response.company.account);
+  AppStorage.setCompanyName(response.company.name);
+  AppStorage.setCompanyActive(response.company.active);
+  AppStorage.setPagePermissions(response.permissions ?? DEFAULT_PERMISSIONS);
+
+  if (response.agent?.name) {
+    AppStorage.setAgentName(response.agent.name);
+  }
+  if (response.agent?.role) {
+    AppStorage.setAgentRole(response.agent.role);
+  }
+}
 
 export class AuthService {
   static async login(payload: LoginPayload): Promise<LoginResponse> {

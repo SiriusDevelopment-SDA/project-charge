@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
-import { AuthService } from "../services/auth/auth.service";
+import { AuthService, applyLoginSession } from "../services/auth/auth.service";
 import { AppStorage } from "../services/storage/storage.service";
 import { Navbar } from "../componente/Index";
 import Style from "./AccountLayout.module.css";
@@ -45,16 +45,9 @@ export function AccountLayout() {
           if (!isMounted) return;
 
           AppStorage.clearOnLogin();
-          AppStorage.setAccessToken(result.accessToken);
-          AppStorage.setAccount(result.company.account);
-          AppStorage.setCompanyName(result.company.name);
-          AppStorage.setCompanyActive(result.company.active);
-          AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
+          applyLoginSession(result);
           AppStorage.setEmbedSignature(embedSignature);
           AppStorage.setAuthMode("embed");
-          if (result.agent?.name) {
-            AppStorage.setAgentName(result.agent.name);
-          }
           setAccount(result.company.account);
           setIsAuthorized(true);
           setIsAuthorizing(false);
@@ -94,11 +87,7 @@ export function AccountLayout() {
           if (!isMounted) return;
 
           AppStorage.clearOnLogin();
-          AppStorage.setAccessToken(result.accessToken);
-          AppStorage.setAccount(result.company.account);
-          AppStorage.setCompanyName(result.company.name);
-          AppStorage.setCompanyActive(result.company.active);
-          AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
+          applyLoginSession(result);
           AppStorage.setEmbedSignature(embedSignature);
           AppStorage.setAuthMode("embed");
           setAccount(result.company.account);
@@ -141,13 +130,21 @@ export function AccountLayout() {
         const result = await AuthService.me();
         if (!isMounted) return;
 
-        setAccount(result.company.account);
-        AppStorage.setCompanyName(result.company.name);
+        applyLoginSession({
+          success: result.success,
+          accessToken: AppStorage.getAccessToken(),
+          company: {
+            id: result.company.id,
+            name: result.company.name,
+            account: result.company.account,
+            active: result.company.active,
+          },
+          permissions: result.permissions ?? null,
+          agent: result.agent ?? null,
+        });
         AppStorage.setCompanyCnpj(result.company.cnpj ?? '');
-        AppStorage.setCompanyActive(result.company.active);
-        AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
+        setAccount(result.company.account);
         if (result.agent?.id) {
-          AppStorage.setAgentName(result.agent.name ?? "");
           AppStorage.setAuthMode("agent");
         } else {
           // Sessão embed sem token na URL = acesso direto indevido

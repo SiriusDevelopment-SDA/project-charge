@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AuthService } from "../../services/auth/auth.service";
+import { AuthService, applyLoginSession } from "../../services/auth/auth.service";
 import { AppStorage } from "../../services/storage/storage.service";
 import { getErrorMessage } from "../../utils/error";
 import { createNormalizedSearchParams } from "../../utils/locationSearch";
@@ -31,14 +31,9 @@ export function Login() {
         return;
       }
 
-      AppStorage.setAccessToken(result.accessToken);
-      AppStorage.setAccount(result.company.account);
-      AppStorage.setCompanyName(result.company.name);
-      AppStorage.setAuthMode("agent");
       AppStorage.clearOnLogin();
-      if (result.agent?.name) {
-        AppStorage.setAgentName(result.agent.name);
-      }
+      applyLoginSession(result);
+      AppStorage.setAuthMode("agent");
 
       const from =
         typeof (location.state as { from?: string } | null)?.from === "string"

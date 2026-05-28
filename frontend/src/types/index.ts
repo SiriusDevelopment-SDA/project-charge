@@ -84,6 +84,17 @@ import type {
   InteractionOutcome,
 } from "./collectionApiTypes";
 
+import type {
+  AgentRole,
+  AuthAgent,
+  AuthCompany,
+  AuthPermissions,
+  LoginResponse,
+  SwitchCompanyResponse,
+} from "./authApiTypes";
+
+import type { CompanyListItem } from "./companyApiTypes";
+
 type DropdownType = "template" | "category" | "client" | null;
 export type 
 { Cliente,
@@ -150,4 +161,11 @@ export type
   DispatchSummaryBatchResponse,
   InteractionType,
   InteractionOutcome,
+  AgentRole,
+  AuthAgent,
+  AuthCompany,
+  AuthPermissions,
+  LoginResponse,
+  SwitchCompanyResponse,
+  CompanyListItem,
 };

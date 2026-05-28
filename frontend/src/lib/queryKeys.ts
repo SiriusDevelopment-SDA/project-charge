@@ -29,6 +29,9 @@ export const queryKeys = {
     latestReport: (account: string, scope: string) =>
       ["history", account, "latest", scope] as const,
   },
+  companies: {
+    list: () => ["companies", "list"] as const,
+  },
   dashboard: {
     charges: (companyId: string) =>
       ["dashboard", "charges", companyId] as const,
