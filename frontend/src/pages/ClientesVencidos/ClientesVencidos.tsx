@@ -1327,7 +1327,7 @@ export function ClientesVencidos() {
             open
             type="modaltemplates"
             title="Escolha uma opcao:"
-            description={<>Voce selecionou <b>{clientesMarcados.length}</b> cliente(s).</>}
+            description={<>Você selecionou <b>{clientesMarcados.length}</b> cliente(s).</>}
             onClose={() => setOpenProsseguirModal(false)}
             buttons={[
               {
