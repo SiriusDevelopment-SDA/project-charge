@@ -7,6 +7,7 @@ import type { CompanyAgent } from "../../services/auth/auth.service";
 import styles from "./Styles/Perfil.module.css";
 
 type TeamMemberRowProps = {
+  allowSuperAdmin: boolean;
   busyAgentId: string;
   currentAgentId: string;
   member: CompanyAgent;
@@ -16,11 +17,16 @@ type TeamMemberRowProps = {
 };
 
 type RoleSegmentSelectorProps = {
+  allowSuperAdmin: boolean;
   onChange: (role: AgentRoleValue) => void;
   value: AgentRoleValue;
 };
 
 function getRoleLabel(role: AgentRoleValue) {
+  if (role === "super_admin") {
+    return "Super Admin";
+  }
+
   return role === "admin" ? "Administrador" : "Operador";
 }
 
@@ -52,6 +58,7 @@ const SummaryMetricCard = memo(function SummaryMetricCard({
 });
 
 const RoleSegmentSelector = memo(function RoleSegmentSelector({
+  allowSuperAdmin,
   onChange,
   value,
 }: RoleSegmentSelectorProps) {
@@ -77,12 +84,24 @@ const RoleSegmentSelector = memo(function RoleSegmentSelector({
         >
           Administrador
         </button>
+        {allowSuperAdmin && (
+          <button
+            type="button"
+            className={`${styles.roleSegmentButton} ${
+              value === "super_admin" ? styles.roleSegmentButtonActive : ""
+            }`}
+            onClick={() => onChange("super_admin")}
+          >
+            Super Admin
+          </button>
+        )}
       </div>
     </label>
   );
 });
 
 const TeamMemberRow = memo(function TeamMemberRow({
+  allowSuperAdmin,
   busyAgentId,
   currentAgentId,
   member,
@@ -112,7 +131,7 @@ const TeamMemberRow = memo(function TeamMemberRow({
           <span className={styles.syncBadge}>
             {member.chatwootLinked ? "Maestro OK" : "Sem Maestro"}
           </span>
-          {isCurrentUser && <span className={styles.selfBadge}>Voce</span>}
+          {isCurrentUser && <span className={styles.selfBadge}>Você</span>}
         </div>
       </div>
 
@@ -138,6 +157,18 @@ const TeamMemberRow = memo(function TeamMemberRow({
           >
             Admin
           </button>
+          {allowSuperAdmin && (
+            <button
+              type="button"
+              className={`${styles.roleSwitchButton} ${
+                member.role === "super_admin" ? styles.roleSwitchActive : ""
+              }`}
+              disabled={isBusy || isCurrentUser}
+              onClick={() => onUpdateRole(member, "super_admin")}
+            >
+              Super Admin
+            </button>
+          )}
         </div>
 
         <button
@@ -176,6 +207,7 @@ export function PerfilPage() {
     handleSyncChatwootAgents,
     handleToggleAccess,
     isAdmin,
+    isSuperAdmin,
     isCreatingAgent,
     isLoading,
     isSaving,
@@ -422,6 +454,7 @@ export function PerfilPage() {
                     render={({ field }) => (
                       <div className={styles.fieldBlock}>
                         <RoleSegmentSelector
+                          allowSuperAdmin={isSuperAdmin}
                           value={field.value}
                           onChange={field.onChange}
                         />
@@ -467,6 +500,7 @@ export function PerfilPage() {
                   filteredTeamMembers.map((member) => (
                     <TeamMemberRow
                       key={member.id}
+                      allowSuperAdmin={isSuperAdmin}
                       busyAgentId={busyAgentId}
                       currentAgentId={currentAgentId}
                       member={member}

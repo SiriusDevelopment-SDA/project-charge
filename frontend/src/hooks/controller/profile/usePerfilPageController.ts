@@ -101,7 +101,8 @@ export function usePerfilPageController() {
     mode: "onChange",
   });
 
-  const isAdmin = profileMeta.role === "admin";
+  const isAdmin = profileMeta.role === "admin" || profileMeta.role === "super_admin";
+  const isSuperAdmin = profileMeta.role === "super_admin";
 
   const filteredTeamMembers = useMemo(() => {
     const query = teamSearch.trim().toLowerCase();
@@ -120,7 +121,9 @@ export function usePerfilPageController() {
       total: teamMembers.length,
       active: teamMembers.filter((member) => member.active).length,
       blocked: teamMembers.filter((member) => !member.active).length,
-      admins: teamMembers.filter((member) => member.role === "admin").length,
+      admins: teamMembers.filter((member) =>
+        ["admin", "super_admin"].includes(member.role),
+      ).length,
     }),
     [teamMembers],
   );
@@ -156,7 +159,7 @@ export function usePerfilPageController() {
 
         setProfileMeta(nextMeta);
 
-        if (nextMeta.role === "admin") {
+        if (nextMeta.role === "admin" || nextMeta.role === "super_admin") {
           await loadTeam();
         }
       } catch (error: unknown) {
@@ -386,6 +389,7 @@ export function usePerfilPageController() {
     handleSyncChatwootAgents,
     handleToggleAccess,
     isAdmin,
+    isSuperAdmin,
     isCreatingAgent,
     isLoading,
     isSaving,
