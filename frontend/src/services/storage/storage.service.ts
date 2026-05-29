@@ -152,7 +152,9 @@ export const AppStorage = {
     remove(KEYS.COMPANY_CNPJ);
     remove(KEYS.COMPANY_ACTIVE);
     remove(KEYS.PAGE_PERMISSIONS);
-    remove(KEYS.LAST_ACTIVE_COMPANY_ID);
+    // LAST_ACTIVE_COMPANY_ID NAO e removido no logout de proposito:
+    // o super_admin deve retornar a ultima empresa selecionada no proximo login.
+    // So e limpo em fallback de switch invalido (404) ou clear total do cache.
   },
 
   /** Remove dados de sessão + atendente ao fazer login limpo */
