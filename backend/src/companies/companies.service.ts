@@ -21,30 +21,40 @@ export class CompaniesService {
   ) {}
 
   /**
-   * Lista todas as empresas ativas. Endpoint restrito a super_admin
-   * (ver SuperAdminGuard) — e a unica leitura que ignora o filtro padrao
-   * de companyId aplicado no restante do sistema.
+   * Lista todas as empresas ativas que possuem ERP configurado. Endpoint
+   * restrito a super_admin (ver SuperAdminGuard) — e a unica leitura que
+   * ignora o filtro padrao de companyId aplicado no restante do sistema.
+   *
+   * Filtro de ERP: empresas sem ERP (coluna `erp` nula, vazia ou apenas
+   * espacos — ex.: a "Empresa Local" account_chatwoot '1') sao empresas de
+   * teste sem dados reais e NAO devem aparecer no switch de empresa.
+   * Por isso filtramos `erp IS NOT NULL AND TRIM(erp) <> ''` direto no banco.
+   * Este filtro e EXCLUSIVO da listagem: findActiveById e
+   * findActiveByChatwootAccount continuam encontrando qualquer empresa ativa.
    *
    * Importante: NUNCA retornar tokens sensiveis daqui
    * (token_system_coraxy, token_notificameHub, acess_token_agentbot_chatwoot,
    *  autorization, config).
    */
   async listAll(): Promise<CompanyListItem[]> {
-    const companies = await this.companyRepository.find({
-      where: { active: true },
-      select: {
-        id: true,
-        name: true,
-        account_chatwoot: true,
-        label: true,
-        active: true,
-      },
-      order: {
-        name: 'ASC',
-      },
-    });
+    const companies = await this.companyRepository
+      .createQueryBuilder('company')
+      .select([
+        'company.id',
+        'company.name',
+        'company.account_chatwoot',
+        'company.label',
+        'company.active',
+      ])
+      .where('company.active = :active', { active: true })
+      .andWhere('company.erp IS NOT NULL')
+      .andWhere("TRIM(company.erp) <> ''")
+      .orderBy('company.name', 'ASC')
+      .getMany();
 
-    this.logger.log(`[listAll] retornadas ${companies.length} empresa(s) ativa(s).`);
+    this.logger.log(
+      `[listAll] retornadas ${companies.length} empresa(s) ativa(s) com ERP.`,
+    );
 
     return companies.map((company) => ({
       id: company.id,
