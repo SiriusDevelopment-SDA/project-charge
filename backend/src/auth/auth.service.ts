@@ -152,6 +152,45 @@ export class AuthService {
   }
 
   async loginChatwoot(dto: ChatwootLoginDto) {
+    const chatwootBaseUrl = String(
+      this.configService.get<string>('CHATWOOT_BASE_URL') ?? '',
+    ).replace(/\/+$/, '');
+
+    if (!chatwootBaseUrl) {
+      throw new UnauthorizedException('CHATWOOT_BASE_URL não configurada no backend.');
+    }
+
+    // 1) Validação do token Chatwoot é OBRIGATÓRIA para todos os papéis e
+    // acontece SEMPRE antes de qualquer decisão sobre a company. O embed abre
+    // com account=1 (ambiente master), que não existe como company no banco;
+    // portanto a company pode ser null mais adiante e a ordem precisa garantir
+    // que o profile/agent sejam resolvidos primeiro.
+    const profile = await this.fetchChatwootProfile(chatwootBaseUrl, dto.chatwoot_token);
+
+    // 2) Extrai email/name/chatwootUserId do profile.
+    const email = String(profile.email ?? '').toLowerCase().trim();
+    const name = String(profile.name ?? '').trim() || email;
+    const chatwootUserId =
+      typeof profile.id === 'number' ? profile.id : Number(profile.id);
+
+    if (!email || !chatwootUserId || Number.isNaN(chatwootUserId)) {
+      throw new UnauthorizedException('Perfil Chatwoot inválido.');
+    }
+
+    // 3) Busca o agente por email ANTES das checagens de anti-tampering/bloqueio:
+    // o role do agente decide se relaxamos as validações para super_admin.
+    // super_admin só é reconhecido quando o agente JÁ existe com esse role —
+    // primeiro login via Chatwoot cria 'operator', então as checagens valem.
+    let agent = await this.agentRepository.findOne({
+      where: { email },
+      relations: ['company'],
+    });
+
+    // 4) super_admin definido pelo role persistido do agente.
+    const isSuperAdmin = agent?.role === 'super_admin';
+
+    // 5) Busca a company da account (pode ser null — ex.: account=1 do embed
+    // master, que não existe no banco).
     const company = await this.companyRepository.findOne({
       where: { account_chatwoot: String(dto.account) },
       select: {
@@ -163,53 +202,53 @@ export class AuthService {
       },
     });
 
-    if (!company) {
+    // 6) Se a company não existe para a account:
+    //   - não-super_admin: mantém o 401 atual.
+    //   - super_admin: segue (cairá na empresa default no passo 10).
+    if (!company && !isSuperAdmin) {
       throw new UnauthorizedException('Empresa não encontrada para esta account.');
     }
 
-    const chatwootBaseUrl = String(
-      this.configService.get<string>('CHATWOOT_BASE_URL') ?? '',
-    ).replace(/\/+$/, '');
-
-    if (!chatwootBaseUrl) {
-      throw new UnauthorizedException('CHATWOOT_BASE_URL não configurada no backend.');
-    }
-
-    const profile = await this.fetchChatwootProfile(chatwootBaseUrl, dto.chatwoot_token);
-
-    // Confere se o usuário pertence à account requisitada (anti-tampering).
+    // 7) Anti-tampering: confere se o usuário pertence à account requisitada.
+    // super_admin transita entre accounts, então essa exigência é ignorada
+    // para ele (o token continua validado acima via fetchChatwootProfile).
     const userAccountIds = Array.isArray(profile.accounts)
       ? profile.accounts.map((a: { id: number | string }) => String(a.id))
       : [];
-    if (!userAccountIds.includes(String(dto.account))) {
+    if (!isSuperAdmin && !userAccountIds.includes(String(dto.account))) {
       throw new UnauthorizedException(
         'Usuário não pertence à account informada.',
       );
     }
-
-    const email = String(profile.email ?? '').toLowerCase().trim();
-    const name = String(profile.name ?? '').trim() || email;
-    const chatwootUserId =
-      typeof profile.id === 'number' ? profile.id : Number(profile.id);
-
-    if (!email || !chatwootUserId || Number.isNaN(chatwootUserId)) {
-      throw new UnauthorizedException('Perfil Chatwoot inválido.');
+    if (isSuperAdmin && !userAccountIds.includes(String(dto.account))) {
+      this.logger.warn(
+        `Anti-tampering ignorado para super_admin no loginChatwoot agentId=${agent?.id} account=${dto.account}`,
+      );
     }
 
-    // Upsert do agente. Email é UNIQUE global — se existir em outra empresa,
-    // bloqueia (não permitimos um mesmo email autenticar em empresas diferentes).
-    let agent = await this.agentRepository.findOne({
-      where: { email },
-      relations: ['company'],
-    });
-
-    if (agent && agent.company?.id !== company.id) {
+    // 8) Bloqueio de email cross-empresa. Email é UNIQUE global — se existir em
+    // outra empresa, bloqueia (não permitimos um mesmo email autenticar em
+    // empresas diferentes). super_admin transita entre empresas, então não é
+    // bloqueado. Só aplica quando há company resolvida.
+    if (agent && company && agent.company?.id !== company.id && !isSuperAdmin) {
       throw new UnauthorizedException(
         'Este e-mail já está registrado em outra empresa.',
       );
     }
 
+    // 9) Upsert do agente.
+    //   - Criação de agente novo SÓ ocorre quando há company válida. Como
+    //     agent.company é NOT NULL, nunca criamos um agente sem company. Um
+    //     agente novo com account inexistente só seria não-super_admin (o role
+    //     persistido define super_admin), e esse caso já caiu no 401 do passo 6.
+    //   - Agente existente (inclui super_admin) atualiza name/token/active sem
+    //     mexer em role/company — seguro mesmo com company null.
     if (!agent) {
+      if (!company) {
+        // Defesa em profundidade: este branch é inalcançável (passo 6 já barrou
+        // não-super_admin sem company e super_admin sempre tem agent existente).
+        throw new UnauthorizedException('Empresa não encontrada para esta account.');
+      }
       agent = this.agentRepository.create({
         name,
         email,
@@ -229,11 +268,26 @@ export class AuthService {
       await this.agentRepository.save(agent);
     }
 
-    // E5: super_admin sempre cai na empresa default (Fibras do Rio) no
-    // primeiro acesso, ignorando o `account` da URL. Frontend pode trocar
-    // via /auth/switch-company (E4).
-    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
-    const targetCompany = defaultCompany ?? company;
+    // 10) Resolução da company alvo (gera o JWT):
+    //   - super_admin: SEMPRE a empresa default (Fibras do Rio), ignorando o
+    //     account da URL — o embed sempre vem com account=1 (inexistente). A
+    //     "última empresa selecionada" é aplicada pelo frontend depois via
+    //     /auth/switch-company.
+    //   - demais papéis: a company do account (já garantida não-null no passo 6).
+    let targetCompany: Company;
+    if (isSuperAdmin) {
+      const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
+      if (!defaultCompany) {
+        this.logger.error(
+          `Empresa default indisponível para super_admin no loginChatwoot agentId=${agent.id} account=${dto.account}`,
+        );
+        throw new UnauthorizedException('Empresa default indisponível');
+      }
+      targetCompany = defaultCompany;
+    } else {
+      // Garantido não-null pelo passo 6 (não-super_admin sem company => 401).
+      targetCompany = company as Company;
+    }
 
     return this.buildAuthResponse(
       targetCompany.id,
