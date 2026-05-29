@@ -116,6 +116,7 @@ export function Navbar() {
           <SuperAdminCompanyButton
             ref={anchorRef}
             companyName={activeCompany?.name ?? null}
+            isOpen={isSwitchOpen}
             onClick={() => setIsSwitchOpen((prev) => !prev)}
             disabled={switchMutation.isPending}
           />

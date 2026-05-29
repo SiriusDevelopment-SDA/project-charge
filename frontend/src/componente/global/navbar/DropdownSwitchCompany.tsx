@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RefObject } from "react";
 import type { CompanyListItem } from "../../../types/companyApiTypes";
+import { formatCompanyName } from "../../../utils/formatCompanyName";
 import styles from "./StyleDropdownSwitchCompany.module.css";
 
 export type DropdownSwitchCompanyProps = {
@@ -161,7 +162,9 @@ export default function DropdownSwitchCompany({
                   disabled={isSwitching}
                 >
                   <span className={styles.itemInfo}>
-                    <b className={styles.itemName}>{company.name}</b>
+                    <b className={styles.itemName}>
+                      {formatCompanyName(company.name)}
+                    </b>
                   </span>
                   <span className={styles.itemStatus}>
                     {isItemSwitching && <Spinner label="Trocando empresa" />}

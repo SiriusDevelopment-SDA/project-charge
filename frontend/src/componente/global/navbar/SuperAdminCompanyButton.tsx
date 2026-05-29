@@ -1,9 +1,11 @@
 import { forwardRef } from "react";
+import { formatCompanyName } from "../../../utils/formatCompanyName";
 import styles from "./StyleSuperAdminCompanyButton.module.css";
 
 export type SuperAdminCompanyButtonProps = {
   companyName: string | null;
   onClick: () => void;
+  isOpen: boolean;
   disabled?: boolean;
 };
 
@@ -18,11 +20,12 @@ const SuperAdminCompanyButton = forwardRef<
   HTMLButtonElement,
   SuperAdminCompanyButtonProps
 >(function SuperAdminCompanyButton(
-  { companyName, onClick, disabled = false },
+  { companyName, onClick, isOpen, disabled = false },
   ref,
 ) {
   const trimmed = companyName?.trim() ?? "";
-  const label = trimmed ? truncate(trimmed, MAX_LABEL_CHARS) : "Trocar empresa";
+  const formatted = trimmed ? formatCompanyName(trimmed) : "";
+  const label = formatted ? truncate(formatted, MAX_LABEL_CHARS) : "Trocar empresa";
 
   return (
     <button
@@ -33,9 +36,12 @@ const SuperAdminCompanyButton = forwardRef<
       disabled={disabled}
       title="Trocar empresa"
       aria-label="Trocar empresa"
+      aria-haspopup="menu"
+      aria-expanded={isOpen}
     >
+      <span className={styles.label}>{label}</span>
       <svg
-        className={styles.icon}
+        className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -45,11 +51,8 @@ const SuperAdminCompanyButton = forwardRef<
         aria-hidden="true"
         focusable="false"
       >
-        <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18" />
-        <path d="M2 22h20" />
-        <path d="M10 6h.01M14 6h.01M10 10h.01M14 10h.01M10 14h.01M14 14h.01M10 18h.01M14 18h.01" />
+        <polyline points="6 9 12 15 18 9" />
       </svg>
-      <span className={styles.label}>{label}</span>
     </button>
   );
 });
