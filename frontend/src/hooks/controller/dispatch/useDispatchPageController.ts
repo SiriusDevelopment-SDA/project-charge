@@ -5,6 +5,7 @@ import type { Cliente } from "../../../types";
 import { useClient } from "../../useCliente";
 import { useTemplate } from "../../useTemplates";
 import { useDispatchTemplate } from "../../useDispatchTemplate";
+import { useNotificameChannels } from "../../useNotificameChannels";
 import { processarDocumentos, validarSelecaoCliente } from "../../../utils/validation";
 import { handleUploadPlanilha } from "../../../utils/hendleUploadSpreadSheat";
 import { useManualLeadDispatchController } from "./useManualLeadDispatchController";
@@ -47,6 +48,11 @@ export function useDispatchPageController() {
   fetchInvoicesRef.current = fetchInvoices;
   const templates = useTemplate();
   const dispatch = useDispatchTemplate();
+  const {
+    channels,
+    isLoading: isLoadingChannels,
+    isEmpty: hasNoChannels,
+  } = useNotificameChannels();
   const manualLead = useManualLeadDispatchController({
     modoPage: dispatch.modoPage,
     selectedTemplate: dispatch.selectedTemplate,
@@ -670,6 +676,9 @@ export function useDispatchPageController() {
     templates,
     dispatch,
     manualLead,
+    channels,
+    isLoadingChannels,
+    hasNoChannels,
     openDropdown,
     setOpenDropdown,
     isDispatchPreviewOpen,

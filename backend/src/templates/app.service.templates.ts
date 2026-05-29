@@ -23,6 +23,7 @@ import { RelatoryDispatchTemplate } from './entities/relatory.entity';
 import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
 import { CreateTemplateDTO } from './dto/create.request.dto.template';
 import { Company } from '../companies/entities/companies';
+import type { NotificameChannel } from '../companies/entities/notificame-channel.type';
 import { CampaignMetricsGateway } from '../realtime/campaigns-metrics.gateway';
 import { MessageQueueService } from '../message-queue/message-queue.service';
 import type { MessageQueuePayload } from '../message-queue/entities/message-queue.entity';
@@ -50,6 +51,44 @@ export class AppServiceTemplate {
     private readonly messageQueueService: MessageQueueService,
     private readonly templateDispatchPayload: TemplateDispatchPayloadService,
   ) {}
+
+  /**
+   * MC1: resolve o canal NotificaMe default da empresa (primeiro do array).
+   * A seleção de canal por campanha/disparo é MC2.
+   */
+  private resolveDefaultChannel(
+    channels: NotificameChannel[] | null | undefined,
+  ): NotificameChannel | null {
+    const channel = Array.isArray(channels) ? channels[0] : null;
+    if (!channel?.id) return null;
+    return channel;
+  }
+
+  /**
+   * MC2: valida que o channelId escolhido pertence aos canais da empresa.
+   * Retorna o id do canal resolvido (ou null quando não informado, deixando o
+   * worker fazer fallback para o primeiro canal). Lança BadRequestException
+   * quando o channelId não pertence à empresa.
+   */
+  private resolveSelectedChannelId(
+    channels: NotificameChannel[] | null | undefined,
+    channelId: string | null | undefined,
+  ): string | null {
+    const normalized = String(channelId ?? '').trim();
+    if (!normalized) return null;
+
+    const exists =
+      Array.isArray(channels) &&
+      channels.some((channel) => channel.id === normalized);
+
+    if (!exists) {
+      throw new BadRequestException(
+        'O canal NotificaMe selecionado nao pertence a esta empresa.',
+      );
+    }
+
+    return normalized;
+  }
 
   async getTemplates(dto: SearchRequestDtoTemplates) {
     const { account, page, limit, sortorder, query } = dto;
@@ -218,7 +257,7 @@ export class AppServiceTemplate {
    * The actual HTTP calls to NotificaMe are handled by MessageQueueWorker.
    */
   async sendTemplate(data: SendTemplateDto) {
-    const { templateId, account, to, campaignId } = data;
+    const { templateId, account, to, campaignId, channelId } = data;
 
     const template = await this.templateRepository.findOne({
       where: {
@@ -230,11 +269,17 @@ export class AppServiceTemplate {
 
     if (!template) throw new NotFoundException('Template nao encontrado');
 
-    if (!template.company?.canalId_notificameHub || !template.company?.token_notificameHub) {
+    if (!this.resolveDefaultChannel(template.company?.canalId_notificameHub)) {
       throw new BadRequestException(
         'Empresa nao possui integracao ativa com a NotificaMe.',
       );
     }
+
+    // MC2: valida o canal escolhido contra os canais da empresa (quando vier).
+    const selectedChannelId = this.resolveSelectedChannelId(
+      template.company?.canalId_notificameHub,
+      channelId,
+    );
 
     await this.refreshTemplateStatusForUsage(template);
     this.ensureTemplateApprovedForUsage(template);
@@ -294,6 +339,7 @@ export class AppServiceTemplate {
       companyId: template.company.id,
       templateId,
       campaignId: campaignId ?? null,
+      channelId: selectedChannelId,
       recipients,
       scope: campaignId ? 'campaign' : 'manual',
       disableDailyDedup: !campaignId,
@@ -476,13 +522,15 @@ export class AppServiceTemplate {
 
     if (!company) throw new NotFoundException('Empresa nao encontrada!');
 
-    if (!company.canalId_notificameHub || !company.token_notificameHub) {
+    const channel = this.resolveDefaultChannel(company.canalId_notificameHub);
+    if (!channel || !company.token_notificameHub) {
       throw new BadRequestException(
         'Empresa nao possui integracao ativa com a NotificaMe.',
       );
     }
 
-    const channelIdentifier = String(company.canalId_notificameHub ?? '').trim();
+    const channelIdentifier = channel.id;
+    const apiToken = company.token_notificameHub;
 
     const payload = {
       from: channelIdentifier,
@@ -504,7 +552,7 @@ export class AppServiceTemplate {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Api-Token': company.token_notificameHub,
+          'X-Api-Token': apiToken,
         },
         body: JSON.stringify(payload),
       },
@@ -530,7 +578,7 @@ export class AppServiceTemplate {
       if ([99, 2388023, 2388024].includes(Number(metaErrorSubcode))) {
         const existing = await this.findTemplateByName(
           channelIdentifier,
-          company.token_notificameHub,
+          apiToken,
           dto.name,
         );
 
@@ -1014,12 +1062,14 @@ export class AppServiceTemplate {
 
     for (const companyId of companyIds) {
       const company = companiesById.get(companyId);
-      const channelIdentifier = String(company?.canalId_notificameHub ?? '').trim();
-      const apiToken = String(company?.token_notificameHub ?? '').trim();
+      const channel = this.resolveDefaultChannel(company?.canalId_notificameHub);
 
-      if (!channelIdentifier || !apiToken) {
+      if (!channel || !company?.token_notificameHub) {
         continue;
       }
+
+      const channelIdentifier = channel.id;
+      const apiToken = company.token_notificameHub;
 
       const remoteTemplates = await this.fetchRemoteTemplates(channelIdentifier, apiToken);
       if (!remoteTemplates.length) {
@@ -1060,17 +1110,22 @@ export class AppServiceTemplate {
       meta_id?: string | null;
       company?: {
         id?: string | null;
-        canalId_notificameHub?: string | null;
-        token_notificameHub?: string | null;
+        canalId_notificameHub?: NotificameChannel[] | null;
       } | null;
     },
   ) {
     const companyId = String(template.company?.id ?? '').trim();
 
-    let channelIdentifier = String(template.company?.canalId_notificameHub ?? '').trim();
-    let apiToken = String(template.company?.token_notificameHub ?? '').trim();
+    let channel = this.resolveDefaultChannel(
+      template.company?.canalId_notificameHub,
+    );
 
-    if ((!channelIdentifier || !apiToken) && companyId) {
+    // O X-Api-Token vive na coluna compartilhada token_notificameHub (nao no
+    // canal), e a forma estreita de template.company nao a expoe — buscamos a
+    // empresa para resolver canal (quando ausente) e token de forma tipada.
+    let apiToken: string | null = null;
+
+    if (companyId) {
       const company = await this.companyRepository.findOne({
         where: { id: companyId },
         select: {
@@ -1080,13 +1135,17 @@ export class AppServiceTemplate {
         },
       });
 
-      channelIdentifier = String(company?.canalId_notificameHub ?? '').trim();
-      apiToken = String(company?.token_notificameHub ?? '').trim();
+      if (!channel) {
+        channel = this.resolveDefaultChannel(company?.canalId_notificameHub);
+      }
+      apiToken = company?.token_notificameHub ?? null;
     }
 
-    if (!channelIdentifier || !apiToken) {
+    if (!channel || !apiToken) {
       return template;
     }
+
+    const channelIdentifier = channel.id;
 
     const remoteTemplates = await this.fetchRemoteTemplates(channelIdentifier, apiToken);
     const remoteTemplate = this.findRemoteTemplateMatch(remoteTemplates, template);

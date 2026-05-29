@@ -11,6 +11,7 @@ type EnqueueBatchParams = {
   companyId: string;
   templateId: string;
   campaignId?: string | null;
+  channelId?: string | null;
   recipients: MessageQueuePayload[];
   scope: 'manual' | 'campaign';
   scheduledAt?: Date;
@@ -22,6 +23,7 @@ type ClaimedJob = {
   companyId: string;
   templateId: string;
   campaignId: string | null;
+  channelId: string | null;
   batchId: string | null;
   payload: MessageQueuePayload;
 };
@@ -91,6 +93,8 @@ export class MessageQueueService {
       scope: params.scope,
     });
 
+    const channelId = params.channelId ?? null;
+
     const jobs = uniqueRecipients.map((recipient) => ({
       company: { id: params.companyId },
       template: { id: params.templateId },
@@ -99,6 +103,7 @@ export class MessageQueueService {
       companyId: params.companyId,
       templateId: params.templateId,
       campaignId: params.campaignId ?? null,
+      channelId,
       batchId: batch.id,
       payload: recipient,
       status: 'pending' as const,
@@ -143,7 +148,7 @@ export class MessageQueueService {
   ): Promise<ClaimedJob[]> {
     return this.queueRepository.manager.transaction(async (em) => {
       const rows: ClaimedJob[] = await em.query(
-        `SELECT id, "companyId", "templateId", "campaignId", "batchId", payload
+        `SELECT id, "companyId", "templateId", "campaignId", "channelId", "batchId", payload
          FROM message_queue
          WHERE status = 'pending'
            AND "scheduledAt" <= (NOW() AT TIME ZONE 'UTC')

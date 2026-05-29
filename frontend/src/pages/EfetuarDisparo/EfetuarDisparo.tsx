@@ -15,6 +15,7 @@ import {
   InputFields,
   MyButton,
   DynamicModal,
+  ChannelSelect,
 } from "../../componente/Index";
 import { useDispatchPageController } from "../../hooks/controller/dispatch/useDispatchPageController";
 import { isTemplateApproved } from "../../utils/templateStatus";
@@ -26,6 +27,9 @@ export default function EfetuarDisparo() {
   const {
     dispatch,
     manualLead,
+    channels,
+    isLoadingChannels,
+    hasNoChannels,
     openDropdown,
     setOpenDropdown,
     isDispatchPreviewOpen,
@@ -167,25 +171,43 @@ export default function EfetuarDisparo() {
         </div>
 
         <div className={Style.containerButtonsPlanilha}>
-          <UploadButton
-            onUpload={handleLeadUpload}
-            disabled={
-              !dispatch.selectedTemplate ||
-              (dispatch.modoPage === "leads" && manualLead.shouldDisableLeadUpload)
-            }
-          />
-          <DownloadModeloButton
-            templateSelecionado={dispatch.selectedTemplate}
-            modo={dispatch.modoPage}
-          />
-          {dispatch.modoPage === "leads" &&
-            (dispatch.selectedLeads.length > 0 || manualLead.hasTypedWhatsapp) && (
-              <MyButton
-                text="Limpar leads"
-                variant="secondary"
-                onClick={manualLead.clearLeadSelection}
-              />
-            )}
+          <div className={Style.containerChannelSelect}>
+            <ChannelSelect
+              value={dispatch.channelId}
+              onChange={dispatch.setChannelId}
+              channels={channels}
+              disabled={isLoadingChannels || hasNoChannels}
+              placeholder={
+                hasNoChannels
+                  ? "Sem canais configurados"
+                  : isLoadingChannels
+                    ? "Carregando canais..."
+                    : "Selecione o canal de disparo"
+              }
+            />
+          </div>
+
+          <div className={Style.containerPlanilhaActions}>
+            <UploadButton
+              onUpload={handleLeadUpload}
+              disabled={
+                !dispatch.selectedTemplate ||
+                (dispatch.modoPage === "leads" && manualLead.shouldDisableLeadUpload)
+              }
+            />
+            <DownloadModeloButton
+              templateSelecionado={dispatch.selectedTemplate}
+              modo={dispatch.modoPage}
+            />
+            {dispatch.modoPage === "leads" &&
+              (dispatch.selectedLeads.length > 0 || manualLead.hasTypedWhatsapp) && (
+                <MyButton
+                  text="Limpar leads"
+                  variant="secondary"
+                  onClick={manualLead.clearLeadSelection}
+                />
+              )}
+          </div>
         </div>
 
         <section className={Style.containerPreview}>

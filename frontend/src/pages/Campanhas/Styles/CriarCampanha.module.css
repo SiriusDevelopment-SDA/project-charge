@@ -854,8 +854,13 @@
 }
 
 .campaignNameField {
-  flex: 1 1 320px;
-  min-width: 260px;
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+.campaignChannelField {
+  flex: 0 1 220px;
+  min-width: 180px;
 }
 
 .campaignActionButton {
@@ -919,6 +924,7 @@
   .invoiceRuleField,
   .invoiceRuleButton,
   .campaignNameField,
+  .campaignChannelField,
   .campaignActionButton,
   .createCampaign__scheduleTimeField {
     width: 100%;

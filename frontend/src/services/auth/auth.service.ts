@@ -5,6 +5,7 @@ import { getErrorStatus } from "../../utils/error";
 import type {
   AuthPermissions,
   LoginResponse,
+  NotificameChannel,
 } from "../../types/authApiTypes";
 
 type LoginPayload = {
@@ -28,7 +29,7 @@ type ChatwootLoginPayload = {
  */
 export type PagePermissions = AuthPermissions;
 
-type MeResponse = {
+export type MeResponse = {
   success: boolean;
   company: {
     id: string;
@@ -36,6 +37,11 @@ type MeResponse = {
     account: string;
     cnpj: string;
     active: boolean;
+    /**
+     * MC3: canais NotificaMe da empresa ativa (so { id, numero }) para o
+     * dropdown de selecao de caixa de disparo. Pode vir vazio/ausente.
+     */
+    channels?: NotificameChannel[];
   };
   promiseAutomation: {
     reminderEnabled: boolean;

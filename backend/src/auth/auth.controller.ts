@@ -92,7 +92,11 @@ export class AuthController {
 
   @Public()
   @Get('me')
-  @ApiOperation({ summary: 'Retorna empresa/agente do token atual' })
+  @ApiOperation({
+    summary: 'Retorna empresa/agente do token atual',
+    description:
+      'Inclui `channels` (canais NotificaMe da empresa do token) para o dropdown de disparo. Cada canal expoe apenas { id, numero } — o token (X-Api-Token) NUNCA e retornado.',
+  })
   me(@Headers('authorization') authorization?: string) {
     return this.authService.me(authorization);
   }

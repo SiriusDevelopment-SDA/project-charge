@@ -7,6 +7,17 @@
 
 export type AgentRole = "admin" | "operator" | "super_admin";
 
+/**
+ * Canal NotificaMe (caixa de disparo) da empresa ativa.
+ *
+ * MC2/MC3: o backend expoe SOMENTE { id, numero } em `GET /auth/me`
+ * — o `token` (X-Api-Token) e segredo e NUNCA trafega para o cliente.
+ */
+export type NotificameChannel = {
+  id: string;
+  numero: string;
+};
+
 export type AuthPermissions = {
   dashboard: boolean;
   clientesVencidos: boolean;

@@ -2,6 +2,7 @@ import type { Category, Cliente, InvoiceRuleOperator, Template } from "../../../
 import {
   AttendantNameModalContent,
   BaseCard,
+  ChannelSelect,
   DispatchPreviewContent,
   // DownloadModeloButton,
   Dropdown,
@@ -92,6 +93,9 @@ export function CriarCampanha() {
     filteredTemplates,
     categories,
     templateCategories,
+    channels,
+    isLoadingChannels,
+    hasNoChannels,
     form,
     modal,
     openDropdown,
@@ -567,6 +571,21 @@ export function CriarCampanha() {
                       label="Nome da Campanha"
                       value={form.name}
                       onChange={(e) => form.setName(e.target.value)}
+                    />
+                  </div>
+                  <div className={Style.campaignChannelField}>
+                    <ChannelSelect
+                      value={form.channelId}
+                      onChange={form.setChannelId}
+                      channels={channels}
+                      disabled={isLoadingChannels || hasNoChannels}
+                      placeholder={
+                        hasNoChannels
+                          ? "Sem canais configurados"
+                          : isLoadingChannels
+                            ? "Carregando canais..."
+                            : "Selecione o canal de disparo"
+                      }
                     />
                   </div>
                   <div className={Style.createCampaign__scheduleTimeField}>

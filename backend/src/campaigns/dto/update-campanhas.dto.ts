@@ -39,6 +39,10 @@ export class UpdateCampaignDto {
   timezone?: string;
 
   @IsOptional()
+  @IsString()
+  channelId?: string | null;
+
+  @IsOptional()
   @IsBoolean()
   recurring?: boolean;
 

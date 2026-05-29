@@ -61,6 +61,9 @@ export class CampaignsService {
     await this.ensureCampaignNameIsUnique(createDto.name);
     this.validateMinimumDispatchWindow(createDto);
 
+    // MC2: valida que o canal escolhido pertence à empresa da campanha.
+    await this.validateCampaignChannel(createDto.company, createDto.channelId);
+
     const template = await this.templatesService.getTemplateOrFail(
       createDto.templateId,
     );
@@ -254,6 +257,18 @@ export class CampaignsService {
       throw new NotFoundException(`Campanha do id ${id} nao encontrada!`);
     }
 
+    // MC2: quando o channelId é alterado, valida contra os canais da empresa.
+    if (updateDto.channelId !== undefined) {
+      const normalizedChannelId =
+        String(updateDto.channelId ?? '').trim() || null;
+      const ownerCompanyId =
+        campaign.company?.id ?? (await this.getCompanyIdByCampaignId(id));
+      if (ownerCompanyId) {
+        await this.validateCampaignChannel(ownerCompanyId, normalizedChannelId);
+      }
+      campaign.channelId = normalizedChannelId;
+    }
+
     if (campaign.status === 'finished') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -338,6 +353,7 @@ export class CampaignsService {
       endDate: normalizedEndDate,
       status: 'queue',
       isEnabled: createDto.isEnabled ?? true,
+      channelId: String(createDto.channelId ?? '').trim() || null,
       templateMapVars: validClients,
       company: { id: createDto.company },
       template: { id: createDto.templateId },
@@ -781,6 +797,38 @@ export class CampaignsService {
     );
   }
 
+  /**
+   * MC2: garante que o channelId informado existe no array de canais
+   * (`canalId_notificameHub`) da empresa da campanha. Quando channelId não vem,
+   * não valida nada — o worker faz fallback para o primeiro canal.
+   */
+  private async validateCampaignChannel(
+    companyId: string,
+    channelId: string | null | undefined,
+  ): Promise<void> {
+    const normalized = String(channelId ?? '').trim();
+    if (!normalized) return;
+
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+      select: { id: true, canalId_notificameHub: true },
+    });
+
+    if (!company) {
+      throw new BadRequestException('Empresa nao encontrada.');
+    }
+
+    const exists = (company.canalId_notificameHub ?? []).some(
+      (channel) => channel.id === normalized,
+    );
+
+    if (!exists) {
+      throw new BadRequestException(
+        'O canal NotificaMe selecionado nao pertence a esta empresa.',
+      );
+    }
+  }
+
   private async getAccountByCompanyId(companyId: string) {
     const company = await this.companyRepository.findOne({
       where: { id: companyId },
@@ -788,6 +836,18 @@ export class CampaignsService {
     });
 
     return company?.account_chatwoot ?? null;
+  }
+
+  private async getCompanyIdByCampaignId(
+    campaignId: string,
+  ): Promise<string | null> {
+    const campaign = await this.campaignRepository.findOne({
+      where: { id: campaignId },
+      relations: ['company'],
+      select: { id: true, company: { id: true } },
+    });
+
+    return campaign?.company?.id ?? null;
   }
 
   private async getAccountByCampaignId(campaignId: string) {

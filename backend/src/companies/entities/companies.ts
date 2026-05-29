@@ -15,6 +15,7 @@ import { Templates } from '../../templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from '../../templates/entities/relatory.entity';
 import { Campaign } from '../../campaigns/entities/campanhas.entity';
 import { Agent } from '../../agents/entities/agent.entity';
+import { NotificameChannel } from './notificame-channel.type';
   
   @Entity()
   export class Company {
@@ -72,12 +73,22 @@ import { Agent } from '../../agents/entities/agent.entity';
     @Column()
     total_active_customers!: string;
 
-    @IsString()
-    @Column()
-    canalId_notificameHub!: string;
+    /**
+     * Lista de canais NotificaMe da empresa (multi-canal).
+     * Coluna migrada de varchar para jsonb — ver migration
+     * AddNotificameChannelsArray. Mantém o nome por compat.
+     */
+    @Column({ type: 'jsonb', default: () => "'[]'" })
+    canalId_notificameHub!: NotificameChannel[];
 
+    /**
+     * X-Api-Token compartilhado da conta NotificaMe (uma credencial por
+     * empresa). É a fonte autoritativa do token usado em TODOS os envios e
+     * chamadas à API NotificaMe; os canais em `canalId_notificameHub` guardam
+     * apenas { id, numero } e não carregam token.
+     */
     @IsString()
-    @Column()
+    @Column({ nullable: true })
     token_notificameHub!: string;
 
     @IsString()

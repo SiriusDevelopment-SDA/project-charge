@@ -6,6 +6,7 @@ import { MessageQueueService } from './message-queue.service';
 import { Templates } from '../templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import type { MessageQueuePayload } from './entities/message-queue.entity';
+import type { NotificameChannel } from '../companies/entities/notificame-channel.type';
 
 const WORKER_INTERVAL_MS = 1000;
 const BATCH_SIZE = 15;
@@ -13,7 +14,8 @@ const BATCH_SIZE = 15;
 type TemplateWithCompany = Templates & {
   company: {
     id: string;
-    canalId_notificameHub: string;
+    canalId_notificameHub: NotificameChannel[];
+    // X-Api-Token compartilhado da conta NotificaMe (uma credencial por empresa).
     token_notificameHub: string;
   };
 };
@@ -99,13 +101,23 @@ export class MessageQueueWorker implements OnModuleInit {
     companyId: string;
     templateId: string;
     campaignId: string | null;
+    channelId: string | null;
     batchId: string | null;
     payload: MessageQueuePayload;
   }): Promise<void> {
     try {
       const template = await this.getTemplate(job.templateId);
 
-      if (!template.company.canalId_notificameHub || !template.company.token_notificameHub) {
+      // MC2: seleciona o canal escolhido (campanha/disparo) pelo id; se não
+      // vier channelId ou não existir mais na empresa, faz fallback para o
+      // primeiro canal do array (comportamento MC1).
+      const channel = this.selectChannel(
+        template.company.canalId_notificameHub,
+        job.channelId,
+      );
+
+      const apiToken = template.company.token_notificameHub;
+      if (!channel?.id || !apiToken) {
         throw new Error('Empresa sem integracao NotificaMe configurada');
       }
 
@@ -120,7 +132,7 @@ export class MessageQueueWorker implements OnModuleInit {
       })();
 
       const requestBody = {
-        from: template.company.canalId_notificameHub,
+        from: channel.id,
         to: normalizedNumber,
         contents: [
           {
@@ -145,7 +157,7 @@ export class MessageQueueWorker implements OnModuleInit {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Api-Token': template.company.token_notificameHub,
+            'X-Api-Token': apiToken,
           },
           body: JSON.stringify(requestBody),
           signal: AbortSignal.timeout(15_000),
@@ -202,6 +214,27 @@ export class MessageQueueWorker implements OnModuleInit {
         await this.messageQueueService.updateBatchProgress(job.batchId);
       }
     }
+  }
+
+  /**
+   * MC2: dado o array de canais da empresa e o channelId escolhido, retorna o
+   * canal correspondente. Quando channelId é null/vazio ou não bate com nenhum
+   * canal, faz fallback para o primeiro canal (comportamento MC1).
+   */
+  private selectChannel(
+    channels: NotificameChannel[] | null | undefined,
+    channelId: string | null | undefined,
+  ): NotificameChannel | undefined {
+    if (!Array.isArray(channels) || channels.length === 0) {
+      return undefined;
+    }
+
+    if (channelId) {
+      const match = channels.find((channel) => channel.id === channelId);
+      if (match) return match;
+    }
+
+    return channels[0];
   }
 
   private async getTemplate(templateId: string): Promise<TemplateWithCompany> {

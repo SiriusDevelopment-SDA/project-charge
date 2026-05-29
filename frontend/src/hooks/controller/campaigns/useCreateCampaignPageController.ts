@@ -13,6 +13,7 @@ import { processarDocumentos } from "../../../utils/validation";
 import { templateRequiresAttendantName } from "../../../validators/template.validator";
 import { AppStorage } from "../../../services/storage/storage.service";
 import { useHolidays } from "../../useHolidays";
+import { useNotificameChannels } from "../../useNotificameChannels";
 import { filterBusinessDays, isWeekend, isHoliday } from "../../../utils/businessDay";
 import { buildNormalizedSearch } from "../../../utils/locationSearch";
 
@@ -124,6 +125,11 @@ export function useCreateCampaignPageController() {
     setCategoryTemplateFilter,
   } = useTemplate();
   const { categories, reload } = useCampaign();
+  const {
+    channels,
+    isLoading: isLoadingChannels,
+    isEmpty: hasNoChannels,
+  } = useNotificameChannels();
   const form = useCampaignFormController();
   const modal = useCampaignEditController();
   const account = useAccountParam();
@@ -378,6 +384,9 @@ export function useCreateCampaignPageController() {
     filteredTemplates,
     categories,
     templateCategories,
+    channels,
+    isLoadingChannels,
+    hasNoChannels,
     form,
     modal,
     openDropdown,

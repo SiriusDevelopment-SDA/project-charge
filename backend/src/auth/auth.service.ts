@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsSelect, FindOptionsWhere, In, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
+import type { NotificameChannel } from '../companies/entities/notificame-channel.type';
 import { CompaniesService } from '../companies/companies.service';
 import {
   ChatwootLoginDto,
@@ -443,6 +444,7 @@ export class AuthService {
         cnpj: true,
         active: true,
         config: true,
+        canalId_notificameHub: true,
       },
     });
 
@@ -480,6 +482,10 @@ export class AuthService {
         cnpj: company.cnpj ?? '',
         active: company.active,
       },
+      // MC2: canais NotificaMe da empresa do token para o dropdown de disparo.
+      // O canal carrega apenas { id, numero } — o X-Api-Token e a coluna
+      // compartilhada token_notificameHub e NUNCA trafega para o cliente.
+      channels: this.toPublicChannels(company.canalId_notificameHub),
       promiseAutomation: this.normalizePromiseAutomationSettings(company.config),
       permissions: this.extractPagePermissions(company.config),
       agent: agent
@@ -1379,6 +1385,24 @@ export class AuthService {
           }
         : null,
     };
+  }
+
+  /**
+   * MC2: normaliza os canais NotificaMe para exposicao no frontend.
+   * O canal ja e { id, numero }; aqui apenas filtramos entradas invalidas e
+   * garantimos `numero` como string. O X-Api-Token vive em
+   * token_notificameHub (coluna compartilhada) e nunca compoe este retorno.
+   */
+  private toPublicChannels(
+    channels: NotificameChannel[] | null | undefined,
+  ): Array<{ id: string; numero: string }> {
+    if (!Array.isArray(channels)) return [];
+    return channels
+      .filter((channel) => channel && typeof channel.id === 'string' && channel.id)
+      .map((channel) => ({
+        id: channel.id,
+        numero: String(channel.numero ?? ''),
+      }));
   }
 
   private extractPagePermissions(config: Record<string, any> | null) {

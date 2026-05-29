@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "../../lib/queryKeys";
 import { CampaignService } from "../../services/campaign/campaign.service";
 import { DashboardService } from "../../services/dashboard/dashboard.service";
-import { AuthService } from "../../services/auth/auth.service";
+import { useMe } from "../useMe";
 import { useAccountParam } from "../useAccountParam";
 import type { CollectionsMetrics } from "../../types";
 
@@ -34,13 +34,9 @@ export function useCollectionsMetricsQuery() {
   });
 }
 
-function useMeQuery() {
-  return useQuery({
-    queryKey: ["auth", "me"],
-    queryFn: () => AuthService.me(),
-    staleTime: 1000 * 60 * 10,
-  });
-}
+// Reaproveita a fonte unica `useMe` (mesma queryKey ["auth","me"]) para nao
+// duplicar a chamada de `GET /auth/me`.
+const useMeQuery = useMe;
 
 export function useDashboardChargesQuery() {
   const { data: me } = useMeQuery();

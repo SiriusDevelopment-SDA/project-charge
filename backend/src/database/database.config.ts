@@ -53,6 +53,7 @@ export default <TypeOrmModuleAsyncOptions>{
         ChatSessionMessage,
       ],
       synchronize: configService.get('NODE_ENV') !== 'production',
+      migrations: [__dirname + '/migrations/*.{ts,js}'],
       extra: {
         max: 10,
         min: 2,

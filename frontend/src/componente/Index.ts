@@ -31,6 +31,7 @@ import DynamicModal from "./modal/modalAlertTemplate";
 import {CampaignDetails} from "./CampaignDetails/CampaignDetails"
 import { DispatchPreviewContent } from "./DispatchPreview/DispatchPreviewContent";
 import { AttendantNameModalContent } from "./AttendantNameModalContent/AttendantNameModalContent";
+import { ChannelSelect } from "./ChannelSelect/ChannelSelect";
 
 export
 { 
@@ -66,5 +67,6 @@ export
   DynamicModal,
   CampaignDetails,
   DispatchPreviewContent,
-  AttendantNameModalContent
+  AttendantNameModalContent,
+  ChannelSelect
 }
