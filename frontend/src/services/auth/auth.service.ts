@@ -176,6 +176,7 @@ const DEFAULT_PERMISSIONS: AuthPermissions = {
 export function applyLoginSession(response: LoginResponse): void {
   AppStorage.setAccessToken(response.accessToken);
   AppStorage.setAccount(response.company.account);
+  AppStorage.setCompanyId(response.company.id);
   AppStorage.setCompanyName(response.company.name);
   AppStorage.setCompanyActive(response.company.active);
   AppStorage.setPagePermissions(response.permissions ?? DEFAULT_PERMISSIONS);

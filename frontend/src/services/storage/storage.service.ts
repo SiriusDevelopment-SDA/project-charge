@@ -25,6 +25,8 @@ const KEYS = {
   PAGE_PERMISSIONS: "page_permissions",
   /** Última empresa ativa em sessões de super_admin — usado para restaurar contexto */
   LAST_ACTIVE_COMPANY_ID: "last_active_company_id",
+  /** Id da empresa autenticada na sessão atual — preenchido em `applyLoginSession` */
+  COMPANY_ID: "company_id",
 } as const;
 
 type AuthMode = "agent" | "embed";
@@ -57,6 +59,10 @@ export const AppStorage = {
 
   getCompanyName: () => get(KEYS.COMPANY_NAME),
   setCompanyName: (name: string) => set(KEYS.COMPANY_NAME, name),
+
+  getCompanyId: () => get(KEYS.COMPANY_ID),
+  setCompanyId: (id: string) => set(KEYS.COMPANY_ID, id),
+  removeCompanyId: () => remove(KEYS.COMPANY_ID),
 
   getEmbedSignature: () => get(KEYS.EMBED_SIGNATURE),
   setEmbedSignature: (sig: string) => set(KEYS.EMBED_SIGNATURE, sig),
@@ -142,6 +148,7 @@ export const AppStorage = {
     remove(KEYS.ATTENDANT_NAME);
     remove(KEYS.DISPATCH_COMPANY_NAME);
     remove(KEYS.COMPANY_NAME);
+    remove(KEYS.COMPANY_ID);
     remove(KEYS.COMPANY_CNPJ);
     remove(KEYS.COMPANY_ACTIVE);
     remove(KEYS.PAGE_PERMISSIONS);

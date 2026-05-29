@@ -45,9 +45,11 @@ function readFromStorage(): ActiveCompany | null {
   const account = AppStorage.getAccount();
   if (!account) return null;
 
-  // Nao temos `companyId` no storage hoje — usamos o id da ultima empresa
-  // marcada como ativa (caso de super_admin) ou cai num fallback vazio.
-  const id = AppStorage.getLastActiveCompanyId();
+  // Fonte principal: `COMPANY_ID` (gravado em `applyLoginSession`).
+  // Fallback para sessoes antigas que so tinham `LAST_ACTIVE_COMPANY_ID`
+  // (super_admin) — evita "perder" o id em sessao ja persistida.
+  const id =
+    AppStorage.getCompanyId() || AppStorage.getLastActiveCompanyId();
 
   return {
     id,

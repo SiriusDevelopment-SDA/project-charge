@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { CompanyService } from "../../services/company/company.service";
 import { applyLoginSession } from "../../services/auth/auth.service";
@@ -14,12 +14,20 @@ import type { SwitchCompanyResponse } from "../../types/authApiTypes";
  *   1. `applyLoginSession` reescreve token / account / company no storage.
  *   2. Persiste o id da empresa em `LAST_ACTIVE_COMPANY_ID`.
  *   3. Notifica o `ActiveCompanyContext` via evento custom (desacoplado).
- *   4. Invalida o cache do React Query, exceto a lista de empresas.
- *   5. Toast de sucesso.
+ *   4. Recarrega a pagina inteira na MESMA tela/URL.
+ *
+ * Por que reload em vez de `invalidateQueries`: varios contextos
+ * (campaigns/invoices/dashboard) e o `useAccountParam` leem o account no mount
+ * e nao reagem a troca de empresa. O reload garante que todos reidratem do
+ * storage novo, evitando dados da empresa anterior na tela.
+ *
+ * O `account` da URL e atualizado para `response.company.account` ANTES do
+ * reload: o `AccountLayout` valida `?account=` contra o `me()` e re-navega se
+ * divergir, entao deixar o account antigo na URL causaria flicker/conflito.
+ * Por consequencia o toast de sucesso normalmente nao chega a ser exibido — e
+ * aceitavel (a nova empresa ja aparece na navbar apos o reload).
  */
 export function useSwitchCompanyMutation() {
-  const queryClient = useQueryClient();
-
   return useMutation<SwitchCompanyResponse, unknown, string>({
     mutationFn: (id: string) => CompanyService.switchCompany(id),
     onSuccess: (response) => {
@@ -29,12 +37,9 @@ export function useSwitchCompanyMutation() {
 
       notifyActiveCompanyChanged();
 
-      void queryClient.invalidateQueries({
-        predicate: (query) => query.queryKey[0] !== "companies",
-      });
-
-      const companyName = response.company.name?.trim() || response.company.account;
-      toast.success(`Empresa ativa alterada para ${companyName}.`);
+      const url = new URL(window.location.href);
+      url.searchParams.set("account", response.company.account);
+      window.location.href = url.toString();
     },
     onError: (error) => {
       console.error("[useSwitchCompanyMutation] Falha ao trocar empresa", error);

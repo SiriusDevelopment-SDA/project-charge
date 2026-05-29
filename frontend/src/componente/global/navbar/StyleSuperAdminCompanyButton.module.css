@@ -1,0 +1,68 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* respiro de ~1 botao antes do botao de empresa (ultimo item da navbar) */
+  margin-left: clamp(32px, 4vw, 56px);
+  background: transparent;
+  border: 1px solid rgba(212, 166, 0, 0.32);
+  color: rgba(255, 219, 121, 0.78);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 7px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  max-width: 220px;
+  transition:
+    color 200ms ease,
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 160ms ease,
+    box-shadow 200ms ease;
+}
+
+.button:hover:not(:disabled) {
+  color: #ffd96a;
+  background: rgba(255, 212, 0, 0.09);
+  border-color: rgba(212, 166, 0, 0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+@media (max-width: 1100px) {
+  .button {
+    font-size: 0.77rem;
+    padding: 6px 10px;
+    max-width: 180px;
+    /* com flex-wrap ativo, reduz o respiro para nao empurrar a quebra de linha */
+    margin-left: 12px;
+  }
+
+  .label {
+    max-width: 140px;
+  }
+}
