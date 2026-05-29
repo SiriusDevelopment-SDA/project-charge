@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { CompanyService } from "../../services/company/company.service";
 import { applyLoginSession } from "../../services/auth/auth.service";
 import { AppStorage } from "../../services/storage/storage.service";
-import { notifyActiveCompanyChanged } from "../../context/contextActiveCompany";
+import { notifyActiveCompanyChanged } from "../../services/session/activeCompanyEvents";
 import { getErrorMessage } from "../../utils/error";
 import type { SwitchCompanyResponse } from "../../types/authApiTypes";
 
@@ -39,6 +39,8 @@ export function useSwitchCompanyMutation() {
 
       const url = new URL(window.location.href);
       url.searchParams.set("account", response.company.account);
+      url.searchParams.delete("chatwoot_token");
+      url.searchParams.delete("token");
       window.location.href = url.toString();
     },
     onError: (error) => {

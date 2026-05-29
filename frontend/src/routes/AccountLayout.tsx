@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { AuthService, applyLoginSession } from "../services/auth/auth.service";
+import { restoreLastActiveCompany } from "../services/company/company.service";
 import { AppStorage } from "../services/storage/storage.service";
 import { Navbar } from "../componente/Index";
 import Style from "./AccountLayout.module.css";
@@ -48,14 +49,26 @@ export function AccountLayout() {
           applyLoginSession(result);
           AppStorage.setEmbedSignature(embedSignature);
           AppStorage.setAuthMode("embed");
-          setAccount(result.company.account);
+
+          // super_admin: o embed sempre chega com account=1 (master inexistente)
+          // e o backend devolve a empresa default (Fibras). Restaura a ultima
+          // empresa ativa (se houver) antes de navegar, reescrevendo
+          // token/account no storage via `applyLoginSession`. Para agentes nao
+          // super_admin a funcao e no-op (guard interno por papel).
+          await restoreLastActiveCompany(result);
+
+          // Le o account FINAL do storage — `restoreLastActiveCompany` pode ter
+          // trocado a empresa ativa. Usar o `result.company.account` original
+          // (Fibras) causaria re-navegacao/flicker.
+          const finalAccount = AppStorage.getAccount() || result.company.account;
+          setAccount(finalAccount);
           setIsAuthorized(true);
           setIsAuthorizing(false);
 
           const params = createNormalizedSearchParams(location.search);
           params.delete("chatwoot_token");
           params.delete("token");
-          params.set("account", result.company.account);
+          params.set("account", finalAccount);
           navigate(`${location.pathname}?${params.toString()}`, {
             replace: true,
           });

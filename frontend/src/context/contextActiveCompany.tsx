@@ -8,6 +8,14 @@ import {
   type ReactNode,
 } from "react";
 import { AppStorage } from "../services/storage/storage.service";
+import {
+  ACTIVE_COMPANY_CHANGED_EVENT,
+  notifyActiveCompanyChanged,
+} from "../services/session/activeCompanyEvents";
+
+// Re-export para compatibilidade com imports existentes que ainda apontam aqui.
+// A fonte canonica agora e `services/session/activeCompanyEvents`.
+export { ACTIVE_COMPANY_CHANGED_EVENT, notifyActiveCompanyChanged };
 
 export type ActiveCompany = {
   id: string;
@@ -24,22 +32,6 @@ type ActiveCompanyContextValue = {
    */
   refreshActiveCompany: () => void;
 };
-
-/**
- * Nome do evento custom disparado quando a empresa ativa muda (ex.: depois do
- * switch-company do super_admin). Mantemos o provider desacoplado do mutation
- * — qualquer codigo que altere a sessao deve chamar `notifyActiveCompanyChanged`.
- */
-export const ACTIVE_COMPANY_CHANGED_EVENT = "active-company-changed";
-
-/**
- * Dispara o evento custom escutado pelo `ActiveCompanyProvider`.
- * Usar imediatamente apos gravar a nova empresa no `AppStorage`.
- */
-export function notifyActiveCompanyChanged(): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(ACTIVE_COMPANY_CHANGED_EVENT));
-}
 
 function readFromStorage(): ActiveCompany | null {
   const account = AppStorage.getAccount();

@@ -1,5 +1,6 @@
 import { Api } from "../api";
 import { AppStorage } from "../storage/storage.service";
+import { notifyActiveCompanyChanged } from "../session/activeCompanyEvents";
 import { getErrorStatus } from "../../utils/error";
 import type {
   AuthPermissions,
@@ -56,7 +57,7 @@ export type CompanyAgent = {
   id: string;
   name: string | null;
   email: string | null;
-  role: "admin" | "operator";
+  role: "admin" | "operator" | "super_admin";
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -76,7 +77,7 @@ type CreateAgentPayload = {
   name: string;
   email: string;
   password: string;
-  role: "admin" | "operator";
+  role: "admin" | "operator" | "super_admin";
 };
 
 type UpdateProfilePayload = {
@@ -124,7 +125,7 @@ type RemoveAgentResponse = {
     id: string;
     name: string | null;
     email: string | null;
-    role?: "admin" | "operator";
+    role?: "admin" | "operator" | "super_admin";
   };
 };
 
@@ -135,7 +136,7 @@ type ManageAgentResponse = {
     id: string;
     name: string | null;
     email: string | null;
-    role: "admin" | "operator";
+    role: "admin" | "operator" | "super_admin";
     active: boolean;
     chatwootLinked?: boolean;
   };
@@ -172,6 +173,11 @@ const DEFAULT_PERMISSIONS: AuthPermissions = {
  *
  * Importante: nao define `authMode` aqui — cada caller escolhe entre "agent"
  * (login normal / switch) e "embed" (chatwoot/embed-login).
+ *
+ * Ao final notifica o `ActiveCompanyContext` (`notifyActiveCompanyChanged`):
+ * mudancas no `localStorage` na MESMA aba nao disparam o evento `storage`
+ * nativo, entao sem isso o provider — hidratado so no mount — nao re-leria a
+ * empresa apos o login, e a navbar mostraria o fallback "Trocar empresa".
  */
 export function applyLoginSession(response: LoginResponse): void {
   AppStorage.setAccessToken(response.accessToken);
@@ -187,6 +193,8 @@ export function applyLoginSession(response: LoginResponse): void {
   if (response.agent?.role) {
     AppStorage.setAgentRole(response.agent.role);
   }
+
+  notifyActiveCompanyChanged();
 }
 
 export class AuthService {
@@ -246,7 +254,7 @@ export class AuthService {
   static async manageAgent(
     agentId: string,
     payload: {
-      role?: "admin" | "operator";
+      role?: "admin" | "operator" | "super_admin";
       active?: boolean;
       chatwootAccessToken?: string | null;
     },
