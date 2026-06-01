@@ -406,7 +406,7 @@ export function TemplateBody({
             onKeyUp={syncSelection}
             onSelect={syncSelection}
             maxLength={1024}
-            placeholder="Digite o corpo do template e insira variaveis onde quiser."
+            placeholder="Digite o corpo do template e insira variáveis onde quiser."
           />
 
           {autocompleteState && (
@@ -447,24 +447,24 @@ export function TemplateBody({
 
       <div className={Style.variablesBlock}>
         <div className={Style.variablesHeader}>
-          <label className={labelClassName}>Variaveis</label>
+          <label className={labelClassName}>Variáveis</label>
 
           <div className={Style.detectedSummary}>
             <span className={Style.detectedSummaryLabel}>Detectadas no corpo</span>
             <span className={Style.detectedSummaryValid}>
-              {detectedValidCount} validas
+              {detectedValidCount} válidas
             </span>
             {invalidVariables.length > 0 && (
               <span className={Style.detectedSummaryInvalid}>
-                {invalidVariables.length} invalidas
+                {invalidVariables.length} inválidas
               </span>
             )}
           </div>
         </div>
 
         <Dropdown
-          label="Variaveis"
-          placeholder="Selecione as variaveis"
+          label="Variáveis"
+          placeholder="Selecione as variáveis"
           showFloatingLabel={false}
           options={varOptions}
           selected={varsSelected}
@@ -518,7 +518,7 @@ export function TemplateBody({
         {invalidVariables.length > 0 && (
           <div className={Style.invalidVariablesBox}>
             <div className={Style.invalidVariablesTitle}>
-              Variaveis invalidas encontradas no corpo
+              Variáveis inválidas encontradas no corpo
             </div>
             <div className={Style.detectedVariables}>
               {invalidVariables.map((variable) => (

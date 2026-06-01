@@ -142,7 +142,7 @@ export default function DropdownSwitchCompany({
       )}
 
       {!isLoading && companies.length === 0 && (
-        <div className={styles.state}>Nenhuma empresa disponivel.</div>
+        <div className={styles.state}>Nenhuma empresa disponível.</div>
       )}
 
       {!isLoading && companies.length > 0 && (

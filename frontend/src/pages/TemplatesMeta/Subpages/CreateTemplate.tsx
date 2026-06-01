@@ -64,7 +64,7 @@ export default function CreateTemplate() {
     <PageContainer className={Style.pageContainer}>
       <TitlePage
         title="Criar template"
-        subtitle="Monte e valide modelos de mensagem com variaveis dinamicas."
+        subtitle="Monte e valide modelos de mensagem com variáveis dinâmicas."
         className={Style.CreateTemplateTitle}
       />
 
@@ -103,7 +103,7 @@ export default function CreateTemplate() {
               />
               {isCategoriesError && (
                 <span className={Style.errorText}>
-                  Nao foi possivel carregar as categorias cadastradas.
+                  Não foi possível carregar as categorias cadastradas.
                 </span>
               )}
               {!isCategoriesError && categoryError && (
@@ -114,24 +114,24 @@ export default function CreateTemplate() {
 
           <div className={Style.row2}>
             <div className={Style.formGroup}>
-              <label>Cabecalho</label>
+              <label>Cabeçalho</label>
               <InputFields
                 maxLength={60}
                 className={Style.containerI1}
                 value={header}
                 onChange={(event) => setHeader(event.target.value)}
-                placeholder="Digite o cabecalho fixo"
+                placeholder="Digite o cabeçalho fixo"
               />
             </div>
 
             <div className={Style.formGroup}>
-              <label>Rodape</label>
+              <label>Rodapé</label>
               <InputFields
                 maxLength={60}
                 className={Style.containerI1}
                 value={footer}
                 onChange={(event) => setFooter(event.target.value)}
-                placeholder="Digite o rodape"
+                placeholder="Digite o rodapé"
               />
             </div>
           </div>
@@ -156,10 +156,10 @@ export default function CreateTemplate() {
 
           <div className={Style.rowCta}>
             <div className={Style.formGroupChamada}>
-              <label className={Style.Titulosinputs}>Botoes</label>
+              <label className={Style.Titulosinputs}>Botões</label>
               <Dropdown
-                label="Botoes"
-                placeholder="Selecione um botao"
+                label="Botões"
+                placeholder="Selecione um botão"
                 showFloatingLabel={false}
                 searchable={false}
                 options={ctaOptions}
@@ -178,7 +178,7 @@ export default function CreateTemplate() {
                 }}
               />
               <span className={Style.helperText}>
-                Escolha um botao para seu template.
+                Escolha um botão para seu template.
               </span>
               {ctasError && <span className={Style.errorText}>{ctasError}</span>}
             </div>

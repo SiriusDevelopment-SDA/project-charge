@@ -54,7 +54,7 @@ export function CardTemplates({
                     title={
                       canUseTemplate
                         ? "Usar template"
-                        : `Template indisponivel enquanto estiver com status ${statusLabel}.`
+                        : `Template indisponível enquanto estiver com status ${statusLabel}.`
                     }
                   >
                     <Play size={16} />

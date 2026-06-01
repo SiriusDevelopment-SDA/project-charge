@@ -38,7 +38,7 @@ export function TemplatesUsageCard({
     return (
       <div className={styles.card}>
         <h3 className={styles.title}>{title}</h3>
-        <div className={styles.emptyState}>Nao foi possivel carregar o uso dos templates.</div>
+        <div className={styles.emptyState}>Não foi possível carregar o uso dos templates.</div>
       </div>
     );
   }
@@ -60,7 +60,7 @@ export function TemplatesUsageCard({
         <div className={`${styles.row} ${styles.header}`}>
           <span>#</span>
           <span>Template</span>
-          <span>Qunatidade de uso</span>
+          <span>Quantidade de uso</span>
         </div>
 
         {data.map((item, index) => {

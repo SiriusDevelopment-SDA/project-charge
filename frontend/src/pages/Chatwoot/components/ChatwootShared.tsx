@@ -81,7 +81,7 @@ export function ConversationGroupCard({
               <span className={Style.unread}>{group.unreadCount}</span>
             )}
             {sessionCount > 1 && (
-              <span className={Style.groupCount}>{sessionCount} sessoes</span>
+              <span className={Style.groupCount}>{sessionCount} sessões</span>
             )}
             {isIa ? (
               <span className={Style.tagIa}>
@@ -126,7 +126,7 @@ export function ConversationGroupCard({
               className={Style.groupToggleButton}
               onClick={() => setShowAllSessions(true)}
             >
-              Ver mais {hiddenSessionsCount} sessoes
+              Ver mais {hiddenSessionsCount} sessões
             </button>
           )}
 
@@ -136,7 +136,7 @@ export function ConversationGroupCard({
               className={Style.groupToggleButton}
               onClick={() => setShowAllSessions(false)}
             >
-              Ver menos sessoes
+              Ver menos sessões
             </button>
           )}
         </div>

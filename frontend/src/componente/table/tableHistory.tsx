@@ -91,7 +91,7 @@ export default function Table({ data, className }: TableProps) {
         emptyMessage="Nenhum registro encontrado"
       >
         <Column field="name" header="Cliente" filter />
-        <Column field="number" header="Numero" filter />
+        <Column field="number" header="Número" filter />
 
         <Column
           field="date_dispatch"

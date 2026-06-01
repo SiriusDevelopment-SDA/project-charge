@@ -73,7 +73,7 @@ export function Dropdown<
   filterValue = null,
   onFilterChange,
   filterAllLabel = "Todas",
-  filterButtonLabel = "Filtrar opcoes",
+  filterButtonLabel = "Filtrar opções",
   getFilterValue,
   summaryThreshold = 4,
   summaryVisibleNames = 3,
@@ -620,7 +620,7 @@ export function Dropdown<
                           event.stopPropagation();
                           handleSelectOption(option);
                         }}
-                        title={disabled ? "Opcao indisponivel" : undefined}
+                        title={disabled ? "Opção indisponível" : undefined}
                       >
                         <span className={S.optionLabel}>{getOptionLabel(option)}</span>
                         {isSelected && (

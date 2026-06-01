@@ -116,8 +116,8 @@ const TeamMemberRow = memo(function TeamMemberRow({
     <article className={styles.teamRow}>
       <div className={styles.teamRowMain}>
         <div className={styles.teamIdentity}>
-          <strong>{member.name?.trim() || "Usuario sem nome"}</strong>
-          <span>{member.email?.trim() || "Email nao informado"}</span>
+          <strong>{member.name?.trim() || "Usuário sem nome"}</strong>
+          <span>{member.email?.trim() || "Email não informado"}</span>
         </div>
         <div className={styles.teamTags}>
           <span className={styles.roleBadge}>{getRoleLabel(member.role)}</span>
@@ -229,13 +229,13 @@ export function PerfilPage() {
       <section className={styles.hero}>
         <div>
           <span className={styles.badge}>
-            {isAdmin ? "Painel de administracao" : "Perfil do usuario"}
+            {isAdmin ? "Painel de administração" : "Perfil do usuário"}
           </span>
           <h1>{isAdmin ? "Gerencie conta e equipe" : "Gerencie seus dados de acesso"}</h1>
           <p>
             {isAdmin
               ? "Acompanhe seu acesso e gerencie a equipe da empresa quando precisar."
-              : "Atualize nome, altere a senha com seguranca e encerre sua sessao quando precisar."}
+              : "Atualize nome, altere a senha com segurança e encerre sua sessão quando precisar."}
           </p>
         </div>
         <div className={styles.heroActions}>
@@ -253,7 +253,7 @@ export function PerfilPage() {
           <article className={styles.profileCard}>
             <div className={styles.sectionHeader}>
               <h2>Conta atual</h2>
-              <p>Edite seus dados sem sair da area administrativa.</p>
+              <p>Edite seus dados sem sair da área administrativa.</p>
             </div>
 
             <div className={styles.accountSummary}>
@@ -273,7 +273,7 @@ export function PerfilPage() {
                 control={profileForm.control}
                 render={({ field }) => (
                   <div className={styles.fieldBlock}>
-                    <InputFields label="Nome do usuario" {...field} />
+                    <InputFields label="Nome do usuário" {...field} />
                     <FormFieldError message={profileForm.formState.errors.name?.message} />
                   </div>
                 )}
@@ -281,12 +281,12 @@ export function PerfilPage() {
 
               <div className={styles.readOnlyField}>
                 <span>Email de acesso</span>
-                <strong>{profileEmail || "Nao informado"}</strong>
+                <strong>{profileEmail || "Não informado"}</strong>
               </div>
             </div>
 
             <div className={styles.sectionHeader}>
-              <h2>Seguranca</h2>
+              <h2>Segurança</h2>
               <p>Troque a senha apenas quando precisar.</p>
             </div>
 
@@ -348,7 +348,7 @@ export function PerfilPage() {
 
             <div className={styles.actions}>
               <MyButton
-                text={isSaving ? "Salvando..." : "Salvar alteracoes"}
+                text={isSaving ? "Salvando..." : "Salvar alterações"}
                 variant="btn-enviar"
                 disabled={isSaving}
                 onClick={handleSaveProfile}
@@ -360,19 +360,19 @@ export function PerfilPage() {
             <aside className={styles.adminSummaryCard}>
               <div className={styles.sectionHeader}>
                 <h2>Resumo administrativo</h2>
-                <p>Uma visao rapida da equipe, dos acessos ativos e das etiquetas disponiveis no chat.</p>
+                <p>Uma visão rápida da equipe, dos acessos ativos e das etiquetas disponíveis no chat.</p>
               </div>
 
               <div className={styles.summaryGrid}>
-                <SummaryMetricCard label="Usuarios" value={teamSummary.total} />
+                <SummaryMetricCard label="Usuários" value={teamSummary.total} />
                 <SummaryMetricCard label="Ativos" value={teamSummary.active} />
                 <SummaryMetricCard label="Bloqueados" value={teamSummary.blocked} />
                 <SummaryMetricCard label="Admins" value={teamSummary.admins} />
               </div>
 
               <div className={styles.adminNotes}>
-                <strong>Gestao de equipe</strong>
-                <p>Abra a administracao para cadastrar acessos, organizar os perfis da empresa e importar os agentes ja existentes do Maestro quando precisar.</p>
+                <strong>Gestão de equipe</strong>
+                <p>Abra a administração para cadastrar acessos, organizar os perfis da empresa e importar os agentes já existentes do Maestro quando precisar.</p>
               </div>
 
               <div className={styles.adminActions}>
@@ -398,7 +398,7 @@ export function PerfilPage() {
           open={isTeamModalOpen}
           type="custom"
           size="wide"
-          title="Administracao da equipe"
+          title="Administração da equipe"
           containerClassName={styles.teamModalContainer}
           onClose={closeTeamModal}
           customContent={
@@ -440,7 +440,7 @@ export function PerfilPage() {
                     control={newAgentForm.control}
                     render={({ field }) => (
                       <div className={styles.fieldBlock}>
-                        <InputFields label="Senha provisoria" type="password" {...field} />
+                        <InputFields label="Senha provisória" type="password" {...field} />
                         <FormFieldError
                           message={newAgentForm.formState.errors.password?.message}
                         />
@@ -481,7 +481,7 @@ export function PerfilPage() {
                   className={styles.teamSearchInput}
                 />
                 <span className={styles.teamCounter}>
-                  {isTeamLoading ? "Atualizando..." : `${filteredTeamMembers.length} usuarios`}
+                  {isTeamLoading ? "Atualizando..." : `${filteredTeamMembers.length} usuários`}
                 </span>
               </div>
 
@@ -489,7 +489,7 @@ export function PerfilPage() {
                 {isTeamLoading ? (
                   <div className={styles.teamEmptyState}>
                     <strong>Carregando equipe</strong>
-                    <span>Buscando usuarios vinculados a esta empresa.</span>
+                    <span>Buscando usuários vinculados a esta empresa.</span>
                   </div>
                 ) : filteredTeamMembers.length === 0 ? (
                   <div className={styles.teamEmptyState}>

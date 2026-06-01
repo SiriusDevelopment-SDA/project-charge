@@ -214,7 +214,7 @@ export default function TemplatesMeta() {
             onUse={(selectedTemplate) => {
               if (!isTemplateApproved(selectedTemplate.meta_status)) {
                 toast.warning(
-                  `O template ${selectedTemplate.name} ainda nao pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
+                  `O template ${selectedTemplate.name} ainda não pode ser usado. Status atual: ${getTemplateStatusLabel(selectedTemplate.meta_status)}.`,
                 );
                 return;
               }

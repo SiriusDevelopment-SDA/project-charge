@@ -17,8 +17,8 @@ import S from "./Styles/historico.module.css";
 function getBatchStatusLabel(status?: DispatchBatchStatus["status"]) {
   if (status === "queued") return "Na fila";
   if (status === "processing") return "Em andamento";
-  if (status === "completed") return "Concluido";
-  if (status === "partial") return "Concluido com falhas";
+  if (status === "completed") return "Concluído";
+  if (status === "partial") return "Concluído com falhas";
   if (status === "failed") return "Falhou";
   return "Lote";
 }
@@ -87,10 +87,10 @@ export function HistoricoDisparoPage() {
 
   const pageTitle = useMemo(() => {
     if (batchId) {
-      return "Historico do lote";
+      return "Histórico do lote";
     }
 
-    return isCampaignHistory ? "Historico de campanhas" : "Historicos de disparos";
+    return isCampaignHistory ? "Histórico de campanhas" : "Históricos de disparos";
   }, [batchId, isCampaignHistory]);
 
   const pageSubtitle = useMemo(() => {
@@ -104,18 +104,18 @@ export function HistoricoDisparoPage() {
   }, [batchId, isCampaignHistory]);
 
   const latestReportButtonText = isCampaignHistory
-    ? "Relatorio da ultima campanha"
-    : "Relatorio do ultimo disparo";
+    ? "Relatório da última campanha"
+    : "Relatório do último disparo";
   const latestReportModalTitle = isCampaignHistory
-    ? "Relatorio em tempo real da ultima campanha"
-    : "Relatorio em tempo real do ultimo disparo";
+    ? "Relatório em tempo real da última campanha"
+    : "Relatório em tempo real do último disparo";
   const latestReportEmptyTitle = isCampaignHistory
     ? "Nenhum disparo de campanha recente"
     : "Nenhum disparo manual recente";
   const latestReportEmptyDescription = isCampaignHistory
     ? "Assim que uma campanha iniciar um novo lote, o resumo ao vivo aparece aqui."
     : "Assim que um novo lote for iniciado, o resumo ao vivo aparece aqui.";
-  const latestReportEyebrow = isCampaignHistory ? "Ultimo lote de campanha" : "Ultimo lote manual";
+  const latestReportEyebrow = isCampaignHistory ? "Último lote de campanha" : "Último lote manual";
   const latestReportFilteredScope = isCampaignHistory ? "campaigns" : "manual";
 
   const buildCampaignsSearch = () => {
@@ -141,7 +141,7 @@ export function HistoricoDisparoPage() {
       >
         {liveReportScope && (
           <MyButton
-            text={isLatestReportLoading ? "Carregando relatorio..." : latestReportButtonText}
+            text={isLatestReportLoading ? "Carregando relatório..." : latestReportButtonText}
             variant="secondary"
             disabled={isLatestReportLoading}
             onClick={openLatestReport}
@@ -180,7 +180,7 @@ export function HistoricoDisparoPage() {
             </div>
             {batchSummary && (
               <span className={S.batchSummaryBadge}>
-                {batchSummary.progressPercentage}% concluido
+                {batchSummary.progressPercentage}% concluído
               </span>
             )}
           </div>
@@ -204,7 +204,7 @@ export function HistoricoDisparoPage() {
             </>
           ) : (
             <p className={S.batchSummaryFallback}>
-              O historico esta filtrado por lote, mas o resumo do processamento nao foi carregado.
+              O histórico está filtrado por lote, mas o resumo do processamento não foi carregado.
             </p>
           )}
         </section>
@@ -249,7 +249,7 @@ export function HistoricoDisparoPage() {
                   </div>
                   <div className={S.liveReportHeroMeta}>
                     <span>{latestDispatchReport.batch.progressPercentage}%</span>
-                    <small>concluido</small>
+                    <small>concluído</small>
                   </div>
                 </div>
 
@@ -313,7 +313,7 @@ export function HistoricoDisparoPage() {
 
                 <div className={S.liveReportActions}>
                   <MyButton
-                    text="Abrir no historico filtrado"
+                    text="Abrir no histórico filtrado"
                     variant="secondary"
                     onClick={() => {
                       const nextSearch = new URLSearchParams();

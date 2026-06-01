@@ -28,9 +28,9 @@ const calendarDateFormatter = new Intl.DateTimeFormat("pt-BR", {
 const calendarWeekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
 
 const RECURRING_TYPE_LABELS = {
-  single: "Unico",
+  single: "Único",
   range: "Recorrente",
-  monthly_days: "Dias do mes",
+  monthly_days: "Dias do mês",
 } as const;
 
 const INVOICE_RULE_MAX_DAYS = 720;
@@ -50,7 +50,7 @@ const INVOICE_RULE_PRESETS = [
     daysFrom: 30,
     daysTo: 60,
     title: "30 - 60 dias",
-    subtitle: "proximo mes",
+    subtitle: "próximo mês",
   },
   {
     id: "due_30_90",
@@ -58,7 +58,7 @@ const INVOICE_RULE_PRESETS = [
     daysFrom: 30,
     daysTo: 90,
     title: "30 - 90 dias",
-    subtitle: "medio prazo",
+    subtitle: "médio prazo",
   },
   {
     id: "overdue_60_90",
@@ -82,7 +82,7 @@ const INVOICE_RULE_PRESETS = [
     daysFrom: 90,
     daysTo: 180,
     title: "90 - 180 dias",
-    subtitle: "critico",
+    subtitle: "crítico",
   },
 ] as const;
 
@@ -343,10 +343,10 @@ export function CriarCampanha() {
                     <div className={Style.invoiceRuleHeader}>
                       <section className={Style.titleHeader}>
                         <small>
-                          <span>Regua de cobranca</span>
+                          <span>Régua de cobrança</span>
                           {isMonthlyDays
-                            ? "As datas escolhidas no calendário serão usadas como referência da regua sobre o snapshot de faturas sincronizado no sistema (sem consultar o ERP nesta etapa)."
-                            : "Cada dia dentro do período recorrente será usado como referência da regua sobre o snapshot de faturas sincronizado no sistema (sem consultar o ERP nesta etapa)."}
+                            ? "As datas escolhidas no calendário serão usadas como referência da régua sobre o snapshot de faturas sincronizado no sistema (sem consultar o ERP nesta etapa)."
+                            : "Cada dia dentro do período recorrente será usado como referência da régua sobre o snapshot de faturas sincronizado no sistema (sem consultar o ERP nesta etapa)."}
                         </small>
 
                         <div className={Style.invoiceRuleTopRow}>
@@ -463,7 +463,7 @@ export function CriarCampanha() {
                     <div className={Style.invoiceRuleSummaryContainer}>
                       <div className={Style.invoiceRuleSummary}>
                         {form.hasConsultedInvoiceRule
-                          ? `${form.selectedClients.length} cliente(s) selecionado(s) automaticamente pela regua.`
+                          ? `${form.selectedClients.length} cliente(s) selecionado(s) automaticamente pela régua.`
                           : isSameDayRule
                             ? "A consulta vai carregar automaticamente os clientes com faturas no dia exato do vencimento."
                             : "A consulta vai carregar automaticamente os clientes com faturas dentro do intervalo informado."}
@@ -589,7 +589,7 @@ export function CriarCampanha() {
                     />
                   </div>
                   <div className={Style.createCampaign__scheduleTimeField}>
-                    <span>Horario de disparo</span>
+                    <span>Horário de disparo</span>
                     <InputFields
                       type="time"
                       value={form.dispatchTime}
@@ -622,14 +622,14 @@ export function CriarCampanha() {
           customContent={
             <DispatchPreviewContent
               eyebrow="Campanha validada"
-              headline={form.name.trim() || "Campanha pronta para criacao"}
-              summary="Revise audiencia, template e janela de disparo antes de confirmar o agendamento."
+              headline={form.name.trim() || "Campanha pronta para criação"}
+              summary="Revise audiência, template e janela de disparo antes de confirmar o agendamento."
               audienceLabel="Clientes na campanha"
               audienceCount={form.selectedClients.length}
-              templateName={form.selectedTemplate?.name ?? "Template nao selecionado"}
+              templateName={form.selectedTemplate?.name ?? "Template não selecionado"}
               message={previewMessage}
               details={previewDetails}
-              note="Ao confirmar, a campanha sera criada com as datas, horario e recorrencia definidos neste resumo."
+              note="Ao confirmar, a campanha será criada com as datas, horário e recorrência definidos neste resumo."
               confirmLabel={form.isSubmitting ? "Criando..." : "Confirmar e criar campanha"}
               confirmDisabled={form.isSubmitting}
               onCancel={modal.closeModal}
