@@ -481,11 +481,11 @@ export class AuthService {
         account: company.account_chatwoot,
         cnpj: company.cnpj ?? '',
         active: company.active,
+        // MC2: canais NotificaMe da empresa do token para o dropdown de disparo.
+        // O canal carrega apenas { id, numero } — o X-Api-Token e a coluna
+        // compartilhada token_notificameHub e NUNCA trafega para o cliente.
+        channels: this.toPublicChannels(company.canalId_notificameHub),
       },
-      // MC2: canais NotificaMe da empresa do token para o dropdown de disparo.
-      // O canal carrega apenas { id, numero } — o X-Api-Token e a coluna
-      // compartilhada token_notificameHub e NUNCA trafega para o cliente.
-      channels: this.toPublicChannels(company.canalId_notificameHub),
       promiseAutomation: this.normalizePromiseAutomationSettings(company.config),
       permissions: this.extractPagePermissions(company.config),
       agent: agent

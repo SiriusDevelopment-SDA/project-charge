@@ -1,59 +1,15 @@
 .wrapper {
   position: relative;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  padding-top: 18px;
 }
 
-.label {
-  position: absolute;
-  top: 0;
-  left: 14px;
-  font-size: 12px;
-  color: #f1ce3d;
-  background: linear-gradient(
-    180deg,
-    rgba(37, 31, 12, 0.96) 0%,
-    rgba(37, 31, 12, 0.84) 100%
-  );
-  padding: 0 6px;
-  border-radius: 999px;
-  pointer-events: none;
-}
-
-.select {
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #b89300;
-  border-radius: 8px;
-  background: transparent;
-  color: white;
-  outline: none;
-  font-size: 16px;
-  cursor: pointer;
-  appearance: none;
-  /* seta custom para nao depender do estilo nativo do SO */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23f1ce3d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 40px;
-}
-
-.select:focus,
-.select:focus-visible {
-  border-color: #f1ce3d;
-  box-shadow: 0 0 0 3px rgba(241, 206, 61, 0.14);
-}
-
-.select:disabled {
-  cursor: not-allowed;
+/*
+ * Estado desabilitado: o `Dropdown<T>` generico nao expoe prop `disabled`,
+ * entao bloqueamos a interacao no wrapper e reduzimos o contraste — mantendo
+ * o mesmo comportamento do antigo <select> (placeholder visivel, nao clicavel).
+ */
+.disabled {
   opacity: 0.55;
-  border-color: rgba(184, 147, 0, 0.4);
-}
-
-/* As <option> herdam o tema do SO; forcamos fundo escuro para legibilidade */
-.select option {
-  color: #1a1a1a;
-  background: #ffffff;
+  pointer-events: none;
+  cursor: not-allowed;
 }
