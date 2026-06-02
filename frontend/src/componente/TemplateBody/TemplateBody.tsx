@@ -511,8 +511,8 @@ export function TemplateBody({
         />
 
         <span className={Style.variablesHelper}>
-          As variaveis do corpo entram automaticamente, mas voce pode selecionar
-          outras para botoes e amostras.
+          As variáveis do corpo entram automaticamente, mas você pode selecionar
+          outras para botões e amostras.
         </span>
 
         {invalidVariables.length > 0 && (

@@ -1,5 +1,11 @@
 import { Api } from "../api";
+import { AppStorage } from "../storage/storage.service";
+import { notifyActiveCompanyChanged } from "../session/activeCompanyEvents";
 import { getErrorStatus } from "../../utils/error";
+import type {
+  AuthPermissions,
+  LoginResponse,
+} from "../../types/authApiTypes";
 
 type LoginPayload = {
   email: string;
@@ -11,35 +17,11 @@ type EmbedLoginPayload = {
   token: string;
 };
 
-type ChatwootLoginPayload = {
-  account: string;
-  chatwoot_token: string;
-};
-
-export type PagePermissions = {
-  dashboard: boolean;
-  clientesVencidos: boolean;
-  chat: boolean;
-};
-
-type LoginResponse = {
-  success: boolean;
-  accessToken: string;
-  company: {
-    id: string;
-    name: string;
-    account: string;
-    active: boolean;
-  };
-  permissions?: PagePermissions | null;
-  agent?: {
-    id: string;
-    name: string | null;
-    email: string | null;
-    role: "admin" | "operator";
-    active: boolean;
-  } | null;
-};
+/**
+ * @deprecated Use `AuthPermissions` de `types/authApiTypes`.
+ * Mantido como alias para compatibilidade com imports existentes.
+ */
+export type PagePermissions = AuthPermissions;
 
 type MeResponse = {
   success: boolean;
@@ -56,12 +38,12 @@ type MeResponse = {
     autoBreakEnabled: boolean;
     checkPaymentBeforeBreak: boolean;
   };
-  permissions?: PagePermissions | null;
+  permissions?: AuthPermissions | null;
   agent?: {
     id: string;
     name: string | null;
     email: string | null;
-    role: "admin" | "operator";
+    role: "admin" | "operator" | "super_admin";
     active: boolean;
   } | null;
 };
@@ -70,7 +52,7 @@ export type CompanyAgent = {
   id: string;
   name: string | null;
   email: string | null;
-  role: "admin" | "operator";
+  role: "admin" | "operator" | "super_admin";
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -90,7 +72,7 @@ type CreateAgentPayload = {
   name: string;
   email: string;
   password: string;
-  role: "admin" | "operator";
+  role: "admin" | "operator" | "super_admin";
 };
 
 type UpdateProfilePayload = {
@@ -106,7 +88,7 @@ type UpdateProfileResponse = {
     id: string;
     name: string | null;
     email: string | null;
-    role: "admin" | "operator";
+    role: "admin" | "operator" | "super_admin";
     active: boolean;
   };
 };
@@ -138,7 +120,7 @@ type RemoveAgentResponse = {
     id: string;
     name: string | null;
     email: string | null;
-    role?: "admin" | "operator";
+    role?: "admin" | "operator" | "super_admin";
   };
 };
 
@@ -149,7 +131,7 @@ type ManageAgentResponse = {
     id: string;
     name: string | null;
     email: string | null;
-    role: "admin" | "operator";
+    role: "admin" | "operator" | "super_admin";
     active: boolean;
     chatwootLinked?: boolean;
   };
@@ -169,6 +151,46 @@ type SyncChatwootAgentsResponse = {
   linked: number;
   roleUpdated: number;
 };
+
+const DEFAULT_PERMISSIONS: AuthPermissions = {
+  dashboard: true,
+  clientesVencidos: true,
+  chat: true,
+};
+
+/**
+ * Persiste no `AppStorage` os campos da resposta de login (ou de switch-company,
+ * que tem o mesmo shape).
+ *
+ * Centraliza a logica de persistencia de sessao para evitar duplicacao entre
+ * `Login.tsx`, os fluxos de embed/chatwoot em `AccountLayout.tsx` e o mutation
+ * de troca de empresa do super_admin.
+ *
+ * Importante: nao define `authMode` aqui — cada caller escolhe entre "agent"
+ * (login normal / switch) e "embed" (chatwoot/embed-login).
+ *
+ * Ao final notifica o `ActiveCompanyContext` (`notifyActiveCompanyChanged`):
+ * mudancas no `localStorage` na MESMA aba nao disparam o evento `storage`
+ * nativo, entao sem isso o provider — hidratado so no mount — nao re-leria a
+ * empresa apos o login, e a navbar mostraria o fallback "Trocar empresa".
+ */
+export function applyLoginSession(response: LoginResponse): void {
+  AppStorage.setAccessToken(response.accessToken);
+  AppStorage.setAccount(response.company.account);
+  AppStorage.setCompanyId(response.company.id);
+  AppStorage.setCompanyName(response.company.name);
+  AppStorage.setCompanyActive(response.company.active);
+  AppStorage.setPagePermissions(response.permissions ?? DEFAULT_PERMISSIONS);
+
+  if (response.agent?.name) {
+    AppStorage.setAgentName(response.agent.name);
+  }
+  if (response.agent?.role) {
+    AppStorage.setAgentRole(response.agent.role);
+  }
+
+  notifyActiveCompanyChanged();
+}
 
 export class AuthService {
   static async login(payload: LoginPayload): Promise<LoginResponse> {
@@ -190,11 +212,6 @@ export class AuthService {
 
       throw error;
     }
-  }
-
-  static async chatwootLogin(payload: ChatwootLoginPayload): Promise<LoginResponse> {
-    const { data } = await Api.post<LoginResponse>("/auth/chatwoot-login", payload);
-    return data;
   }
 
   static async me(): Promise<MeResponse> {
@@ -227,7 +244,7 @@ export class AuthService {
   static async manageAgent(
     agentId: string,
     payload: {
-      role?: "admin" | "operator";
+      role?: "admin" | "operator" | "super_admin";
       active?: boolean;
       chatwootAccessToken?: string | null;
     },

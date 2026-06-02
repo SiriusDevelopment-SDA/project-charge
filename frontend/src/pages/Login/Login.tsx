@@ -1,7 +1,8 @@
 import { FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AuthService } from "../../services/auth/auth.service";
+import { AuthService, applyLoginSession } from "../../services/auth/auth.service";
+import { restoreLastActiveCompany } from "../../services/company/company.service";
 import { AppStorage } from "../../services/storage/storage.service";
 import { getErrorMessage } from "../../utils/error";
 import { createNormalizedSearchParams } from "../../utils/locationSearch";
@@ -31,23 +32,28 @@ export function Login() {
         return;
       }
 
-      AppStorage.setAccessToken(result.accessToken);
-      AppStorage.setAccount(result.company.account);
-      AppStorage.setCompanyName(result.company.name);
-      AppStorage.setAuthMode("agent");
       AppStorage.clearOnLogin();
-      if (result.agent?.name) {
-        AppStorage.setAgentName(result.agent.name);
-      }
+      applyLoginSession(result);
+      AppStorage.setAuthMode("agent");
+
+      // super_admin: restaura a ultima empresa ativa (se houver) antes de
+      // navegar. Em caso de falha (404/empresa invalida) mantem a empresa
+      // default do login — nunca trava o fluxo.
+      await restoreLastActiveCompany(result);
 
       const from =
         typeof (location.state as { from?: string } | null)?.from === "string"
           ? (location.state as { from: string }).from
           : "/";
 
+      // Le o account do storage (e nao de `result`) porque
+      // `restoreLastActiveCompany` pode ter trocado a empresa ativa via
+      // `applyLoginSession`. Usar o account stale do login causaria
+      // re-navegacao/flicker no AccountLayout.
+      const activeAccount = AppStorage.getAccount() || result.company.account;
       const targetUrl = new URL(from, window.location.origin);
       const normalizedParams = createNormalizedSearchParams(targetUrl.search);
-      normalizedParams.set("account", result.company.account);
+      normalizedParams.set("account", activeAccount);
       const normalizedSearch = normalizedParams.toString();
       const targetPath = `${targetUrl.pathname}${normalizedSearch ? `?${normalizedSearch}` : ""}${targetUrl.hash}`;
 

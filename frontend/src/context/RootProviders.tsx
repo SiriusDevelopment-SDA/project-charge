@@ -6,16 +6,19 @@ import { DispatchTemplateProvider } from "./contextDisparo";
 import { CampaignProvider } from "./contextCampaigns";
 import { InvoiceProvider } from "./contextInvoices";
 import { GlobalLoadingProvider } from "./contextGlobalLoading";
+import { ActiveCompanyProvider } from "./contextActiveCompany";
 
 export function RootProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <GlobalLoadingProvider>
-        <DispatchTemplateProvider>
-          <CampaignProvider>
-            <InvoiceProvider>{children}</InvoiceProvider>
-          </CampaignProvider>
-        </DispatchTemplateProvider>
+        <ActiveCompanyProvider>
+          <DispatchTemplateProvider>
+            <CampaignProvider>
+              <InvoiceProvider>{children}</InvoiceProvider>
+            </CampaignProvider>
+          </DispatchTemplateProvider>
+        </ActiveCompanyProvider>
       </GlobalLoadingProvider>
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>

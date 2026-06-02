@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
-import { AuthService } from "../services/auth/auth.service";
+import { AuthService, applyLoginSession } from "../services/auth/auth.service";
+import { restoreLastActiveCompany } from "../services/company/company.service";
 import { AppStorage } from "../services/storage/storage.service";
 import { Navbar } from "../componente/Index";
 import Style from "./AccountLayout.module.css";
@@ -20,8 +21,6 @@ export function AccountLayout() {
   useEffect(() => {
     const accountParam = searchParams.get("account");
     const tokenParam = searchParams.get("token");
-    const chatwootTokenParam = searchParams.get("chatwoot_token");
-    const hasChatwootCredentials = Boolean(accountParam && chatwootTokenParam);
     const hasEmbedCredentials = Boolean(accountParam && tokenParam);
     const accessToken = AppStorage.getAccessToken();
     const normalizedSearch = buildNormalizedSearch(location.search);
@@ -32,56 +31,9 @@ export function AccountLayout() {
     setIsAuthorized(false);
     setIsAuthorizing(true);
 
-    // Auth via Chatwoot (user_access_token) — autenticação individual por agente
-    if (hasChatwootCredentials) {
-      const embedSignature = `${window.location.origin}|${accountParam}|chatwoot:${chatwootTokenParam}`;
-      const authenticateChatwoot = async () => {
-        try {
-          const result = await AuthService.chatwootLogin({
-            account: String(accountParam),
-            chatwoot_token: String(chatwootTokenParam),
-          });
-
-          if (!isMounted) return;
-
-          AppStorage.clearOnLogin();
-          AppStorage.setAccessToken(result.accessToken);
-          AppStorage.setAccount(result.company.account);
-          AppStorage.setCompanyName(result.company.name);
-          AppStorage.setCompanyActive(result.company.active);
-          AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
-          AppStorage.setEmbedSignature(embedSignature);
-          AppStorage.setAuthMode("embed");
-          if (result.agent?.name) {
-            AppStorage.setAgentName(result.agent.name);
-          }
-          setAccount(result.company.account);
-          setIsAuthorized(true);
-          setIsAuthorizing(false);
-
-          const params = createNormalizedSearchParams(location.search);
-          params.delete("chatwoot_token");
-          params.delete("token");
-          params.set("account", result.company.account);
-          navigate(`${location.pathname}?${params.toString()}`, {
-            replace: true,
-          });
-        } catch {
-          if (!isMounted) return;
-          AppStorage.clearSession();
-          navigate("/login", {
-            replace: true,
-            state: { from: currentPath },
-          });
-        }
-      };
-
-      void authenticateChatwoot();
-      return () => {
-        isMounted = false;
-      };
-    }
-
+    // Embed UNIFICADO: unico fluxo de embed (account + token). O backend
+    // (loginEmbed -> loginChatwoot) resolve a identidade do usuario e o
+    // super_admin a partir do `token`. Nao existe mais o fluxo `chatwoot_token`.
     if (hasEmbedCredentials) {
       const embedSignature = `${window.location.origin}|${accountParam}|${tokenParam}`;
       const authenticateEmbed = async () => {
@@ -94,20 +46,26 @@ export function AccountLayout() {
           if (!isMounted) return;
 
           AppStorage.clearOnLogin();
-          AppStorage.setAccessToken(result.accessToken);
-          AppStorage.setAccount(result.company.account);
-          AppStorage.setCompanyName(result.company.name);
-          AppStorage.setCompanyActive(result.company.active);
-          AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
+          applyLoginSession(result);
           AppStorage.setEmbedSignature(embedSignature);
           AppStorage.setAuthMode("embed");
-          setAccount(result.company.account);
+
+          // super_admin: o embed chega com account=1 (master inexistente) e o
+          // backend devolve a empresa default (Fibras). Restaura a ultima
+          // empresa ativa (se houver) antes de navegar. Para agentes nao
+          // super_admin a funcao e no-op (guard interno por papel).
+          await restoreLastActiveCompany(result);
+
+          // Le o account FINAL do storage — `restoreLastActiveCompany` pode ter
+          // trocado a empresa ativa.
+          const finalAccount = AppStorage.getAccount() || result.company.account;
+          setAccount(finalAccount);
           setIsAuthorized(true);
           setIsAuthorizing(false);
 
           const params = createNormalizedSearchParams(location.search);
           params.delete("token");
-          params.set("account", result.company.account);
+          params.set("account", finalAccount);
           navigate(`${location.pathname}?${params.toString()}`, {
             replace: true,
           });
@@ -141,13 +99,21 @@ export function AccountLayout() {
         const result = await AuthService.me();
         if (!isMounted) return;
 
-        setAccount(result.company.account);
-        AppStorage.setCompanyName(result.company.name);
+        applyLoginSession({
+          success: result.success,
+          accessToken: AppStorage.getAccessToken(),
+          company: {
+            id: result.company.id,
+            name: result.company.name,
+            account: result.company.account,
+            active: result.company.active,
+          },
+          permissions: result.permissions ?? null,
+          agent: result.agent ?? null,
+        });
         AppStorage.setCompanyCnpj(result.company.cnpj ?? '');
-        AppStorage.setCompanyActive(result.company.active);
-        AppStorage.setPagePermissions(result.permissions ?? { dashboard: true, clientesVencidos: true, chat: true });
+        setAccount(result.company.account);
         if (result.agent?.id) {
-          AppStorage.setAgentName(result.agent.name ?? "");
           AppStorage.setAuthMode("agent");
         } else {
           // Sessão embed sem token na URL = acesso direto indevido

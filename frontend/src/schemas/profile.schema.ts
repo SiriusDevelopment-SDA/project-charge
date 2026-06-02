@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const agentRoleSchema = z.enum(["admin", "operator"]);
+const agentRoleSchema = z.enum(["admin", "operator", "super_admin"]);
 
 export const profileFormSchema = z
   .object({

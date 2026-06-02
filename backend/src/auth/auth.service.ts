@@ -1,16 +1,18 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { FindOptionsSelect, FindOptionsWhere, In, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
+import { CompaniesService } from '../companies/companies.service';
 import {
-  ChatwootLoginDto,
   CreateAgentDto,
   EmbedLoginDto,
   LoginAgentDto,
@@ -49,6 +51,8 @@ type JwtPayload = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
@@ -61,6 +65,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly chatwootService: ChatwootService,
     private readonly configService: ConfigService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   async loginAgent(dto: LoginAgentDto) {
@@ -96,11 +101,16 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais invalidas');
     }
 
+    // E5: super_admin sempre cai na empresa default (Fibras do Rio) no
+    // primeiro acesso. Frontend pode trocar via /auth/switch-company (E4).
+    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
+    const targetCompany = defaultCompany ?? agent.company;
+
     return this.buildAuthResponse(
-      agent.company.id,
-      agent.company.name,
-      agent.company.account_chatwoot,
-      agent.company.active,
+      targetCompany.id,
+      targetCompany.name,
+      targetCompany.account_chatwoot,
+      targetCompany.active,
       {
         agentId: agent.id,
         agentName: agent.name ?? agent.email,
@@ -112,117 +122,61 @@ export class AuthService {
   }
 
   async loginEmbed(dto: EmbedLoginDto) {
-    const company = await this.companyRepository.findOne({
-      where: {
-        account_chatwoot: String(dto.account),
-      },
+    // Embed UNIFICADO (spec: existe apenas 1 fluxo de embed, que tambem resolve
+    // super_admin). O `token` do embed e o chatwootAccessToken do agente
+    // (coluna agents.chatwootAccessToken). Identificamos o agente direto no
+    // banco por (token, account) — SEM chamar a API do Chatwoot e SEM depender
+    // de CHATWOOT_BASE_URL. Espelha o loginAgent, trocando email+senha pelo token.
+    const agent = await this.agentRepository.findOne({
+      where: { chatwootAccessToken: dto.token },
+      relations: ['company'],
       select: {
         id: true,
+        email: true,
         name: true,
-        account_chatwoot: true,
-        token_system_coraxy: true,
+        role: true,
         active: true,
-        config: true,
+        company: {
+          id: true,
+          name: true,
+          account_chatwoot: true,
+          active: true,
+          config: true,
+        },
       },
     });
 
-    if (!company || company.token_system_coraxy !== dto.token) {
+    if (!agent) {
       throw new UnauthorizedException('Credenciais de embed invalidas');
     }
 
-    return this.buildAuthResponse(
-      company.id,
-      company.name,
-      company.account_chatwoot,
-      company.active,
-      undefined,
-      this.extractPagePermissions(company.config),
-    );
-  }
-
-  async loginChatwoot(dto: ChatwootLoginDto) {
-    const company = await this.companyRepository.findOne({
-      where: { account_chatwoot: String(dto.account) },
-      select: {
-        id: true,
-        name: true,
-        account_chatwoot: true,
-        active: true,
-        config: true,
-      },
-    });
-
-    if (!company) {
-      throw new UnauthorizedException('Empresa não encontrada para esta account.');
+    if (!agent.active) {
+      throw new UnauthorizedException('Usuario bloqueado.');
     }
 
-    const chatwootBaseUrl = String(
-      this.configService.get<string>('CHATWOOT_BASE_URL') ?? '',
-    ).replace(/\/+$/, '');
+    const isSuperAdmin = agent.role === 'super_admin';
 
-    if (!chatwootBaseUrl) {
-      throw new UnauthorizedException('CHATWOOT_BASE_URL não configurada no backend.');
+    // Anti-tampering: agente comum so pode abrir o embed da PROPRIA empresa — o
+    // `account` da URL precisa casar com a empresa do agente. super_admin
+    // transita entre empresas, entao a checagem e ignorada para ele.
+    if (
+      !isSuperAdmin &&
+      String(agent.company?.account_chatwoot ?? '') !== String(dto.account)
+    ) {
+      throw new UnauthorizedException('Usuario nao pertence a esta account.');
     }
 
-    const profile = await this.fetchChatwootProfile(chatwootBaseUrl, dto.chatwoot_token);
-
-    // Confere se o usuário pertence à account requisitada (anti-tampering).
-    const userAccountIds = Array.isArray(profile.accounts)
-      ? profile.accounts.map((a: { id: number | string }) => String(a.id))
-      : [];
-    if (!userAccountIds.includes(String(dto.account))) {
-      throw new UnauthorizedException(
-        'Usuário não pertence à account informada.',
-      );
-    }
-
-    const email = String(profile.email ?? '').toLowerCase().trim();
-    const name = String(profile.name ?? '').trim() || email;
-    const chatwootUserId =
-      typeof profile.id === 'number' ? profile.id : Number(profile.id);
-
-    if (!email || !chatwootUserId || Number.isNaN(chatwootUserId)) {
-      throw new UnauthorizedException('Perfil Chatwoot inválido.');
-    }
-
-    // Upsert do agente. Email é UNIQUE global — se existir em outra empresa,
-    // bloqueia (não permitimos um mesmo email autenticar em empresas diferentes).
-    let agent = await this.agentRepository.findOne({
-      where: { email },
-      relations: ['company'],
-    });
-
-    if (agent && agent.company?.id !== company.id) {
-      throw new UnauthorizedException(
-        'Este e-mail já está registrado em outra empresa.',
-      );
-    }
-
-    if (!agent) {
-      agent = this.agentRepository.create({
-        name,
-        email,
-        passwordHash: 'CHATWOOT_AUTH', // placeholder; agente Chatwoot não loga via senha
-        chatwootUserId,
-        chatwootAccessToken: dto.chatwoot_token,
-        role: 'operator',
-        active: true,
-        company: { id: company.id } as Company,
-      });
-      agent = await this.agentRepository.save(agent);
-    } else {
-      agent.name = name;
-      agent.chatwootUserId = chatwootUserId;
-      agent.chatwootAccessToken = dto.chatwoot_token;
-      if (!agent.active) agent.active = true;
-      await this.agentRepository.save(agent);
-    }
+    // super_admin cai na empresa default (Fibras do Rio, account_chatwoot=4) no
+    // primeiro acesso; o frontend troca depois via /auth/switch-company. Demais
+    // papeis usam a propria empresa.
+    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
+    const targetCompany = defaultCompany ?? agent.company;
 
     return this.buildAuthResponse(
-      company.id,
-      company.name,
-      company.account_chatwoot,
-      company.active,
+      targetCompany.id,
+      targetCompany.name,
+      targetCompany.account_chatwoot,
+      targetCompany.active,
       {
         agentId: agent.id,
         agentName: agent.name ?? agent.email,
@@ -230,45 +184,8 @@ export class AuthService {
         agentRole: agent.role,
         agentActive: agent.active,
       },
-      this.extractPagePermissions(company.config),
+      this.extractPagePermissions(targetCompany.config),
     );
-  }
-
-  private async fetchChatwootProfile(
-    chatwootBaseUrl: string,
-    chatwootToken: string,
-  ): Promise<Record<string, any>> {
-    let response: Response;
-    try {
-      response = await fetch(`${chatwootBaseUrl}/api/v1/profile`, {
-        method: 'GET',
-        headers: {
-          api_access_token: chatwootToken,
-          'Content-Type': 'application/json',
-        },
-        signal: AbortSignal.timeout(10_000),
-      });
-    } catch {
-      throw new UnauthorizedException(
-        'Não foi possível conectar ao Chatwoot para validar o token.',
-      );
-    }
-
-    if (response.status === 401 || response.status === 403) {
-      throw new UnauthorizedException('Token Chatwoot inválido.');
-    }
-
-    if (!response.ok) {
-      throw new UnauthorizedException(
-        `Falha ao consultar perfil no Chatwoot (HTTP ${response.status}).`,
-      );
-    }
-
-    try {
-      return (await response.json()) as Record<string, any>;
-    } catch {
-      throw new UnauthorizedException('Resposta do Chatwoot inválida.');
-    }
   }
 
   async createAgent(
@@ -295,7 +212,22 @@ export class AuthService {
 
     const passwordHash = await hash(dto.password, 10);
     const normalizedName = dto.name.trim();
-    const normalizedRole = dto.role === 'admin' ? 'admin' : 'operator';
+    // Apenas super_admin pode criar outro super_admin. Admin comum
+    // normaliza qualquer role nao-admin para 'operator'.
+    const isCallerSuperAdmin = actingAgent.role === 'super_admin';
+    let normalizedRole: AgentRole;
+    if (dto.role === 'super_admin') {
+      if (!isCallerSuperAdmin) {
+        throw new ForbiddenException(
+          'Apenas super administradores podem promover usuarios a super_admin.',
+        );
+      }
+      normalizedRole = 'super_admin';
+    } else if (dto.role === 'admin') {
+      normalizedRole = 'admin';
+    } else {
+      normalizedRole = 'operator';
+    }
     const provisionedIdentity = await this.chatwootService.provisionAgentIdentity({
       companyId,
       name: normalizedName,
@@ -365,12 +297,7 @@ export class AuthService {
     }
 
     const agent = payload.agentId
-      ? await this.agentRepository.findOne({
-          where: {
-            id: payload.agentId,
-            company: { id: company.id },
-          },
-          relations: ['company'],
+      ? await this.loadAuthenticatedAgent(payload, company.id, {
           select: {
             id: true,
             name: true,
@@ -381,6 +308,8 @@ export class AuthService {
               id: true,
             },
           },
+          // me() exige agente ativo (mantem o comportamento original).
+          requireActive: false,
         })
       : null;
 
@@ -622,24 +551,29 @@ export class AuthService {
         }
 
         if (existing.role !== mappedRole) {
-          const shouldDemoteLastAdmin =
-            existing.role === 'admin' &&
-            mappedRole !== 'admin' &&
-            existing.active;
+          // super_admin nao vem do Maestro: nunca deve ser rebaixado por sync.
+          if (existing.role === 'super_admin') {
+            // mantem o super_admin local intacto
+          } else {
+            const shouldDemoteLastAdmin =
+              existing.role === 'admin' &&
+              mappedRole !== 'admin' &&
+              existing.active;
 
-          if (shouldDemoteLastAdmin) {
-            try {
-              await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, existing.id);
+            if (shouldDemoteLastAdmin) {
+              try {
+                await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, existing.id);
+                existing.role = mappedRole;
+                roleUpdated += 1;
+                changed = true;
+              } catch {
+                // Mantem o admin local quando ele e o ultimo administrador ativo.
+              }
+            } else {
               existing.role = mappedRole;
               roleUpdated += 1;
               changed = true;
-            } catch {
-              // Mantem o admin local quando ele e o ultimo administrador ativo.
             }
-          } else {
-            existing.role = mappedRole;
-            roleUpdated += 1;
-            changed = true;
           }
         }
 
@@ -850,12 +784,7 @@ export class AuthService {
       );
     }
 
-    const agent = await this.agentRepository.findOne({
-      where: {
-        id: payload.agentId,
-        company: { id: payload.sub },
-      },
-      relations: ['company'],
+    const agent = await this.loadAuthenticatedAgent(payload, payload.sub, {
       select: {
         id: true,
         name: true,
@@ -867,6 +796,8 @@ export class AuthService {
           id: true,
         },
       },
+      // updateProfile() original nao exigia agent.active — mantemos.
+      requireActive: false,
     });
 
     if (!agent) {
@@ -1017,7 +948,30 @@ export class AuthService {
       throw new BadRequestException('Voce nao pode alterar a propria role.');
     }
 
-    if (agent.role === 'admin' && (nextRole !== 'admin' || nextActive === false)) {
+    const isCallerSuperAdmin = actingAgent.role === 'super_admin';
+
+    // Apenas super_admin pode alterar/rebaixar/bloquear outro super_admin.
+    if (agent.role === 'super_admin' && !isCallerSuperAdmin) {
+      throw new ForbiddenException(
+        'Apenas super administradores podem alterar outro super administrador.',
+      );
+    }
+
+    // Apenas super_admin pode promover alguem a super_admin.
+    if (
+      dto.role === 'super_admin' &&
+      agent.role !== 'super_admin' &&
+      !isCallerSuperAdmin
+    ) {
+      throw new ForbiddenException(
+        'Apenas super administradores podem promover usuarios a super_admin.',
+      );
+    }
+
+    // super_admin conta como admin nas invariantes de "ultimo administrador".
+    const wasAdminLike = agent.role === 'admin' || agent.role === 'super_admin';
+    const willBeAdminLike = nextRole === 'admin' || nextRole === 'super_admin';
+    if (wasAdminLike && (!willBeAdminLike || nextActive === false)) {
       await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
     }
 
@@ -1081,7 +1035,14 @@ export class AuthService {
       throw new NotFoundException('Agente nao encontrado para esta empresa.');
     }
 
-    if (agent.role === 'admin' && agent.active) {
+    // Apenas super_admin pode remover outro super_admin.
+    if (agent.role === 'super_admin' && actingAgent.role !== 'super_admin') {
+      throw new ForbiddenException(
+        'Apenas super administradores podem remover outro super administrador.',
+      );
+    }
+
+    if ((agent.role === 'admin' || agent.role === 'super_admin') && agent.active) {
       await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
     }
 
@@ -1112,6 +1073,109 @@ export class AuthService {
         role: agent.role,
       },
     };
+  }
+
+  /**
+   * Reemite o JWT do super_admin trocando o companyId ativo. O frontend
+   * substitui o token e os endpoints subsequentes operam na nova empresa.
+   *
+   * Defesa em profundidade: alem do SuperAdminGuard no controller,
+   * revalida-se aqui o role do agente (caso o token tenha sido emitido
+   * antes do agente ser rebaixado).
+   */
+  async switchActiveCompany(agentId: string, targetCompanyId: string) {
+    const normalizedAgentId = String(agentId ?? '').trim();
+    const normalizedTargetCompanyId = String(targetCompanyId ?? '').trim();
+
+    if (!normalizedAgentId) {
+      throw new UnauthorizedException('Sessao invalida.');
+    }
+
+    const agent = await this.agentRepository.findOne({
+      where: { id: normalizedAgentId },
+      relations: ['company'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        company: { id: true },
+      },
+    });
+
+    if (!agent || !agent.active) {
+      throw new UnauthorizedException('Agente nao encontrado ou bloqueado.');
+    }
+
+    if (agent.role !== 'super_admin') {
+      throw new ForbiddenException(
+        'Apenas super administradores podem trocar de empresa.',
+      );
+    }
+
+    const targetCompany = await this.companiesService.findActiveById(
+      normalizedTargetCompanyId,
+    );
+
+    if (!targetCompany) {
+      throw new NotFoundException(
+        'Empresa nao encontrada ou inativa.',
+      );
+    }
+
+    const fromCompanyId = agent.company?.id ?? null;
+
+    this.logger.log(
+      `super_admin switched company agentId=${agent.id} fromCompanyId=${fromCompanyId} toCompanyId=${targetCompany.id}`,
+    );
+
+    return this.buildAuthResponse(
+      targetCompany.id,
+      targetCompany.name,
+      targetCompany.account_chatwoot,
+      targetCompany.active,
+      {
+        agentId: agent.id,
+        agentName: agent.name ?? agent.email,
+        agentEmail: agent.email,
+        agentRole: agent.role,
+        agentActive: agent.active,
+      },
+    );
+  }
+
+  /**
+   * Default company override do super_admin no login. Spec E5:
+   * todo super_admin, no primeiro acesso (independente do canal de login),
+   * cai na empresa Fibras do Rio (account_chatwoot = '4'). Depois o
+   * frontend pode trocar via POST /auth/switch-company/:id (E4).
+   *
+   * Fallback: se a empresa default nao existir ou estiver inativa,
+   * loga warning e devolve null — o caller cai no comportamento normal
+   * (agent.company natural). Nao quebra o login.
+   */
+  private static readonly SUPER_ADMIN_DEFAULT_ACCOUNT_CHATWOOT = '4';
+
+  private async resolveSuperAdminDefaultCompany(
+    agent: Pick<Agent, 'id' | 'role'>,
+  ): Promise<Company | null> {
+    if (agent.role !== 'super_admin') {
+      return null;
+    }
+
+    const defaultCompany = await this.companiesService.findActiveByChatwootAccount(
+      AuthService.SUPER_ADMIN_DEFAULT_ACCOUNT_CHATWOOT,
+    );
+
+    if (!defaultCompany) {
+      this.logger.warn(
+        `Default company Fibras do Rio (account_chatwoot=${AuthService.SUPER_ADMIN_DEFAULT_ACCOUNT_CHATWOOT}) not found or inactive, falling back to agent.companyId agentId=${agent.id}`,
+      );
+      return null;
+    }
+
+    return defaultCompany;
   }
 
   private async buildAuthResponse(
@@ -1208,6 +1272,57 @@ export class AuthService {
     return company;
   }
 
+  /**
+   * Carga padronizada do Agent autenticado a partir do JWT.
+   *
+   * Para admin/operator amarra `agent.company.id = expectedCompanyId` (mantem
+   * multi-tenancy). Para super_admin (E5) relaxa o filtro para apenas
+   * `id = payload.agentId`, pois o JWT do super_admin pode carregar uma
+   * `companyId` (sub) diferente da `agent.company` natural — ele troca de
+   * empresa via /auth/switch-company sem que o agente seja movido entre
+   * tenants.
+   *
+   * IMPORTANTE: o relaxamento e EXCLUSIVO da carga do Agent em
+   * autenticacao/perfil. Queries de dados (clients, invoices, campaigns,
+   * etc.) continuam exigindo filtro por companyId.
+   */
+  private async loadAuthenticatedAgent(
+    payload: JwtPayload,
+    expectedCompanyId: string,
+    options: {
+      select?: FindOptionsSelect<Agent>;
+      /** Quando true (default), filtra por active=true direto no WHERE. */
+      requireActive?: boolean;
+    } = {},
+  ): Promise<Agent | null> {
+    if (!payload.agentId) {
+      return null;
+    }
+
+    const isSuperAdmin = payload.agentRole === 'super_admin';
+    const requireActive = options.requireActive ?? true;
+
+    const where: FindOptionsWhere<Agent> = isSuperAdmin
+      ? { id: payload.agentId }
+      : { id: payload.agentId, company: { id: expectedCompanyId } };
+
+    if (requireActive) {
+      where.active = true;
+    }
+
+    if (isSuperAdmin) {
+      this.logger.debug(
+        `loadAuthenticatedAgent: relaxando filtro de companyId para super_admin agentId=${payload.agentId} expectedCompanyId=${expectedCompanyId}`,
+      );
+    }
+
+    return this.agentRepository.findOne({
+      where,
+      relations: ['company'],
+      select: options.select,
+    });
+  }
+
   private async requireAdminAgent(authorization?: string) {
     const payload = await this.getTokenPayload(authorization);
 
@@ -1217,12 +1332,7 @@ export class AuthService {
       );
     }
 
-    const agent = await this.agentRepository.findOne({
-      where: {
-        id: payload.agentId,
-        company: { id: payload.sub },
-      },
-      relations: ['company'],
+    const agent = await this.loadAuthenticatedAgent(payload, payload.sub, {
       select: {
         id: true,
         name: true,
@@ -1237,7 +1347,7 @@ export class AuthService {
       throw new UnauthorizedException('Agente nao encontrado ou bloqueado.');
     }
 
-    if (agent.role !== 'admin') {
+    if (agent.role !== 'admin' && agent.role !== 'super_admin') {
       throw new UnauthorizedException(
         'Apenas administradores podem gerenciar a equipe.',
       );
@@ -1250,10 +1360,11 @@ export class AuthService {
     companyId: string,
     excludingAgentId: string,
   ) {
+    // super_admin conta como admin para a invariante de "ao menos um admin ativo".
     const adminCount = await this.agentRepository.count({
       where: {
         company: { id: companyId },
-        role: 'admin',
+        role: In(['admin', 'super_admin']),
         active: true,
       },
     });
@@ -1262,7 +1373,7 @@ export class AuthService {
       where: {
         id: excludingAgentId,
         company: { id: companyId },
-        role: 'admin',
+        role: In(['admin', 'super_admin']),
         active: true,
       },
     });

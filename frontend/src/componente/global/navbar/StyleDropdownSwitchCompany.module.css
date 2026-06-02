@@ -1,0 +1,127 @@
+.dropdown {
+  position: fixed;
+  z-index: 1000;
+  min-width: 280px;
+  max-width: 360px;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: 1px solid rgba(212, 166, 0, 0.28);
+  background: linear-gradient(180deg, rgba(18, 16, 10, 0.98) 0%, rgba(12, 11, 7, 0.98) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 1px 0 rgba(255, 212, 0, 0.06),
+    0 12px 36px rgba(0, 0, 0, 0.45);
+  outline: none;
+}
+
+.header {
+  margin: 0;
+  padding: 6px 14px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 219, 121, 0.5);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: block;
+}
+
+.itemButton {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 228, 140, 0.85);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.itemButton:hover:not(:disabled) {
+  background: rgba(255, 212, 0, 0.08);
+  color: #ffe9a8;
+}
+
+.itemButton:focus-visible {
+  outline: none;
+  background: rgba(255, 212, 0, 0.1);
+  color: #ffe9a8;
+}
+
+.itemButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.itemInfo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemName {
+  font-weight: 700;
+  color: #ffe9a8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemStatus {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.checkIcon {
+  width: 16px;
+  height: 16px;
+  color: #2ecc71;
+  flex-shrink: 0;
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 14px;
+  color: rgba(255, 219, 121, 0.55);
+  font-size: 0.82rem;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 212, 0, 0.2);
+  border-top-color: #ffd96a;
+  animation: dropdownSwitchSpin 720ms linear infinite;
+}
+
+@keyframes dropdownSwitchSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

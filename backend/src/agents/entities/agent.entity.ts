@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/companies';
 
-export const AGENT_ROLES = ['admin', 'operator'] as const;
+export const AGENT_ROLES = ['admin', 'operator', 'super_admin'] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
 @Entity('agents')

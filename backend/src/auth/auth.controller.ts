@@ -1,7 +1,21 @@
-import { Body, Controller, Delete, Get, Headers, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
-  ChatwootLoginDto,
   CreateAgentDto,
   EmbedLoginDto,
   LoginAgentDto,
@@ -10,8 +24,28 @@ import {
   UpdatePromiseAutomationSettingsDto,
   UpdateProfileDto,
 } from './dto/auth.dto';
-import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
+import { SuperAdminGuard } from './guards/super-admin.guard';
+import type { AgentRole } from '../agents/entities/agent.entity';
+
+type AuthedRequest = {
+  user?: {
+    sub?: string;
+    agentId?: string;
+    agentRole?: AgentRole;
+    agentActive?: boolean;
+  };
+};
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -32,17 +66,6 @@ export class AuthController {
   @ApiBody({ type: EmbedLoginDto })
   embedLogin(@Body() dto: EmbedLoginDto) {
     return this.authService.loginEmbed(dto);
-  }
-
-  @Public()
-  @Post('chatwoot-login')
-  @ApiOperation({
-    summary:
-      'Login via Chatwoot — valida o user_access_token contra a API do Chatwoot e faz upsert do agente',
-  })
-  @ApiBody({ type: ChatwootLoginDto })
-  chatwootLogin(@Body() dto: ChatwootLoginDto) {
-    return this.authService.loginChatwoot(dto);
   }
 
   @Post('agents')
@@ -143,5 +166,48 @@ export class AuthController {
     @Body() dto: UpdatePromiseAutomationSettingsDto,
   ) {
     return this.authService.updatePromiseAutomationSettings(authorization, dto);
+  }
+
+  @Post('switch-company/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SuperAdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Troca a empresa ativa do super_admin e reemite o JWT com o novo companyId.',
+    description:
+      'Restrito a super administradores. Retorna um novo accessToken vinculado a empresa alvo — o frontend deve substituir o token em memoria/localStorage.',
+  })
+  @ApiOkResponse({
+    description: 'Novo JWT emitido para a empresa alvo.',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        accessToken: { type: 'string' },
+        company: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            name: { type: 'string' },
+            account: { type: 'string' },
+            active: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Token ausente, invalido ou agente bloqueado.' })
+  @ApiForbiddenResponse({ description: 'Apenas super administradores.' })
+  @ApiNotFoundResponse({ description: 'Empresa nao encontrada ou inativa.' })
+  switchCompany(
+    @Req() req: AuthedRequest,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    const agentId = req.user?.agentId;
+    if (!agentId) {
+      throw new UnauthorizedException('Sessao invalida.');
+    }
+    return this.authService.switchActiveCompany(agentId, id);
   }
 }
