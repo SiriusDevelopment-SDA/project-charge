@@ -13,7 +13,6 @@ import { FindOptionsSelect, FindOptionsWhere, In, Repository } from 'typeorm';
 import { Company } from '../companies/entities/companies';
 import { CompaniesService } from '../companies/companies.service';
 import {
-  ChatwootLoginDto,
   CreateAgentDto,
   EmbedLoginDto,
   LoginAgentDto,
@@ -123,171 +122,55 @@ export class AuthService {
   }
 
   async loginEmbed(dto: EmbedLoginDto) {
-    const company = await this.companyRepository.findOne({
-      where: {
-        account_chatwoot: String(dto.account),
-      },
+    // Embed UNIFICADO (spec: existe apenas 1 fluxo de embed, que tambem resolve
+    // super_admin). O `token` do embed e o chatwootAccessToken do agente
+    // (coluna agents.chatwootAccessToken). Identificamos o agente direto no
+    // banco por (token, account) — SEM chamar a API do Chatwoot e SEM depender
+    // de CHATWOOT_BASE_URL. Espelha o loginAgent, trocando email+senha pelo token.
+    const agent = await this.agentRepository.findOne({
+      where: { chatwootAccessToken: dto.token },
+      relations: ['company'],
       select: {
         id: true,
+        email: true,
         name: true,
-        account_chatwoot: true,
-        token_system_coraxy: true,
+        role: true,
         active: true,
-        config: true,
+        company: {
+          id: true,
+          name: true,
+          account_chatwoot: true,
+          active: true,
+          config: true,
+        },
       },
     });
 
-    if (!company || company.token_system_coraxy !== dto.token) {
+    if (!agent) {
       throw new UnauthorizedException('Credenciais de embed invalidas');
     }
 
-    return this.buildAuthResponse(
-      company.id,
-      company.name,
-      company.account_chatwoot,
-      company.active,
-      undefined,
-      this.extractPagePermissions(company.config),
-    );
-  }
-
-  async loginChatwoot(dto: ChatwootLoginDto) {
-    const chatwootBaseUrl = String(
-      this.configService.get<string>('CHATWOOT_BASE_URL') ?? '',
-    ).replace(/\/+$/, '');
-
-    if (!chatwootBaseUrl) {
-      throw new UnauthorizedException('CHATWOOT_BASE_URL não configurada no backend.');
+    if (!agent.active) {
+      throw new UnauthorizedException('Usuario bloqueado.');
     }
 
-    // 1) Validação do token Chatwoot é OBRIGATÓRIA para todos os papéis e
-    // acontece SEMPRE antes de qualquer decisão sobre a company. O embed abre
-    // com account=1 (ambiente master), que não existe como company no banco;
-    // portanto a company pode ser null mais adiante e a ordem precisa garantir
-    // que o profile/agent sejam resolvidos primeiro.
-    const profile = await this.fetchChatwootProfile(chatwootBaseUrl, dto.chatwoot_token);
+    const isSuperAdmin = agent.role === 'super_admin';
 
-    // 2) Extrai email/name/chatwootUserId do profile.
-    const email = String(profile.email ?? '').toLowerCase().trim();
-    const name = String(profile.name ?? '').trim() || email;
-    const chatwootUserId =
-      typeof profile.id === 'number' ? profile.id : Number(profile.id);
-
-    if (!email || !chatwootUserId || Number.isNaN(chatwootUserId)) {
-      throw new UnauthorizedException('Perfil Chatwoot inválido.');
+    // Anti-tampering: agente comum so pode abrir o embed da PROPRIA empresa — o
+    // `account` da URL precisa casar com a empresa do agente. super_admin
+    // transita entre empresas, entao a checagem e ignorada para ele.
+    if (
+      !isSuperAdmin &&
+      String(agent.company?.account_chatwoot ?? '') !== String(dto.account)
+    ) {
+      throw new UnauthorizedException('Usuario nao pertence a esta account.');
     }
 
-    // 3) Busca o agente por email ANTES das checagens de anti-tampering/bloqueio:
-    // o role do agente decide se relaxamos as validações para super_admin.
-    // super_admin só é reconhecido quando o agente JÁ existe com esse role —
-    // primeiro login via Chatwoot cria 'operator', então as checagens valem.
-    let agent = await this.agentRepository.findOne({
-      where: { email },
-      relations: ['company'],
-    });
-
-    // 4) super_admin definido pelo role persistido do agente.
-    const isSuperAdmin = agent?.role === 'super_admin';
-
-    // 5) Busca a company da account (pode ser null — ex.: account=1 do embed
-    // master, que não existe no banco).
-    const company = await this.companyRepository.findOne({
-      where: { account_chatwoot: String(dto.account) },
-      select: {
-        id: true,
-        name: true,
-        account_chatwoot: true,
-        active: true,
-        config: true,
-      },
-    });
-
-    // 6) Se a company não existe para a account:
-    //   - não-super_admin: mantém o 401 atual.
-    //   - super_admin: segue (cairá na empresa default no passo 10).
-    if (!company && !isSuperAdmin) {
-      throw new UnauthorizedException('Empresa não encontrada para esta account.');
-    }
-
-    // 7) Anti-tampering: confere se o usuário pertence à account requisitada.
-    // super_admin transita entre accounts, então essa exigência é ignorada
-    // para ele (o token continua validado acima via fetchChatwootProfile).
-    const userAccountIds = Array.isArray(profile.accounts)
-      ? profile.accounts.map((a: { id: number | string }) => String(a.id))
-      : [];
-    if (!isSuperAdmin && !userAccountIds.includes(String(dto.account))) {
-      throw new UnauthorizedException(
-        'Usuário não pertence à account informada.',
-      );
-    }
-    if (isSuperAdmin && !userAccountIds.includes(String(dto.account))) {
-      this.logger.warn(
-        `Anti-tampering ignorado para super_admin no loginChatwoot agentId=${agent?.id} account=${dto.account}`,
-      );
-    }
-
-    // 8) Bloqueio de email cross-empresa. Email é UNIQUE global — se existir em
-    // outra empresa, bloqueia (não permitimos um mesmo email autenticar em
-    // empresas diferentes). super_admin transita entre empresas, então não é
-    // bloqueado. Só aplica quando há company resolvida.
-    if (agent && company && agent.company?.id !== company.id && !isSuperAdmin) {
-      throw new UnauthorizedException(
-        'Este e-mail já está registrado em outra empresa.',
-      );
-    }
-
-    // 9) Upsert do agente.
-    //   - Criação de agente novo SÓ ocorre quando há company válida. Como
-    //     agent.company é NOT NULL, nunca criamos um agente sem company. Um
-    //     agente novo com account inexistente só seria não-super_admin (o role
-    //     persistido define super_admin), e esse caso já caiu no 401 do passo 6.
-    //   - Agente existente (inclui super_admin) atualiza name/token/active sem
-    //     mexer em role/company — seguro mesmo com company null.
-    if (!agent) {
-      if (!company) {
-        // Defesa em profundidade: este branch é inalcançável (passo 6 já barrou
-        // não-super_admin sem company e super_admin sempre tem agent existente).
-        throw new UnauthorizedException('Empresa não encontrada para esta account.');
-      }
-      agent = this.agentRepository.create({
-        name,
-        email,
-        passwordHash: 'CHATWOOT_AUTH', // placeholder; agente Chatwoot não loga via senha
-        chatwootUserId,
-        chatwootAccessToken: dto.chatwoot_token,
-        role: 'operator',
-        active: true,
-        company: { id: company.id } as Company,
-      });
-      agent = await this.agentRepository.save(agent);
-    } else {
-      agent.name = name;
-      agent.chatwootUserId = chatwootUserId;
-      agent.chatwootAccessToken = dto.chatwoot_token;
-      if (!agent.active) agent.active = true;
-      await this.agentRepository.save(agent);
-    }
-
-    // 10) Resolução da company alvo (gera o JWT):
-    //   - super_admin: SEMPRE a empresa default (Fibras do Rio), ignorando o
-    //     account da URL — o embed sempre vem com account=1 (inexistente). A
-    //     "última empresa selecionada" é aplicada pelo frontend depois via
-    //     /auth/switch-company.
-    //   - demais papéis: a company do account (já garantida não-null no passo 6).
-    let targetCompany: Company;
-    if (isSuperAdmin) {
-      const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
-      if (!defaultCompany) {
-        this.logger.error(
-          `Empresa default indisponível para super_admin no loginChatwoot agentId=${agent.id} account=${dto.account}`,
-        );
-        throw new UnauthorizedException('Empresa default indisponível');
-      }
-      targetCompany = defaultCompany;
-    } else {
-      // Garantido não-null pelo passo 6 (não-super_admin sem company => 401).
-      targetCompany = company as Company;
-    }
+    // super_admin cai na empresa default (Fibras do Rio, account_chatwoot=4) no
+    // primeiro acesso; o frontend troca depois via /auth/switch-company. Demais
+    // papeis usam a propria empresa.
+    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
+    const targetCompany = defaultCompany ?? agent.company;
 
     return this.buildAuthResponse(
       targetCompany.id,
@@ -303,43 +186,6 @@ export class AuthService {
       },
       this.extractPagePermissions(targetCompany.config),
     );
-  }
-
-  private async fetchChatwootProfile(
-    chatwootBaseUrl: string,
-    chatwootToken: string,
-  ): Promise<Record<string, any>> {
-    let response: Response;
-    try {
-      response = await fetch(`${chatwootBaseUrl}/api/v1/profile`, {
-        method: 'GET',
-        headers: {
-          api_access_token: chatwootToken,
-          'Content-Type': 'application/json',
-        },
-        signal: AbortSignal.timeout(10_000),
-      });
-    } catch {
-      throw new UnauthorizedException(
-        'Não foi possível conectar ao Chatwoot para validar o token.',
-      );
-    }
-
-    if (response.status === 401 || response.status === 403) {
-      throw new UnauthorizedException('Token Chatwoot inválido.');
-    }
-
-    if (!response.ok) {
-      throw new UnauthorizedException(
-        `Falha ao consultar perfil no Chatwoot (HTTP ${response.status}).`,
-      );
-    }
-
-    try {
-      return (await response.json()) as Record<string, any>;
-    } catch {
-      throw new UnauthorizedException('Resposta do Chatwoot inválida.');
-    }
   }
 
   async createAgent(

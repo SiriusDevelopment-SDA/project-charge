@@ -16,7 +16,6 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
-  ChatwootLoginDto,
   CreateAgentDto,
   EmbedLoginDto,
   LoginAgentDto,
@@ -67,17 +66,6 @@ export class AuthController {
   @ApiBody({ type: EmbedLoginDto })
   embedLogin(@Body() dto: EmbedLoginDto) {
     return this.authService.loginEmbed(dto);
-  }
-
-  @Public()
-  @Post('chatwoot-login')
-  @ApiOperation({
-    summary:
-      'Login via Chatwoot — valida o user_access_token contra a API do Chatwoot e faz upsert do agente',
-  })
-  @ApiBody({ type: ChatwootLoginDto })
-  chatwootLogin(@Body() dto: ChatwootLoginDto) {
-    return this.authService.loginChatwoot(dto);
   }
 
   @Post('agents')
