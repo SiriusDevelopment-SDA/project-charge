@@ -1326,7 +1326,7 @@ export function ClientesVencidos() {
           <DynamicModal
             open
             type="modaltemplates"
-            title="Escolha uma opção:"
+            title="Escolha uma opcao:"
             description={<>Você selecionou <b>{clientesMarcados.length}</b> cliente(s).</>}
             onClose={() => setOpenProsseguirModal(false)}
             buttons={[

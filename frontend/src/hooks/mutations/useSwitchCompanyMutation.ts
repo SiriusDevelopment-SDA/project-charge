@@ -39,7 +39,6 @@ export function useSwitchCompanyMutation() {
 
       const url = new URL(window.location.href);
       url.searchParams.set("account", response.company.account);
-      url.searchParams.delete("chatwoot_token");
       url.searchParams.delete("token");
       window.location.href = url.toString();
     },

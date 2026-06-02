@@ -5,7 +5,6 @@ import { getErrorStatus } from "../../utils/error";
 import type {
   AuthPermissions,
   LoginResponse,
-  NotificameChannel,
 } from "../../types/authApiTypes";
 
 type LoginPayload = {
@@ -16,11 +15,6 @@ type LoginPayload = {
 type EmbedLoginPayload = {
   account: string;
   token: string;
-};
-
-type ChatwootLoginPayload = {
-  account: string;
-  chatwoot_token: string;
 };
 
 /**
