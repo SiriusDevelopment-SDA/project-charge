@@ -92,7 +92,7 @@ export function Campanhas() {
       <div className={Style.Grafico}>
         <TitlePage
           title="Campanhas"
-          subtitle="Gerencie e acompanhe suas campanhas ativos"
+          subtitle="Gerencie e acompanhe suas campanhas ativas"
           className={Style.TitlePage}
         />
         <div className={Style.ContainerSubMenu}>

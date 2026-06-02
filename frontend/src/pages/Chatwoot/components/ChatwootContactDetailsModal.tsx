@@ -58,22 +58,22 @@ export function ChatwootContactDetailsModal({
               <div className={Style.detailsGrid}>
                 <Row
                   k="Nome"
-                  v={contactDetails?.name || activeConversation.contactName || "Nao informado"}
+                  v={contactDetails?.name || activeConversation.contactName || "Não informado"}
                 />
                 <Row
                   k="Telefone"
-                  v={contactDetails?.phone || activeConversation.phone || "Nao informado"}
+                  v={contactDetails?.phone || activeConversation.phone || "Não informado"}
                 />
                 <Row
                   k="Email"
-                  v={contactDetails?.email || "Nao informado"}
+                  v={contactDetails?.email || "Não informado"}
                 />
                 <Row
                   k="Identificador"
                   v={
                     contactDetails?.identifier ||
                     activeConversation.contactIdentifier ||
-                    "Nao informado"
+                    "Não informado"
                   }
                 />
                 <Row
@@ -141,7 +141,7 @@ export function ChatwootContactDetailsModal({
                 onClick={onSave}
                 disabled={!canSave}
               >
-                {savingContactLabels ? "Salvando..." : "Salvar alteracao"}
+                {savingContactLabels ? "Salvando..." : "Salvar alteração"}
               </button>
             </section>
           </div>

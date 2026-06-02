@@ -49,7 +49,7 @@ export const TitlePage = ({
 
         {setModoPage && (
           <MyButton
-            text="Historico"
+            text="Histórico"
             onClick={() => navigate(`/historico${buildHistorySearch()}`)}
           />
         )}

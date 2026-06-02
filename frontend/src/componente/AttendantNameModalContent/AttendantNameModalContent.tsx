@@ -26,7 +26,7 @@ export function AttendantNameModalContent({
       <p className={Style.description}>
         {description ?? (
           <>
-            Este template exige a variavel <strong>nome_atendente</strong>.
+            Este template exige a variável <strong>nome_atendente</strong>.
           </>
         )}
       </p>

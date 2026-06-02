@@ -136,12 +136,12 @@ export default function EfetuarDisparo() {
               />
             ) : (
               <InputFields
-                label="Numero de Whatsapp"
+                label="Número de Whatsapp"
                 onlyNumbers={true}
                 disabled={manualLead.shouldDisableLeadWhatsappInput}
                 placeholder={
                   manualLead.shouldDisableLeadWhatsappInput
-                    ? "Limpe os leads importados para usar numero manual"
+                    ? "Limpe os leads importados para usar número manual"
                     : undefined
                 }
                 value={manualLead.whatsappValue}
@@ -242,7 +242,7 @@ export default function EfetuarDisparo() {
             {isFinishedBatch && (
               <div className={Style.batchProgressActions}>
                 <MyButton
-                  text="Ver lote no historico"
+                  text="Ver lote no histórico"
                   variant="secondary"
                   onClick={handleOpenBatchHistory}
                 />
@@ -264,7 +264,7 @@ export default function EfetuarDisparo() {
             </div>
 
             <div className={Style.batchProgressStats}>
-              <span>{dispatch.activeDispatchBatch.progressPercentage}% concluido</span>
+              <span>{dispatch.activeDispatchBatch.progressPercentage}% concluído</span>
               <span>{dispatch.activeDispatchBatch.successCount} sucesso</span>
               <span>{dispatch.activeDispatchBatch.failedCount} falhas</span>
               <span>{dispatch.activeDispatchBatch.rateLimitPerSecond} msg/s</span>
@@ -273,7 +273,7 @@ export default function EfetuarDisparo() {
             <p className={Style.batchProgressHint}>
               {isFinishedBatch
                 ? dispatch.activeDispatchBatch.errorMessage ||
-                  "Lote finalizado. Consulte o historico para detalhes."
+                  "Lote finalizado. Consulte o histórico para detalhes."
                 : `Processamento em segundo plano.${dispatch.activeDispatchBatch.estimatedDurationSeconds != null ? ` Estimativa inicial: ${dispatch.activeDispatchBatch.estimatedDurationSeconds}s.` : ""}`}
             </p>
           </section>
@@ -309,7 +309,7 @@ export default function EfetuarDisparo() {
                 ? "Envio para clientes ativos"
                 : "Envio direto para leads"
             }
-            summary="Confira o publico selecionado, o template e a mensagem antes de iniciar o lote."
+            summary="Confira o público selecionado, o template e a mensagem antes de iniciar o lote."
             audienceLabel={
               dispatch.modoPage === "clientes"
                 ? "Clientes selecionados"
@@ -317,11 +317,11 @@ export default function EfetuarDisparo() {
             }
             audienceCount={previewAudienceCount}
             templateName={
-              dispatch.selectedTemplate?.name ?? "Template nao selecionado"
+              dispatch.selectedTemplate?.name ?? "Template não selecionado"
             }
             message={previewMessage}
             // details={previewDetails}
-            note="Ao confirmar, o disparo sera iniciado imediatamente e o lote passara a ser acompanhado em tempo real."
+            note="Ao confirmar, o disparo será iniciado imediatamente e o lote passará a ser acompanhado em tempo real."
             confirmLabel={
               dispatch.isSending ? "Enviando..." : "Confirmar e disparar"
             }
@@ -351,8 +351,8 @@ export default function EfetuarDisparo() {
         type="custom"
         title={
           manualLead.manualLeadFlowAction === "preview"
-            ? "Preencha as variaveis para o preview"
-            : "Preencha as variaveis do lead"
+            ? "Preencha as variáveis para o preview"
+            : "Preencha as variáveis do lead"
         }
         onClose={manualLead.closeManualLeadModal}
         customContent={

@@ -59,7 +59,7 @@ export function Login() {
 
       navigate(targetPath, { replace: true });
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Nao foi possivel autenticar. Verifique os dados."));
+      toast.error(getErrorMessage(error, "Não foi possível autenticar. Verifique os dados."));
     } finally {
       setIsSubmitting(false);
     }

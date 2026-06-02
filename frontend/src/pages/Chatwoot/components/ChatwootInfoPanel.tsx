@@ -196,8 +196,8 @@ export function ChatwootInfoPanel({
 
           {!apiOk && (
             <div className={Style.noApi}>
-              Token de administrador do Maestro nao disponivel. Vincule um token com
-              permissao de gestao para transferir, concluir e editar etiquetas.
+              Token de administrador do Maestro não disponível. Vincule um token com
+              permissão de gestão para transferir, concluir e editar etiquetas.
             </div>
           )}
         </>
