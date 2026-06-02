@@ -124,31 +124,69 @@ export class AuthService {
   }
 
   async loginEmbed(dto: EmbedLoginDto) {
-    const company = await this.companyRepository.findOne({
-      where: {
-        account_chatwoot: String(dto.account),
-      },
+    // Embed UNIFICADO (spec: existe apenas 1 fluxo de embed, que tambem resolve
+    // super_admin). O `token` do embed e o chatwootAccessToken do agente
+    // (coluna agents.chatwootAccessToken). Identificamos o agente direto no
+    // banco por (token, account) — SEM chamar a API do Chatwoot e SEM depender
+    // de CHATWOOT_BASE_URL. Espelha o loginAgent, trocando email+senha pelo token.
+    const agent = await this.agentRepository.findOne({
+      where: { chatwootAccessToken: dto.token },
+      relations: ['company'],
       select: {
         id: true,
+        email: true,
         name: true,
-        account_chatwoot: true,
-        token_system_coraxy: true,
+        role: true,
         active: true,
-        config: true,
+        company: {
+          id: true,
+          name: true,
+          account_chatwoot: true,
+          active: true,
+          config: true,
+        },
       },
     });
 
-    if (!company || company.token_system_coraxy !== dto.token) {
+    if (!agent) {
       throw new UnauthorizedException('Credenciais de embed invalidas');
     }
 
+    if (!agent.active) {
+      throw new UnauthorizedException('Usuario bloqueado.');
+    }
+
+    const isSuperAdmin = agent.role === 'super_admin';
+
+    // Anti-tampering: agente comum so pode abrir o embed da PROPRIA empresa — o
+    // `account` da URL precisa casar com a empresa do agente. super_admin
+    // transita entre empresas, entao a checagem e ignorada para ele.
+    if (
+      !isSuperAdmin &&
+      String(agent.company?.account_chatwoot ?? '') !== String(dto.account)
+    ) {
+      throw new UnauthorizedException('Usuario nao pertence a esta account.');
+    }
+
+    // super_admin cai na empresa default (Fibras do Rio, account_chatwoot=4) no
+    // primeiro acesso; o frontend troca depois via /auth/switch-company. Demais
+    // papeis usam a propria empresa.
+    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
+    const targetCompany = defaultCompany ?? agent.company;
+
     return this.buildAuthResponse(
-      company.id,
-      company.name,
-      company.account_chatwoot,
-      company.active,
-      undefined,
-      this.extractPagePermissions(company.config),
+      targetCompany.id,
+      targetCompany.name,
+      targetCompany.account_chatwoot,
+      targetCompany.active,
+      {
+        agentId: agent.id,
+        agentName: agent.name ?? agent.email,
+        agentEmail: agent.email,
+        agentRole: agent.role,
+        agentActive: agent.active,
+      },
+      this.extractPagePermissions(targetCompany.config),
     );
   }
 
