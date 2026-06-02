@@ -1,4 +1,7 @@
 export const queryKeys = {
+  auth: {
+    me: () => ["auth", "me"] as const,
+  },
   campaigns: {
     all: (account: string) => ["campaigns", account] as const,
     metricsBase: (account: string) => ["campaigns", account, "metrics"] as const,

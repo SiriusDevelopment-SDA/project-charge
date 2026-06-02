@@ -79,6 +79,16 @@ export class CreateCampaignDto {
   @IsString()
   timezone!: string;
 
+  @ApiProperty({
+    description:
+      'ID do canal NotificaMe escolhido para a campanha (opcional). Quando ausente, usa o primeiro canal da empresa.',
+    example: '5511999999999',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  channelId?: string | null;
+
   @ApiProperty({ example: false })
   @IsBoolean()
   recurring!: boolean;

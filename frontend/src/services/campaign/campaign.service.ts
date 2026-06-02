@@ -5,6 +5,11 @@ import type { CampaignUpdate, RecurringType } from "../../types/champaignApiType
 type CampaignCreatePayload = {
   name: string;
   company: string;
+  /**
+   * MC3: canal NotificaMe (caixa de disparo) escolhido. Quando `null`, o
+   * backend faz fallback para o primeiro canal da empresa.
+   */
+  channelId: string | null;
   templateId: string;
   categoryId: string;
   startDate: string;

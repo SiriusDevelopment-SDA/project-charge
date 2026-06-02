@@ -23,7 +23,7 @@ type EmbedLoginPayload = {
  */
 export type PagePermissions = AuthPermissions;
 
-type MeResponse = {
+export type MeResponse = {
   success: boolean;
   company: {
     id: string;
@@ -31,6 +31,11 @@ type MeResponse = {
     account: string;
     cnpj: string;
     active: boolean;
+    /**
+     * MC3: canais NotificaMe da empresa ativa (so { id, numero }) para o
+     * dropdown de selecao de caixa de disparo. Pode vir vazio/ausente.
+     */
+    channels?: NotificameChannel[];
   };
   promiseAutomation: {
     reminderEnabled: boolean;
@@ -212,6 +217,11 @@ export class AuthService {
 
       throw error;
     }
+  }
+
+  static async chatwootLogin(payload: ChatwootLoginPayload): Promise<LoginResponse> {
+    const { data } = await Api.post<LoginResponse>("/auth/chatwoot-login", payload);
+    return data;
   }
 
   static async me(): Promise<MeResponse> {

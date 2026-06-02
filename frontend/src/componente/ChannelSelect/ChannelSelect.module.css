@@ -1,0 +1,15 @@
+.wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/*
+ * Estado desabilitado: o `Dropdown<T>` generico nao expoe prop `disabled`,
+ * entao bloqueamos a interacao no wrapper e reduzimos o contraste — mantendo
+ * o mesmo comportamento do antigo <select> (placeholder visivel, nao clicavel).
+ */
+.disabled {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: not-allowed;
+}

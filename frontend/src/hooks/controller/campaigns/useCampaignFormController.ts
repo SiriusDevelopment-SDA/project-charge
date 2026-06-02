@@ -105,6 +105,7 @@ export function useCampaignFormController() {
   const [selectedTemplate, setSelectedTemplateState] = useState<Template>();
   const [templateMapVars, setTemplateMapsVars] = useState<mappedVars[]>([]);
   const [name, setName] = useState("");
+  const [channelId, setChannelId] = useState<string | null>(null);
   const [dispatchTime, setdispatchTime] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category>();
   const [dateRange, setDateRangeState] = useState<DateRange | undefined>(undefined);
@@ -283,6 +284,7 @@ export function useCampaignFormController() {
 
   const resetForm = useCallback(() => {
     setName("");
+    setChannelId(null);
     setdispatchTime("");
     setSelectedTemplateState(undefined);
     setSelectedCategory(undefined);
@@ -452,6 +454,7 @@ export function useCampaignFormController() {
       const payload = {
         name,
         company: selectedTemplate.company.id,
+        channelId: channelId || null,
         templateId: selectedTemplate.id,
         categoryId: selectedCategory.id,
         startDate,
@@ -508,6 +511,7 @@ export function useCampaignFormController() {
     }
   }, [
     buildMappedVarsFromInvoiceRuleSelections,
+    channelId,
     dateRange,
     dispatchTime,
     getMonthlyDateRange,
@@ -729,6 +733,8 @@ export function useCampaignFormController() {
     () => ({
       name,
       setName,
+      channelId,
+      setChannelId,
       dispatchTime,
       setdispatchTime,
       selectedTemplate,
@@ -761,6 +767,7 @@ export function useCampaignFormController() {
       validateForm,
     }),
     [
+      channelId,
       createCampaign,
       dateRange,
       dispatchTime,

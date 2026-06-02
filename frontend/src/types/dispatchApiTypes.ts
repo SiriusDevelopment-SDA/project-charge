@@ -12,6 +12,9 @@ export interface IDispatchTemplateContext {
   selectedClientes: Cliente[];
   selectedLeads: Lead[];
   selectedTemplate: Template | null;
+  /** Canal NotificaMe escolhido para o disparo manual (null = fallback do backend). */
+  channelId: string | null;
+  setChannelId: React.Dispatch<SetStateAction<string | null>>;
   templateMapVars: mappedVars[] | null;
   setModoPage: React.Dispatch<SetStateAction<"clientes" | "leads">>;
   modoPage: "clientes" | "leads";

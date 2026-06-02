@@ -42,6 +42,14 @@ export class Campaign {
   @Column({ default: 'America/Sao_Paulo' })
   timezone!: string;
 
+  /**
+   * MC2 — id do canal NotificaMe escolhido para esta campanha
+   * (referencia `Company.canalId_notificameHub[].id`). Quando null, o worker
+   * faz fallback para o primeiro canal da empresa.
+   */
+  @Column({ type: 'varchar', nullable: true })
+  channelId?: string | null;
+
   @Column({ default: false })
   recurring!: boolean;
 

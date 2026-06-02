@@ -20,6 +20,7 @@ export function useDispatchTemplateController() {
   const [selectedClientes, setSelectedClientes] = useState<Cliente[]>([]);
   const [selectedLeads, setSelectedLeads] = useState<Lead[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [channelId, setChannelId] = useState<string | null>(null);
   const [modoPage, setModoPage] = useState<"clientes" | "leads">("clientes");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
@@ -59,6 +60,8 @@ export function useDispatchTemplateController() {
       const payload = {
         templateId,
         account,
+        // null/ausente => backend usa o primeiro canal da empresa como fallback.
+        channelId: channelId || null,
         to,
       };
 
@@ -76,6 +79,7 @@ export function useDispatchTemplateController() {
       console.groupCollapsed("[dispatch-debug] payload /templates/send");
       console.log("templateId", templateId);
       console.log("account", account);
+      console.log("channelId", channelId);
       console.log("recipientsCount", to.length);
       console.log("orderDetailsRecipientsCount", orderDetailsRecipients.length);
       console.log("payload", JSON.parse(JSON.stringify(payload)));
@@ -102,7 +106,7 @@ export function useDispatchTemplateController() {
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Erro ao enviar mensagens"));
     }
-  }, [account]);
+  }, [account, channelId]);
 
   const sendTemplate = useCallback(
     async (extraLeads?: Lead[]) => {
@@ -161,6 +165,8 @@ export function useDispatchTemplateController() {
     setSelectedLeads,
     selectedTemplate,
     setSelectedTemplate,
+    channelId,
+    setChannelId,
     templateMapVars,
     modoPage,
     setModoPage,

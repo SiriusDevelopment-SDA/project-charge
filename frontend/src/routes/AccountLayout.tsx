@@ -21,6 +21,8 @@ export function AccountLayout() {
   useEffect(() => {
     const accountParam = searchParams.get("account");
     const tokenParam = searchParams.get("token");
+    const chatwootTokenParam = searchParams.get("chatwoot_token");
+    const hasChatwootCredentials = Boolean(accountParam && chatwootTokenParam);
     const hasEmbedCredentials = Boolean(accountParam && tokenParam);
     const accessToken = AppStorage.getAccessToken();
     const normalizedSearch = buildNormalizedSearch(location.search);

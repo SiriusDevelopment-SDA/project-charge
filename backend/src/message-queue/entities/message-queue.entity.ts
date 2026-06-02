@@ -52,6 +52,14 @@ export class MessageQueue {
   @Column({ type: 'varchar', nullable: true })
   campaignId?: string | null;
 
+  /**
+   * MC2 — id do canal NotificaMe escolhido para este job
+   * (referencia `Company.canalId_notificameHub[].id`). Quando null, o worker
+   * faz fallback para o primeiro canal da empresa.
+   */
+  @Column({ type: 'varchar', nullable: true })
+  channelId?: string | null;
+
   @ManyToOne(() => DispatchBatch, { nullable: true })
   @JoinColumn({ name: 'batchId' })
   batch?: DispatchBatch | null;

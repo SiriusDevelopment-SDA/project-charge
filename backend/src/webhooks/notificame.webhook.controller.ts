@@ -154,13 +154,16 @@ export class NotificaMeWebhookController {
       return { received: true };
     }
 
-    // Marca relatorio como respondido
+    // Marca relatorio como respondido.
+    // canalId_notificameHub agora é jsonb (array de canais); resolvemos a
+    // empresa cujo array contém algum dos ids de contexto do webhook.
+    const channelMatch = this.buildChannelContainmentClause(channelContextIds);
     const relatory = await this.relatoryRepository
       .createQueryBuilder('relatory')
       .innerJoinAndSelect('relatory.company', 'company')
       .where('relatory.number = :number', { number: rawFrom })
       .andWhere('relatory.response = false')
-      .andWhere('company.canalId_notificameHub IN (:...channelContextIds)', { channelContextIds })
+      .andWhere(channelMatch.clause, channelMatch.params)
       .orderBy('relatory.date_dispatch', 'DESC')
       .getOne();
 
@@ -197,7 +200,7 @@ export class NotificaMeWebhookController {
     if (!account || !companyId) {
       const company = await this.companyRepository
         .createQueryBuilder('company')
-        .where('company.canalId_notificameHub IN (:...channelContextIds)', { channelContextIds })
+        .where(channelMatch.clause, channelMatch.params)
         .getOne();
 
       account = String(company?.account_chatwoot ?? '').trim();
@@ -249,5 +252,37 @@ export class NotificaMeWebhookController {
       .filter(Boolean);
 
     return [...new Set(identifiers)];
+  }
+
+  /**
+   * Monta a cláusula WHERE que resolve a empresa cujo array jsonb
+   * `canalId_notificameHub` contém ALGUM dos ids de contexto do webhook.
+   *
+   * Usa o operador de containment `@>` do Postgres por id de canal, em OR.
+   * Ex.: `company.canalId_notificameHub @> '[{"id":"<channel>"}]'`.
+   *
+   * O alias `company` é usado em ambas as queries (relatory join e company).
+   */
+  private buildChannelContainmentClause(channelContextIds: string[]): {
+    clause: string;
+    params: Record<string, string>;
+  } {
+    const conditions: string[] = [];
+    const params: Record<string, string> = {};
+
+    channelContextIds.forEach((channelId, index) => {
+      const key = `channelCtx${index}`;
+      // jsonb containment: o array da empresa contém um objeto com este id.
+      conditions.push(
+        `company."canalId_notificameHub" @> jsonb_build_array(jsonb_build_object('id', CAST(:${key} AS text)))`,
+      );
+      params[key] = channelId;
+    });
+
+    return {
+      // Se não houver contexto, força no-match (callers já tratam length === 0).
+      clause: conditions.length ? `(${conditions.join(' OR ')})` : '1 = 0',
+      params,
+    };
   }
 }

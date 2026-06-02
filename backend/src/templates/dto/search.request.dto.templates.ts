@@ -304,6 +304,16 @@ export class SendTemplateDto {
   campaignId?: string;
 
   @ApiProperty({
+    description:
+      "ID do canal NotificaMe escolhido para o disparo (opcional). Quando ausente, usa o primeiro canal da empresa.",
+    example: "5511999999999",
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: "channelId deve ser uma string" })
+  channelId?: string;
+
+  @ApiProperty({
     description: "Destino do disparo",
     type: [ToComponentDto],
   })

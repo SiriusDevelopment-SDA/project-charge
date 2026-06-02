@@ -42,6 +42,21 @@ export class EmbedLoginDto {
   token!: string;
 }
 
+export class ChatwootLoginDto {
+  @ApiProperty({ example: '3', description: 'account_chatwoot da empresa' })
+  @IsString()
+  @IsNotEmpty()
+  account!: string;
+
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiJ9...',
+    description: 'user_access_token do agente no Chatwoot',
+  })
+  @IsString()
+  @IsNotEmpty()
+  chatwoot_token!: string;
+}
+
 export class CreateAgentDto {
   @ApiProperty({ example: 'Maria Silva' })
   @IsString()
