@@ -20,6 +20,7 @@ import { Company } from './companies/entities/companies';
 import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from './invoices/services/hubsoftInvoicesService';
 import { SGPInvoicesService } from './invoices/services/sgpInvoicesService';
+import { MkInvoicesService } from './invoices/services/mkInvoicesService';
 import { Campaign } from './campaigns/entities/campanhas.entity';
 import { CampaignsController } from './campaigns/campaigns.controller';
 import { CampaignsService } from './campaigns/campaigns.service';
@@ -141,6 +142,7 @@ import { SuperAdminGuard } from './auth/guards/super-admin.guard';
     IXCInvoicesService,
     HubsoftInvoicesService,
     SGPInvoicesService,
+    MkInvoicesService,
     RedisService,
     TemplateDispatchPayloadService,
     CampaignScheduler,
@@ -156,6 +158,7 @@ import { SuperAdminGuard } from './auth/guards/super-admin.guard';
     IXCInvoicesService,
     HubsoftInvoicesService,
     SGPInvoicesService,
+    MkInvoicesService,
     TemplateDispatchPayloadService,
     RedisService
   ],
