@@ -26,11 +26,14 @@ const MK_CLIENTS_PAGINATION_MAX_ITERATIONS = 10_000;
 // TTL do cache Redis do snapshot de faturas em lote (mesmo padrão do SGP/IXC).
 const MK_INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 
-// PROVISÓRIO: status que a MK/PROXER reporta como "não em aberto" e que portanto
-// devem ser descartados da janela de faturas. A WSMKFaturasAbertas, apesar do
-// nome, retorna faturas com status diversos (ex.: "Cancelado"), então filtramos
-// localmente. A lista real de status ainda precisa ser confirmada com o cliente.
-// TODO: confirmar com o usuário a lista definitiva de status "fechados" da MK.
+// Status que a MK/PROXER reporta nas faturas. O `status` da WSMKFaturasAbertas
+// reflete a situação do CLIENTE/contrato (não o pagamento) — a própria rota já
+// retorna só faturas em aberto. Valores reais observados na base (amostra de
+// ~128k faturas): "Ativo" (~82k), "Cancelado" (~46k), "Suspenso" (~157).
+// Regra: descartamos apenas "Cancelado" (serviço cancelado, não cobrar) e
+// mantemos "Ativo" + "Suspenso" (suspenso normalmente é inadimplência → cobrável).
+// "Pago/Baixado" ficam como defesa caso a MK passe a reportá-los.
+// TODO: confirmar com o usuário se "Suspenso" deve ser cobrado (default: sim).
 const MK_CLOSED_STATUSES = new Set(
   ['Cancelado', 'Cancelada', 'Pago', 'Paga', 'Baixado', 'Baixada'].map((s) =>
     s.toLowerCase(),
@@ -427,12 +430,45 @@ export class MkInvoicesService {
   /**
    * Extrai o código PIX (copia-e-cola) da resposta da WSMKRetornarCopieColaPix.
    *
-   * A FORMA DA RESPOSTA É DESCONHECIDA — esta função isola a extração para que,
-   * quando o usuário confirmar o shape, baste ajustar aqui.
-   * TODO: confirmar campo do PIX na resposta da WSMKRetornarCopieColaPix.
+   * Shape de ERRO conhecido (observado): `{ codigo_erro, mensagem, status: "ERRO" }`
+   * — ex.: conta sem PIX habilitado retorna codigo_erro "004". Nesse caso → null.
+   * O campo do PIX no SUCESSO ainda não foi confirmado (a conta de teste não tem
+   * PIX habilitado), então tentamos os nomes mais prováveis de forma defensiva.
+   * TODO: confirmar o campo exato quando houver uma resposta de sucesso real.
    */
-  private extractPixCode(_response: unknown): string | null {
-    // TODO: confirmar campo do PIX na resposta — por ora não preenchemos PIX.
+  private extractPixCode(response: unknown): string | null {
+    if (!response || typeof response !== 'object') return null;
+    const obj = response as Record<string, unknown>;
+
+    // Resposta de erro da MK (status "ERRO" / codigo_erro) → sem PIX.
+    if (
+      String(obj.status ?? '').toUpperCase() === 'ERRO' ||
+      obj.codigo_erro != null
+    ) {
+      return null;
+    }
+
+    // Tenta os nomes de campo mais prováveis para o copia-e-cola.
+    const candidates = [
+      'copia_cola',
+      'copiacola',
+      'copia_e_cola',
+      'copiaecola',
+      'pix',
+      'codigo_pix',
+      'codigopix',
+      'qrcode',
+      'qr_code',
+      'emv',
+      'payload',
+      'brcode',
+    ];
+    for (const key of Object.keys(obj)) {
+      if (candidates.includes(key.toLowerCase())) {
+        const value = obj[key];
+        if (typeof value === 'string' && value.trim()) return value.trim();
+      }
+    }
     return null;
   }
 
