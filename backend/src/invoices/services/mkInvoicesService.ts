@@ -47,15 +47,43 @@ export class MkInvoicesService {
   }
 
   /**
-   * A API da MK/PROXER responde em latin1 / ISO-8859-1. O `response.json()` do
-   * fetch decodifica como UTF-8 e corrompe acentos (ex.: "INFORMAÇÃO" volta como
-   * "INFORMA��O"), o que é crítico porque o nome do cliente vai nas mensagens de
-   * cobrança. Por isso lemos o corpo cru e decodificamos explicitamente em latin1
-   * antes do parse. Aplicado SOMENTE no adapter MK — os demais ERPs usam UTF-8.
+   * A API da MK/PROXER emite JSON malformado para acentos: o content-type diz
+   * `iso-8859-1`, mas cada caractere acentuado vem como o 1º byte UTF-8 CRU
+   * (ex.: 0xC3) seguido do 2º byte como escape JSON `\u00XX` (ex.: "").
+   * Resultado: nem UTF-8 nem latin1 puros recuperam o texto. O conserto é:
+   *   1) decodificar o corpo em latin1 (preserva os bytes crus e os escapes),
+   *   2) `JSON.parse` (desfaz os escapes \u00XX -> code points 0x80-0xFF),
+   *   3) reinterpretar os code points de cada string como bytes UTF-8.
+   * Assim "INFORMAÇÃO" (que chega quebrado) volta correto. Crítico porque o
+   * nome do cliente vai nas mensagens de cobrança. SOMENTE no adapter MK.
    */
   private async parseJsonLatin1<T = unknown>(response: Response): Promise<T> {
     const buf = await response.arrayBuffer();
-    return JSON.parse(Buffer.from(buf).toString("latin1")) as T;
+    const parsed = JSON.parse(Buffer.from(buf).toString('latin1'));
+    return this.repairMkEncoding(parsed) as T;
+  }
+
+  /**
+   * Reinterpreta recursivamente os code points de cada string como bytes UTF-8
+   * (ver `parseJsonLatin1`). Strings com code point > 0xFF não cabem em 1 byte
+   * e são deixadas intactas (não fazem parte do padrão quebrado da MK).
+   */
+  private repairMkEncoding(value: unknown): unknown {
+    if (typeof value === 'string') {
+      for (let i = 0; i < value.length; i++) {
+        if (value.charCodeAt(i) > 0xff) return value;
+      }
+      return Buffer.from(value, 'latin1').toString('utf8');
+    }
+    if (Array.isArray(value)) return value.map((v) => this.repairMkEncoding(v));
+    if (value && typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(value as Record<string, unknown>)) {
+        out[k] = this.repairMkEncoding((value as Record<string, unknown>)[k]);
+      }
+      return out;
+    }
+    return value;
   }
 
   private isRetryableNetworkError(err: unknown) {
