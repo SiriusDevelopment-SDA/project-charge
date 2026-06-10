@@ -1,20 +1,16 @@
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
-import { DateTime } from 'luxon';
-import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
-import { Company } from '../../companies/entities/companies';
-import { Client } from '../../clients/entities.ts/clients';
-import { Invoice } from '../entities/invoices';
-import { RedisService } from '../../redis/redis.service';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { DateTime } from "luxon";
+import { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity";
+import { Company } from "../../companies/entities/companies";
+import { Client } from "../../clients/entities.ts/clients";
+import { Invoice } from "../entities/invoices";
+import { RedisService } from "../../redis/redis.service";
 import {
   InvoiceMapResultDto,
   InvoiceSearchFilterDto,
   InvoicesResponseDto,
-} from '../dto/search.request.dto.invoices';
-import { getInvoiceRuleQueryWindow } from '../utils/invoice-rule';
+} from "../dto/search.request.dto.invoices";
+import { getInvoiceRuleQueryWindow } from "../utils/invoice-rule";
 
 // Margem de segurança aplicada ao TTL do token de sessão, para renovar antes
 // de o ERP de fato expirar o token e evitar 401 no meio de uma sincronização.
@@ -35,14 +31,14 @@ const MK_INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 // "Pago/Baixado" ficam como defesa caso a MK passe a reportá-los.
 // TODO: confirmar com o usuário se "Suspenso" deve ser cobrado (default: sim).
 const MK_CLOSED_STATUSES = new Set(
-  ['Cancelado', 'Cancelada', 'Pago', 'Paga', 'Baixado', 'Baixada'].map((s) =>
+  ["Cancelado", "Cancelada", "Pago", "Paga", "Baixado", "Baixada"].map((s) =>
     s.toLowerCase(),
   ),
 );
 
 @Injectable()
 export class MkInvoicesService {
-  private readonly logger = new Logger('[MK] MkInvoicesService');
+  private readonly logger = new Logger("[MK] MkInvoicesService");
 
   constructor(private readonly redisService: RedisService) {}
 
@@ -50,22 +46,34 @@ export class MkInvoicesService {
     return new Promise<void>((resolve) => setTimeout(resolve, ms));
   }
 
+  /**
+   * A API da MK/PROXER responde em latin1 / ISO-8859-1. O `response.json()` do
+   * fetch decodifica como UTF-8 e corrompe acentos (ex.: "INFORMAÇÃO" volta como
+   * "INFORMA��O"), o que é crítico porque o nome do cliente vai nas mensagens de
+   * cobrança. Por isso lemos o corpo cru e decodificamos explicitamente em latin1
+   * antes do parse. Aplicado SOMENTE no adapter MK — os demais ERPs usam UTF-8.
+   */
+  private async parseJsonLatin1<T = unknown>(response: Response): Promise<T> {
+    const buf = await response.arrayBuffer();
+    return JSON.parse(Buffer.from(buf).toString("latin1")) as T;
+  }
+
   private isRetryableNetworkError(err: unknown) {
     const anyErr = err as any;
     const name = anyErr?.name;
-    const message = String(anyErr?.message ?? '');
+    const message = String(anyErr?.message ?? "");
     return (
-      name === 'TimeoutError' ||
-      name === 'AbortError' ||
-      message.toLowerCase().includes('timeout') ||
-      message.toLowerCase().includes('aborted') ||
-      message.toLowerCase().includes('fetch failed')
+      name === "TimeoutError" ||
+      name === "AbortError" ||
+      message.toLowerCase().includes("timeout") ||
+      message.toLowerCase().includes("aborted") ||
+      message.toLowerCase().includes("fetch failed")
     );
   }
 
   private parseConfig(company: Company): MkConfig {
     const config =
-      typeof company.config === 'string'
+      typeof company.config === "string"
         ? JSON.parse(company.config)
         : (company.config ?? {});
 
@@ -76,11 +84,11 @@ export class MkInvoicesService {
 
     if (!sys || !password || !cd_servico || !masterToken) {
       throw new BadRequestException(
-        '[MK] Credenciais da MK/PROXER não configuradas (sys/password/cd_servico/masterToken)',
+        "[MK] Credenciais da MK/PROXER não configuradas (sys/password/cd_servico/masterToken)",
       );
     }
     if (!company.url) {
-      throw new BadRequestException('[MK] URL da MK/PROXER não configurada');
+      throw new BadRequestException("[MK] URL da MK/PROXER não configurada");
     }
 
     return { sys, password, cd_servico, masterToken, config };
@@ -94,9 +102,14 @@ export class MkInvoicesService {
    */
   private computeTokenTtlSeconds(expire?: string): number | null {
     if (!expire) return null;
-    const expireDate = DateTime.fromFormat(expire.trim(), 'dd/MM/yyyy HH:mm:ss');
+    const expireDate = DateTime.fromFormat(
+      expire.trim(),
+      "dd/MM/yyyy HH:mm:ss",
+    );
     if (!expireDate.isValid) return null;
-    const ttl = Math.floor(expireDate.diffNow('seconds').seconds) - MK_TOKEN_TTL_MARGIN_SECONDS;
+    const ttl =
+      Math.floor(expireDate.diffNow("seconds").seconds) -
+      MK_TOKEN_TTL_MARGIN_SECONDS;
     return ttl > 0 ? ttl : null;
   }
 
@@ -110,7 +123,8 @@ export class MkInvoicesService {
     const cached = await this.redisService.get<string>(cacheKey);
     if (cached) return cached;
 
-    const { sys, password, cd_servico, masterToken } = this.parseConfig(company);
+    const { sys, password, cd_servico, masterToken } =
+      this.parseConfig(company);
     const url =
       `https://${company.url}/mk/WSAutenticacao.rule` +
       `?sys=${encodeURIComponent(sys)}` +
@@ -127,7 +141,7 @@ export class MkInvoicesService {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         response = await fetch(url, {
-          method: 'POST',
+          method: "POST",
           signal: AbortSignal.timeout(timeoutMs),
         });
         lastErr = undefined;
@@ -151,14 +165,15 @@ export class MkInvoicesService {
       );
     }
 
-    const data: MkAuthResponse = await response.json();
-    if (data?.status !== 'OK' || !data?.Token) {
+    const data = await this.parseJsonLatin1<MkAuthResponse>(response);
+    if (data?.status !== "OK" || !data?.Token) {
       throw new BadRequestException(
         `[MK] Falha na autenticação: ${JSON.stringify(data).slice(0, 300)}`,
       );
     }
 
-    const ttlSeconds = this.computeTokenTtlSeconds(data.Expire) ?? MK_TOKEN_FALLBACK_TTL_SECONDS;
+    const ttlSeconds =
+      this.computeTokenTtlSeconds(data.Expire) ?? MK_TOKEN_FALLBACK_TTL_SECONDS;
     await this.redisService.set(cacheKey, data.Token, ttlSeconds);
     this.logger.log(
       `Token de sessão renovado para company=${company.id} (TTL=${ttlSeconds}s)`,
@@ -183,7 +198,10 @@ export class MkInvoicesService {
    * Em caso de erro de autenticação/401 no meio, o token cacheado é invalidado
    * e a autenticação é tentada novamente uma vez.
    */
-  async fetchClients(company: Company, _since?: Date): Promise<MkClientRecord[]> {
+  async fetchClients(
+    company: Company,
+    _since?: Date,
+  ): Promise<MkClientRecord[]> {
     const { sys, config } = this.parseConfig(company);
     const timeoutMs = Number(config?.timeoutMs ?? 90_000);
     const maxRetries = Number(config?.retries ?? 3);
@@ -193,7 +211,11 @@ export class MkInvoicesService {
     let cursor = 0;
     let authRetried = false;
 
-    for (let iteration = 0; iteration < MK_CLIENTS_PAGINATION_MAX_ITERATIONS; iteration++) {
+    for (
+      let iteration = 0;
+      iteration < MK_CLIENTS_PAGINATION_MAX_ITERATIONS;
+      iteration++
+    ) {
       const sessionToken = await this.getSessionToken(company);
       const url =
         `https://${company.url}/mk/WSMKConsultaClientes.rule` +
@@ -207,20 +229,23 @@ export class MkInvoicesService {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           response = await fetch(url, {
-            method: 'GET',
+            method: "GET",
             signal: AbortSignal.timeout(timeoutMs),
           });
           lastErr = undefined;
           break;
         } catch (err: any) {
           lastErr = err;
-          if (attempt >= maxRetries || !this.isRetryableNetworkError(err)) break;
+          if (attempt >= maxRetries || !this.isRetryableNetworkError(err))
+            break;
           await this.sleep(800 * (attempt + 1) ** 2);
         }
       }
 
       if (!response) {
-        const error = new Error(`[MK] clientes — falha de rede ao acessar ${url}`);
+        const error = new Error(
+          `[MK] clientes — falha de rede ao acessar ${url}`,
+        );
         (error as any).cause = lastErr;
         throw error;
       }
@@ -242,7 +267,7 @@ export class MkInvoicesService {
         );
       }
 
-      const data = await response.json();
+      const data = await this.parseJsonLatin1<unknown>(response);
       const page: MkClientRecord[] = Array.isArray(data) ? data : [];
 
       if (!page.length) break; // página vazia -> fim da paginação
@@ -277,16 +302,16 @@ export class MkInvoicesService {
     record: MkClientRecord,
     company: Company,
   ): QueryDeepPartialEntity<Client> | null {
-    const cnpj_cpf = String(record.CPF_CNPJ ?? '').replace(/\D/g, '');
+    const cnpj_cpf = String(record.CPF_CNPJ ?? "").replace(/\D/g, "");
     if (!cnpj_cpf) return null;
 
-    const whatsapp = String(record.Fone ?? '').replace(/\D/g, '');
+    const whatsapp = String(record.Fone ?? "").replace(/\D/g, "");
     if (!whatsapp) return null;
 
     // Endereço: prefere o item marcado como COBRANCA, senão o primeiro.
     const enderecos = Array.isArray(record.endereco) ? record.endereco : [];
     const endereco =
-      enderecos.find((e) => e?.tipo === 'COBRANCA') ?? enderecos[0];
+      enderecos.find((e) => e?.tipo === "COBRANCA") ?? enderecos[0];
 
     const email = record.Email;
 
@@ -300,7 +325,7 @@ export class MkInvoicesService {
       ...(endereco?.numero != null && { numberHouse: String(endereco.numero) }),
       ...(endereco?.cidade && { city: endereco.cidade }),
       ...(endereco?.cep && {
-        zipCode: String(endereco.cep).replace(/\D/g, '').slice(0, 9),
+        zipCode: String(endereco.cep).replace(/\D/g, "").slice(0, 9),
       }),
       companyId: company.id,
     };
@@ -311,7 +336,7 @@ export class MkInvoicesService {
    * faturas da MK/PROXER (WSMKFaturasAbertas).
    */
   formatSyncDate(date: Date): string {
-    return DateTime.fromJSDate(date).toFormat('dd/MM/yyyy');
+    return DateTime.fromJSDate(date).toFormat("dd/MM/yyyy");
   }
 
   /**
@@ -320,7 +345,9 @@ export class MkInvoicesService {
    * Comparação case-insensitive; faturas sem status são tratadas como abertas.
    */
   private isClosedStatus(status?: string): boolean {
-    const normalized = String(status ?? '').trim().toLowerCase();
+    const normalized = String(status ?? "")
+      .trim()
+      .toLowerCase();
     if (!normalized) return false;
     return MK_CLOSED_STATUSES.has(normalized);
   }
@@ -351,20 +378,23 @@ export class MkInvoicesService {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           response = await fetch(url, {
-            method: 'GET',
+            method: "GET",
             signal: AbortSignal.timeout(timeoutMs),
           });
           lastErr = undefined;
           break;
         } catch (err: any) {
           lastErr = err;
-          if (attempt >= maxRetries || !this.isRetryableNetworkError(err)) break;
+          if (attempt >= maxRetries || !this.isRetryableNetworkError(err))
+            break;
           await this.sleep(800 * (attempt + 1) ** 2);
         }
       }
 
       if (!response) {
-        const error = new Error(`[MK] ${label} — falha de rede ao acessar ${url}`);
+        const error = new Error(
+          `[MK] ${label} — falha de rede ao acessar ${url}`,
+        );
         (error as any).cause = lastErr;
         throw error;
       }
@@ -385,7 +415,7 @@ export class MkInvoicesService {
         );
       }
 
-      return response.json();
+      return this.parseJsonLatin1<unknown>(response);
     }
 
     throw new BadRequestException(
@@ -416,7 +446,7 @@ export class MkInvoicesService {
           `?sys=${encodeURIComponent(sys)}` +
           `&token=${encodeURIComponent(token)}` +
           `&cd_fatura=${encodeURIComponent(String(cdFatura))}`,
-        'detalhe da fatura',
+        "detalhe da fatura",
       );
       return data ?? null;
     } catch (err) {
@@ -437,12 +467,12 @@ export class MkInvoicesService {
    * TODO: confirmar o campo exato quando houver uma resposta de sucesso real.
    */
   private extractPixCode(response: unknown): string | null {
-    if (!response || typeof response !== 'object') return null;
+    if (!response || typeof response !== "object") return null;
     const obj = response as Record<string, unknown>;
 
     // Resposta de erro da MK (status "ERRO" / codigo_erro) → sem PIX.
     if (
-      String(obj.status ?? '').toUpperCase() === 'ERRO' ||
+      String(obj.status ?? "").toUpperCase() === "ERRO" ||
       obj.codigo_erro != null
     ) {
       return null;
@@ -450,23 +480,23 @@ export class MkInvoicesService {
 
     // Tenta os nomes de campo mais prováveis para o copia-e-cola.
     const candidates = [
-      'copia_cola',
-      'copiacola',
-      'copia_e_cola',
-      'copiaecola',
-      'pix',
-      'codigo_pix',
-      'codigopix',
-      'qrcode',
-      'qr_code',
-      'emv',
-      'payload',
-      'brcode',
+      "copia_cola",
+      "copiacola",
+      "copia_e_cola",
+      "copiaecola",
+      "pix",
+      "codigo_pix",
+      "codigopix",
+      "qrcode",
+      "qr_code",
+      "emv",
+      "payload",
+      "brcode",
     ];
     for (const key of Object.keys(obj)) {
       if (candidates.includes(key.toLowerCase())) {
         const value = obj[key];
-        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (typeof value === "string" && value.trim()) return value.trim();
       }
     }
     return null;
@@ -484,7 +514,7 @@ export class MkInvoicesService {
     company: Company,
     documento: string,
   ): Promise<string | null> {
-    const cpfSoDigitos = String(documento ?? '').replace(/\D/g, '');
+    const cpfSoDigitos = String(documento ?? "").replace(/\D/g, "");
     if (!cpfSoDigitos) return null;
 
     try {
@@ -496,7 +526,7 @@ export class MkInvoicesService {
           `?sys=${encodeURIComponent(sys)}` +
           `&token=${encodeURIComponent(token)}` +
           `&Documento=${encodeURIComponent(cpfSoDigitos)}`,
-        'PIX por documento',
+        "PIX por documento",
       );
       return this.extractPixCode(data);
     } catch (err) {
@@ -552,7 +582,8 @@ export class MkInvoicesService {
     endDate: string,
   ): Promise<Map<string, MkInvoiceRecord[]>> {
     const cacheKey = `mk:invoice-batch:${company.id}:${startDate}:${endDate}`;
-    const cached = await this.redisService.get<[string, MkInvoiceRecord[]][]>(cacheKey);
+    const cached =
+      await this.redisService.get<[string, MkInvoiceRecord[]][]>(cacheKey);
     if (cached) {
       return new Map(cached);
     }
@@ -560,16 +591,17 @@ export class MkInvoicesService {
     const { sys, config } = this.parseConfig(company);
     const concurrency = Number(config?.invoicesConcurrency ?? 6);
 
-    const listResponse: MkFaturasAbertasResponse = await this.fetchJsonWithRetry(
-      company,
-      (token) =>
-        `https://${company.url}/mk/WSMKFaturasAbertas.rule` +
-        `?sys=${encodeURIComponent(sys)}` +
-        `&token=${encodeURIComponent(token)}` +
-        `&dt_venc_inicio=${encodeURIComponent(startDate)}` +
-        `&dt_venc_fim=${encodeURIComponent(endDate)}`,
-      'faturas abertas',
-    );
+    const listResponse: MkFaturasAbertasResponse =
+      await this.fetchJsonWithRetry(
+        company,
+        (token) =>
+          `https://${company.url}/mk/WSMKFaturasAbertas.rule` +
+          `?sys=${encodeURIComponent(sys)}` +
+          `&token=${encodeURIComponent(token)}` +
+          `&dt_venc_inicio=${encodeURIComponent(startDate)}` +
+          `&dt_venc_fim=${encodeURIComponent(endDate)}`,
+        "faturas abertas",
+      );
 
     const lista = Array.isArray(listResponse?.ListaFaturas)
       ? listResponse.ListaFaturas
@@ -587,7 +619,11 @@ export class MkInvoicesService {
       open,
       concurrency,
       async (item): Promise<MkInvoiceRecord> => {
-        const detail = await this.fetchInvoiceDetail(company, sys, item.cd_fatura);
+        const detail = await this.fetchInvoiceDetail(
+          company,
+          sys,
+          item.cd_fatura,
+        );
         return {
           cd_fatura: item.cd_fatura,
           codpessoa: item.codpessoa,
@@ -635,8 +671,8 @@ export class MkInvoicesService {
     return {
       id_fatura: String(rawInvoice.cd_fatura),
       contractId: undefined,
-      value: String(rawInvoice.valor ?? '0'),
-      status: 'A Receber',
+      value: String(rawInvoice.valor ?? "0"),
+      status: "A Receber",
       expiration: rawInvoice.Vcto,
       ticketDigitableLine: null,
       ticketPdfLink: rawInvoice.PathDownload ?? null,
@@ -676,16 +712,17 @@ export class MkInvoicesService {
           })(),
         );
 
-    const listResponse: MkFaturasAbertasResponse = await this.fetchJsonWithRetry(
-      company,
-      (token) =>
-        `https://${company.url}/mk/WSMKFaturasAbertas.rule` +
-        `?sys=${encodeURIComponent(sys)}` +
-        `&token=${encodeURIComponent(token)}` +
-        `&dt_venc_inicio=${encodeURIComponent(startDate)}` +
-        `&dt_venc_fim=${encodeURIComponent(endDate)}`,
-      'faturas abertas',
-    );
+    const listResponse: MkFaturasAbertasResponse =
+      await this.fetchJsonWithRetry(
+        company,
+        (token) =>
+          `https://${company.url}/mk/WSMKFaturasAbertas.rule` +
+          `?sys=${encodeURIComponent(sys)}` +
+          `&token=${encodeURIComponent(token)}` +
+          `&dt_venc_inicio=${encodeURIComponent(startDate)}` +
+          `&dt_venc_fim=${encodeURIComponent(endDate)}`,
+        "faturas abertas",
+      );
 
     const clientId = String(cliente.clientId);
     const lista = Array.isArray(listResponse?.ListaFaturas)
@@ -694,14 +731,19 @@ export class MkInvoicesService {
 
     const own = lista.filter(
       (item) =>
-        String(item?.codpessoa) === clientId && !this.isClosedStatus(item?.status),
+        String(item?.codpessoa) === clientId &&
+        !this.isClosedStatus(item?.status),
     );
 
     const detailed = await this.runWithConcurrency(
       own,
       concurrency,
       async (item): Promise<MkInvoiceRecord> => {
-        const detail = await this.fetchInvoiceDetail(company, sys, item.cd_fatura);
+        const detail = await this.fetchInvoiceDetail(
+          company,
+          sys,
+          item.cd_fatura,
+        );
         return {
           cd_fatura: item.cd_fatura,
           codpessoa: item.codpessoa,
@@ -716,37 +758,40 @@ export class MkInvoicesService {
     );
 
     const list: InvoiceMapResultDto[] = detailed
-      .map((record): InvoiceMapResultDto => ({
-        invoice_id: String(record.cd_fatura),
-        contract_id: '',
-        invoice_due_date: record.Vcto ?? null,
-        invoice_amount: String(record.valor ?? ''),
-        invoice_status: 'A Receber',
-        ticket_digitable_line: '',
-        ticket_pdf_link: record.PathDownload ?? null,
-        // PIX vem de endpoint separado (shape desconhecido) — não carregado aqui.
-        code_pix: null,
-      }))
+      .map(
+        (record): InvoiceMapResultDto => ({
+          invoice_id: String(record.cd_fatura),
+          contract_id: "",
+          invoice_due_date: record.Vcto ?? null,
+          invoice_amount: String(record.valor ?? ""),
+          invoice_status: "A Receber",
+          ticket_digitable_line: "",
+          ticket_pdf_link: record.PathDownload ?? null,
+          // PIX vem de endpoint separado (shape desconhecido) — não carregado aqui.
+          code_pix: null,
+        }),
+      )
       .sort((a, b) => {
         const parseDate = (str?: string | null) => {
           if (!str) return 0;
-          const [day, month, year] = str.split('/');
-          const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
+          const [day, month, year] = str.split("/");
+          const fullYear =
+            Number(year) < 100 ? 2000 + Number(year) : Number(year);
           return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
         };
         return parseDate(b.invoice_due_date) - parseDate(a.invoice_due_date);
       });
 
     return Object.assign(new InvoicesResponseDto(), {
-      status: 'success',
-      message: 'Dados consultados com sucesso',
+      status: "success",
+      message: "Dados consultados com sucesso",
       list,
     });
   }
 
   /** Converte uma data ISO (YYYY-MM-DD) para o formato DD/MM/YYYY da MK. */
   private isoToBrDate(iso: string): string {
-    const [year, month, day] = String(iso ?? '').split('-');
+    const [year, month, day] = String(iso ?? "").split("-");
     if (!year || !month || !day) return iso;
     return `${day}/${month}/${year}`;
   }
