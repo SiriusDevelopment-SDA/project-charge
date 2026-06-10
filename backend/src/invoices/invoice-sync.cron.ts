@@ -112,6 +112,44 @@ export class InvoiceSyncCron {
     );
   }
 
+  @Cron("0 0 4 * * *", { timeZone: "America/Sao_Paulo" })
+  async syncMkInvoicesDaily(): Promise<void> {
+    this.logger.log(
+      "[InvoiceSync] Iniciando sincronização diária de faturas MK (4h)",
+    );
+
+    const companies = await this.companyRepo.find({ where: { active: true } });
+    const mkCompanies = companies.filter(
+      (company) => String(company.erp).toUpperCase() === "MK",
+    );
+
+    if (!mkCompanies.length) {
+      this.logger.verbose(
+        "[InvoiceSync] Nenhuma empresa MK ativa encontrada para o sync diário",
+      );
+      return;
+    }
+
+    let synced = 0;
+    let failed = 0;
+    for (const company of mkCompanies) {
+      try {
+        // Reutiliza exatamente o mesmo caminho por-empresa que a cron de 10min e
+        // o trigger manual usam (runSyncForCompany → performSync → syncMK), com a
+        // mesma janela de 1 ano (getSyncWindow). O MK fica fora da cron recorrente
+        // pelo volume (1 detalhe por fatura, ~61k/ano), mas precisa de snapshot
+        // atualizado 1x/dia off-peak para alimentar as campanhas agendadas.
+        synced += await this.runSyncForCompany(company, { reason: "cron" });
+      } catch {
+        failed++;
+      }
+    }
+
+    this.logger.log(
+      `[InvoiceSync] Sync diário MK concluído — ${synced} faturas sincronizadas em ${mkCompanies.length} empresa(s), ${failed} com erro`,
+    );
+  }
+
   async syncCompanyById(companyId: string): Promise<void> {
     const company = await this.companyRepo.findOne({
       where: { id: companyId, active: true },
