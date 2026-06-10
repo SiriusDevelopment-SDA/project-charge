@@ -18,6 +18,7 @@ import { Invoice } from '../entities/invoices';
 import { InvoiceSyncCron } from '../invoice-sync.cron';
 import { RedisService } from '../../redis/redis.service';
 import { IXCInvoicesService } from '../services/ixcInvoicesService';
+import { MkInvoicesService } from '../services/mkInvoicesService';
 import { InvoicesService } from '../invoices.service';
 import {
   InvoiceBatchPartialDto,
@@ -41,6 +42,7 @@ export class InvoicesController {
     private readonly invoiceSyncCron: InvoiceSyncCron,
     private readonly redisService: RedisService,
     private readonly ixcService: IXCInvoicesService,
+    private readonly mkService: MkInvoicesService,
     private readonly invoicesService: InvoicesService,
   ) {}
 
@@ -434,6 +436,8 @@ export class InvoicesController {
   /**
    * Busca códigos PIX pelo ERP para uma lista de invoiceIds.
    * Para IXC: chama o ERP (pixCode não é armazenado no snapshot local).
+   * Para MK: chama o ERP por documento/CPF (endpoint separado; shape do PIX
+   *   ainda desconhecido — retorna vazio sem quebrar o fluxo).
    * Para SGP/HUBSOFT: lê do snapshot local (pixCode já está no banco).
    */
   @Post('pix/batch')
@@ -445,6 +449,44 @@ export class InvoicesController {
     if (!company) throw new NotFoundException(`Empresa ${data.companyId} não encontrada.`);
 
     const erp = String(company.erp ?? '').toUpperCase();
+
+    if (erp === 'MK') {
+      // MK busca PIX por documento (CPF/CNPJ), não por fatura. Resolve cada
+      // invoiceId -> cliente -> documento, então consulta o ERP. Como o shape
+      // da resposta ainda é desconhecido, fetchPixByDocument retorna null e o
+      // PIX volta vazio — o fluxo de disparo segue com o PDF do boleto.
+      // TODO: confirmar shape da WSMKRetornarCopieColaPix para preencher o PIX.
+      const invoices = await this.invoiceRepo.find({
+        where: { id_fatura: In(data.invoiceIds), company: { id: data.companyId } },
+        select: { id_fatura: true, clientId: true },
+      });
+      const clientIdByInvoice = new Map(
+        invoices.map((inv) => [String(inv.id_fatura), inv.clientId]),
+      );
+      const clientIds = [...new Set([...clientIdByInvoice.values()].filter(Boolean))];
+      const clients = clientIds.length
+        ? await this.clientRepo.find({ where: { id: In(clientIds as string[]) } })
+        : [];
+
+      const pixByClientId = new Map<string, string>();
+      await Promise.allSettled(
+        clients.map(async (c) => {
+          const pix = await this.mkService.fetchPixByDocument(
+            company,
+            String(c.cnpj_cpf ?? ''),
+          );
+          if (pix) pixByClientId.set(c.id, pix);
+        }),
+      );
+
+      return {
+        results: data.invoiceIds.map((invoiceId) => {
+          const clientId = clientIdByInvoice.get(invoiceId);
+          const pix = clientId ? pixByClientId.get(clientId) ?? '' : '';
+          return { invoiceId, status: pix ? 'success' : 'error', pix };
+        }),
+      };
+    }
 
     if (erp === 'IXC') {
       const settled = await Promise.allSettled(

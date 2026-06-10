@@ -50,9 +50,9 @@ export class InvoicesService {
     }
 
     const erp = String(clients[0]?.company?.erp ?? '').toUpperCase();
-    if (!['IXC', 'SGP', 'HUBSOFT'].includes(erp)) {
+    if (!['IXC', 'SGP', 'HUBSOFT', 'MK'].includes(erp)) {
       throw new BadRequestException(
-        'Filtro de régua de cobrança disponível apenas para empresas IXC, SGP e HUBSOFT (snapshot).',
+        'Filtro de régua de cobrança disponível apenas para empresas IXC, SGP, HUBSOFT e MK (snapshot).',
       );
     }
 

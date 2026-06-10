@@ -8,6 +8,7 @@ import { Client } from '../clients/entities.ts/clients';
 import { Invoice } from './entities/invoices';
 import { IXCInvoicesService } from './services/ixcInvoicesService';
 import { SGPInvoicesService } from './services/sgpInvoicesService';
+import { MkInvoicesService } from './services/mkInvoicesService';
 import {
   InvoiceSyncState,
   InvoiceSyncStatus,
@@ -58,6 +59,7 @@ export class InvoiceSyncCron {
 
     private readonly ixcService: IXCInvoicesService,
     private readonly sgpService: SGPInvoicesService,
+    private readonly mkService: MkInvoicesService,
     private readonly invoicesSyncGateway: InvoicesSyncGateway,
     private readonly redisService: RedisService,
   ) {}
@@ -167,6 +169,8 @@ export class InvoiceSyncCron {
         synced = await this.syncIXC(company);
       } else if (erp === 'SGP') {
         synced = await this.syncSGP(company);
+      } else if (erp === 'MK') {
+        synced = await this.syncMK(company);
       } else {
         this.logger.verbose(
           `[InvoiceSync] ERP não suportado: ${erp} (empresa: ${company.name})`,
@@ -315,10 +319,25 @@ export class InvoiceSyncCron {
     return this.persistSnapshot(company, byCpf, 'SGP', start, end);
   }
 
+  private async syncMK(company: Company): Promise<number> {
+    this.logger.log(`[InvoiceSync] MK ${company.name} — buscando faturas em bulk`);
+
+    const { start, end } = this.getSyncWindow();
+    // MK indexa faturas por código do cliente (codpessoa = client.clientId),
+    // como o IXC — o persistSnapshot faz o lookup por clientId.
+    const byClientId = await this.mkService.getInvoicesByDateWindowBatch(
+      company,
+      this.mkService.formatSyncDate(start),
+      this.mkService.formatSyncDate(end),
+    );
+
+    return this.persistSnapshot(company, byClientId, 'MK', start, end);
+  }
+
   private async persistSnapshot(
     company: Company,
     sourceMap: Map<string, any[]>,
-    erp: 'IXC' | 'SGP',
+    erp: 'IXC' | 'SGP' | 'MK',
     windowStart?: Date,
     windowEnd?: Date,
   ): Promise<number> {
@@ -349,6 +368,7 @@ export class InvoiceSyncCron {
     const syncTime = new Date();
 
     for (const [key, invoices] of sourceMap) {
+      // SGP indexa por documento (CPF/CNPJ); IXC e MK indexam por clientId.
       const client = erp === 'SGP' ? byDocument.get(String(key)) : byClientId.get(String(key));
       if (!client) continue;
 
@@ -416,10 +436,10 @@ export class InvoiceSyncCron {
     companyId: string,
     clientId: string,
     invoice: any,
-    erp: 'IXC' | 'SGP',
+    erp: 'IXC' | 'SGP' | 'MK',
     syncTime: Date,
   ): QueryDeepPartialEntity<Invoice> | null {
-  
+
     switch (erp) {
       case 'IXC': {
         const dueDate = parseDate(invoice.data_vencimento);
@@ -467,7 +487,17 @@ export class InvoiceSyncCron {
           companyId: companyId,
         };
       }
-  
+
+      case 'MK': {
+        // Delega ao MkInvoicesService o mapeamento lista+detalhe -> upsert,
+        // que retorna null quando não há vencimento (Vcto).
+        return this.mkService.toInvoiceUpsert(invoice, {
+          clientId,
+          companyId,
+          syncTime,
+        });
+      }
+
       default:
         throw new Error(`ERP não suportado: ${erp}`);
     }

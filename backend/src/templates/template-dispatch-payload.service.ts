@@ -8,6 +8,7 @@ import type { MessageQueuePayload } from '../message-queue/entities/message-queu
 import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from '../invoices/services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
+import { MkInvoicesService } from '../invoices/services/mkInvoicesService';
 import { InvoiceMapResultDto } from '../invoices/dto/search.request.dto.invoices';
 
 export type DispatchSkipReason =
@@ -60,6 +61,7 @@ export class TemplateDispatchPayloadService {
     private readonly ixcService: IXCInvoicesService,
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
+    private readonly mkService: MkInvoicesService,
   ) {}
 
   templateRequiresInvoiceData(template: Templates): boolean {
@@ -121,6 +123,7 @@ export class TemplateDispatchPayloadService {
     const ixcByClient = new Map<string, Map<string, InvoiceMapResultDto>>();
     const hubsoftByClient = new Map<string, InvoiceMapResultDto[]>();
     const sgpByClient = new Map<string, InvoiceMapResultDto[]>();
+    const mkByClient = new Map<string, InvoiceMapResultDto[]>();
 
     if (requiresInvoice) {
       const uniqueClients = [...new Set(clients.map((c) => c.id))];
@@ -143,6 +146,9 @@ export class TemplateDispatchPayloadService {
             } else if (erp === 'SGP') {
               const res = await this.sgpService.getInvoices(client);
               sgpByClient.set(cid, res.list ?? []);
+            } else if (erp === 'MK') {
+              const res = await this.mkService.getInvoices(client);
+              mkByClient.set(cid, res.list ?? []);
             }
           } catch (e) {
             this.logger.warn(
@@ -191,6 +197,7 @@ export class TemplateDispatchPayloadService {
         const ixcMap = ixcByClient.get(client.id);
         const hubList = hubsoftByClient.get(client.id);
         const sgpList = sgpByClient.get(client.id);
+        const mkList = mkByClient.get(client.id);
 
         const invoiceId = String(row.invoice_id ?? '').trim();
 
@@ -207,10 +214,10 @@ export class TemplateDispatchPayloadService {
 
         this.logger.log(
           `[Dispatch] erp=${erp} clientId=${client.id} invoiceId=${invoiceId} ` +
-          `ixcMapSize=${ixcMap?.size ?? 'no-entry'} hubListLen=${hubList?.length ?? 'no-entry'} sgpListLen=${sgpList?.length ?? 'no-entry'}`,
+          `ixcMapSize=${ixcMap?.size ?? 'no-entry'} hubListLen=${hubList?.length ?? 'no-entry'} sgpListLen=${sgpList?.length ?? 'no-entry'} mkListLen=${mkList?.length ?? 'no-entry'}`,
         );
 
-        const fresh = this.buildDispatchScalars(client, erp, invoiceId, ixcMap, hubList, sgpList);
+        const fresh = this.buildDispatchScalars(client, erp, invoiceId, ixcMap, hubList, sgpList, mkList);
         if (!fresh) {
           skips.push({
             reason: 'invoice_not_open_in_erp',
@@ -332,6 +339,7 @@ export class TemplateDispatchPayloadService {
     ixcMap: Map<string, InvoiceMapResultDto> | undefined,
     hubList: InvoiceMapResultDto[] | undefined,
     sgpList: InvoiceMapResultDto[] | undefined,
+    mkList: InvoiceMapResultDto[] | undefined,
   ): MappedScalar | null {
     if (erp === 'IXC') {
       const inv = ixcMap?.get(invoiceId);
@@ -392,6 +400,29 @@ export class TemplateDispatchPayloadService {
         codigo_qr: inv.code_pix ?? undefined,
         codigo_qr_code: inv.code_pix ?? undefined,
         codigo_pix: inv.code_pix ?? undefined,
+        order_reference_id: String(inv.contract_id ?? ''),
+      };
+    }
+
+    if (erp === 'MK') {
+      const inv = mkList?.find((x) => String(x.invoice_id) === invoiceId);
+      if (!inv) return null;
+
+      // MK não traz linha digitável nem PIX neste fluxo (PIX vem de endpoint
+      // separado, por documento, e o shape ainda é desconhecido). O PDF do
+      // boleto (ticket_pdf_link) segue no template via header DOCUMENT.
+      // TODO: quando o shape do PIX for confirmado, preencher code_pix aqui.
+      return {
+        invoice_id: invoiceId,
+        numero_contrato: String(inv.contract_id ?? ''),
+        data_vencimento_fatura: String(inv.invoice_due_date ?? ''),
+        valor_fatura: String(inv.invoice_amount ?? ''),
+        linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ''),
+        link_boleto_pdf: String(inv.ticket_pdf_link ?? ''),
+        code_pix: undefined,
+        codigo_qr: undefined,
+        codigo_qr_code: undefined,
+        codigo_pix: undefined,
         order_reference_id: String(inv.contract_id ?? ''),
       };
     }
