@@ -80,16 +80,17 @@ export class InvoiceSyncCron {
     let failed = 0;
     let skippedMk = 0;
     for (const company of companies) {
-      // MK/PROXER sincroniza faturas SOMENTE via trigger manual
-      // (POST /invoices/sync/company/:id). A cada sync o MK exige 1 chamada de
-      // detalhe (WSMKSegundaViaCobranca) POR fatura, e a janela de 1 ano tem
-      // ~61 mil faturas não-canceladas → ~61k requisições. Rodar isso a cada
-      // 10 min marteralia a API do MK, então a varredura recorrente pula o MK.
-      // O caminho manual (syncCompanyById → performSync → syncMK) segue intacto.
+      // MK/PROXER fica FORA desta cron de 10min por causa do volume: a cada sync
+      // o MK exige 1 chamada de detalhe (WSMKSegundaViaCobranca) POR fatura, e a
+      // janela de 1 ano tem ~61 mil faturas não-canceladas → ~61k requisições.
+      // Rodar isso a cada 10 min martela a API do MK. O MK sincroniza via cron
+      // diária às 4h (syncMkInvoicesDaily) + trigger manual
+      // (POST /invoices/sync/company/:id). Ambos os caminhos reutilizam
+      // runSyncForCompany → performSync → syncMK.
       if (String(company.erp).toUpperCase() === "MK") {
         skippedMk++;
         this.logger.debug(
-          `[InvoiceSync] MK ignorado na cron recorrente (empresa: ${company.name}); sincroniza só via trigger manual por causa do volume (1 detalhe por fatura)`,
+          `[InvoiceSync] MK ignorado na cron de 10min (empresa: ${company.name}); sincroniza via cron diária 4h + trigger manual por causa do volume (1 detalhe por fatura)`,
         );
         continue;
       }
@@ -103,7 +104,7 @@ export class InvoiceSyncCron {
 
     if (skippedMk > 0) {
       this.logger.debug(
-        `[InvoiceSync] ${skippedMk} empresa(s) MK puladas na cron recorrente (sync manual apenas)`,
+        `[InvoiceSync] ${skippedMk} empresa(s) MK puladas na cron de 10min (sincronizam via cron diária 4h + trigger manual)`,
       );
     }
 

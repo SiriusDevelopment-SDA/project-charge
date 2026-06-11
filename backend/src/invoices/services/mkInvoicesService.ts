@@ -26,10 +26,10 @@ const MK_INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 // reflete a situação do CLIENTE/contrato (não o pagamento) — a própria rota já
 // retorna só faturas em aberto. Valores reais observados na base (amostra de
 // ~128k faturas): "Ativo" (~82k), "Cancelado" (~46k), "Suspenso" (~157).
-// Regra: descartamos apenas "Cancelado" (serviço cancelado, não cobrar) e
-// mantemos "Ativo" + "Suspenso" (suspenso normalmente é inadimplência → cobrável).
-// "Pago/Baixado" ficam como defesa caso a MK passe a reportá-los.
-// TODO: confirmar com o usuário se "Suspenso" deve ser cobrado (default: sim).
+// Regra (CONFIRMADA com o negócio): cobrar "Ativo" + "Suspenso" (suspenso
+// normalmente é inadimplência → cobrável) e descartar "Cancelado" (serviço
+// cancelado, não cobrar). "Pago/Baixado" ficam como defesa caso a MK passe a
+// reportá-los.
 const MK_CLOSED_STATUSES = new Set(
   ["Cancelado", "Cancelada", "Pago", "Paga", "Baixado", "Baixada"].map((s) =>
     s.toLowerCase(),
@@ -59,7 +59,7 @@ export class MkInvoicesService {
    */
   private async parseJsonLatin1<T = unknown>(response: Response): Promise<T> {
     const buf = await response.arrayBuffer();
-    const parsed = JSON.parse(Buffer.from(buf).toString('latin1'));
+    const parsed = JSON.parse(Buffer.from(buf).toString("latin1"));
     return this.repairMkEncoding(parsed) as T;
   }
 
@@ -69,14 +69,14 @@ export class MkInvoicesService {
    * e são deixadas intactas (não fazem parte do padrão quebrado da MK).
    */
   private repairMkEncoding(value: unknown): unknown {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       for (let i = 0; i < value.length; i++) {
         if (value.charCodeAt(i) > 0xff) return value;
       }
-      return Buffer.from(value, 'latin1').toString('utf8');
+      return Buffer.from(value, "latin1").toString("utf8");
     }
     if (Array.isArray(value)) return value.map((v) => this.repairMkEncoding(v));
-    if (value && typeof value === 'object') {
+    if (value && typeof value === "object") {
       const out: Record<string, unknown> = {};
       for (const k of Object.keys(value as Record<string, unknown>)) {
         out[k] = this.repairMkEncoding((value as Record<string, unknown>)[k]);
@@ -488,11 +488,11 @@ export class MkInvoicesService {
   /**
    * Extrai o código PIX (copia-e-cola) da resposta da WSMKRetornarCopieColaPix.
    *
-   * Shape de ERRO conhecido (observado): `{ codigo_erro, mensagem, status: "ERRO" }`
-   * — ex.: conta sem PIX habilitado retorna codigo_erro "004". Nesse caso → null.
-   * O campo do PIX no SUCESSO ainda não foi confirmado (a conta de teste não tem
-   * PIX habilitado), então tentamos os nomes mais prováveis de forma defensiva.
-   * TODO: confirmar o campo exato quando houver uma resposta de sucesso real.
+   * Shape de SUCESSO (validado ao vivo): `{ codpessoa, nome_razaosocial,
+   * status_contrato, texto_qrcode }` — o copia-e-cola (BR Code) está em
+   * `texto_qrcode`.
+   * Shape de ERRO conhecido: `{ codigo_erro, mensagem, status: "ERRO" }`
+   * — ex.: conta sem PIX habilitado. Nesse caso → null.
    */
   private extractPixCode(response: unknown): string | null {
     if (!response || typeof response !== "object") return null;
@@ -506,44 +506,25 @@ export class MkInvoicesService {
       return null;
     }
 
-    // Tenta os nomes de campo mais prováveis para o copia-e-cola.
-    const candidates = [
-      "copia_cola",
-      "copiacola",
-      "copia_e_cola",
-      "copiaecola",
-      "pix",
-      "codigo_pix",
-      "codigopix",
-      "qrcode",
-      "qr_code",
-      "emv",
-      "payload",
-      "brcode",
-    ];
-    for (const key of Object.keys(obj)) {
-      if (candidates.includes(key.toLowerCase())) {
-        const value = obj[key];
-        if (typeof value === "string" && value.trim()) return value.trim();
-      }
-    }
+    const texto = obj.texto_qrcode;
+    if (typeof texto === "string" && texto.trim()) return texto.trim();
     return null;
   }
 
   /**
-   * Busca o código PIX (copia-e-cola) por documento/CPF via
-   * WSMKRetornarCopieColaPix. Endpoint separado e por documento (não por fatura).
-   * Como o shape da resposta é desconhecido, esta chamada é isolada e NUNCA
-   * derruba o fluxo de disparo — retorna `null` em qualquer falha.
-   *
-   * TODO: confirmar shape da resposta para preencher o PIX de fato.
+   * Busca o código PIX (copia-e-cola) de uma fatura via WSMKRetornarCopieColaPix.
+   * O endpoint é por `CodigoFatura` (= cd_fatura/id_fatura), NÃO por documento, e
+   * o copia-e-cola vem em `texto_qrcode` (validado ao vivo). Funciona apenas com
+   * o token de sessão. É buscado on-demand no disparo (NÃO no snapshot) para não
+   * dobrar o volume da sync. Esta chamada é isolada e NUNCA derruba o fluxo de
+   * disparo — retorna `null` em qualquer falha (o boleto PDF já cobre).
    */
-  async fetchPixByDocument(
+  async fetchPixByInvoice(
     company: Company,
-    documento: string,
+    cdFatura: string,
   ): Promise<string | null> {
-    const cpfSoDigitos = String(documento ?? "").replace(/\D/g, "");
-    if (!cpfSoDigitos) return null;
+    const codigoFatura = String(cdFatura ?? "").trim();
+    if (!codigoFatura) return null;
 
     try {
       const { sys } = this.parseConfig(company);
@@ -553,13 +534,13 @@ export class MkInvoicesService {
           `https://${company.url}/mk/WSMKRetornarCopieColaPix.rule` +
           `?sys=${encodeURIComponent(sys)}` +
           `&token=${encodeURIComponent(token)}` +
-          `&Documento=${encodeURIComponent(cpfSoDigitos)}`,
-        "PIX por documento",
+          `&CodigoFatura=${encodeURIComponent(codigoFatura)}`,
+        "PIX por fatura",
       );
       return this.extractPixCode(data);
     } catch (err) {
       this.logger.warn(
-        `Falha ao buscar PIX por documento (company=${company.id}): ${(err as Error)?.message}`,
+        `Falha ao buscar PIX da fatura cd_fatura=${codigoFatura} (company=${company.id}): ${(err as Error)?.message}`,
       );
       return null;
     }
@@ -665,6 +646,18 @@ export class MkInvoicesService {
       },
     );
 
+    // Faturas cujo detalhe (WSMKSegundaViaCobranca) falhou ficam sem `Vcto` e
+    // serão descartadas pelo `toInvoiceUpsert` (snapshot exige vencimento). Conta
+    // e loga o total por sync para não descartar silenciosamente.
+    const droppedNoVcto = detailed.filter((record) => !record.Vcto).length;
+    if (droppedNoVcto > 0) {
+      this.logger.warn(
+        `[InvoiceBatch] company=${company.id} janela=${startDate}..${endDate} ` +
+          `${droppedNoVcto} fatura(s) descartada(s) por falta de vencimento ` +
+          `(detalhe WSMKSegundaViaCobranca indisponível).`,
+      );
+    }
+
     const invoicesByClientId = new Map<string, MkInvoiceRecord[]>();
     for (const record of detailed) {
       const clientId = String(record.codpessoa);
@@ -704,7 +697,8 @@ export class MkInvoicesService {
       expiration: rawInvoice.Vcto,
       ticketDigitableLine: null,
       ticketPdfLink: rawInvoice.PathDownload ?? null,
-      // PIX vem de endpoint separado e shape desconhecido — não preenchido aqui.
+      // PIX fica null no snapshot de propósito: é buscado on-demand no disparo
+      // (fetchPixByInvoice por CodigoFatura) para não dobrar o volume da sync.
       pixCode: null,
       lastSyncAt: context.syncTime,
       clientId: context.clientId,
@@ -795,7 +789,8 @@ export class MkInvoicesService {
           invoice_status: "A Receber",
           ticket_digitable_line: "",
           ticket_pdf_link: record.PathDownload ?? null,
-          // PIX vem de endpoint separado (shape desconhecido) — não carregado aqui.
+          // PIX é buscado on-demand no disparo (fetchPixByInvoice por
+          // CodigoFatura) — não carregado aqui para não multiplicar chamadas.
           code_pix: null,
         }),
       )
