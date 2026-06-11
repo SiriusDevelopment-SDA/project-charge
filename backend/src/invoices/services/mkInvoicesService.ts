@@ -761,11 +761,13 @@ export class MkInvoicesService {
       own,
       concurrency,
       async (item): Promise<MkInvoiceRecord> => {
-        const detail = await this.fetchInvoiceDetail(
-          company,
-          sys,
-          item.cd_fatura,
-        );
+        // No disparo manual buscamos detalhe + PIX juntos (no mesmo lote
+        // concorrente) para o code_pix já vir preenchido — diferente do
+        // snapshot diário, que mantém pixCode null por volume.
+        const [detail, pix] = await Promise.all([
+          this.fetchInvoiceDetail(company, sys, item.cd_fatura),
+          this.fetchPixByInvoice(company, String(item.cd_fatura)),
+        ]);
         return {
           cd_fatura: item.cd_fatura,
           codpessoa: item.codpessoa,
@@ -775,6 +777,7 @@ export class MkInvoicesService {
           Vcto: detail?.Vcto,
           PathDownload: detail?.PathDownload,
           Valor: detail?.Valor,
+          pix: pix ?? undefined,
         };
       },
     );
@@ -789,9 +792,8 @@ export class MkInvoicesService {
           invoice_status: "A Receber",
           ticket_digitable_line: "",
           ticket_pdf_link: record.PathDownload ?? null,
-          // PIX é buscado on-demand no disparo (fetchPixByInvoice por
-          // CodigoFatura) — não carregado aqui para não multiplicar chamadas.
-          code_pix: null,
+          // PIX já buscado junto do detalhe (texto_qrcode via fetchPixByInvoice).
+          code_pix: record.pix ?? null,
         }),
       )
       .sort((a, b) => {
@@ -897,4 +899,7 @@ export interface MkInvoiceRecord {
   Vcto?: string;
   PathDownload?: string;
   Valor?: string;
+  // PIX copia-e-cola (texto_qrcode) — preenchido só no disparo manual (getInvoices),
+  // não no snapshot diário (volume).
+  pix?: string;
 }
