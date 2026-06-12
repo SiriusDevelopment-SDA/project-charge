@@ -7,6 +7,7 @@ import { Company } from '../companies/entities/companies';
 import { Client } from './entities.ts/clients';
 import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
 import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
+import { MkInvoicesService } from '../invoices/services/mkInvoicesService';
 
 const CHUNK_SIZE = 500;
 
@@ -34,6 +35,7 @@ export class ClientsSyncCron {
 
     private readonly ixcService: IXCInvoicesService,
     private readonly sgpService: SGPInvoicesService,
+    private readonly mkService: MkInvoicesService,
   ) {}
 
   // Roda todo dia às 3h da manhã (horário de Brasília)
@@ -154,6 +156,45 @@ export class ClientsSyncCron {
           } catch (error: any) {
             const cause = error?.cause ? ` | causa: ${error.cause}` : '';
             this.logger.error(`[ClientsSync] Erro ao sincronizar empresa SGP ${company.name}: ${error}${cause}`);
+          }
+          break;
+        }
+        case 'MK': {
+          try {
+            const since = getLastSync(company);
+            this.logger.log(
+              `[ClientsSync] MK ${company.name} — ${since ? `incremental desde ${since.toISOString()}` : 'carga completa'}`,
+            );
+
+            const mkClients = await this.mkService.fetchClients(company, since);
+
+            this.logger.log(`[ClientsSync] ${mkClients.length} clientes encontrados no MK para ${company.name}`);
+
+            const seen = new Set<string>();
+            const toUpsert: QueryDeepPartialEntity<Client>[] = [];
+
+            for (const c of mkClients) {
+              const mapped = this.mkService.toClientUpsert(c, company);
+              if (!mapped) { totalSkipped++; continue; }
+
+              const cnpj_cpf = String(mapped.cnpj_cpf);
+              if (seen.has(cnpj_cpf)) { totalSkipped++; continue; }
+              seen.add(cnpj_cpf);
+
+              toUpsert.push(mapped);
+            }
+
+            for (const chunk of toChunks(toUpsert, CHUNK_SIZE)) {
+              await this.clientRepository.upsert(chunk, ['cnpj_cpf', 'companyId']);
+            }
+
+            totalSynced += toUpsert.length;
+            this.logger.log(`[ClientsSync] MK ${company.name}: ${toUpsert.length} sincronizados`);
+
+            await this.saveLastSync(company);
+          } catch (error: any) {
+            const cause = error?.cause ? ` | causa: ${error.cause}` : '';
+            this.logger.error(`[ClientsSync] Erro ao sincronizar empresa MK ${company.name}: ${error}${cause}`);
           }
           break;
         }

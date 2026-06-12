@@ -129,7 +129,12 @@ export function buildTemplateVars(
     codigo_qr: pixCode,
     codigo_qr_code: pixCode,
     codigo_pix: pixCode,
-    order_reference_id: numeroContrato || recipient.order_reference_id || recipient.id || "",
+    order_reference_id:
+      numeroContrato ||
+      recipient.order_reference_id ||
+      invoice?.invoice_id ||
+      recipient.id ||
+      "",
     order_item_name: recipient.order_item_name ?? "Fatura",
     order_item_description: recipient.order_item_description ?? "",
     order_pix_merchant_name: recipient.order_pix_merchant_name ?? companyName ?? "",

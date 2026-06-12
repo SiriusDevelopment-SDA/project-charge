@@ -72,7 +72,7 @@ function buildOrderDetailsComponent(
   mappedVar: mappedVars
 ): BuiltComponent | null {
   const referenceId = String(
-    mappedVar.numero_contrato ?? mappedVar.order_reference_id ?? ""
+    mappedVar.numero_contrato || mappedVar.order_reference_id || ""
   ).trim();
   const pixCode = String(
     mappedVar.code_pix ??
