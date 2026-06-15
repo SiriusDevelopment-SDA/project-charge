@@ -15,6 +15,7 @@ import {
 } from "./entities/invoice-sync-state.entity";
 import { InvoicesSyncGateway } from "../realtime/invoices-sync.gateway";
 import { RedisService } from "../redis/redis.service";
+import { ClientsSyncCron } from "../clients/clients-sync.cron";
 
 const CHUNK_SIZE = 500;
 const SYNC_LOOKBACK_YEARS = 1;
@@ -63,6 +64,7 @@ export class InvoiceSyncCron {
     private readonly mkService: MkInvoicesService,
     private readonly invoicesSyncGateway: InvoicesSyncGateway,
     private readonly redisService: RedisService,
+    private readonly clientsSyncCron: ClientsSyncCron,
   ) {}
 
   @Cron("0 */10 * * * *", { timeZone: "America/Sao_Paulo" })
@@ -228,6 +230,25 @@ export class InvoiceSyncCron {
     });
 
     try {
+      // No trigger manual ("Atualizar ERP"), sincroniza os clientes da empresa
+      // ANTES das faturas. O persistSnapshot descarta toda fatura sem cliente
+      // correspondente no banco (`if (!client) continue`); uma empresa recém
+      // -onboarded — cujo cron de clientes das 3h ainda não rodou — cairia em
+      // "0 fatura(s) processada(s)". Os crons automáticos não precisam disso: a
+      // sync de clientes já roda às 3h, antes da de faturas.
+      let clientsSynced = 0;
+      if (context.reason === "manual") {
+        await this.updateState(company, "running", {
+          lastStartedAt: startedAt,
+          message: "Sincronizando clientes do ERP...",
+        });
+        const result = await this.clientsSyncCron.syncCompanyClients(company);
+        clientsSynced = result.synced;
+        this.logger.log(
+          `[InvoiceSync] ${erp} ${company.name} — ${clientsSynced} cliente(s) sincronizado(s) antes das faturas (trigger manual)`,
+        );
+      }
+
       let synced = 0;
 
       if (erp === "IXC") {
@@ -248,7 +269,10 @@ export class InvoiceSyncCron {
         lastSuccessAt: finishedAt,
         invoicesSynced: synced,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
-        message: `Sincronização concluída com ${synced} fatura(s) processada(s).`,
+        message:
+          context.reason === "manual"
+            ? `Sincronização concluída: ${clientsSynced} cliente(s) e ${synced} fatura(s) processada(s).`
+            : `Sincronização concluída com ${synced} fatura(s) processada(s).`,
       });
 
       await this.cacheOpenInvoices(company.id);
