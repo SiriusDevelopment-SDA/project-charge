@@ -1569,6 +1569,19 @@ export class AuthService {
       );
     }
 
+    // Multi-tenant: a gestao de equipe deve operar na empresa ATIVA do token
+    // (payload.sub = companyId ativo, definido no login e no switch-company),
+    // NAO na empresa-casa do agente. Para super_admin, loadAuthenticatedAgent
+    // relaxa o filtro de company e acaba anexando a empresa-casa via relation
+    // (ex.: Fibras), o que fazia a listagem/criacao/gestao de agentes ignorar a
+    // empresa selecionada no dropdown e sempre mostrar os agentes da empresa
+    // default. Forcamos aqui a empresa ativa. Para os demais papeis, payload.sub
+    // ja e a propria empresa (loadAuthenticatedAgent filtra por ela), entao isto
+    // e um no-op.
+    if (payload.sub && agent.company?.id !== payload.sub) {
+      agent.company = { id: payload.sub } as Company;
+    }
+
     return agent;
   }
 
