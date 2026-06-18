@@ -10,6 +10,8 @@ export type HistoryRow = {
   date_dispatch?: string | Date | null;
   status_sent?: string;
   response?: boolean | null;
+  // jsonb do relatório: em falha guarda { error: { http_status, notificame_response } }.
+  components_maped?: unknown;
 };
 
 export type ParsedHistoryRow = HistoryRow & {
@@ -46,6 +48,58 @@ function buildStatusDetailViews(detail: string | null) {
     preview: detail.slice(0, STATUS_DETAIL_PREVIEW_MAX).trimEnd() + "...",
     tooltip: detail,
   };
+}
+
+/**
+ * Extrai um motivo legível do erro a partir do `components_maped`. A partir do
+ * fix do worker, uma falha grava `{ error: { http_status, notificame_response } }`
+ * (o corpo da resposta da NotificaMe). Aqui transformamos isso em algo como
+ * "HTTP 200 · 131049: Reengagement message limit reached" para o hover do badge.
+ * Registros antigos (array de valores, sem `error`) retornam null — não tinham o
+ * motivo capturado.
+ */
+function extractErrorReason(components: unknown): string | null {
+  if (!components || typeof components !== "object" || Array.isArray(components)) {
+    return null;
+  }
+
+  const err = (components as Record<string, unknown>).error as
+    | Record<string, unknown>
+    | undefined;
+  if (!err || typeof err !== "object") {
+    return null;
+  }
+
+  const httpStatus = err.http_status;
+  const resp = err.notificame_response as Record<string, unknown> | undefined;
+  const inner =
+    resp && typeof resp === "object" && resp.error && typeof resp.error === "object"
+      ? (resp.error as Record<string, unknown>)
+      : resp;
+
+  const code =
+    inner?.code ?? inner?.error_code ?? inner?.codigo ?? resp?.code ?? null;
+  const title =
+    inner?.title ??
+    inner?.message ??
+    inner?.detail ??
+    inner?.description ??
+    resp?.message ??
+    null;
+
+  const head: string[] = [];
+  if (httpStatus != null) head.push(`HTTP ${httpStatus}`);
+  if (code != null) head.push(String(code));
+  const prefix = head.join(" · ");
+
+  if (title) return prefix ? `${prefix}: ${title}` : String(title);
+  if (prefix) return prefix;
+
+  try {
+    return JSON.stringify(resp ?? err).slice(0, 300);
+  } catch {
+    return null;
+  }
 }
 
 function createInitialFilters() {
@@ -88,9 +142,19 @@ export function useHistoryTableController(data: HistoryRow[]) {
             ? "Sem retorno"
             : "-";
 
-        const statusDetail =
+        const skipDetail =
           item.status_sent === 'skipped' && item.message ? item.message : null;
-        const detailViews = buildStatusDetailViews(statusDetail);
+        const errorDetail =
+          item.status_sent === 'error'
+            ? extractErrorReason(item.components_maped)
+            : null;
+
+        // Detalhe completo usado no HOVER do badge (erro + skipped).
+        const statusDetail = skipDetail ?? errorDetail;
+
+        // Preview/tooltip inline: mantido apenas para 'skipped' (comportamento
+        // atual). Para 'error', o motivo aparece só no hover do badge.
+        const detailViews = buildStatusDetailViews(skipDetail);
 
         return {
           ...item,
