@@ -1,5 +1,6 @@
 import {
   buildDispatchComponentsMaped,
+  extractExternalMessageId,
   isFailedDispatch,
 } from './dispatch-relatory.util';
 
@@ -69,5 +70,42 @@ describe('buildDispatchComponentsMaped', () => {
       },
       components: [],
     });
+  });
+});
+
+describe('extractExternalMessageId', () => {
+  it('prefere providerMessageId direto quando presente', () => {
+    expect(
+      extractExternalMessageId({ id: 'uuid-submissao', providerMessageId: 'base64==' }),
+    ).toBe('base64==');
+  });
+
+  it('prefere messageId direto quando não há providerMessageId', () => {
+    expect(
+      extractExternalMessageId({ id: 'uuid-submissao', messageId: 'uuid-status' }),
+    ).toBe('uuid-status');
+  });
+
+  it('extrai de array messages[0] (id aninhado)', () => {
+    expect(
+      extractExternalMessageId({ messages: [{ id: 'msg-1' }, { id: 'msg-2' }] }),
+    ).toBe('msg-1');
+  });
+
+  it('extrai providerMessageId aninhado em contents[0]', () => {
+    expect(
+      extractExternalMessageId({ contents: [{ providerMessageId: 'pmid' }] }),
+    ).toBe('pmid');
+  });
+
+  it('cai no fallback histórico result.id quando nada mais existe', () => {
+    expect(extractExternalMessageId({ id: 'uuid-submissao', status: 'queued' })).toBe(
+      'uuid-submissao',
+    );
+  });
+
+  it('retorna undefined quando a resposta não tem id algum', () => {
+    expect(extractExternalMessageId({ status: 'queued' })).toBeUndefined();
+    expect(extractExternalMessageId({} as Record<string, unknown>)).toBeUndefined();
   });
 });

@@ -11,6 +11,7 @@ import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { ChatSessionHistoryService } from './chat-session-history.service';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
+import { localPhoneDigits } from '../utils';
 
 type ChatwootInbox = {
   id: number;
@@ -1280,22 +1281,38 @@ export class ChatwootService {
   }
 
   private async markRelatoriesAsResponded(companyId: string, rawPhone: string): Promise<void> {
-    const normalizedPhone = rawPhone.replace(/\D/g, '');
-    if (!normalizedPhone) return;
+    // Telefone local (sem prefixo de país 55). O Chatwoot envia o número com
+    // 55 (ex.: "+5511998950080") enquanto o worker grava `relatory.number` cru,
+    // sem 55 (ex.: "11998950080"). Comparamos pelo telefone local + sufixo para
+    // casar ambos os formatos sem casar números curtos por engano.
+    const localPhone = localPhoneDigits(rawPhone);
+    if (!localPhone || localPhone.length < 10) return;
 
     try {
+      // dígitos locais da coluna (remove um 55 inicial quando tem país)
+      const colDigits = `regexp_replace(number, '[^0-9]', '', 'g')`;
+      const colLocal = `CASE
+          WHEN LEFT(${colDigits}, 2) = '55' AND LENGTH(${colDigits}) >= 12
+          THEN SUBSTRING(${colDigits} FROM 3)
+          ELSE ${colDigits}
+        END`;
+      const minLen = `LEAST(LENGTH(${colLocal}), LENGTH(:phone))`;
+
       await this.relatoryRepository
         .createQueryBuilder()
         .update(RelatoryDispatchTemplate)
         .set({ response: true, response_at: new Date() })
         .where('"companyId" = :companyId', { companyId })
         .andWhere('response = false')
-        .andWhere("regexp_replace(number, '[^0-9]', '', 'g') = :phone", { phone: normalizedPhone })
+        .andWhere(
+          `${minLen} >= 10 AND RIGHT(${colLocal}, ${minLen}) = RIGHT(:phone, ${minLen})`,
+          { phone: localPhone },
+        )
         .execute();
 
       await this.redisService.delByPrefix(`graphics:${companyId}:`);
     } catch (err: any) {
-      this.logger.error(`Erro ao marcar retorno no relatory para ${normalizedPhone}: ${err?.message ?? err}`);
+      this.logger.error(`Erro ao marcar retorno no relatory para ${localPhone}: ${err?.message ?? err}`);
     }
   }
 

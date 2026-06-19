@@ -7,6 +7,7 @@ import { Company } from '../companies/entities/companies';
 import { Public } from '../auth/decorators/public.decorator';
 import { ChatGateway } from '../realtime/chat.gateway';
 import { RedisService } from '../redis/redis.service';
+import { localPhoneDigits } from '../utils';
 
 type NotificaMeMessageContent = {
   type: string;
@@ -154,14 +155,21 @@ export class NotificaMeWebhookController {
       return { received: true };
     }
 
+    // Telefone local (sem prefixo de país 55). O webhook MESSAGE inbound chega
+    // com 55 (ex.: "5511998950080"), mas o worker grava `relatory.number` cru,
+    // sem 55 (ex.: "11998950080"). Comparamos pelo telefone local para casar
+    // ambos os formatos. Ver notificame: handleIncomingMessage <-> worker.
+    const localFrom = localPhoneDigits(rawFrom);
+
     // Marca relatorio como respondido.
     // canalId_notificameHub agora é jsonb (array de canais); resolvemos a
     // empresa cujo array contém algum dos ids de contexto do webhook.
     const channelMatch = this.buildChannelContainmentClause(channelContextIds);
+    const phoneMatch = this.buildLocalPhoneMatchClause(localFrom);
     const relatory = await this.relatoryRepository
       .createQueryBuilder('relatory')
       .innerJoinAndSelect('relatory.company', 'company')
-      .where('relatory.number = :number', { number: rawFrom })
+      .where(phoneMatch.clause, phoneMatch.params)
       .andWhere('relatory.response = false')
       .andWhere(channelMatch.clause, channelMatch.params)
       .orderBy('relatory.date_dispatch', 'DESC')
@@ -244,6 +252,48 @@ export class NotificaMeWebhookController {
     });
 
     return { received: true };
+  }
+
+  /**
+   * Monta a cláusula WHERE que casa `relatory.number` com um telefone local
+   * (DDD + assinante, sem o prefixo de país 55), tolerando que o valor
+   * armazenado tenha ou não o 55 e qualquer formatação.
+   *
+   * Estratégia: normaliza a coluna para apenas dígitos, remove um 55 inicial
+   * quando o número tem >= 12 dígitos (telefone BR com país) e compara os
+   * últimos N dígitos significativos (N = tamanho do telefone local recebido,
+   * mínimo 10) com o `localFrom`. Exigir >= 10 dígitos evita falso-positivo
+   * entre números curtos. O escopo de empresa/canal (cláusula de containment)
+   * já impede match cruzado entre tenants.
+   */
+  private buildLocalPhoneMatchClause(localFrom: string): {
+    clause: string;
+    params: Record<string, string>;
+  } {
+    // localFrom já vem só com dígitos (localPhoneDigits). Se vier inválido
+    // (curto demais), força no-match para não casar errado.
+    if (!localFrom || localFrom.length < 10) {
+      return { clause: '1 = 0', params: {} };
+    }
+
+    // dígitos da coluna
+    const colDigits = `regexp_replace(relatory.number, '[^0-9]', '', 'g')`;
+    // dígitos locais da coluna (remove um 55 inicial quando tem país)
+    const colLocal = `CASE
+        WHEN LEFT(${colDigits}, 2) = '55' AND LENGTH(${colDigits}) >= 12
+        THEN SUBSTRING(${colDigits} FROM 3)
+        ELSE ${colDigits}
+      END`;
+
+    // Compara pelos últimos N dígitos, onde N = menor comprimento entre o
+    // telefone local da coluna e o recebido (simétrico: casa mesmo que um lado
+    // tenha um dígito a mais, ex. 9º dígito). Exige N >= 10 para não casar
+    // números curtos por engano (DDD + assinante).
+    const minLen = `LEAST(LENGTH(${colLocal}), LENGTH(:localFrom))`;
+    return {
+      clause: `${minLen} >= 10 AND RIGHT(${colLocal}, ${minLen}) = RIGHT(:localFrom, ${minLen})`,
+      params: { localFrom },
+    };
   }
 
   private extractChannelContextIds(body: NotificaMeWebhookPayload): string[] {

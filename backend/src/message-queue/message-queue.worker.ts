@@ -9,6 +9,7 @@ import type { MessageQueuePayload } from './entities/message-queue.entity';
 import type { NotificameChannel } from '../companies/entities/notificame-channel.type';
 import {
   buildDispatchComponentsMaped,
+  extractExternalMessageId,
   isFailedDispatch,
 } from './dispatch-relatory.util';
 
@@ -193,10 +194,18 @@ export class MessageQueueWorker implements OnModuleInit {
           `[Job ${job.id.slice(0, 8)}] NotificaMe respondeu HTTP ${response.status} com status="error" — resposta: ${JSON.stringify(result)}`,
         );
       } else {
+        // Loga a resposta CRUA completa para descobrir qual campo casa com o
+        // `messageId`/`providerMessageId` do webhook MESSAGE_STATUS. Hoje o
+        // status fica preso em "queued" por desencontro de id; este log permite
+        // confirmar em produção o campo correto sem novo deploy só pra depurar.
         this.logger.log(
-          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} id=${typeof result.id === 'string' ? result.id.slice(0, 12) : '-'}`,
+          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} — resposta: ${JSON.stringify(result)}`,
         );
       }
+
+      // Tenta extrair o melhor id para casar com o webhook de status; cai em
+      // result.id (comportamento histórico) quando nenhum candidato existe.
+      const externalMessageId = extractExternalMessageId(result);
 
       const mappedValues = safeComponents
         .flatMap((c) => (c.parameters ?? []))
@@ -215,7 +224,7 @@ export class MessageQueueWorker implements OnModuleInit {
 
       await this.relatoryRepository.save({
         date_dispatch: new Date(),
-        external_message_id: typeof result.id === 'string' ? result.id : undefined,
+        external_message_id: externalMessageId,
         status_sent: status,
         template: { id: template.id },
         name: job.payload.name ?? job.payload.number,
