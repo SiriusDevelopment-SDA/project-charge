@@ -5,10 +5,12 @@ import { Repository } from 'typeorm';
 import { Invoice } from '../invoices/entities/invoices';
 import { Client } from '../clients/entities.ts/clients';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
+import { Templates } from '../templates/entities/templatesMeta';
 import { Campaign } from '../campaigns/entities/campanhas.entity';
 import { DispatchBatch } from '../message-queue/entities/dispatch-batch.entity';
 import { PaymentPromise } from '../payment-promise/entities/payment-promise.entity';
 import { RedisService } from '../redis/redis.service';
+import { extractChargedAmount } from './charged-amount.util';
 
 const CACHE_TTL = 300; // seconds (5 minutes — dados de cobrança não mudam por segundo)
 
@@ -30,6 +32,9 @@ export class AppServiceGraphics {
 
     @InjectRepository(RelatoryDispatchTemplate)
     private readonly relatoryRepo: Repository<RelatoryDispatchTemplate>,
+
+    @InjectRepository(Templates)
+    private readonly templatesRepo: Repository<Templates>,
 
     @InjectRepository(Campaign)
     private readonly campaignRepo: Repository<Campaign>,
@@ -589,6 +594,102 @@ export class AppServiceGraphics {
     }));
 
     return { distribution, trend };
+  }
+
+  /**
+   * Métricas agregadas de UM template (efetividade + recuperação financeira).
+   * Filtra por `templateId` apenas: é UUID único por empresa (gerado por
+   * `@PrimaryGeneratedColumn('uuid')`), logo já é seguro multi-tenant — um id de
+   * empresa A nunca casa com relatórios da empresa B.
+   */
+  async getTemplateMetrics(templateId: string) {
+    const cacheKey = `graphics:template:${templateId}:metrics`;
+    const cached = await this.redisService.get<Awaited<ReturnType<typeof this._computeTemplateMetrics>>>(cacheKey);
+    if (cached) return cached;
+
+    return this.withSingleFlight(cacheKey, async () => {
+      const result = await this._computeTemplateMetrics(templateId);
+      await this.redisService.set(cacheKey, result, CACHE_TTL);
+      return result;
+    });
+  }
+
+  private async _computeTemplateMetrics(templateId: string) {
+    // Agregados (COUNT/SUM) em SQL — barato e exato.
+    const aggPromise = this.relatoryRepo
+      .createQueryBuilder('r')
+      .select('COUNT(r.id)', 'dispatched')
+      .addSelect("SUM(CASE WHEN r.status_sent IN ('delivered','read') THEN 1 ELSE 0 END)", 'delivered')
+      .addSelect("SUM(CASE WHEN r.status_sent IN ('error','failed','undelivered') THEN 1 ELSE 0 END)", 'failed')
+      .addSelect('SUM(CASE WHEN r.response = true THEN 1 ELSE 0 END)', 'responded')
+      .addSelect('SUM(COALESCE(r.recovered_amount, 0))', 'recovered')
+      .addSelect('MIN(r.date_dispatch)', 'firstDispatchAt')
+      .addSelect('MAX(r.date_dispatch)', 'lastDispatchAt')
+      .where('r.template = :templateId', { templateId })
+      .getRawOne<{
+        dispatched: string;
+        delivered: string;
+        failed: string;
+        responded: string;
+        recovered: string;
+        firstDispatchAt: Date | string | null;
+        lastDispatchAt: Date | string | null;
+      }>();
+
+    // Nome do template (entity separada). Não falha se não existir.
+    const templatePromise = this.templatesRepo.findOne({
+      where: { id: templateId },
+      select: { id: true, name: true },
+    });
+
+    // amountCharged: o valor está embutido no jsonb `components_maped`, não há
+    // FK para invoice. Extração em JS (robusta) sobre só essa coluna.
+    const componentsPromise = this.relatoryRepo
+      .createQueryBuilder('r')
+      .select('r.components_maped', 'components_maped')
+      .where('r.template = :templateId', { templateId })
+      .getRawMany<{ components_maped: unknown }>();
+
+    const [agg, template, componentRows] = await Promise.all([
+      aggPromise,
+      templatePromise,
+      componentsPromise,
+    ]);
+
+    const dispatched = parseInt(agg?.dispatched ?? '0', 10) || 0;
+    const delivered = parseInt(agg?.delivered ?? '0', 10) || 0;
+    const failed = parseInt(agg?.failed ?? '0', 10) || 0;
+    const responded = parseInt(agg?.responded ?? '0', 10) || 0;
+    const amountRecovered = Math.round((parseFloat(agg?.recovered ?? '0') || 0) * 100) / 100;
+
+    const amountCharged =
+      Math.round(
+        componentRows.reduce((sum, row) => sum + extractChargedAmount(row.components_maped), 0) * 100,
+      ) / 100;
+
+    const responseRate = dispatched > 0 ? Math.round((responded / dispatched) * 100) : 0;
+    const recoveryRate = amountCharged > 0 ? Math.round((amountRecovered / amountCharged) * 100) : 0;
+
+    const toIso = (value: Date | string | null | undefined): string | null => {
+      if (!value) return null;
+      const d = value instanceof Date ? value : new Date(value);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    };
+
+    return {
+      templateId,
+      templateName: template?.name ?? '',
+      dispatched,
+      delivered,
+      failed,
+      responded,
+      responseRate,
+      amountCharged,
+      amountRecovered,
+      recoveryRate,
+      firstDispatchAt: toIso(agg?.firstDispatchAt),
+      lastDispatchAt: toIso(agg?.lastDispatchAt),
+    };
   }
 
   async invalidateDashboardCache(companyId: string) {

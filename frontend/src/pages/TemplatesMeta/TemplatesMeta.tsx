@@ -12,6 +12,7 @@ import {
 } from "../../componente/Index";
 import { TemplatesUsageCard } from "../../componente/global/Graficos/GraficoTemplates";
 import { CardTemplates } from "../../componente/Card/CardTemplates";
+import { TemplateDetailsContent } from "../../componente/Card/TemplateDetailsContent";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import { useDispatchTemplate, useTemplate } from "../../hooks";
 import { useTemplateUsageQuery } from "../../hooks/queries/useTemplatesQuery";
@@ -94,6 +95,7 @@ export default function TemplatesMeta() {
     page,
     totalPages,
     previewTemplate,
+    detailsTemplate,
     searchTemplateName,
     categoryTemplateFilter,
     openDeleteModal,
@@ -108,6 +110,8 @@ export default function TemplatesMeta() {
     handleCategoryChange,
     openPreview,
     closePreview,
+    openDetails,
+    closeDetails,
     openDeleteConfirmation,
     closeDeleteConfirmation,
     confirmDelete,
@@ -211,6 +215,7 @@ export default function TemplatesMeta() {
             template={template}
             onPreview={openPreview}
             onDelete={openDeleteConfirmation}
+            onDetails={openDetails}
             onUse={(selectedTemplate) => {
               if (!isTemplateApproved(selectedTemplate.meta_status)) {
                 toast.warning(
@@ -264,6 +269,22 @@ export default function TemplatesMeta() {
                 Fechar
               </button>
             </div>
+          }
+        />
+      )}
+
+      {detailsTemplate && (
+        <DynamicModal
+          open
+          type="custom"
+          title={detailsTemplate.name}
+          onClose={closeDetails}
+          customContent={
+            <TemplateDetailsContent
+              templateId={detailsTemplate.id}
+              templateName={detailsTemplate.name}
+              onClose={closeDetails}
+            />
           }
         />
       )}

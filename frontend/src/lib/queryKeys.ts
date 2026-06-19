@@ -52,6 +52,8 @@ export const queryKeys = {
       ["dashboard", "debtConversion", companyId] as const,
     paymentProfile: (companyId: string) =>
       ["dashboard", "paymentProfile", companyId] as const,
+    templateMetrics: (templateId: string) =>
+      ["dashboard", "templateMetrics", templateId] as const,
     all: (companyId: string) =>
       ["dashboard", companyId] as const,
   },

@@ -151,3 +151,15 @@ export function useDashboardPaymentProfileQuery() {
     placeholderData: (prev) => prev,
   });
 }
+
+// Metricas de um template especifico. Habilitada apenas enquanto o modal de
+// detalhes esta aberto (`enabled`), para nao disparar requisicoes em massa nos
+// cards da listagem.
+export function useTemplateMetricsQuery(templateId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.dashboard.templateMetrics(templateId),
+    queryFn: () => DashboardService.getTemplateMetrics(templateId),
+    enabled: enabled && Boolean(templateId),
+    staleTime: 1000 * 25,
+  });
+}
