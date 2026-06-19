@@ -95,8 +95,8 @@ export class DashboardService{
         return data;
     }
 
-    static async getCampaignsStats(companyId: string): Promise<CampaignStatData[]> {
-        const { data } = await Api.post<CampaignStatData[]>(`/graphics/campaigns/${companyId}`);
+    static async getCampaignsStats(account: string): Promise<CampaignStatData[]> {
+        const { data } = await Api.post<CampaignStatData[]>(`/graphics/campaigns/${account}`);
         return data;
     }
 

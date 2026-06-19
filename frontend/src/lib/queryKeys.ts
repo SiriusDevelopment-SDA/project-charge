@@ -40,8 +40,8 @@ export const queryKeys = {
       ["dashboard", "charges", companyId] as const,
     returnRate: (companyId: string) =>
       ["dashboard", "returnRate", companyId] as const,
-    campaigns: (companyId: string) =>
-      ["dashboard", "campaigns", companyId] as const,
+    campaigns: (account: string) =>
+      ["dashboard", "campaigns", account] as const,
     promises: (companyId: string) =>
       ["dashboard", "promises", companyId] as const,
     aging: (companyId: string) =>

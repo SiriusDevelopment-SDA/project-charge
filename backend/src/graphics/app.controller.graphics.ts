@@ -24,9 +24,9 @@ export class GraphicsController{
         return await this.graphicsService.getMonthlyReturnRate(companyId);
     }
 
-    @Post('campaigns/:companyId')
-    async getCampaignsStats(@Param('companyId') companyId: string){
-        return await this.graphicsService.getCampaignsStats(companyId);
+    @Post('campaigns/:account')
+    async getCampaignsStats(@Param('account') account: string){
+        return await this.graphicsService.getCampaignsStats(account);
     }
 
     @Post('promises/:companyId')

@@ -236,21 +236,25 @@ export class AppServiceGraphics {
     return Array.from(monthsMap.values());
   }
 
-  async getCampaignsStats(companyId: string) {
-    const cacheKey = `graphics:${companyId}:campaigns`;
+  // Resolve por `account` (account_chatwoot da empresa VISUALIZADA), igual ao
+  // resto do dashboard (collections metrics) e à tela Campanhas. Antes usava o
+  // id da empresa do usuário LOGADO (me.company.id), que difere da empresa
+  // visualizada quando um super_admin troca de conta — fazia a aba vir vazia.
+  async getCampaignsStats(account: string) {
+    const cacheKey = `graphics:account:${account}:campaigns`;
     const cached = await this.redisService.get<Awaited<ReturnType<typeof this._computeCampaignsStats>>>(cacheKey);
     if (cached) return cached;
 
     return this.withSingleFlight(cacheKey, async () => {
-      const result = await this._computeCampaignsStats(companyId);
+      const result = await this._computeCampaignsStats(account);
       await this.redisService.set(cacheKey, result, CACHE_TTL);
       return result;
     });
   }
 
-  private async _computeCampaignsStats(companyId: string) {
+  private async _computeCampaignsStats(account: string) {
     const campaigns = await this.campaignRepo.find({
-      where: { company: { id: companyId } },
+      where: { company: { account_chatwoot: String(account) } },
       select: { id: true, name: true },
       order: { createdAt: 'DESC' },
       take: 10,
