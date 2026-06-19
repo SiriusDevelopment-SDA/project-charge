@@ -11,6 +11,7 @@ type Params = {
 export function useTemplatesPageController({ templates, deleteTemplate }: Params) {
   const [page, setPage] = useState(1);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [detailsTemplate, setDetailsTemplate] = useState<Template | null>(null);
   const [searchTemplateName, setSearchTemplateName] = useState("");
   const [categoryTemplateFilter, setCategoryTemplateFilter] = useState<string | null>(null);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -73,6 +74,14 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
     setPreviewTemplate(null);
   };
 
+  const openDetails = (template: Template) => {
+    setDetailsTemplate(template);
+  };
+
+  const closeDetails = () => {
+    setDetailsTemplate(null);
+  };
+
   const closeDeleteConfirmation = () => {
     setOpenDeleteModal(false);
     setTemplateToDelete(null);
@@ -97,6 +106,7 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
     page: safePage,
     totalPages,
     previewTemplate,
+    detailsTemplate,
     searchTemplateName,
     categoryTemplateFilter,
     openDeleteModal,
@@ -112,6 +122,8 @@ export function useTemplatesPageController({ templates, deleteTemplate }: Params
     handleCategoryChange,
     openPreview,
     closePreview,
+    openDetails,
+    closeDetails,
     openDeleteConfirmation,
     closeDeleteConfirmation,
     confirmDelete,

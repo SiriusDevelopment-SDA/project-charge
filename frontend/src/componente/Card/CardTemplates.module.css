@@ -5,6 +5,12 @@
   z-index: 1;
 }
 
+/* Eleva o card enquanto o menu de ações está aberto, para o dropdown
+   aparecer por cima dos cards vizinhos (que têm z-index: 1). */
+.CardWrapOpen {
+  z-index: 50;
+}
+
 /*CARD FIXO*/
 .TemplateCard {
   width: 100%;
@@ -15,7 +21,6 @@
   color: #fff !important;
   border: 1px solid rgba(255, 255, 255, 0.06);
   position: relative;
-  overflow: hidden;
 }
 
 /*BORDA ANIMADA*/
@@ -195,87 +200,75 @@
   border-color: rgba(148, 163, 184, 0.24);
 }
 
-/*BOTÕES BASE*/
-.CardIcons {
-  display: flex;
-  gap: 8px;
+/*MENU DE AÇÕES (kebab) — espelha o card de campanha*/
+.actionsMenuWrapper {
+  position: relative;
 }
 
-.BtnUse,
-.BtnDelete {
-  flex: 1;
-  display: flex;
+.actionsMenuButton {
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 32px;
-  padding: 6px 12px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  background: none;
-  text-decoration: none;
-  user-select: none;
-  -webkit-user-select: none;
+  display: flex;
+  justify-content: center;
+  padding: 6px;
 }
 
-/*USAR*/
-.BtnUse {
-  background: rgba(242, 192, 16, 0.1);
-  color: #f2c010;
-  border-color: rgba(242, 192, 16, 0.2);
+.actionsMenuButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
-.BtnUse:hover {
-  background: rgba(242, 192, 16, 0.2);
-  border-color: rgba(242, 192, 16, 0.4);
-  box-shadow: 0 0 8px rgba(242, 192, 16, 0.2);
+.actionsDropdown {
+  background: #111;
+  border: 1px solid rgba(199, 160, 47, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 126px;
+  z-index: 20;
 }
 
-.BtnUse:active {
-  background: rgba(242, 192, 16, 0.3);
-  transform: scale(0.98);
+.actionsDropdown button {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: #f0f0f0;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.84rem;
+  gap: 8px;
+  padding: 10px 12px;
+  text-align: left;
 }
 
-.BtnUse:disabled {
-  opacity: 0.5;
+.actionsDropdown button:hover {
+  background: rgba(230, 188, 57, 0.16);
+}
+
+.actionsDropdown button:disabled {
   cursor: not-allowed;
-}
-
-.BtnUse:disabled:hover {
-  background: rgba(242, 192, 16, 0.1);
-  border-color: rgba(242, 192, 16, 0.2);
-  box-shadow: none;
-}
-
-/*DELETAR*/
-.BtnDelete {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.2);
-}
-
-.BtnDelete:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
-}
-
-.BtnDelete:active {
-  background: rgba(239, 68, 68, 0.3);
-  transform: scale(0.98);
-}
-
-.BtnDelete:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
 }
 
-.BtnDelete:disabled:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
-  box-shadow: none;
+.actionsDropdown button:disabled:hover {
+  background: transparent;
+}
+
+.deleteAction {
+  color: #ff9a9a !important;
+}
+
+.deleteAction:hover {
+  background: rgba(170, 35, 35, 0.3) !important;
 }
 
 /*TEXTO CURTO*/

@@ -67,13 +67,15 @@ export function useDashboardReturnRateQuery() {
 }
 
 export function useDashboardCampaignsStatsQuery() {
-  const { data: me } = useMeQuery();
-  const companyId = me?.company?.id;
+  // Usa o `account` (empresa VISUALIZADA na URL), igual aos cards de métricas e
+  // à tela Campanhas. Antes usava `me.company.id` (empresa do usuário LOGADO),
+  // que diverge quando um super_admin troca de conta — a aba vinha vazia.
+  const account = useAccountParam();
 
   return useQuery({
-    queryKey: queryKeys.dashboard.campaigns(companyId ?? ""),
-    queryFn: () => DashboardService.getCampaignsStats(companyId!),
-    enabled: Boolean(companyId),
+    queryKey: queryKeys.dashboard.campaigns(account ?? ""),
+    queryFn: () => DashboardService.getCampaignsStats(account),
+    enabled: Boolean(account),
     staleTime: 1000 * 25,
     refetchInterval: REFETCH_INTERVAL,
     placeholderData: (prev) => prev,
@@ -147,5 +149,17 @@ export function useDashboardPaymentProfileQuery() {
     staleTime: 1000 * 25,
     refetchInterval: REFETCH_INTERVAL,
     placeholderData: (prev) => prev,
+  });
+}
+
+// Metricas de um template especifico. Habilitada apenas enquanto o modal de
+// detalhes esta aberto (`enabled`), para nao disparar requisicoes em massa nos
+// cards da listagem.
+export function useTemplateMetricsQuery(templateId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.dashboard.templateMetrics(templateId),
+    queryFn: () => DashboardService.getTemplateMetrics(templateId),
+    enabled: enabled && Boolean(templateId),
+    staleTime: 1000 * 25,
   });
 }

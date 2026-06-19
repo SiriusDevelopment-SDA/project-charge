@@ -110,7 +110,13 @@ export default function Table({ data, className }: TableProps) {
           style={{ minWidth: '300px', maxWidth: '350px', width: '350px', overflow: 'hidden' }}
           body={(row: ParsedHistoryRow) => (
             <div className="status-cell">
-              <Tag value={row.status_label} severity={statusSeverity(row.status_sent ?? "")} />
+              {/* Hover no badge: mostra o motivo (ex.: erro da NotificaMe/Meta). */}
+              <span
+                title={row.status_detail ?? undefined}
+                style={row.status_detail ? { cursor: "help" } : undefined}
+              >
+                <Tag value={row.status_label} severity={statusSeverity(row.status_sent ?? "")} />
+              </span>
               {row.status_detail_preview && (
                 <span
                   className="status-detail-text"

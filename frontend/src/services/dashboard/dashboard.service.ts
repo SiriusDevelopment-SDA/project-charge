@@ -79,6 +79,21 @@ export interface PaymentProfileData {
     trend: { month: string; onTimePct: number }[];
 }
 
+export interface TemplateMetrics {
+    templateId: string;
+    templateName: string;
+    dispatched: number;
+    delivered: number;
+    failed: number;
+    responded: number;
+    responseRate: number; // efetividade %
+    amountCharged: number;
+    amountRecovered: number;
+    recoveryRate: number;
+    firstDispatchAt: string | null;
+    lastDispatchAt: string | null;
+}
+
 export class DashboardService{
     static async getCharges(companyId: string): Promise<{ months: ChargesData[]; inadimplentes: number; pagamentos: number }> {
         const { data } = await Api.post<{inadimplentes: number; pagamentos: number; months: ChargesData[]}>(`/graphics/charges/${companyId}`);
@@ -95,8 +110,8 @@ export class DashboardService{
         return data;
     }
 
-    static async getCampaignsStats(companyId: string): Promise<CampaignStatData[]> {
-        const { data } = await Api.post<CampaignStatData[]>(`/graphics/campaigns/${companyId}`);
+    static async getCampaignsStats(account: string): Promise<CampaignStatData[]> {
+        const { data } = await Api.post<CampaignStatData[]>(`/graphics/campaigns/${account}`);
         return data;
     }
 
@@ -122,6 +137,11 @@ export class DashboardService{
 
     static async getPaymentProfile(companyId: string): Promise<PaymentProfileData> {
         const { data } = await Api.post<PaymentProfileData>(`/graphics/payment-profile/${companyId}`);
+        return data;
+    }
+
+    static async getTemplateMetrics(templateId: string): Promise<TemplateMetrics> {
+        const { data } = await Api.post<TemplateMetrics>(`/graphics/templates/${templateId}`);
         return data;
     }
 }

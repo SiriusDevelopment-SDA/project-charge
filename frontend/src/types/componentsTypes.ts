@@ -31,6 +31,7 @@ export type PropsCardTemplates = {
   onPreview: (template: Template) => void;
   onDelete: (template: Template) => void;
   onUse?: (template: Template) => void;
+  onDetails?: (template: Template) => void;
 };
 
 export type propTemplate = {

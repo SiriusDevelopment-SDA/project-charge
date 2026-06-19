@@ -1,0 +1,165 @@
+/* ===========================
+   MODAL DE DETALHES — TEMPLATE
+   (espelha o visual do modal da campanha)
+=========================== */
+.detailsModalContent {
+  background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);
+  border: 1px solid rgba(199, 160, 47, 0.35);
+  border-radius: 20px;
+  max-width: 520px;
+  min-width: 340px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detailsModalHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailsModalTitle {
+  color: #d8ad36;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.detailsModalSubtitle {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.8rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* GRID DE METRIC CARDS */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metricCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(199, 160, 47, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.metricLabel {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  color: #f0e8cc;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.metricValueGold {
+  color: #e4b83e;
+}
+
+.metricSub {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.metricSubDanger {
+  color: #ff9a9a;
+}
+
+/* PERÍODO — ocupa a linha inteira */
+.metricCardWide {
+  grid-column: 1 / -1;
+}
+
+.periodValue {
+  color: #f0e8cc;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ESTADO VAZIO */
+.emptyState {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+  padding: 28px 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin: 0;
+}
+
+/* LOADING — SKELETONS */
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.skeletonCard {
+  height: 78px;
+  border-radius: 12px;
+  border: 1px solid rgba(199, 160, 47, 0.12);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.07) 37%,
+    rgba(255, 255, 255, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.4s ease infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ERRO */
+.errorState {
+  color: #ff9a9a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+  padding: 24px 16px;
+  border: 1px dashed rgba(255, 122, 122, 0.3);
+  border-radius: 12px;
+  margin: 0;
+}
+
+.detailsModalClose {
+  background: transparent;
+  border: 1px solid rgba(199, 160, 47, 0.4);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 11px 20px;
+  width: 100%;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.detailsModalClose:hover {
+  border-color: rgba(230, 188, 57, 0.9);
+  color: #fff;
+}

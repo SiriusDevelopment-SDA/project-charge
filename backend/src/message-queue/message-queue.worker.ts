@@ -7,6 +7,11 @@ import { Templates } from '../templates/entities/templatesMeta';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import type { MessageQueuePayload } from './entities/message-queue.entity';
 import type { NotificameChannel } from '../companies/entities/notificame-channel.type';
+import {
+  buildDispatchComponentsMaped,
+  extractExternalMessageId,
+  isFailedDispatch,
+} from './dispatch-relatory.util';
 
 const WORKER_INTERVAL_MS = 1000;
 const BATCH_SIZE = 15;
@@ -171,28 +176,55 @@ export class MessageQueueWorker implements OnModuleInit {
         // Non-JSON response body — treat as error
       }
 
+      const status: RelatoryDispatchTemplate['status_sent'] = response.ok
+        ? ((result.status as RelatoryDispatchTemplate['status_sent']) ?? 'queued')
+        : 'error';
+
+      // Falha = HTTP não-ok OU HTTP 200 com `status: "error"` no corpo (a Meta
+      // rejeitou a mensagem na submissão). Antes, esse 2º caso caía no log de
+      // "OK" e o motivo se perdia — o relatório só guardava status='error'.
+      const failed = isFailedDispatch(response.ok, status);
+
       if (!response.ok) {
         this.logger.warn(
           `[Job ${job.id.slice(0, 8)}] NotificaMe HTTP ${response.status} — resposta: ${JSON.stringify(result)} — payload enviado: ${JSON.stringify(requestBody)}`,
         );
+      } else if (failed) {
+        this.logger.warn(
+          `[Job ${job.id.slice(0, 8)}] NotificaMe respondeu HTTP ${response.status} com status="error" — resposta: ${JSON.stringify(result)}`,
+        );
       } else {
+        // Loga a resposta CRUA completa para descobrir qual campo casa com o
+        // `messageId`/`providerMessageId` do webhook MESSAGE_STATUS. Hoje o
+        // status fica preso em "queued" por desencontro de id; este log permite
+        // confirmar em produção o campo correto sem novo deploy só pra depurar.
         this.logger.log(
-          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} id=${typeof result.id === 'string' ? result.id.slice(0, 12) : '-'}`,
+          `[Job ${job.id.slice(0, 8)}] NotificaMe OK ${response.status} — resposta: ${JSON.stringify(result)}`,
         );
       }
 
-      const status: RelatoryDispatchTemplate['status_sent'] = response.ok
-        ? (result.status as RelatoryDispatchTemplate['status_sent'] ?? 'queued')
-        : 'error';
+      // Tenta extrair o melhor id para casar com o webhook de status; cai em
+      // result.id (comportamento histórico) quando nenhum candidato existe.
+      const externalMessageId = extractExternalMessageId(result);
 
-      const componentsMaped = safeComponents
+      const mappedValues = safeComponents
         .flatMap((c) => (c.parameters ?? []))
-        .map((p: Record<string, unknown>) => p.text ?? null)
-        .filter(Boolean);
+        .map((p: Record<string, unknown>) => (p.text ?? null) as string | null)
+        .filter(Boolean) as (string | null)[];
+
+      // Em falha, grava o motivo (corpo da resposta da NotificaMe) no próprio
+      // relatório; em sucesso, mantém só os valores enviados (comportamento
+      // histórico). Ver dispatch-relatory.util.ts.
+      const componentsMaped = buildDispatchComponentsMaped({
+        isError: failed,
+        httpStatus: response.status,
+        notificameResponse: result,
+        mappedValues,
+      });
 
       await this.relatoryRepository.save({
         date_dispatch: new Date(),
-        external_message_id: typeof result.id === 'string' ? result.id : undefined,
+        external_message_id: externalMessageId,
         status_sent: status,
         template: { id: template.id },
         name: job.payload.name ?? job.payload.number,
