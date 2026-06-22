@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { ChatSessionHistoryService } from './chat-session-history.service';
 import { RelatoryDispatchTemplate } from '../templates/entities/relatory.entity';
 import { localPhoneDigits } from '../utils';
+import { mapChatwootAgentRole } from './agent-provision.util';
 
 type ChatwootInbox = {
   id: number;
@@ -1018,13 +1019,17 @@ export class ChatwootService {
     }
 
     const config = (company.config as any) ?? {};
-    const platformToken = String(
-      this.configService.get<string>('CHATWOOT_PLATFORM_TOKEN') ?? '',
-    ).trim();
+    // Token de plataforma POR EMPRESA (config.platformToken) tem prioridade
+    // sobre o global do env. Necessário quando a conta Chatwoot da empresa foi
+    // criada por um app de plataforma diferente do global — senão a Platform API
+    // recusa com 401 "Non permissible resource" (caso PROXER, account 12).
+    const platformToken =
+      String(config?.platformToken ?? '').trim() ||
+      String(this.configService.get<string>('CHATWOOT_PLATFORM_TOKEN') ?? '').trim();
 
     if (!platformToken) {
       throw new BadRequestException(
-        'Configure a variavel de ambiente CHATWOOT_PLATFORM_TOKEN antes de criar agentes sincronizados.',
+        'Configure config.platformToken da empresa ou a variavel de ambiente CHATWOOT_PLATFORM_TOKEN antes de criar agentes sincronizados.',
       );
     }
 
@@ -1483,39 +1488,46 @@ export class ChatwootService {
     authorization?: string;
   }): Promise<ChatwootProvisionResult> {
     const context = await this.resolveProvisioningContext(input.companyId, input.authorization);
-    const user = await this.platformRequest('/platform/api/v1/users', context.platformToken, {
-      method: 'POST',
-      body: JSON.stringify({
-        name: input.name,
-        email: input.email,
-        password: input.password,
-        display_name: input.name,
-      }),
-    });
 
-    const userId = this.toNumericId(user?.id);
-    const accessToken = String(user?.access_token ?? '').trim();
-
-    if (!userId || !accessToken) {
+    // Criação via API DE CONTA (e não Platform API): o app de plataforma global
+    // não é dono de contas criadas por outros apps (caso PROXER, account 12), o
+    // que faz a Platform API responder 401 "Non permissible resource". O admin
+    // logado, porém, é administrador da conta no Chatwoot e pode criar agentes
+    // por convite. O agente é criado SEM senha local — o Chatwoot dispara um
+    // e-mail de convite para o usuário definir a própria senha.
+    if (!context.adminToken) {
       throw new BadRequestException(
-        'Chatwoot nao retornou o usuario ou token do agente criado.',
+        'É necessário estar autenticado como administrador da conta no Chatwoot para criar o agente.',
       );
     }
 
-    await this.platformRequest(
-      `/platform/api/v1/accounts/${context.accountId}/account_users`,
-      context.platformToken,
+    const role = mapChatwootAgentRole(input.role);
+
+    const agent = await this.chatwootRequest(
+      context.account,
+      context.adminToken,
+      '/agents',
       {
         method: 'POST',
         body: JSON.stringify({
-          user_id: userId,
-          role:
-            input.role === 'admin' || input.role === 'super_admin'
-              ? 'administrator'
-              : 'agent',
+          name: input.name,
+          email: input.email,
+          role,
         }),
       },
     );
+
+    const userId = this.toNumericId(agent?.id);
+
+    if (!userId) {
+      throw new BadRequestException(
+        'Chatwoot nao retornou o id do agente criado na conta.',
+      );
+    }
+
+    // A API de conta cria o agente por convite e nao devolve access_token; o
+    // caller (auth.service) ja grava chatwootAccessToken = null.
+    const accessToken = String(agent?.access_token ?? '').trim();
 
     if (context.teamId) {
       if (!context.adminToken) {
@@ -1552,14 +1564,30 @@ export class ChatwootService {
     return { userId, accessToken };
   }
 
-  async removeAgentIdentity(companyId: string, chatwootUserId?: number | null) {
+  async removeAgentIdentity(
+    companyId: string,
+    chatwootUserId?: number | null,
+    authorization?: string,
+  ) {
     const userId = this.toNumericId(chatwootUserId);
     if (!userId) return;
 
-    const context = await this.resolveProvisioningContext(companyId);
-    await this.platformRequest(
-      `/platform/api/v1/users/${userId}`,
-      context.platformToken,
+    const context = await this.resolveProvisioningContext(companyId, authorization);
+
+    // Remoção via API DE CONTA (espelha a criação). Sem adminToken não dá para
+    // remover o agente da conta — apenas avisa e segue, pra nao quebrar a
+    // remocao local do agente no Postgres.
+    if (!context.adminToken) {
+      this.logger.warn(
+        `[removeAgent] adminToken ausente — agente chatwootUserId=${userId} da company=${companyId} nao sera removido da conta do Chatwoot`,
+      );
+      return;
+    }
+
+    await this.chatwootRequest(
+      context.account,
+      context.adminToken,
+      `/agents/${userId}`,
       { method: 'DELETE' },
       true,
     );

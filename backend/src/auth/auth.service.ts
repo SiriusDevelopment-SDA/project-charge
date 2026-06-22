@@ -448,6 +448,7 @@ export class AuthService {
       await this.chatwootService.removeAgentIdentity(
         companyId,
         provisionedIdentity.userId,
+        authorization,
       );
       throw error;
     }
@@ -1257,6 +1258,7 @@ export class AuthService {
     await this.chatwootService.removeAgentIdentity(
       actingAgent.company.id,
       agent.chatwootUserId ?? null,
+      authorization,
     );
 
     await this.agentRepository.remove(agent);
