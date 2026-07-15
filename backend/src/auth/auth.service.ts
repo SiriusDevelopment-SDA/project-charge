@@ -634,8 +634,105 @@ export class AuthService {
 
   async syncCompanyAgentsWithChatwoot(authorization?: string) {
     const actingAgent = await this.requireAdminAgent(authorization);
+    return this.syncAgentsForCompany(actingAgent.company.id);
+  }
+
+  /**
+   * Sincroniza agentes de VARIAS empresas de uma vez, resolvidas por
+   * account_chatwoot. Usado pelo webhook do Maestro (push em lote): 1 requisicao
+   * com um array de accounts. Tolerante a falha parcial — uma account que falha
+   * nao derruba as demais; retorna o resultado por account.
+   */
+  async syncAgentsForAccounts(accounts: string[], token: string) {
+    const expectedToken = String(token ?? '').trim();
+    const normalized = Array.from(
+      new Set(
+        (accounts ?? [])
+          .map((a) => String(a ?? '').trim())
+          .filter((a) => a.length > 0),
+      ),
+    );
+
+    const results: Array<{
+      account: string;
+      ok: boolean;
+      companyId?: string;
+      synced?: number;
+      skipped?: number;
+      message?: string;
+      error?: string;
+    }> = [];
+
+    for (const account of normalized) {
+      const company = await this.companyRepository.findOne({
+        where: { account_chatwoot: account },
+        select: { id: true, token_system_coraxy: true },
+      });
+
+      if (!company) {
+        results.push({
+          account,
+          ok: false,
+          error: 'Empresa nao encontrada para esta account',
+        });
+        this.logger.warn(
+          `[MaestroAgentsSync] account=${account} sem empresa correspondente`,
+        );
+        continue;
+      }
+
+      // Autorizacao por token compartilhado: so sincroniza accounts cuja empresa
+      // tenha EXATAMENTE o token_system_coraxy apresentado no header.
+      if (String(company.token_system_coraxy ?? '') !== expectedToken) {
+        results.push({
+          account,
+          ok: false,
+          companyId: company.id,
+          error: 'Token nao autorizado para esta account',
+        });
+        this.logger.warn(
+          `[MaestroAgentsSync] token invalido para account=${account}`,
+        );
+        continue;
+      }
+
+      try {
+        const r = await this.syncAgentsForCompany(company.id);
+        results.push({
+          account,
+          ok: true,
+          companyId: company.id,
+          synced: r.synced,
+          skipped: r.skipped,
+          message: r.message,
+        });
+      } catch (err) {
+        const msg = (err as Error)?.message ?? String(err);
+        results.push({ account, ok: false, companyId: company.id, error: msg });
+        this.logger.error(
+          `[MaestroAgentsSync] Falha ao sincronizar account=${account} company=${company.id}: ${msg}`,
+        );
+      }
+    }
+
+    const okCount = results.filter((r) => r.ok).length;
+    return {
+      success: true,
+      requested: normalized.length,
+      synced: okCount,
+      failed: results.length - okCount,
+      results,
+    };
+  }
+
+  /**
+   * Nucleo do sync de agentes por companyId — NAO exige token de admin.
+   * Reutilizado pelo trigger manual (via syncCompanyAgentsWithChatwoot) e pelo
+   * webhook do Maestro (push por account -> companyId).
+   */
+  async syncAgentsForCompany(companyId: string) {
     const company = await this.companyRepository.findOne({
-      where: { id: actingAgent.company.id },
+      where: { id: companyId },
       select: {
         id: true,
         account_chatwoot: true,
@@ -666,7 +763,7 @@ export class AuthService {
       ),
     );
     const localAgents = await this.agentRepository.find({
-      where: { company: { id: actingAgent.company.id } },
+      where: { company: { id: company.id } },
       relations: ['company'],
       select: {
         id: true,
@@ -760,7 +857,7 @@ export class AuthService {
 
             if (shouldDemoteLastAdmin) {
               try {
-                await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, existing.id);
+                await this.ensureCompanyHasAnotherAdmin(company.id, existing.id);
                 existing.role = mappedRole;
                 roleUpdated += 1;
                 changed = true;
@@ -808,7 +905,7 @@ export class AuthService {
       const existingInAnotherCompany = existingAgentsByEmailMap.get(normalizedEmail);
       if (
         existingInAnotherCompany &&
-        existingInAnotherCompany.company.id !== actingAgent.company.id
+        existingInAnotherCompany.company.id !== company.id
       ) {
         skipped += 1;
         emailConflictSkipped += 1;
@@ -826,7 +923,7 @@ export class AuthService {
         active: true,
         chatwootUserId: remoteAgent.id,
         chatwootAccessToken: importedToken,
-        company: { id: actingAgent.company.id },
+        company: { id: company.id },
       });
 
       await this.agentRepository.save(created);
