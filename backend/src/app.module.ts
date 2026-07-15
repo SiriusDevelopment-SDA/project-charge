@@ -45,9 +45,11 @@ import { ChatwootService } from './chatwoot/chatwoot.service';
 import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
 import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
+import { MaestroWebhookController } from './webhooks/maestro.webhook.controller';
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
 import { TemplateStatusSyncCron } from './templates/template-status-sync.cron';
 import { ClientsSyncCron } from './clients/clients-sync.cron';
+import { AgentsSyncCron } from './auth/agents-sync.cron';
 import { InvoiceSyncCron } from './invoices/invoice-sync.cron';
 import { InvoicesService } from './invoices/invoices.service';
 import { DispatchBatch } from './message-queue/entities/dispatch-batch.entity';
@@ -110,6 +112,7 @@ import { SuperAdminGuard } from './auth/guards/super-admin.guard';
     RedisController,
     GraphicsController,
     NotificaMeWebhookController,
+    MaestroWebhookController,
     PaymentPromiseController,
     ClientInteractionController,
     CompaniesController,
@@ -132,6 +135,7 @@ import { SuperAdminGuard } from './auth/guards/super-admin.guard';
     RelatoryResolverCron,
     TemplateStatusSyncCron,
     ClientsSyncCron,
+    AgentsSyncCron,
     InvoiceSyncCron,
     InvoicesService,
     PaymentPromiseCron,
