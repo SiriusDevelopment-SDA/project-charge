@@ -171,21 +171,25 @@ export default function EfetuarDisparo() {
         </div>
 
         <div className={Style.containerButtonsPlanilha}>
-          <div className={Style.containerChannelSelect}>
-            <ChannelSelect
-              value={dispatch.channelId}
-              onChange={dispatch.setChannelId}
-              channels={channels}
-              disabled={isLoadingChannels || hasNoChannels}
-              placeholder={
-                hasNoChannels
-                  ? "Sem canais configurados"
-                  : isLoadingChannels
-                    ? "Carregando canais..."
-                    : "Selecione o canal de disparo"
-              }
-            />
-          </div>
+          {/* So mostra o seletor quando ha mais de 1 canal — com 0 ou 1 nao ha
+              o que escolher (o worker usa o unico canal via fallback). */}
+          {channels.length > 1 && (
+            <div className={Style.containerChannelSelect}>
+              <ChannelSelect
+                value={dispatch.channelId}
+                onChange={dispatch.setChannelId}
+                channels={channels}
+                disabled={isLoadingChannels || hasNoChannels}
+                placeholder={
+                  hasNoChannels
+                    ? "Sem canais configurados"
+                    : isLoadingChannels
+                      ? "Carregando canais..."
+                      : "Selecione o canal de disparo"
+                }
+              />
+            </div>
+          )}
 
           <div className={Style.containerPlanilhaActions}>
             <UploadButton
