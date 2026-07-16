@@ -65,6 +65,15 @@ Fase 2, seu próprio catálogo de cidade/bairro/rua).
 Retorna um array de objetos com: `ativado_em`, `desativado_em`,
 `duracao_segundos`, `mensagem`, `regiao`, `operador_nome`, `operador_token`.
 
+> **Nome do operador:** o `operador_token` gravado é o `chatwootAccessToken` do
+> agente (ver `auth.service.ts`). Para o histórico exibir o **nome** em vez do
+> token, o SELECT deste webhook faz `LEFT JOIN` com a tabela `agents`
+> (`agents."chatwootAccessToken" = massiva_historico.operador_token`) e retorna
+> `agents.name AS operador_nome`. Query pronta e validada em
+> [`queries/historico-operador.sql`](queries/historico-operador.sql). A
+> interface só exibe `operador_nome`; sem correspondência, mostra
+> "Não identificado" (nunca o token cru).
+
 ### Fase 1 — Modelos de mensagem (a implementar no N8N)
 
 Sugestão de webhook único `/webhook/massiva-modelos` roteando por método:

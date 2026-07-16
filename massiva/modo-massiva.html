@@ -2893,7 +2893,9 @@ function renderizarHistorico(itens) {
   historicoLista.innerHTML = itens.map((item) => {
     const emAberto = !item.desativado_em;
     const duracao = emAberto ? "no ar agora" : formatarDuracaoCurta(item.duracao_segundos);
-    const operador = item.operador_nome || item.operador_token || "não identificado";
+    // Mostra o NOME do operador (vem do JOIN com agents.name na query do histórico).
+    // Nunca exibe o token cru — se não houver nome, mostra "Não identificado".
+    const operador = item.operador_nome || "Não identificado";
 
     return `
       <div class="item-historico ${emAberto ? "aberto-agora" : ""}">
