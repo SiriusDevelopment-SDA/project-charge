@@ -1,27 +1,37 @@
 -- ============================================================================
 -- Histórico da Massiva com o NOME do operador (em vez do token)
 -- ----------------------------------------------------------------------------
--- Onde usar: no node "Postgres · Execute Query" do fluxo do webhook
---   /webhook/massiva-historico  (substitui/enriquece o SELECT que hoje retorna
---   o histórico da conta).
+-- Onde usar: no fluxo do webhook /webhook/massiva-historico (o que lista o
+-- histórico da conta). NÃO é no fluxo de ativar (/webhook/massiva).
 --
--- Relação descoberta no código do backend (Coraxy / NestJS):
+-- Relação (descoberta no backend Coraxy):
 --   massiva_historico.operador_token  ==  agents."chatwootAccessToken"
 --   nome do operador                  ==  agents.name
---   (o token do embed é o chatwootAccessToken do agente — ver auth.service.ts)
---
--- Observações importantes:
---   1) A tabela `agents` tem colunas em camelCase (criadas pelo TypeORM), então
---      no Postgres elas EXIGEM aspas duplas: "chatwootAccessToken", "companyId".
---   2) Alguns registros antigos gravaram o token como a string 'undefined' ou
---      NULL — o NULLIF + LEFT JOIN garantem que essas linhas ainda apareçam,
---      com operador_nome = NULL (a interface mostra "Não identificado").
---   3) PRÉ-REQUISITO: `agents` precisa estar no MESMO banco/conexão deste node.
---      Rode antes, na mesma conexão, para confirmar:
---          SELECT to_regclass('public.agents');   -- não-nulo = existe aqui
---      Se vier NULL, veja a seção "Bancos diferentes" no fim do arquivo.
+--   E como esse token é o access token do agente NO CHATWOOT, também dá para
+--   resolver o nome direto no banco do Chatwoot (access_tokens + users).
 -- ============================================================================
 
+-- ############################################################################
+-- ERRO COMUM: relation "public.massiva_historico" does not exist
+-- ----------------------------------------------------------------------------
+-- Significa que o node Postgres está apontando para o BANCO ERRADO (ex.: a
+-- credencial "chatwoot"). A massiva_historico fica no banco onde a massiva
+-- grava os registros (o n8n_utils). Solução:
+--   -> troque a Credential deste node para a MESMA que o node de gravação da
+--      massiva usa (a que escreve em massiva_historico), e rode de novo.
+--
+-- Depois, confirme onde cada tabela está (rode na credencial do n8n_utils):
+--   SELECT to_regclass('public.massiva_historico') AS tem_historico,
+--          to_regclass('public.agents')            AS tem_agents;
+--   - as duas não-nulas  -> use a OPÇÃO 1 (JOIN direto).
+--   - tem_agents = NULL  -> agents está em outro banco: use a OPÇÃO 2 (2 passos).
+-- ############################################################################
+
+
+-- ============================================================================
+-- OPÇÃO 1 — massiva_historico e agents no MESMO banco (JOIN direto)
+-- ============================================================================
+-- Colunas camelCase da `agents` exigem aspas duplas: "chatwootAccessToken".
 SELECT
     h.id,
     h.account,
@@ -29,7 +39,7 @@ SELECT
     h.regiao,
     h.ativado_em,
     h.desativado_em,
-    -- Se você JÁ tem a coluna h.duracao_segundos, troque este CASE por h.duracao_segundos:
+    -- Se você JÁ tem a coluna h.duracao_segundos, troque este CASE por ela:
     CASE
         WHEN h.desativado_em IS NOT NULL
             THEN EXTRACT(EPOCH FROM (h.desativado_em - h.ativado_em))::int
@@ -40,37 +50,39 @@ SELECT
 FROM public.massiva_historico h
 LEFT JOIN public.agents a
        ON a."chatwootAccessToken" = NULLIF(h.operador_token, 'undefined')
-WHERE h.account = $1            -- no n8n: {{ $json.query.account }}
+WHERE h.account = $1            -- ligue $1 em Options > Query Parameters ao account
 ORDER BY h.ativado_em DESC;
+-- No n8n, o account vem da query string: {{ $json.query.account }}.
+-- Prefira "Query Parameters" (evita SQL injection) a interpolar direto no SQL.
 
 
--- ----------------------------------------------------------------------------
--- (Opcional) Escopar por empresa, para o token só resolver dentro da conta
--- certa. Como o chatwootAccessToken é único por agente, normalmente não é
--- necessário — use apenas se quiser reforçar:
+-- ============================================================================
+-- OPÇÃO 2 — bancos diferentes: 2 nodes + Code (resolve o nome pelo Chatwoot)
+-- ============================================================================
+-- NODE 1 (credencial n8n_utils) — histórico cru:
+--   SELECT id, account, mensagem, regiao, ativado_em, desativado_em, operador_token
+--   FROM public.massiva_historico
+--   WHERE account = $1
+--   ORDER BY ativado_em DESC;
 --
---   LEFT JOIN public.agents a
---          ON a."chatwootAccessToken" = NULLIF(h.operador_token, 'undefined')
---   LEFT JOIN public.companies c
---          ON c.id = a."companyId"
---         AND c.account_chatwoot = h.account
+-- NODE 2 (credencial chatwoot) — nomes pelos tokens distintos:
+--   SELECT at.token AS operador_token, u.name AS operador_nome
+--   FROM access_tokens at
+--   JOIN users u ON u.id = at.owner_id
+--   WHERE at.owner_type = 'User'
+--     AND at.token = ANY($1::text[]);   -- $1 = array de tokens do NODE 1
 --
--- ----------------------------------------------------------------------------
--- Bancos diferentes (agents NÃO está no mesmo banco de massiva_historico)
--- ----------------------------------------------------------------------------
--- Se o SELECT to_regclass('public.agents') acima retornou NULL, o JOIN direto
--- não funciona. Escolha uma das saídas:
+-- NODE 3 (Code) — casa token -> nome e monta a resposta do webhook:
+--   const historico = $('Node 1').all().map(i => i.json);
+--   const nomes = {};
+--   for (const r of $('Node 2').all()) nomes[r.json.operador_token] = r.json.operador_nome;
+--   return historico.map(h => ({ json: {
+--     ...h,
+--     duracao_segundos: h.desativado_em
+--       ? Math.round((new Date(h.desativado_em) - new Date(h.ativado_em)) / 1000)
+--       : null,
+--     operador_nome: nomes[h.operador_token] || null,
+--   }}));
 --
---   A) Apontar o node Postgres para o banco que tem AS DUAS tabelas (se o
---      massiva_historico também existir lá), ou sincronizar/replicar `agents`
---      para o banco do n8n.
---
---   B) postgres_fdw: expor a tabela `agents` do outro banco como tabela
---      estrangeira dentro do banco do n8n e então usar o mesmo JOIN acima.
---
---   C) Dois passos no fluxo (sem JOIN): 1º node retorna o histórico; um 2º
---      node consulta os nomes pelos tokens distintos
---         SELECT "chatwootAccessToken" AS token, name
---         FROM public.agents
---         WHERE "chatwootAccessToken" = ANY($1);   -- array de tokens
---      e um Function node casa token -> name antes de responder o webhook.
+-- (Alternativa à OPÇÃO 2: postgres_fdw para expor `agents`/`users` do outro
+--  banco dentro do banco do n8n e então usar o JOIN da OPÇÃO 1.)
