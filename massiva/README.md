@@ -91,17 +91,63 @@ Resposta: o modelo criado (`{ "id": ..., "texto": ..., "criado_por": ... }`).
 > Ponto de troca no HTML: os três métodos `Store.listarModelos`,
 > `Store.adicionarModelo` e `Store.removerModelo`. Só eles mudam.
 
+### Fase 2 — Catálogo de localização (a implementar no N8N)
+
+Três webhooks, um por nível, com o mesmo padrão do de modelos (GET/POST/DELETE).
+Tabelas em `schema.sql` (`massiva_cidades`, `massiva_bairros`, `massiva_ruas`).
+
+- **`/webhook/massiva-cidades`**
+  - `GET  ?account=&token=` → `[{ "id", "nome" }]`
+  - `POST { account, token, nome }` → cidade criada
+  - `DELETE { account, token, id }` → remove (cascata: bairros e ruas)
+- **`/webhook/massiva-bairros`**
+  - `GET  ?account=&token=` → `[{ "id", "nome", "cidadeId" }]`
+  - `POST { account, token, nome, cidadeId }` → bairro criado
+  - `DELETE { account, token, id }` → remove (cascata: ruas)
+- **`/webhook/massiva-ruas`**
+  - `GET  ?account=&token=` → `[{ "id", "nome", "bairroId" }]`
+  - `POST { account, token, nome, bairroId }` → rua criada
+  - `DELETE { account, token, id }` → remove
+
+> Ponto de troca no HTML: os métodos `listar/adicionar/removerCidade`,
+> `...Bairro` e `...Rua` do `Store`. A UI e a cascata não mudam.
+
+### Payload de disparo enriquecido (Fase 2)
+
+O `POST /webhook/massiva` agora inclui, além dos campos antigos, o objeto
+`areas` com a seleção estruturada — é isto que a IA usa para casar o cliente:
+
+```json
+{
+  "areas": {
+    "todasCidades": false,
+    "todosBairros": false,
+    "todasRuas": false,
+    "cidades": [
+      { "nome": "São Paulo", "bairros": [
+        { "nome": "Centro", "ruas": ["Rua Augusta"] },
+        { "nome": "Pinheiros", "ruas": [] }
+      ]}
+    ]
+  }
+}
+```
+
+Regras de leitura: cidade sem bairros = cidade inteira; bairro sem ruas =
+bairro inteiro; `todas*` = curinga naquele nível.
+
 ---
 
 ## Roadmap
 
 - [x] **Fase 1 — Mensagens padrão por empresa.** Aplicar, adicionar e excluir
   modelos. Mock-first (localStorage) + contrato de endpoints acima.
-- [ ] **Fase 2 — Localização hierárquica.** Cidade (obrigatório) → bairro
-  (obrigatório) → rua (opcional). Cadastro em cada nível, cascata
-  (bairros por cidade, ruas por bairro), botão "Todos" por nível. Substitui o
-  texto livre de "Regiões afetadas" por seleção estruturada; envia um payload
-  estruturado no disparo, para a IA casar melhor o cliente com a área.
+- [x] **Fase 2 — Localização hierárquica.** Cidade (obrigatório) → bairro
+  (obrigatório) → rua (opcional). Cadastro inline em cada nível, cascata
+  (bairros por cidade, ruas por bairro), botão "Todos" por nível e exclusão do
+  catálogo. Substitui o texto livre de "Regiões afetadas" por seleção
+  estruturada; envia um payload estruturado (`areas`) no disparo, para a IA
+  casar melhor o cliente com a área. Mock-first (localStorage) + contrato abaixo.
 - [ ] **Fase 3 — Edição ao vivo.** Desmarcar áreas com a massiva no ar, sem
   precisar desativar e reativar.
 - [ ] **Fase 4 (opcional) — Semear catálogo** a partir dos endereços reais dos

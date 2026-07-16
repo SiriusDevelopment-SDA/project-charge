@@ -543,11 +543,6 @@
       margin-bottom: 0.85rem;
     }
 
-    .areas_afetadas {
-      height: 60px;
-      margin-bottom: 1.15rem;
-    }
-
     /* ---------- Mensagens padrão (modelos) — seletor ---------- */
     .modelos-bloco {
       margin-bottom: 1.15rem;
@@ -779,6 +774,372 @@
 
     .modelos-aviso.mostrar {
       display: block;
+    }
+
+    /* ---------- Regiões afetadas (Fase 2): cidade > bairro > rua ---------- */
+    .regioes {
+      margin-bottom: 1.15rem;
+    }
+
+    .regioes-titulo {
+      display: block;
+      margin-bottom: 0.7rem;
+    }
+
+    .sel-grupo {
+      margin-bottom: 0.7rem;
+    }
+
+    .sel-grupo:last-child {
+      margin-bottom: 0;
+    }
+
+    .sel-rotulo {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.64rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--apagado);
+      margin-bottom: 0.35rem;
+    }
+
+    .sel-rotulo b {
+      color: var(--amarelo);
+    }
+
+    .sel-rotulo .opc {
+      text-transform: none;
+      letter-spacing: 0;
+      color: #4c4c55;
+    }
+
+    .sel {
+      position: relative;
+    }
+
+    .sel-trigger {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background: var(--painel-2);
+      border: 1px solid #2d2d34;
+      border-radius: 10px;
+      color: var(--suave);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s ease, color 0.2s ease;
+    }
+
+    .sel-trigger:hover:not(:disabled),
+    .sel.aberto .sel-trigger {
+      background: var(--painel-2);
+      border-color: rgba(255, 205, 3, 0.55);
+      color: var(--texto);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .sel-trigger:disabled {
+      cursor: not-allowed;
+      color: var(--apagado);
+      background: #0d0d10;
+    }
+
+    .sel-trigger .ico-pin {
+      flex-shrink: 0;
+      color: var(--amarelo);
+      opacity: 0.85;
+    }
+
+    .sel-trigger:disabled .ico-pin {
+      color: var(--apagado);
+      opacity: 0.6;
+    }
+
+    .sel-trigger-texto {
+      flex: 1 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sel-contagem {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--apagado);
+      background: #1c1c21;
+      border: 1px solid #313139;
+      border-radius: 999px;
+      padding: 0.1rem 0.5rem;
+    }
+
+    .sel-contagem:empty {
+      display: none;
+    }
+
+    .sel-chevron {
+      flex-shrink: 0;
+      color: var(--apagado);
+      transition: transform 0.25s ease, color 0.2s ease;
+    }
+
+    .sel.aberto .sel-chevron {
+      transform: rotate(180deg);
+      color: var(--amarelo);
+    }
+
+    .sel-menu {
+      position: absolute;
+      top: calc(100% + 0.4rem);
+      left: 0;
+      right: 0;
+      z-index: 25;
+      background: var(--painel);
+      border: 1px solid #33333c;
+      border-radius: 12px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+      animation: menuSurgir 0.16s ease both;
+    }
+
+    .sel-menu[hidden] {
+      display: none;
+    }
+
+    .sel-busca {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--borda);
+    }
+
+    .sel-busca svg {
+      flex-shrink: 0;
+      color: var(--apagado);
+    }
+
+    .sel-busca input {
+      flex: 1 1 auto;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--texto);
+      font-family: inherit;
+      font-size: 0.88rem;
+      padding: 0;
+    }
+
+    .sel-busca input::placeholder {
+      color: var(--apagado);
+    }
+
+    .sel-todos {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.4rem;
+      width: 100%;
+      padding: 0.55rem 0.85rem;
+      border: none;
+      border-bottom: 1px solid var(--borda);
+      border-radius: 0;
+      background: transparent;
+      color: var(--suave);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .sel-todos:hover {
+      background: var(--painel-2);
+      color: var(--texto);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .sel-todos.ativo {
+      color: var(--amarelo);
+      background: rgba(255, 205, 3, 0.06);
+    }
+
+    .sel-lista {
+      max-height: 190px;
+      overflow-y: auto;
+      padding: 0.3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .sel-op {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.55rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .sel-op:hover {
+      background: var(--painel-2);
+    }
+
+    .sel-op.marcado {
+      background: rgba(255, 205, 3, 0.06);
+    }
+
+    .sel-op input {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      accent-color: var(--amarelo);
+      cursor: pointer;
+    }
+
+    .sel-op-nome {
+      flex: 1 1 auto;
+      font-size: 0.88rem;
+      color: var(--texto);
+    }
+
+    .sel-op-lixo {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--apagado);
+      cursor: pointer;
+      opacity: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s ease, color 0.2s ease, background 0.2s ease;
+    }
+
+    .sel-op:hover .sel-op-lixo,
+    .sel-op:focus-within .sel-op-lixo {
+      opacity: 1;
+    }
+
+    .sel-op-lixo:hover {
+      color: var(--vermelho);
+      background: rgba(248, 113, 113, 0.14);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .sel-add {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      border-top: 1px solid var(--borda);
+      border-radius: 0;
+      background: rgba(255, 205, 3, 0.05);
+      color: var(--amarelo);
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      padding: 0.65rem 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .sel-add:hover {
+      background: rgba(255, 205, 3, 0.1);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .sel-add[data-parent="__bloqueado__"] {
+      color: var(--apagado);
+      background: transparent;
+      cursor: default;
+      font-weight: 500;
+      font-size: 0.8rem;
+    }
+
+    .sel-vazio {
+      padding: 1rem;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--apagado);
+    }
+
+    .sel-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.45rem;
+    }
+
+    .sel-tags:empty {
+      display: none;
+    }
+
+    .sel-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #1c1c21;
+      border: 1px solid #313139;
+      border-radius: 999px;
+      padding: 0.25rem 0.35rem 0.25rem 0.7rem;
+      font-size: 0.8rem;
+      color: var(--texto);
+    }
+
+    .sel-tag-todos {
+      background: rgba(255, 205, 3, 0.1);
+      border-color: rgba(255, 205, 3, 0.5);
+      color: var(--amarelo);
+    }
+
+    .sel-tag-x {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--apagado);
+      font-size: 0.85rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .sel-tag-x:hover {
+      color: var(--vermelho);
+      background: rgba(248, 113, 113, 0.14);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .sel-tag-todos .sel-tag-x:hover {
+      color: var(--amarelo);
+      background: rgba(255, 205, 3, 0.2);
     }
 
     .previa {
@@ -1253,10 +1614,76 @@
             <div class="modelos-aviso" id="modelosAviso"></div>
           </div>
 
-          <div class="campo-topo">
-            <label for="areas_afetadas">Regiões afetadas</label>
+          <!-- Regiões afetadas (Fase 2): cidade > bairro > rua -->
+          <div class="regioes">
+            <label class="regioes-titulo">Regiões afetadas</label>
+
+            <div class="sel-grupo">
+              <span class="sel-rotulo">Cidade <b>*</b></span>
+              <div class="sel" id="selCidade">
+                <button type="button" class="sel-trigger" id="selCidade-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <svg class="ico-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span class="sel-trigger-texto" id="selCidade-texto">Selecionar cidades</span>
+                  <span class="sel-contagem" id="selCidade-contagem"></span>
+                  <svg class="sel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="sel-menu" id="selCidade-menu" role="listbox" hidden>
+                  <div class="sel-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="selCidade-busca" placeholder="Buscar ou cadastrar cidade..." autocomplete="off">
+                  </div>
+                  <button type="button" class="sel-todos" id="selCidade-todos">Todas as cidades</button>
+                  <div class="sel-lista" id="selCidade-lista"></div>
+                  <button type="button" class="sel-add" id="selCidade-add" hidden></button>
+                </div>
+                <div class="sel-tags" id="selCidade-tags"></div>
+              </div>
+            </div>
+
+            <div class="sel-grupo">
+              <span class="sel-rotulo">Bairro <b>*</b></span>
+              <div class="sel" id="selBairro">
+                <button type="button" class="sel-trigger" id="selBairro-trigger" aria-haspopup="listbox" aria-expanded="false" disabled>
+                  <svg class="ico-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span class="sel-trigger-texto" id="selBairro-texto">Selecione a cidade primeiro</span>
+                  <span class="sel-contagem" id="selBairro-contagem"></span>
+                  <svg class="sel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="sel-menu" id="selBairro-menu" role="listbox" hidden>
+                  <div class="sel-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="selBairro-busca" placeholder="Buscar ou cadastrar bairro..." autocomplete="off">
+                  </div>
+                  <button type="button" class="sel-todos" id="selBairro-todos">Todos os bairros</button>
+                  <div class="sel-lista" id="selBairro-lista"></div>
+                  <button type="button" class="sel-add" id="selBairro-add" hidden></button>
+                </div>
+                <div class="sel-tags" id="selBairro-tags"></div>
+              </div>
+            </div>
+
+            <div class="sel-grupo">
+              <span class="sel-rotulo">Rua <span class="opc">(opcional)</span></span>
+              <div class="sel" id="selRua">
+                <button type="button" class="sel-trigger" id="selRua-trigger" aria-haspopup="listbox" aria-expanded="false" disabled>
+                  <svg class="ico-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span class="sel-trigger-texto" id="selRua-texto">Selecione o bairro primeiro</span>
+                  <span class="sel-contagem" id="selRua-contagem"></span>
+                  <svg class="sel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="sel-menu" id="selRua-menu" role="listbox" hidden>
+                  <div class="sel-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="selRua-busca" placeholder="Buscar ou cadastrar rua..." autocomplete="off">
+                  </div>
+                  <button type="button" class="sel-todos" id="selRua-todos">Todas as ruas</button>
+                  <div class="sel-lista" id="selRua-lista"></div>
+                  <button type="button" class="sel-add" id="selRua-add" hidden></button>
+                </div>
+                <div class="sel-tags" id="selRua-tags"></div>
+              </div>
+            </div>
           </div>
-          <textarea name="texto" id="areas_afetadas" class="areas_afetadas" placeholder="Digite aqui as regiões afetadas..."></textarea>
 
           <div class="previa">
             <span class="rotulo-mono">Prévia · o cliente vai receber</span>
@@ -1333,7 +1760,9 @@ const seloTexto = document.getElementById("seloTexto");
 const statusGrande = document.getElementById("statusGrande");
 const statusDesc = document.getElementById("statusDesc");
 const campoMensagem = document.getElementById("textoEnviar");
-const campoRegioes = document.getElementById("areas_afetadas");
+let regiaoTextoAtual = "";
+let regiaoAreasAtual = null;
+let catalogo = { cidades: [], bairros: [], ruas: [] };
 const contador = document.getElementById("contador");
 const previaTexto = document.getElementById("previaTexto");
 const tempoAtivacao = document.getElementById("tempoAtivacao");
@@ -1439,6 +1868,108 @@ const Store = {
       texto: texto,
       criado_por: null,
     })));
+  },
+
+  /* ---- Catálogo de localização (Fase 2): cidade > bairro > rua ---- */
+  _chave(tipo, account) {
+    return "massiva_" + tipo + "_" + account;
+  },
+
+  _ler(tipo, account) {
+    try {
+      const bruto = localStorage.getItem(this._chave(tipo, account));
+      const lista = bruto ? JSON.parse(bruto) : [];
+      return Array.isArray(lista) ? lista : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  _salvar(tipo, account, lista) {
+    try {
+      localStorage.setItem(this._chave(tipo, account), JSON.stringify(lista));
+    } catch (e) { /* sem localStorage: segue sem persistir */ }
+  },
+
+  _novoId(prefixo) {
+    return prefixo + "_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+  },
+
+  // GET /webhook/massiva-cidades?account=&token=
+  async listarCidades(account) {
+    return this._ler("cidades", account);
+  },
+  // POST { account, token, nome }
+  async adicionarCidade(account, nome, token) {
+    const lista = this._ler("cidades", account);
+    const item = { id: this._novoId("cid"), nome: nome, criado_por: token || null };
+    lista.push(item);
+    this._salvar("cidades", account, lista);
+    return item;
+  },
+  // DELETE { account, token, id } — remove a cidade e, em cascata, seus bairros e ruas
+  async removerCidade(account, id) {
+    this._salvar("cidades", account, this._ler("cidades", account).filter((c) => c.id !== id));
+    const bairros = this._ler("bairros", account);
+    const idsRemover = bairros.filter((b) => b.cidadeId === id).map((b) => b.id);
+    this._salvar("bairros", account, bairros.filter((b) => b.cidadeId !== id));
+    if (idsRemover.length) {
+      this._salvar("ruas", account, this._ler("ruas", account).filter((r) => idsRemover.indexOf(r.bairroId) === -1));
+    }
+    return true;
+  },
+
+  async listarBairros(account) {
+    return this._ler("bairros", account);
+  },
+  async adicionarBairro(account, nome, cidadeId, token) {
+    const lista = this._ler("bairros", account);
+    const item = { id: this._novoId("bai"), nome: nome, cidadeId: cidadeId, criado_por: token || null };
+    lista.push(item);
+    this._salvar("bairros", account, lista);
+    return item;
+  },
+  async removerBairro(account, id) {
+    this._salvar("bairros", account, this._ler("bairros", account).filter((b) => b.id !== id));
+    this._salvar("ruas", account, this._ler("ruas", account).filter((r) => r.bairroId !== id));
+    return true;
+  },
+
+  async listarRuas(account) {
+    return this._ler("ruas", account);
+  },
+  async adicionarRua(account, nome, bairroId, token) {
+    const lista = this._ler("ruas", account);
+    const item = { id: this._novoId("rua"), nome: nome, bairroId: bairroId, criado_por: token || null };
+    lista.push(item);
+    this._salvar("ruas", account, lista);
+    return item;
+  },
+  async removerRua(account, id) {
+    this._salvar("ruas", account, this._ler("ruas", account).filter((r) => r.id !== id));
+    return true;
+  },
+
+  // Semeia um catálogo de exemplo só no modo teste, na primeira abertura.
+  semearCatalogoSePreciso(account) {
+    if (!MODO_DEV) return;
+    if (localStorage.getItem(this._chave("cidades", account)) !== null) return;
+    this._salvar("cidades", account, [
+      { id: "cid_sp", nome: "São Paulo", criado_por: null },
+      { id: "cid_rj", nome: "Rio de Janeiro", criado_por: null },
+    ]);
+    this._salvar("bairros", account, [
+      { id: "bai_centro_sp", nome: "Centro", cidadeId: "cid_sp", criado_por: null },
+      { id: "bai_pinheiros", nome: "Pinheiros", cidadeId: "cid_sp", criado_por: null },
+      { id: "bai_copacabana", nome: "Copacabana", cidadeId: "cid_rj", criado_por: null },
+      { id: "bai_tijuca", nome: "Tijuca", cidadeId: "cid_rj", criado_por: null },
+    ]);
+    this._salvar("ruas", account, [
+      { id: "rua_augusta", nome: "Rua Augusta", bairroId: "bai_centro_sp", criado_por: null },
+      { id: "rua_consolacao", nome: "Rua da Consolação", bairroId: "bai_centro_sp", criado_por: null },
+      { id: "rua_fradique", nome: "Rua Fradique Coutinho", bairroId: "bai_pinheiros", criado_por: null },
+      { id: "rua_nsc", nome: "Av. N. S. de Copacabana", bairroId: "bai_copacabana", criado_por: null },
+    ]);
   },
 };
 
@@ -1555,17 +2086,20 @@ function atualizarPrevia() {
   const qtd = campoMensagem.value.length;
   contador.textContent = qtd === 1 ? "1 caractere" : `${qtd} caracteres`;
 
-  if (!campoMensagem.value.trim() && !campoRegioes.value.trim()) {
-    previaTexto.textContent = "Escreva a mensagem para ver aqui exatamente o que será enviado.";
+  const temMsg = !!campoMensagem.value.trim();
+  const temRegiao = !!(regiaoTextoAtual && regiaoTextoAtual.trim());
+  if (!temMsg && !temRegiao) {
+    previaTexto.textContent = "Escreva a mensagem e selecione as regiões para ver aqui o que será enviado.";
     previaTexto.classList.add("vazia");
   } else {
-    previaTexto.textContent = `${campoMensagem.value} áreas afetadas: ${campoRegioes.value}`;
+    previaTexto.textContent = temRegiao
+      ? `${campoMensagem.value} áreas afetadas: ${regiaoTextoAtual}`
+      : campoMensagem.value;
     previaTexto.classList.remove("vazia");
   }
   marcarModeloAtivo();
 }
 campoMensagem.addEventListener("input", atualizarPrevia);
-campoRegioes.addEventListener("input", atualizarPrevia);
 
 if (account_id) {
   const rotulo = MODO_DEV ? `Conta: ${account_id} · modo teste` : `Conta: ${account_id}`;
@@ -1754,6 +2288,365 @@ carregarModelos();
 atualizarPrevia();
 
 /* ============================================================================
+ * Regiões afetadas (Fase 2) — cidade > bairro > rua
+ * ----------------------------------------------------------------------------
+ * Componente genérico de multi-seleção (busca, cadastro inline, "Todos" e
+ * exclusão do catálogo), instanciado 3x e ligado em cascata. O resultado é
+ * um objeto estruturado (regiaoAreasAtual) + um texto legível
+ * (regiaoTextoAtual) usados na prévia e no disparo.
+ * ========================================================================== */
+let selCidade = null, selBairro = null, selRua = null;
+
+function normalizarTxt(s) {
+  return (s || "").trim().toLowerCase();
+}
+
+async function carregarCatalogo() {
+  const [cidades, bairros, ruas] = await Promise.all([
+    Store.listarCidades(account_id),
+    Store.listarBairros(account_id),
+    Store.listarRuas(account_id),
+  ]);
+  return { cidades, bairros, ruas };
+}
+
+function criarSelecao(cfg) {
+  const q = (suf) => document.getElementById(cfg.prefixo + suf);
+  const el = {
+    wrap: q(""), trigger: q("-trigger"), texto: q("-texto"), contagem: q("-contagem"),
+    menu: q("-menu"), busca: q("-busca"), todos: q("-todos"), lista: q("-lista"),
+    add: q("-add"), tags: q("-tags"),
+  };
+  const estado = { set: new Set(), todos: false, aberto: false };
+
+  function habilitado() { return cfg.habilitado ? cfg.habilitado() : true; }
+  function itens() { return cfg.itens(); }
+
+  function selecionadosIds() {
+    const disp = itens();
+    if (estado.todos) return disp.map((i) => i.id);
+    return disp.filter((i) => estado.set.has(i.id)).map((i) => i.id);
+  }
+  function selecionadosItens() {
+    const ids = new Set(selecionadosIds());
+    return itens().filter((i) => ids.has(i.id));
+  }
+
+  function abrir() {
+    if (!habilitado()) return;
+    el.menu.hidden = false;
+    el.wrap.classList.add("aberto");
+    el.trigger.setAttribute("aria-expanded", "true");
+    estado.aberto = true;
+    el.busca.value = "";
+    renderLista();
+    el.busca.focus();
+  }
+  function fechar() {
+    el.menu.hidden = true;
+    el.wrap.classList.remove("aberto");
+    el.trigger.setAttribute("aria-expanded", "false");
+    estado.aberto = false;
+  }
+  function alternar() { if (estado.aberto) fechar(); else abrir(); }
+
+  function render() {
+    const hab = habilitado();
+    el.trigger.disabled = !hab;
+    const sel = selecionadosItens();
+    el.contagem.textContent = sel.length > 0 ? String(sel.length) : "";
+    if (!hab) {
+      el.texto.textContent = cfg.dicaDesabilitado;
+    } else if (estado.todos) {
+      el.texto.textContent = cfg.rotuloTodos;
+    } else if (sel.length === 1) {
+      el.texto.textContent = sel[0].nome;
+    } else if (sel.length > 1) {
+      el.texto.textContent = sel.length + " " + cfg.plural;
+    } else {
+      el.texto.textContent = cfg.placeholder;
+    }
+    renderTags();
+    if (estado.aberto) renderLista();
+  }
+
+  function renderTags() {
+    if (estado.todos) {
+      el.tags.innerHTML = '<span class="sel-tag sel-tag-todos" data-todos="1">' +
+        escapeHtml(cfg.rotuloTodos) +
+        '<button type="button" class="sel-tag-x" aria-label="Remover">✕</button></span>';
+      return;
+    }
+    el.tags.innerHTML = selecionadosItens().map((i) =>
+      '<span class="sel-tag" data-id="' + escapeHtml(i.id) + '">' + escapeHtml(i.nome) +
+      '<button type="button" class="sel-tag-x" aria-label="Remover">✕</button></span>'
+    ).join("");
+  }
+
+  function renderLista() {
+    const lista = itens();
+    const termo = normalizarTxt(el.busca.value);
+    const filtrados = termo ? lista.filter((i) => normalizarTxt(i.nome).indexOf(termo) !== -1) : lista;
+
+    el.todos.classList.toggle("ativo", estado.todos);
+    el.todos.textContent = (estado.todos ? "✓ " : "") + cfg.rotuloTodos;
+
+    if (!lista.length) {
+      el.lista.innerHTML = '<div class="sel-vazio">Nada cadastrado ainda. Digite acima para criar.</div>';
+    } else if (!filtrados.length) {
+      el.lista.innerHTML = '<div class="sel-vazio">Nada encontrado.</div>';
+    } else {
+      el.lista.innerHTML = filtrados.map((i) => {
+        const marcado = estado.todos || estado.set.has(i.id);
+        return '<label class="sel-op ' + (marcado ? "marcado" : "") + '" data-id="' + escapeHtml(i.id) + '">' +
+          '<input type="checkbox" ' + (marcado ? "checked" : "") + '>' +
+          '<span class="sel-op-nome">' + escapeHtml(i.nome) + '</span>' +
+          '<button type="button" class="sel-op-lixo" data-acao="excluir" aria-label="Excluir do catálogo" title="Excluir do catálogo">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>' +
+          '</button></label>';
+      }).join("");
+    }
+
+    const nome = el.busca.value.trim();
+    const existe = lista.some((i) => normalizarTxt(i.nome) === normalizarTxt(nome));
+    if (nome && !existe) {
+      const parent = cfg.parentParaAdicionar ? cfg.parentParaAdicionar() : { ok: true, id: null };
+      el.add.hidden = false;
+      if (parent.ok) {
+        el.add.textContent = '+ Cadastrar “' + nome + '”';
+        el.add.dataset.parent = parent.id || "";
+      } else {
+        el.add.textContent = parent.hint;
+        el.add.dataset.parent = "__bloqueado__";
+      }
+    } else {
+      el.add.hidden = true;
+    }
+  }
+
+  async function adicionar() {
+    const nome = el.busca.value.trim();
+    if (!nome || el.add.dataset.parent === "__bloqueado__") return;
+    const parentId = el.add.dataset.parent || null;
+    try {
+      const novo = await cfg.aoAdicionar(nome, parentId);
+      catalogo = await carregarCatalogo();
+      estado.set.add(novo.id);
+      el.busca.value = "";
+      cfg.aoMudar();
+      render();
+      renderLista();
+      el.busca.focus();
+    } catch (e) {
+      console.error("Erro ao cadastrar:", e);
+    }
+  }
+
+  async function excluirCatalogo(id) {
+    const item = itens().find((i) => i.id === id) || { nome: "" };
+    if (!confirm('Excluir “' + item.nome + '” do catálogo?\nIsso remove também os níveis abaixo dele.')) return;
+    try {
+      await cfg.aoExcluirCatalogo(id);
+      estado.set.delete(id);
+      catalogo = await carregarCatalogo();
+      cfg.aoMudar();
+      render();
+      renderLista();
+    } catch (e) {
+      console.error("Erro ao excluir do catálogo:", e);
+    }
+  }
+
+  function toggleItem(id) {
+    if (estado.todos) {
+      estado.todos = false;
+      itens().forEach((i) => estado.set.add(i.id));
+      estado.set.delete(id);
+    } else if (estado.set.has(id)) {
+      estado.set.delete(id);
+    } else {
+      estado.set.add(id);
+    }
+    cfg.aoMudar();
+    render();
+    renderLista();
+  }
+
+  function toggleTodos() {
+    estado.todos = !estado.todos;
+    if (estado.todos) estado.set.clear();
+    cfg.aoMudar();
+    render();
+    renderLista();
+  }
+
+  // Remove da seleção itens que saíram de escopo (ex.: o pai foi desmarcado).
+  function sincronizar() {
+    const disp = new Set(itens().map((i) => i.id));
+    [...estado.set].forEach((id) => { if (!disp.has(id)) estado.set.delete(id); });
+    if (!habilitado()) {
+      estado.set.clear();
+      estado.todos = false;
+      if (estado.aberto) fechar();
+    }
+    render();
+  }
+
+  function limpar() {
+    estado.set.clear();
+    estado.todos = false;
+    if (estado.aberto) fechar();
+    render();
+  }
+
+  el.trigger.addEventListener("click", alternar);
+  el.todos.addEventListener("click", toggleTodos);
+  el.add.addEventListener("click", adicionar);
+  el.busca.addEventListener("input", renderLista);
+  el.busca.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const nome = el.busca.value.trim();
+      const existente = itens().find((i) => normalizarTxt(i.nome) === normalizarTxt(nome));
+      if (existente) { toggleItem(existente.id); el.busca.value = ""; renderLista(); }
+      else if (!el.add.hidden && el.add.dataset.parent !== "__bloqueado__") adicionar();
+    } else if (e.key === "Escape") {
+      e.preventDefault(); fechar(); el.trigger.focus();
+    }
+  });
+  el.lista.addEventListener("click", (e) => {
+    const lixo = e.target.closest('[data-acao="excluir"]');
+    if (lixo) {
+      e.preventDefault(); e.stopPropagation();
+      const op = lixo.closest(".sel-op");
+      if (op) excluirCatalogo(op.dataset.id);
+      return;
+    }
+    const op = e.target.closest(".sel-op");
+    if (op) { e.preventDefault(); toggleItem(op.dataset.id); }
+  });
+  el.tags.addEventListener("click", (e) => {
+    const x = e.target.closest(".sel-tag-x");
+    if (!x) return;
+    const tag = x.closest(".sel-tag");
+    if (tag.dataset.todos) { estado.todos = false; cfg.aoMudar(); render(); }
+    else if (tag.dataset.id) { estado.set.delete(tag.dataset.id); cfg.aoMudar(); render(); }
+  });
+  el.menu.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", (e) => { if (estado.aberto && !el.wrap.contains(e.target)) fechar(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && estado.aberto) { fechar(); el.trigger.focus(); } });
+
+  return { render, sincronizar, limpar, selecionadosIds, selecionadosItens, estado };
+}
+
+/* ---------- Estrutura + texto da região a partir das seleções ---------- */
+function construirAreas() {
+  if (!selCidade) return { todasCidades: false, todosBairros: false, todasRuas: false, cidades: [] };
+  const cidItens = selCidade.selecionadosItens();
+  const baiItens = selBairro.selecionadosItens();
+  const ruaItens = selRua.selecionadosItens();
+  const cidades = cidItens.map((c) => ({
+    nome: c.nome,
+    bairros: baiItens.filter((b) => b.cidadeId === c.id).map((b) => ({
+      nome: b.nome,
+      ruas: ruaItens.filter((r) => r.bairroId === b.id).map((r) => r.nome),
+    })),
+  }));
+  return {
+    todasCidades: selCidade.estado.todos,
+    todosBairros: selBairro.estado.todos,
+    todasRuas: selRua.estado.todos,
+    cidades,
+  };
+}
+
+function areasParaTexto(areas) {
+  if (!areas || !areas.cidades || !areas.cidades.length) return "";
+  const semDetalhe = areas.cidades.every((c) => !c.bairros.length);
+  if (areas.todasCidades && semDetalhe) return "Todas as cidades";
+  return areas.cidades.map((c) => {
+    if (!c.bairros.length) return c.nome;
+    const bs = c.bairros.map((b) => b.ruas.length ? (b.nome + " (" + b.ruas.join(", ") + ")") : b.nome);
+    return c.nome + ": " + bs.join(", ");
+  }).join(" | ");
+}
+
+function recalcularRegiao() {
+  regiaoAreasAtual = construirAreas();
+  regiaoTextoAtual = areasParaTexto(regiaoAreasAtual);
+  atualizarPrevia();
+}
+
+function regiaoValida() {
+  return !!(regiaoAreasAtual && regiaoAreasAtual.cidades && regiaoAreasAtual.cidades.length);
+}
+
+function limparRegiao() {
+  if (selCidade) selCidade.limpar();
+  if (selBairro) selBairro.limpar();
+  if (selRua) selRua.limpar();
+  recalcularRegiao();
+}
+
+async function iniciarRegioes() {
+  Store.semearCatalogoSePreciso(account_id);
+  catalogo = await carregarCatalogo();
+
+  selCidade = criarSelecao({
+    prefixo: "selCidade",
+    placeholder: "Selecionar cidades", plural: "cidades", rotuloTodos: "Todas as cidades",
+    itens: () => catalogo.cidades,
+    aoAdicionar: (nome) => Store.adicionarCidade(account_id, nome, token_id),
+    aoExcluirCatalogo: (id) => Store.removerCidade(account_id, id),
+    aoMudar: () => { selBairro.sincronizar(); selRua.sincronizar(); recalcularRegiao(); },
+  });
+
+  selBairro = criarSelecao({
+    prefixo: "selBairro",
+    placeholder: "Selecionar bairros", plural: "bairros", rotuloTodos: "Todos os bairros",
+    dicaDesabilitado: "Selecione a cidade primeiro",
+    habilitado: () => selCidade.selecionadosIds().length > 0,
+    itens: () => {
+      const cid = new Set(selCidade.selecionadosIds());
+      return catalogo.bairros.filter((b) => cid.has(b.cidadeId));
+    },
+    parentParaAdicionar: () => {
+      const cids = selCidade.selecionadosIds();
+      if (cids.length === 1) return { ok: true, id: cids[0] };
+      return { ok: false, hint: "Selecione só 1 cidade para cadastrar um bairro nela" };
+    },
+    aoAdicionar: (nome, cidadeId) => Store.adicionarBairro(account_id, nome, cidadeId, token_id),
+    aoExcluirCatalogo: (id) => Store.removerBairro(account_id, id),
+    aoMudar: () => { selRua.sincronizar(); recalcularRegiao(); },
+  });
+
+  selRua = criarSelecao({
+    prefixo: "selRua",
+    placeholder: "Selecionar ruas (opcional)", plural: "ruas", rotuloTodos: "Todas as ruas",
+    dicaDesabilitado: "Selecione o bairro primeiro",
+    habilitado: () => selBairro.selecionadosIds().length > 0,
+    itens: () => {
+      const bai = new Set(selBairro.selecionadosIds());
+      return catalogo.ruas.filter((r) => bai.has(r.bairroId));
+    },
+    parentParaAdicionar: () => {
+      const bais = selBairro.selecionadosIds();
+      if (bais.length === 1) return { ok: true, id: bais[0] };
+      return { ok: false, hint: "Selecione só 1 bairro para cadastrar uma rua nele" };
+    },
+    aoAdicionar: (nome, bairroId) => Store.adicionarRua(account_id, nome, bairroId, token_id),
+    aoExcluirCatalogo: (id) => Store.removerRua(account_id, id),
+    aoMudar: () => { recalcularRegiao(); },
+  });
+
+  selCidade.render();
+  selBairro.render();
+  selRua.render();
+  recalcularRegiao();
+}
+iniciarRegioes();
+
+/* ============================================================================
  * Histórico
  * ========================================================================== */
 function formatarDataHora(iso) {
@@ -1837,9 +2730,8 @@ async function submitHandle() {
     }, 3000);
     return;
   }
-  const textoAreaAfetada = document.getElementById("areas_afetadas").value;
-    if (!textoAreaAfetada && !ativado) {
-    status.textContent = "Digite ao menos uma área afetada antes de ativar.";
+  if (!regiaoValida() && !ativado) {
+    status.textContent = "Selecione ao menos uma cidade antes de ativar.";
     status.style.color = "#f87171";
     setTimeout(() => {
       atualizarInterface()
@@ -1862,13 +2754,15 @@ async function submitHandle() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          texto: `${textoEnviar} áreas afetadas: ${textoAreaAfetada}`,
+          texto: `${textoEnviar} áreas afetadas: ${regiaoTextoAtual}`,
           account: account_id,
           status: acao,
-          // Campos novos, só para alimentar o histórico — não afetam o contrato antigo
+          // Campos novos — não afetam o contrato antigo
           token: token_id,
           mensagem: textoEnviar,
-          regiao: textoAreaAfetada,
+          regiao: regiaoTextoAtual,
+          // Estrutura hierárquica cidade > bairro > rua (Fase 2) para a IA filtrar
+          areas: regiaoAreasAtual,
         }),
       });
       ok = response.ok;
@@ -1895,7 +2789,7 @@ async function submitHandle() {
     buttonLabel.textContent = ativado ? "Desativar" : "Ativar"; // evita ficar travado em "Ativando..."/"Desativando..." se der erro
     button.classList.toggle("encerrar", ativado);
     document.getElementById("textoEnviar").value = "";
-    document.getElementById("areas_afetadas").value = "";
+    limparRegiao();
     atualizarPrevia(); // apenas visual: zera prévia e contador junto com os campos
   }
 }
