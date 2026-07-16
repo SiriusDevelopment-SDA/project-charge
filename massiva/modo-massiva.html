@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modo Massiva — Central de Comunicados</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --fundo: #0a0a0c;
+      --painel: #141418;
+      --painel-2: #101014;
+      --borda: #26262d;
+      --amarelo: #ffcd03;
+      --texto: #f5f5f4;
+      --suave: #9a9aa2;
+      --apagado: #5d5d66;
+      --vermelho: #f87171;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--fundo);
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+      background-size: 46px 46px;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      color: var(--texto);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(60% 42% at 50% 0%, rgba(255, 205, 3, 0.16), transparent 70%);
+      opacity: 0.35;
+      transition: opacity 0.7s ease;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body.ativo::before {
+      opacity: 1;
+    }
+
+    .dados {
+      position: absolute;
+      bottom: 0;
+      z-index: 1;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .console {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1060px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* ---------- Barra superior ---------- */
+    .topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: var(--painel);
+      border: 1px solid var(--borda);
+      border-radius: 16px;
+      padding: 0.9rem 1.4rem;
+      animation: surgir 0.55s ease both;
+    }
+
+    .marca {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .marca-icone {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 205, 3, 0.1);
+      border: 1px solid rgba(255, 205, 3, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+    }
+
+    .marca-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--apagado);
+    }
+
+    .topo-direita {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .relogio {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.3;
+    }
+
+    #relogio {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--texto);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #dataHoje {
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--apagado);
+    }
+
+    .selo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      background: #1c1c21;
+      border: 1px solid #313139;
+      color: var(--suave);
+      transition: all 0.35s ease;
+      white-space: nowrap;
+    }
+
+    .ponto {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #55555e;
+      transition: background 0.35s ease;
+      flex-shrink: 0;
+    }
+
+    body.ativo .selo {
+      background: rgba(255, 205, 3, 0.1);
+      border-color: rgba(255, 205, 3, 0.55);
+      color: var(--amarelo);
+    }
+
+    body.ativo .ponto {
+      background: var(--amarelo);
+      animation: pulsar 1.6s ease-out infinite;
+    }
+
+    @keyframes pulsar {
+      0%   { box-shadow: 0 0 0 0 rgba(255, 205, 3, 0.55); }
+      70%  { box-shadow: 0 0 0 9px rgba(255, 205, 3, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 205, 3, 0); }
+    }
+
+    button.btn-historico {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.5rem 0.95rem;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      background: transparent;
+      border: 1px solid #313139;
+      color: var(--suave);
+      cursor: pointer;
+      transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+      width: auto;
+    }
+
+    button.btn-historico svg {
+      flex-shrink: 0;
+    }
+
+    button.btn-historico:hover:not(:disabled) {
+      border-color: rgba(255, 205, 3, 0.5);
+      color: var(--amarelo);
+      background: rgba(255, 205, 3, 0.08);
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* ---------- Painéis ---------- */
+    .paineis {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .painel {
+      background: var(--painel);
+      border: 1px solid var(--borda);
+      border-radius: 16px;
+      padding: 2rem;
+      animation: surgir 0.55s ease both;
+    }
+
+    .painel-transmissao {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: border-color 0.4s ease, box-shadow 0.4s ease;
+      animation-delay: 0.08s;
+    }
+
+    body.ativo .painel-transmissao {
+      border-color: rgba(255, 205, 3, 0.45);
+      box-shadow:
+        0 0 0 1px rgba(255, 205, 3, 0.12) inset,
+        0 0 52px rgba(255, 205, 3, 0.1);
+    }
+
+    .painel-form {
+      animation-delay: 0.16s;
+    }
+
+    .farol {
+      position: relative;
+      width: 118px;
+      height: 118px;
+      margin-bottom: 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .onda {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 205, 3, 0.55);
+      opacity: 0;
+      z-index: 1;
+    }
+
+    body.ativo .onda {
+      animation: propagar 2.4s ease-out infinite;
+    }
+
+    body.ativo .onda:nth-child(2) { animation-delay: 0.8s; }
+    body.ativo .onda:nth-child(3) { animation-delay: 1.6s; }
+
+    @keyframes propagar {
+      0%   { transform: scale(0.72); opacity: 0.75; }
+      100% { transform: scale(2.05); opacity: 0; }
+    }
+
+    .farol-icone {
+      position: relative;
+      z-index: 2;
+      width: 84px;
+      height: 84px;
+      border-radius: 22px;
+      background: #1c1c21;
+      border: 1px solid #313139;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.1rem;
+      transition: all 0.4s ease;
+    }
+
+    body.ativo .farol-icone {
+      background: rgba(255, 205, 3, 0.12);
+      border-color: rgba(255, 205, 3, 0.6);
+      box-shadow: 0 0 34px rgba(255, 205, 3, 0.35);
+    }
+
+    .rotulo-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--apagado);
+    }
+
+    .status-grande {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: clamp(2.1rem, 4.5vw, 2.9rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      margin: 0.35rem 0 0.7rem;
+      color: var(--suave);
+      transition: color 0.4s ease, text-shadow 0.4s ease;
+    }
+
+    body.ativo .status-grande {
+      color: var(--amarelo);
+      text-shadow: 0 0 26px rgba(255, 205, 3, 0.4);
+    }
+
+    .status-desc {
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--suave);
+      max-width: 34ch;
+      margin-bottom: 1.4rem;
+    }
+
+    .tempo-ativacao {
+      display: none;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      width: 100%;
+      background: rgba(255, 205, 3, 0.07);
+      border: 1px solid rgba(255, 205, 3, 0.4);
+      border-radius: 14px;
+      padding: 1rem 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .tempo-celula {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      min-width: 0;
+    }
+
+    .tempo-rotulo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.64rem;
+      font-weight: 600;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: #c9a634;
+    }
+
+    .tempo-valor {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(1.15rem, 2.4vw, 1.5rem);
+      font-weight: 700;
+      color: var(--texto);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    #cronometro {
+      color: var(--amarelo);
+      text-shadow: 0 0 18px rgba(255, 205, 3, 0.35);
+    }
+
+    .tempo-divisor {
+      width: 1px;
+      height: 40px;
+      background: rgba(255, 205, 3, 0.3);
+    }
+
+    .tempo-fallback {
+      display: none;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: var(--apagado);
+      margin-bottom: 1rem;
+      max-width: 36ch;
+    }
+
+    .passos {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      text-align: left;
+      margin-top: 0.2rem;
+    }
+
+    body.ativo .passos {
+      display: none;
+    }
+
+    .passo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--painel-2);
+      border: 1px solid var(--borda);
+      border-radius: 10px;
+      padding: 0.7rem 0.9rem;
+      font-size: 0.86rem;
+      color: var(--suave);
+      line-height: 1.45;
+    }
+
+    .passo b {
+      color: var(--texto);
+      font-weight: 600;
+    }
+
+    .passo-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--amarelo);
+      background: rgba(255, 205, 3, 0.08);
+      border: 1px solid rgba(255, 205, 3, 0.3);
+      border-radius: 7px;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .aviso {
+      display: none;
+      align-items: flex-start;
+      gap: 0.6rem;
+      text-align: left;
+      background: rgba(255, 205, 3, 0.07);
+      border: 1px solid rgba(255, 205, 3, 0.32);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 0.86rem;
+      line-height: 1.55;
+      color: #ffe37a;
+      width: 100%;
+    }
+
+    body.ativo .aviso {
+      display: flex;
+    }
+
+    /* ---------- Formulário ---------- */
+    .campo-topo {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.55rem;
+    }
+
+    label {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--suave);
+    }
+
+    .contador {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--apagado);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .campos {
+      transition: opacity 0.35s ease;
+    }
+
+    body.ativo .campos {
+      opacity: 0.45;
+    }
+
+    body.ativo .campos:focus-within {
+      opacity: 1;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 0.9rem 1rem;
+      background-color: var(--painel-2);
+      border: 1px solid #2d2d34;
+      border-radius: 10px;
+      color: var(--texto);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      resize: vertical;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    textarea::placeholder {
+      color: var(--apagado);
+    }
+
+    textarea:focus {
+      border-color: var(--amarelo);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(255, 205, 3, 0.15);
+    }
+
+    #textoEnviar {
+      height: 148px;
+      margin-bottom: 0.85rem;
+    }
+
+    .areas_afetadas {
+      height: 60px;
+      margin-bottom: 1.15rem;
+    }
+
+    /* ---------- Mensagens padrão (modelos) ---------- */
+    .modelos {
+      margin-bottom: 1.15rem;
+    }
+
+    .modelos-topo {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .modelos-dica {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.66rem;
+      color: var(--apagado);
+    }
+
+    .modelos-lista {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .modelo-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      max-width: 100%;
+      background: var(--painel-2);
+      border: 1px solid #2d2d34;
+      border-radius: 999px;
+      padding: 0.4rem 0.45rem 0.4rem 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .modelo-chip:hover {
+      border-color: rgba(255, 205, 3, 0.5);
+      background: rgba(255, 205, 3, 0.05);
+    }
+
+    .modelo-chip.ativa {
+      border-color: rgba(255, 205, 3, 0.7);
+      background: rgba(255, 205, 3, 0.1);
+    }
+
+    .modelo-chip-texto {
+      font-size: 0.82rem;
+      color: var(--suave);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 210px;
+    }
+
+    .modelo-chip:hover .modelo-chip-texto,
+    .modelo-chip.ativa .modelo-chip-texto {
+      color: var(--texto);
+    }
+
+    .modelo-x {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--apagado);
+      font-size: 0.95rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.2s ease, background 0.2s ease;
+    }
+
+    .modelo-x:hover {
+      color: var(--vermelho);
+      background: rgba(248, 113, 113, 0.14);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .modelo-add {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      width: auto;
+      padding: 0.42rem 0.9rem;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: transparent;
+      border: 1px dashed #3a3a42;
+      color: var(--suave);
+      cursor: pointer;
+      transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+    }
+
+    .modelo-add:hover:not(:disabled) {
+      border-color: rgba(255, 205, 3, 0.6);
+      border-style: solid;
+      color: var(--amarelo);
+      background: rgba(255, 205, 3, 0.06);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .modelo-add svg {
+      flex-shrink: 0;
+    }
+
+    .modelos-vazio {
+      font-size: 0.82rem;
+      color: var(--apagado);
+      font-style: italic;
+    }
+
+    .previa {
+      background: var(--painel-2);
+      border: 1px dashed #34343c;
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      margin-bottom: 1.4rem;
+    }
+
+    .previa .rotulo-mono {
+      display: block;
+      margin-bottom: 0.45rem;
+    }
+
+    #previaTexto {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--texto);
+      background: #1b1b20;
+      border: 1px solid #2c2c33;
+      border-radius: 12px;
+      border-top-left-radius: 4px;
+      padding: 0.7rem 0.9rem;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    #previaTexto.vazia {
+      color: var(--apagado);
+      font-style: italic;
+      background: transparent;
+      border-style: dashed;
+    }
+
+    .dica-ativa {
+      display: none;
+      font-size: 0.83rem;
+      color: var(--suave);
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+
+    body.ativo .dica-ativa {
+      display: block;
+    }
+
+    button {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 1.05rem 1.5rem;
+      font-family: inherit;
+      font-size: 1.02rem;
+      font-weight: 700;
+      background-color: var(--amarelo);
+      color: #121212;
+      border: 1px solid var(--amarelo);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.25s ease, color 0.25s ease,
+                  border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #ffd83d;
+      border-color: #ffd83d;
+      box-shadow: 0 8px 26px rgba(255, 205, 3, 0.3);
+      transform: translateY(-1px);
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--amarelo);
+      outline-offset: 3px;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+      transform: none;
+    }
+
+    button.encerrar {
+      background-color: transparent;
+      border-color: rgba(248, 113, 113, 0.55);
+      color: var(--vermelho);
+    }
+
+    button.encerrar:hover:not(:disabled) {
+      background-color: rgba(248, 113, 113, 0.12);
+      border-color: var(--vermelho);
+      box-shadow: 0 8px 26px rgba(248, 113, 113, 0.16);
+    }
+
+    button.encerrar:focus-visible {
+      outline-color: var(--vermelho);
+    }
+
+    .status {
+      margin-top: 1rem;
+      min-height: 1.4em;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    /* ---------- Rodapé ---------- */
+    .rodape {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 0.35rem 0.5rem 0;
+      animation: surgir 0.55s ease both;
+      animation-delay: 0.24s;
+    }
+
+    @keyframes surgir {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ---------- Painel de Histórico (overlay) ---------- */
+    .historico-fundo {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 6, 0.68);
+      backdrop-filter: blur(2px);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .historico-fundo.aberto {
+      display: flex;
+    }
+
+    .historico-caixa {
+      width: 100%;
+      max-width: 780px;
+      max-height: 82vh;
+      background: var(--painel);
+      border: 1px solid var(--borda);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: surgir 0.3s ease both;
+    }
+
+    .historico-topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.2rem 1.4rem;
+      border-bottom: 1px solid var(--borda);
+    }
+
+    .historico-titulo {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .historico-titulo h2 {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .historico-titulo span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--apagado);
+    }
+
+    .historico-fechar {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: var(--painel-2);
+      border: 1px solid var(--borda);
+      color: var(--suave);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .historico-fechar:hover {
+      color: var(--texto);
+      border-color: var(--vermelho);
+      background: rgba(248, 113, 113, 0.1);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .historico-lista {
+      overflow-y: auto;
+      padding: 0.9rem 1.4rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+
+    .historico-vazio,
+    .historico-carregando,
+    .historico-erro {
+      text-align: center;
+      color: var(--apagado);
+      font-size: 0.88rem;
+      padding: 2.5rem 1rem;
+      line-height: 1.6;
+    }
+
+    .historico-erro {
+      color: var(--vermelho);
+    }
+
+    .item-historico {
+      background: var(--painel-2);
+      border: 1px solid var(--borda);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+
+    .item-historico.aberto-agora {
+      border-color: rgba(255, 205, 3, 0.5);
+      background: rgba(255, 205, 3, 0.06);
+    }
+
+    .item-topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .item-quando {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--texto);
+    }
+
+    .item-duracao {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--suave);
+      background: #1c1c21;
+      border: 1px solid #313139;
+      border-radius: 999px;
+      padding: 0.25rem 0.7rem;
+      white-space: nowrap;
+    }
+
+    .item-historico.aberto-agora .item-duracao {
+      color: var(--amarelo);
+      border-color: rgba(255, 205, 3, 0.5);
+      background: rgba(255, 205, 3, 0.1);
+    }
+
+    .item-mensagem {
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: var(--texto);
+      margin-bottom: 0.6rem;
+      word-break: break-word;
+    }
+
+    .item-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .tag-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--suave);
+      background: #1c1c21;
+      border: 1px solid #2c2c33;
+      border-radius: 7px;
+      padding: 0.25rem 0.55rem;
+    }
+
+    .tag-meta b {
+      color: var(--texto);
+      font-weight: 600;
+    }
+
+    @media (max-width: 880px) {
+      .paineis {
+        grid-template-columns: 1fr;
+      }
+
+      .painel {
+        padding: 1.5rem;
+      }
+
+      .painel-transmissao {
+        padding-top: 2rem;
+      }
+
+      .topo {
+        padding: 0.85rem 1.1rem;
+      }
+
+      .relogio {
+        align-items: flex-start;
+      }
+
+      .historico-caixa {
+        max-height: 88vh;
+      }
+
+      .modelo-chip-texto {
+        max-width: 150px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body.ativo .onda,
+      body.ativo .ponto {
+        animation: none;
+      }
+
+      body.ativo .onda {
+        opacity: 0.35;
+        transform: scale(1.25);
+      }
+
+      .topo, .painel, .rodape, .historico-caixa {
+        animation: none;
+      }
+
+      button:hover:not(:disabled) {
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="console">
+
+    <header class="topo">
+      <div class="marca">
+        <div class="marca-icone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+            <circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/>
+            <path d="M8.3 8.3a5.4 5.4 0 0 1 7.4 0"/>
+            <path d="M5.6 5.6a9.2 9.2 0 0 1 12.8 0"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Modo Massiva</h1>
+          <span class="marca-sub">Central de comunicados</span>
+        </div>
+      </div>
+      <div class="topo-direita">
+        <div class="relogio">
+          <span id="relogio">--:--:--</span>
+          <span id="dataHoje"></span>
+        </div>
+        <span class="selo">
+          <span class="ponto"></span>
+          <span id="seloTexto">Em espera</span>
+        </span>
+        <button type="button" class="btn-historico" onclick="abrirHistorico()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7.5v5l3.2 1.8"/>
+          </svg>
+          Histórico
+        </button>
+      </div>
+    </header>
+
+    <main class="paineis">
+
+      <section class="painel painel-transmissao">
+        <div class="farol">
+          <span class="onda"></span>
+          <span class="onda"></span>
+          <span class="onda"></span>
+          <div class="farol-icone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="34" height="34">
+              <circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/>
+              <path d="M7.8 7.8a5.9 5.9 0 0 1 8.4 0"/>
+              <path d="M4.9 4.9a10 10 0 0 1 14.2 0"/>
+            </svg>
+          </div>
+        </div>
+        <span class="rotulo-mono">Status da transmissão</span>
+        <h2 class="status-grande" id="statusGrande">Em espera</h2>
+        <p class="status-desc" id="statusDesc">Nenhum comunicado em transmissão no momento.</p>
+
+        <div class="tempo-ativacao" id="tempoAtivacao">
+          <div class="tempo-celula">
+            <span class="tempo-rotulo">Ativada às</span>
+            <span class="tempo-valor" id="horaAtivacao">--:--</span>
+          </div>
+          <div class="tempo-divisor"></div>
+          <div class="tempo-celula">
+            <span class="tempo-rotulo">No ar há</span>
+            <span class="tempo-valor" id="cronometro">00:00:00</span>
+          </div>
+        </div>
+        <p class="tempo-fallback" id="tempoFallback">A massiva foi ativada em outro navegador ou dispositivo, então o horário de ativação não ficou registrado aqui. Consulte o Histórico para ver o registro completo.</p>
+
+        <div class="passos">
+          <div class="passo"><span class="passo-num">1</span><span><b>Escreva o comunicado</b> ou escolha um modelo pronto.</span></div>
+          <div class="passo"><span class="passo-num">2</span><span><b>Informe as regiões afetadas</b> pela ocorrência.</span></div>
+          <div class="passo"><span class="passo-num">3</span><span><b>Ative a transmissão</b> e acompanhe por aqui.</span></div>
+        </div>
+
+        <div class="aviso">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="flex-shrink:0; margin-top:2px;">
+            <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
+            <path d="M12 9v4"/>
+            <path d="M12 16.8h.01"/>
+          </svg>
+          <span>Os clientes das regiões informadas estão recebendo este comunicado. Para encerrar a transmissão, use o botão <strong>Desativar</strong> ao lado.</span>
+        </div>
+      </section>
+
+      <section class="painel painel-form">
+        <div class="campos">
+          <div class="campo-topo">
+            <label for="textoEnviar">Mensagem do comunicado</label>
+            <span class="contador" id="contador">0 caracteres</span>
+          </div>
+          <textarea name="texto" id="textoEnviar" placeholder="Digite sua mensagem aqui ou escolha um modelo abaixo..."></textarea>
+
+          <!-- Mensagens padrão (modelos) — Fase 1 -->
+          <div class="modelos">
+            <div class="modelos-topo">
+              <label>Modelos de mensagem</label>
+              <span class="modelos-dica">clique para usar · × para excluir</span>
+            </div>
+            <div class="modelos-lista" id="modelosLista">
+              <span class="modelos-vazio">Carregando modelos...</span>
+            </div>
+          </div>
+
+          <div class="campo-topo">
+            <label for="areas_afetadas">Regiões afetadas</label>
+          </div>
+          <textarea name="texto" id="areas_afetadas" class="areas_afetadas" placeholder="Digite aqui as regiões afetadas..."></textarea>
+
+          <div class="previa">
+            <span class="rotulo-mono">Prévia · o cliente vai receber</span>
+            <p id="previaTexto" class="vazia">Escreva a mensagem para ver aqui exatamente o que será enviado.</p>
+          </div>
+        </div>
+
+        <p class="dica-ativa">Para enviar um comunicado novo, encerre a massiva atual e ative outra em seguida.</p>
+
+        <button onclick="submitHandle()" id="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="flex-shrink:0;">
+            <circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/>
+            <path d="M8.3 8.3a5.4 5.4 0 0 1 7.4 0"/>
+            <path d="M5.6 5.6a9.2 9.2 0 0 1 12.8 0"/>
+          </svg>
+          <span id="buttonLabel">Ativar</span>
+        </button>
+        <div class="status" id="status"></div>
+      </section>
+
+    </main>
+
+    <footer class="rodape">
+      <span class="rotulo-mono" id="contaInfo"></span>
+      <span class="rotulo-mono">Painel de massiva · uso interno</span>
+    </footer>
+
+  </div>
+
+  <!-- Painel de Histórico -->
+  <div class="historico-fundo" id="historicoFundo">
+    <div class="historico-caixa">
+      <div class="historico-topo">
+        <div class="historico-titulo">
+          <h2>Histórico de comunicados</h2>
+          <span id="historicoConta">Conta —</span>
+        </div>
+        <button type="button" class="historico-fechar" onclick="fecharHistorico()">✕</button>
+      </div>
+      <div class="historico-lista" id="historicoLista">
+        <div class="historico-carregando">Carregando histórico...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dados preenchidos pelo n8n (invisíveis ao cliente) -->
+  <p id="account" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.account }}</p>
+  <p id="statusBanco" class="dados" style="opacity: 0;">{{ $json.status.toString() }}</p>
+  <!-- Token do operador logado — mesmo valor já recebido em query.token pelo webhook que gera esta página -->
+  <p id="token" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.token }}</p>
+
+<script>
+/* ============================================================================
+ * Modo Massiva — Central de Comunicados
+ * ----------------------------------------------------------------------------
+ * FASE 1: Mensagens padrão (modelos) por empresa.
+ *
+ * Arquitetura de dados (mock-first):
+ *   Toda leitura/escrita passa pelo objeto `Store` (ver abaixo). Hoje ele
+ *   guarda em localStorage por conta; para plugar o backend real do N8N,
+ *   basta trocar o corpo de cada método por um fetch nos webhooks descritos
+ *   em massiva/README.md — a UI não muda.
+ *
+ * Modo teste (dev): se os placeholders {{ ... }} do N8N não forem
+ *   substituídos (ex.: abrindo o arquivo direto no navegador), a página cai
+ *   em modo teste com conta "demo" e alguns modelos de exemplo, pra você ver
+ *   e testar a UX sem depender do N8N.
+ * ========================================================================== */
+
+const button = document.getElementById("button");
+const status = document.getElementById("status");
+const buttonLabel = document.getElementById("buttonLabel");
+const seloTexto = document.getElementById("seloTexto");
+const statusGrande = document.getElementById("statusGrande");
+const statusDesc = document.getElementById("statusDesc");
+const campoMensagem = document.getElementById("textoEnviar");
+const campoRegioes = document.getElementById("areas_afetadas");
+const contador = document.getElementById("contador");
+const previaTexto = document.getElementById("previaTexto");
+const tempoAtivacao = document.getElementById("tempoAtivacao");
+const tempoFallback = document.getElementById("tempoFallback");
+const horaAtivacao = document.getElementById("horaAtivacao");
+const cronometro = document.getElementById("cronometro");
+const historicoFundo = document.getElementById("historicoFundo");
+const historicoLista = document.getElementById("historicoLista");
+const historicoConta = document.getElementById("historicoConta");
+const modelosLista = document.getElementById("modelosLista");
+
+// URL do endpoint de leitura do histórico
+const HISTORICO_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-historico";
+
+/* ---------- Detecção de placeholder do N8N / modo teste ---------- */
+function ehPlaceholder(v) {
+  if (!v) return true;
+  return v.indexOf("{{") !== -1 || v.indexOf("}}") !== -1 ||
+         v.indexOf("$json") !== -1 || v.indexOf("$(") !== -1;
+}
+
+const accountBruto = document.getElementById("account").textContent.trim();
+const tokenBruto = document.getElementById("token").textContent.trim();
+const statusBancoBruto = document.getElementById("statusBanco").textContent.trim();
+
+const MODO_DEV = ehPlaceholder(accountBruto);
+const account_id = MODO_DEV ? "demo" : accountBruto;
+const token_id = ehPlaceholder(tokenBruto) ? (MODO_DEV ? "demo-token" : "") : tokenBruto;
+const statusBancoText = ehPlaceholder(statusBancoBruto) ? "false" : statusBancoBruto.toLowerCase();
+
+// Converte string "true"/"false" em booleano
+let ativado = statusBancoText === "true";
+
+/* ============================================================================
+ * Store — camada de dados (mock-first via localStorage)
+ * Troque o corpo dos métodos por fetch() nos webhooks para usar o backend.
+ * Todos os métodos são assíncronos de propósito, para a troca ser transparente.
+ * ========================================================================== */
+const Store = {
+  _chaveModelos(account) {
+    return "massiva_modelos_" + account;
+  },
+
+  _lerModelosLocal(account) {
+    try {
+      const bruto = localStorage.getItem(this._chaveModelos(account));
+      const lista = bruto ? JSON.parse(bruto) : [];
+      return Array.isArray(lista) ? lista : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  _salvarModelosLocal(account, lista) {
+    try {
+      localStorage.setItem(this._chaveModelos(account), JSON.stringify(lista));
+    } catch (e) { /* sem localStorage: segue sem persistir */ }
+  },
+
+  // GET  /webhook/massiva-modelos?account=&token=
+  async listarModelos(account) {
+    return this._lerModelosLocal(account);
+  },
+
+  // POST /webhook/massiva-modelos  { account, token, texto }
+  async adicionarModelo(account, texto, token) {
+    const lista = this._lerModelosLocal(account);
+    const novo = {
+      id: "loc_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+      texto: texto,
+      criado_por: token || null,
+    };
+    lista.unshift(novo);
+    this._salvarModelosLocal(account, lista);
+    return novo;
+  },
+
+  // DELETE /webhook/massiva-modelos  { account, token, id }
+  async removerModelo(account, id) {
+    const lista = this._lerModelosLocal(account).filter((m) => m.id !== id);
+    this._salvarModelosLocal(account, lista);
+    return true;
+  },
+
+  // Semeia modelos de exemplo só no modo teste, na primeira abertura.
+  semearExemplosSePreciso(account) {
+    if (!MODO_DEV) return;
+    if (localStorage.getItem(this._chaveModelos(account)) !== null) return;
+    const exemplos = [
+      "Prezado cliente, informamos que há uma instabilidade geral no serviço de internet na sua região. Nossa equipe técnica já está atuando para normalizar o quanto antes. Agradecemos a compreensão.",
+      "Estamos com uma manutenção emergencial na rede da sua localidade. A previsão de normalização é até às 13h. Pedimos desculpas pelo transtorno.",
+      "Identificamos uma falha no fornecimento de energia elétrica que afeta a sua região e, consequentemente, o serviço de internet. Assim que a energia for restabelecida, o sinal volta ao normal.",
+    ];
+    this._salvarModelosLocal(account, exemplos.map((texto, i) => ({
+      id: "seed_" + i,
+      texto: texto,
+      criado_por: null,
+    })));
+  },
+};
+
+/* ---------- Registro do horário de ativação (apenas visual, salvo no navegador) ---------- */
+const CHAVE_ATIVACAO = "massiva_ativada_em_" + account_id;
+let inicioAtivacao = null;
+
+function lerAtivacao() {
+  try {
+    const valor = localStorage.getItem(CHAVE_ATIVACAO);
+    const numero = valor ? parseInt(valor, 10) : NaN;
+    return isNaN(numero) ? null : numero;
+  } catch (e) {
+    return null;
+  }
+}
+
+function salvarAtivacao() {
+  try {
+    localStorage.setItem(CHAVE_ATIVACAO, String(Date.now()));
+  } catch (e) { /* sem localStorage, segue sem o horário */ }
+}
+
+function limparAtivacao() {
+  try {
+    localStorage.removeItem(CHAVE_ATIVACAO);
+  } catch (e) { /* sem localStorage, nada a limpar */ }
+}
+
+function formatarDuracao(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const dias = Math.floor(total / 86400);
+  const horas = Math.floor((total % 86400) / 3600);
+  const minutos = Math.floor((total % 3600) / 60);
+  const segundos = total % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return dias > 0
+    ? `${dias}d ${p(horas)}:${p(minutos)}:${p(segundos)}`
+    : `${p(horas)}:${p(minutos)}:${p(segundos)}`;
+}
+
+function formatarDuracaoCurta(segundosTotais) {
+  if (segundosTotais == null) return "em aberto";
+  const dias = Math.floor(segundosTotais / 86400);
+  const horas = Math.floor((segundosTotais % 86400) / 3600);
+  const minutos = Math.floor((segundosTotais % 3600) / 60);
+  if (dias > 0) return `${dias}d ${horas}h`;
+  if (horas > 0) return `${horas}h ${minutos}min`;
+  return `${minutos}min`;
+}
+
+function atualizarCronometro() {
+  if (ativado && inicioAtivacao) {
+    cronometro.textContent = formatarDuracao(Date.now() - inicioAtivacao);
+  }
+}
+
+function atualizarTempoAtivacao() {
+  inicioAtivacao = ativado ? lerAtivacao() : null;
+
+  if (!ativado) {
+    tempoAtivacao.style.display = "none";
+    tempoFallback.style.display = "none";
+    return;
+  }
+
+  if (inicioAtivacao) {
+    const data = new Date(inicioAtivacao);
+    const hora = data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const mesmoDia = data.toDateString() === new Date().toDateString();
+    horaAtivacao.textContent = mesmoDia
+      ? hora
+      : data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " · " + hora;
+    atualizarCronometro();
+    tempoAtivacao.style.display = "grid";
+    tempoFallback.style.display = "none";
+  } else {
+    tempoAtivacao.style.display = "none";
+    tempoFallback.style.display = "block";
+  }
+}
+
+/* ---------- Interface ---------- */
+function atualizarInterface() {
+  buttonLabel.textContent = ativado ? "Desativar" : "Ativar";
+  button.classList.toggle("encerrar", ativado);
+  document.body.classList.toggle("ativo", ativado);
+  seloTexto.textContent = ativado ? "No ar" : "Em espera";
+  statusGrande.textContent = ativado ? "No ar" : "Em espera";
+  statusDesc.textContent = ativado
+    ? "O comunicado está sendo transmitido para os clientes das regiões informadas."
+    : "Nenhum comunicado em transmissão no momento.";
+  atualizarTempoAtivacao();
+  status.textContent = "";
+  status.style.color = "";
+}
+
+function atualizarRelogio() {
+  const agora = new Date();
+  document.getElementById("relogio").textContent = agora.toLocaleTimeString("pt-BR");
+  document.getElementById("dataHoje").textContent = agora.toLocaleDateString("pt-BR", {
+    weekday: "short", day: "2-digit", month: "short", year: "numeric"
+  });
+}
+
+function tique() {
+  atualizarRelogio();
+  atualizarCronometro();
+}
+setInterval(tique, 1000);
+tique();
+
+function atualizarPrevia() {
+  const qtd = campoMensagem.value.length;
+  contador.textContent = qtd === 1 ? "1 caractere" : `${qtd} caracteres`;
+
+  if (!campoMensagem.value.trim() && !campoRegioes.value.trim()) {
+    previaTexto.textContent = "Escreva a mensagem para ver aqui exatamente o que será enviado.";
+    previaTexto.classList.add("vazia");
+  } else {
+    previaTexto.textContent = `${campoMensagem.value} áreas afetadas: ${campoRegioes.value}`;
+    previaTexto.classList.remove("vazia");
+  }
+  marcarModeloAtivo();
+}
+campoMensagem.addEventListener("input", atualizarPrevia);
+campoRegioes.addEventListener("input", atualizarPrevia);
+
+if (account_id) {
+  const rotulo = MODO_DEV ? `Conta: ${account_id} · modo teste` : `Conta: ${account_id}`;
+  document.getElementById("contaInfo").textContent = rotulo;
+  historicoConta.textContent = `Conta ${account_id}`;
+}
+
+if (!ativado) {
+  limparAtivacao();
+}
+
+atualizarInterface();
+
+/* ============================================================================
+ * Modelos de mensagem (Fase 1)
+ * ========================================================================== */
+let modelosCache = [];
+
+function escapeHtml(texto) {
+  const div = document.createElement("div");
+  div.textContent = texto ?? "";
+  return div.innerHTML;
+}
+
+function resumir(texto, max) {
+  const limpo = (texto || "").replace(/\s+/g, " ").trim();
+  return limpo.length > max ? limpo.slice(0, max - 1).trimEnd() + "…" : limpo;
+}
+
+function marcarModeloAtivo() {
+  const atual = campoMensagem.value.trim();
+  modelosLista.querySelectorAll(".modelo-chip").forEach((chip) => {
+    const texto = (chip.dataset.texto || "").trim();
+    chip.classList.toggle("ativa", texto !== "" && texto === atual);
+  });
+}
+
+function renderizarModelos() {
+  if (!modelosCache.length) {
+    modelosLista.innerHTML = `<span class="modelos-vazio">Nenhum modelo salvo ainda para esta conta.</span>`;
+  } else {
+    modelosLista.innerHTML = modelosCache.map((m) => `
+      <span class="modelo-chip" role="button" tabindex="0" data-id="${escapeHtml(m.id)}" data-texto="${escapeHtml(m.texto)}" title="${escapeHtml(m.texto)}">
+        <span class="modelo-chip-texto">${escapeHtml(resumir(m.texto, 46))}</span>
+        <button type="button" class="modelo-x" data-acao="excluir" aria-label="Excluir modelo" title="Excluir modelo">✕</button>
+      </span>
+    `).join("");
+  }
+
+  // Botão de adicionar sempre presente no fim da lista
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "modelo-add";
+  add.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+      <path d="M12 5v14"/><path d="M5 12h14"/>
+    </svg>
+    Salvar mensagem atual como modelo`;
+  add.addEventListener("click", salvarModeloAtual);
+  modelosLista.appendChild(add);
+
+  marcarModeloAtivo();
+}
+
+function aplicarModelo(texto) {
+  campoMensagem.value = texto;
+  atualizarPrevia();
+  campoMensagem.focus();
+}
+
+async function salvarModeloAtual() {
+  const texto = campoMensagem.value.trim();
+  if (!texto) {
+    status.textContent = "Escreva a mensagem no campo acima antes de salvar como modelo.";
+    status.style.color = "#f87171";
+    setTimeout(() => { if (!ativado) status.textContent = ""; }, 3500);
+    return;
+  }
+  if (modelosCache.some((m) => (m.texto || "").trim() === texto)) {
+    status.textContent = "Esse modelo já existe.";
+    status.style.color = "#9a9aa2";
+    setTimeout(() => { if (!ativado) status.textContent = ""; }, 3000);
+    return;
+  }
+  try {
+    const novo = await Store.adicionarModelo(account_id, texto, token_id);
+    modelosCache.unshift(novo);
+    renderizarModelos();
+    status.textContent = "Modelo salvo.";
+    status.style.color = "#ffcd03";
+    setTimeout(() => { if (!ativado) status.textContent = ""; }, 2500);
+  } catch (e) {
+    console.error("Erro ao salvar modelo:", e);
+    status.textContent = "Não foi possível salvar o modelo agora.";
+    status.style.color = "#f87171";
+  }
+}
+
+async function excluirModelo(id) {
+  const alvo = modelosCache.find((m) => m.id === id);
+  const previa = alvo ? `\n\n"${resumir(alvo.texto, 80)}"` : "";
+  if (!confirm("Excluir este modelo de mensagem?" + previa)) return;
+  try {
+    await Store.removerModelo(account_id, id);
+    modelosCache = modelosCache.filter((m) => m.id !== id);
+    renderizarModelos();
+  } catch (e) {
+    console.error("Erro ao excluir modelo:", e);
+    status.textContent = "Não foi possível excluir o modelo agora.";
+    status.style.color = "#f87171";
+  }
+}
+
+// Delegação de eventos nos chips (usar / excluir)
+modelosLista.addEventListener("click", (e) => {
+  const btnExcluir = e.target.closest('[data-acao="excluir"]');
+  if (btnExcluir) {
+    e.stopPropagation();
+    const chip = btnExcluir.closest(".modelo-chip");
+    if (chip) excluirModelo(chip.dataset.id);
+    return;
+  }
+  const chip = e.target.closest(".modelo-chip");
+  if (chip) aplicarModelo(chip.dataset.texto || "");
+});
+
+modelosLista.addEventListener("keydown", (e) => {
+  const chip = e.target.closest(".modelo-chip");
+  if (chip && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    aplicarModelo(chip.dataset.texto || "");
+  }
+});
+
+async function carregarModelos() {
+  try {
+    Store.semearExemplosSePreciso(account_id);
+    modelosCache = await Store.listarModelos(account_id);
+  } catch (e) {
+    console.error("Erro ao carregar modelos:", e);
+    modelosCache = [];
+  }
+  renderizarModelos();
+}
+
+carregarModelos();
+atualizarPrevia();
+
+/* ============================================================================
+ * Histórico
+ * ========================================================================== */
+function formatarDataHora(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+}
+
+function renderizarHistorico(itens) {
+  if (!Array.isArray(itens) || itens.length === 0) {
+    historicoLista.innerHTML = `<div class="historico-vazio">Nenhuma ativação registrada ainda para esta conta.</div>`;
+    return;
+  }
+
+  historicoLista.innerHTML = itens.map((item) => {
+    const emAberto = !item.desativado_em;
+    const duracao = emAberto ? "no ar agora" : formatarDuracaoCurta(item.duracao_segundos);
+    const operador = item.operador_nome || item.operador_token || "não identificado";
+
+    return `
+      <div class="item-historico ${emAberto ? "aberto-agora" : ""}">
+        <div class="item-topo">
+          <span class="item-quando">${formatarDataHora(item.ativado_em)}</span>
+          <span class="item-duracao">${duracao}</span>
+        </div>
+        <p class="item-mensagem">${escapeHtml(item.mensagem)}</p>
+        <div class="item-meta">
+          <span class="tag-meta">Região: <b>${escapeHtml(item.regiao || "—")}</b></span>
+          <span class="tag-meta">Operador: <b>${escapeHtml(operador)}</b></span>
+          ${!emAberto ? `<span class="tag-meta">Encerrada: <b>${formatarDataHora(item.desativado_em)}</b></span>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function carregarHistorico() {
+  historicoLista.innerHTML = `<div class="historico-carregando">Carregando histórico...</div>`;
+  try {
+    const resposta = await fetch(`${HISTORICO_URL}?account=${encodeURIComponent(account_id)}&token=${encodeURIComponent(token_id)}`);
+    if (!resposta.ok) throw new Error("Falha na resposta");
+    const dados = await resposta.json();
+    renderizarHistorico(dados);
+  } catch (erro) {
+    console.error("Erro ao carregar histórico:", erro);
+    historicoLista.innerHTML = `<div class="historico-erro">Não foi possível carregar o histórico agora. Tente novamente em instantes.</div>`;
+  }
+}
+
+function abrirHistorico() {
+  historicoFundo.classList.add("aberto");
+  carregarHistorico();
+}
+
+function fecharHistorico() {
+  historicoFundo.classList.remove("aberto");
+}
+
+historicoFundo.addEventListener("click", (e) => {
+  if (e.target === historicoFundo) fecharHistorico();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") fecharHistorico();
+});
+
+/* ============================================================================
+ * Ativar / Desativar
+ * ========================================================================== */
+async function submitHandle() {
+
+  const textoEnviar = document.getElementById("textoEnviar").value;
+    if (!textoEnviar && !ativado) {
+    status.textContent = "Digite uma mensagem antes de ativar.";
+    status.style.color = "#f87171";
+    setTimeout(() => {
+      atualizarInterface()
+    }, 3000);
+    return;
+  }
+  const textoAreaAfetada = document.getElementById("areas_afetadas").value;
+    if (!textoAreaAfetada && !ativado) {
+    status.textContent = "Digite ao menos uma área afetada antes de ativar.";
+    status.style.color = "#f87171";
+    setTimeout(() => {
+      atualizarInterface()
+    }, 3000);
+    return;
+  }
+
+  button.disabled = true; // desabilita o botão enquanto processa
+  buttonLabel.textContent = ativado ? "Desativando..." : "Ativando...";
+
+  try {
+    const acao = ativado ? false : true;
+
+    // No modo teste não há webhook — simula sucesso para dar pra testar a UX.
+    let ok = true;
+    if (!MODO_DEV) {
+      const response = await fetch("https://toplink.webhooks.coraxy.com.br/webhook/massiva", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          texto: `${textoEnviar} áreas afetadas: ${textoAreaAfetada}`,
+          account: account_id,
+          status: acao,
+          // Campos novos, só para alimentar o histórico — não afetam o contrato antigo
+          token: token_id,
+          mensagem: textoEnviar,
+          regiao: textoAreaAfetada,
+        }),
+      });
+      ok = response.ok;
+    }
+
+    if (ok) {
+      ativado = !ativado;
+      if (ativado) {
+        salvarAtivacao(); // registra o horário em que foi ativada (apenas visual)
+      } else {
+        limparAtivacao(); // desativou: o horário some da tela e do registro
+      }
+      atualizarInterface();
+    } else {
+      status.textContent = "Erro ao enviar requisição.";
+      status.style.color = "#f87171";
+    }
+  } catch (error) {
+    console.error("Erro:", error);
+    status.textContent = "Erro ao conectar.";
+    status.style.color = "#f87171";
+  } finally {
+    button.disabled = false; // libera o botão após o processo
+    buttonLabel.textContent = ativado ? "Desativar" : "Ativar"; // evita ficar travado em "Ativando..."/"Desativando..." se der erro
+    button.classList.toggle("encerrar", ativado);
+    document.getElementById("textoEnviar").value = "";
+    document.getElementById("areas_afetadas").value = "";
+    atualizarPrevia(); // apenas visual: zera prévia e contador junto com os campos
+  }
+}
+
+</script>
+
+</body>
+</html>
