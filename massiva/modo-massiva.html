@@ -1223,6 +1223,67 @@
       border-style: dashed;
     }
 
+    .previa-msg {
+      white-space: pre-wrap;
+      margin-bottom: 0.7rem;
+    }
+
+    .previa-areas {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .previa-areas-rot {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--apagado);
+    }
+
+    .previa-cidade {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      padding: 0.35rem 0 0.35rem 0.7rem;
+      border-left: 3px solid rgba(255, 205, 3, 0.55);
+    }
+
+    .previa-cid {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--amarelo);
+      letter-spacing: 0.01em;
+    }
+
+    .previa-bairros {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .previa-bairro {
+      font-size: 0.82rem;
+      color: var(--texto);
+      background: #1c1c21;
+      border: 1px solid #313139;
+      border-radius: 8px;
+      padding: 0.25rem 0.55rem;
+    }
+
+    .previa-ruas {
+      color: var(--amarelo);
+      opacity: 0.85;
+    }
+
+    .previa-ruas::before {
+      content: "· ";
+      color: var(--apagado);
+    }
+
     .dica-ativa {
       display: none;
       font-size: 0.83rem;
@@ -2140,20 +2201,46 @@ function atualizarPrevia() {
   const qtd = campoMensagem.value.length;
   contador.textContent = qtd === 1 ? "1 caractere" : `${qtd} caracteres`;
 
-  const temMsg = !!campoMensagem.value.trim();
-  const temRegiao = !!(regiaoTextoAtual && regiaoTextoAtual.trim());
+  const msg = campoMensagem.value;
+  const temMsg = !!msg.trim();
+  const temRegiao = !!(regiaoAreasAtual && regiaoAreasAtual.cidades && regiaoAreasAtual.cidades.length);
+
   if (!temMsg && !temRegiao) {
     previaTexto.textContent = "Escreva a mensagem e selecione as regiões para ver aqui o que será enviado.";
     previaTexto.classList.add("vazia");
   } else {
-    previaTexto.textContent = temRegiao
-      ? `${campoMensagem.value} áreas afetadas: ${regiaoTextoAtual}`
-      : campoMensagem.value;
+    let html = "";
+    if (temMsg) html += '<div class="previa-msg">' + escapeHtml(msg) + '</div>';
+    if (temRegiao) html += regiaoParaHtml(regiaoAreasAtual);
+    previaTexto.innerHTML = html;
     previaTexto.classList.remove("vazia");
   }
   marcarModeloAtivo();
 }
 campoMensagem.addEventListener("input", atualizarPrevia);
+
+// Prévia da região: um bloco por cidade (cidade em destaque, ruas realçadas)
+function regiaoParaHtml(areas) {
+  const semDetalhe = areas.cidades.every((c) => !c.bairros.length);
+  let corpo;
+  if (areas.todasCidades && semDetalhe) {
+    corpo = '<div class="previa-cidade"><span class="previa-cid">Todas as cidades</span></div>';
+  } else {
+    corpo = areas.cidades.map((c) => {
+      let dentro = "";
+      if (c.bairros.length) {
+        dentro = '<div class="previa-bairros">' + c.bairros.map((b) => {
+          const ruas = b.ruas.length
+            ? ' <span class="previa-ruas">' + escapeHtml(b.ruas.join(", ")) + '</span>'
+            : "";
+          return '<span class="previa-bairro">' + escapeHtml(b.nome) + ruas + '</span>';
+        }).join("") + '</div>';
+      }
+      return '<div class="previa-cidade"><span class="previa-cid">' + escapeHtml(c.nome) + '</span>' + dentro + '</div>';
+    }).join("");
+  }
+  return '<div class="previa-areas"><span class="previa-areas-rot">Áreas afetadas</span>' + corpo + '</div>';
+}
 
 if (account_id) {
   const rotulo = MODO_DEV ? `Conta: ${account_id} · modo teste` : `Conta: ${account_id}`;
@@ -2452,11 +2539,13 @@ function criarSelecao(cfg) {
     } else {
       el.lista.innerHTML = filtrados.map((i) => {
         const marcado = estado.todos || estado.set.has(i.id);
-        const ctx = cfg.contexto ? cfg.contexto(i) : "";
+        const ctx = cfg.contexto ? cfg.contexto(i) : [];
+        const ctxHtml = (Array.isArray(ctx) ? ctx : [ctx]).filter(Boolean)
+          .map((seg) => '<span class="sel-op-ctx">' + escapeHtml(seg) + '</span>').join("");
         return '<label class="sel-op ' + (marcado ? "marcado" : "") + '" data-id="' + escapeHtml(i.id) + '">' +
           '<input type="checkbox" ' + (marcado ? "checked" : "") + '>' +
           '<span class="sel-op-info"><span class="sel-op-nome">' + escapeHtml(i.nome) + '</span>' +
-          (ctx ? '<span class="sel-op-ctx">' + escapeHtml(ctx) + '</span>' : '') + '</span>' +
+          ctxHtml + '</span>' +
           '<button type="button" class="sel-op-lixo" data-acao="excluir" aria-label="Excluir do catálogo" title="Excluir do catálogo">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>' +
           '</button></label>';
@@ -2690,7 +2779,7 @@ async function iniciarRegioes() {
     temPai: true,
     nomePai: "cidade",
     paisSelecionados: () => selCidade.selecionadosItens(),
-    contexto: (b) => nomeCidade(b.cidadeId),
+    contexto: (b) => [nomeCidade(b.cidadeId)],
     aoAdicionar: (nome, cidadeId) => Store.adicionarBairro(account_id, nome, cidadeId, token_id),
     aoExcluirCatalogo: (id) => Store.removerBairro(account_id, id),
     aoMudar: () => { selRua.sincronizar(); recalcularRegiao(); },
@@ -2708,7 +2797,10 @@ async function iniciarRegioes() {
     temPai: true,
     nomePai: "bairro",
     paisSelecionados: () => selBairro.selecionadosItens(),
-    contexto: (r) => nomeBairro(r.bairroId),
+    contexto: (r) => {
+      const b = catalogo.bairros.find((x) => x.id === r.bairroId);
+      return b ? [b.nome, nomeCidade(b.cidadeId)] : [];
+    },
     aoAdicionar: (nome, bairroId) => Store.adicionarRua(account_id, nome, bairroId, token_id),
     aoExcluirCatalogo: (id) => Store.removerRua(account_id, id),
     aoMudar: () => { recalcularRegiao(); },
