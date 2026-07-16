@@ -1284,6 +1284,43 @@
       color: var(--apagado);
     }
 
+    /* Colapso: com várias cidades mostra só um exemplo; o resto no hover */
+    .previa-resumo {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+
+    .previa-mais {
+      font-size: 0.8rem;
+      color: var(--suave);
+      padding-left: 0.7rem;
+    }
+
+    .previa-mais-dica {
+      color: var(--apagado);
+      font-size: 0.74rem;
+    }
+
+    .previa-full {
+      display: none;
+    }
+
+    .previa-areas:hover .previa-resumo,
+    .previa-areas.aberto .previa-resumo {
+      display: none;
+    }
+
+    .previa-areas:hover .previa-full,
+    .previa-areas.aberto .previa-full {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
     .dica-ativa {
       display: none;
       font-size: 0.83rem;
@@ -2219,28 +2256,49 @@ function atualizarPrevia() {
 }
 campoMensagem.addEventListener("input", atualizarPrevia);
 
-// Prévia da região: um bloco por cidade (cidade em destaque, ruas realçadas)
-function regiaoParaHtml(areas) {
-  const semDetalhe = areas.cidades.every((c) => !c.bairros.length);
-  let corpo;
-  if (areas.todasCidades && semDetalhe) {
-    corpo = '<div class="previa-cidade"><span class="previa-cid">Todas as cidades</span></div>';
-  } else {
-    corpo = areas.cidades.map((c) => {
-      let dentro = "";
-      if (c.bairros.length) {
-        dentro = '<div class="previa-bairros">' + c.bairros.map((b) => {
-          const ruas = b.ruas.length
-            ? ' <span class="previa-ruas">' + escapeHtml(b.ruas.join(", ")) + '</span>'
-            : "";
-          return '<span class="previa-bairro">' + escapeHtml(b.nome) + ruas + '</span>';
-        }).join("") + '</div>';
-      }
-      return '<div class="previa-cidade"><span class="previa-cid">' + escapeHtml(c.nome) + '</span>' + dentro + '</div>';
-    }).join("");
+// Prévia da região: um bloco por cidade (cidade em destaque, ruas realçadas).
+// Com várias cidades, mostra só a 1ª como exemplo e revela o resto no hover.
+function previaCidadeHtml(c) {
+  let dentro = "";
+  if (c.bairros.length) {
+    dentro = '<div class="previa-bairros">' + c.bairros.map((b) => {
+      const ruas = b.ruas.length
+        ? ' <span class="previa-ruas">' + escapeHtml(b.ruas.join(", ")) + '</span>'
+        : "";
+      return '<span class="previa-bairro">' + escapeHtml(b.nome) + ruas + '</span>';
+    }).join("") + '</div>';
   }
-  return '<div class="previa-areas"><span class="previa-areas-rot">Áreas afetadas</span>' + corpo + '</div>';
+  return '<div class="previa-cidade"><span class="previa-cid">' + escapeHtml(c.nome) + '</span>' + dentro + '</div>';
 }
+
+function regiaoParaHtml(areas) {
+  const rot = '<span class="previa-areas-rot">Áreas afetadas</span>';
+  const semDetalhe = areas.cidades.every((c) => !c.bairros.length);
+
+  if (areas.todasCidades && semDetalhe) {
+    return '<div class="previa-areas">' + rot +
+      '<div class="previa-cidade"><span class="previa-cid">Todas as cidades</span></div></div>';
+  }
+
+  // Uma cidade só: cabe inteira, mostra inline.
+  if (areas.cidades.length <= 1) {
+    return '<div class="previa-areas">' + rot + areas.cidades.map(previaCidadeHtml).join("") + '</div>';
+  }
+
+  // Várias: resumo (1 exemplo) + detalhe completo no hover.
+  const extras = areas.cidades.length - 1;
+  const resumo = '<div class="previa-resumo">' + previaCidadeHtml(areas.cidades[0]) +
+    '<div class="previa-mais">+ ' + extras + (extras === 1 ? ' outra região' : ' outras regiões') +
+    ' <span class="previa-mais-dica">· passe o mouse para ver todas</span></div></div>';
+  const completo = '<div class="previa-full">' + areas.cidades.map(previaCidadeHtml).join("") + '</div>';
+  return '<div class="previa-areas">' + rot + resumo + completo + '</div>';
+}
+
+// Toque/clique também expande o detalhe (fallback sem mouse)
+previaTexto.addEventListener("click", (e) => {
+  const areas = e.target.closest(".previa-areas");
+  if (areas && areas.querySelector(".previa-full")) areas.classList.toggle("aberto");
+});
 
 if (account_id) {
   const rotulo = MODO_DEV ? `Conta: ${account_id} · modo teste` : `Conta: ${account_id}`;
