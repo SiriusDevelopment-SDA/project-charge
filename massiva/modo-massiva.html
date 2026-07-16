@@ -1011,9 +1011,21 @@
     }
 
     .sel-op-nome {
-      flex: 1 1 auto;
+      flex: 0 1 auto;
       font-size: 0.88rem;
       color: var(--texto);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sel-op-ctx {
+      flex: 0 0 auto;
+      font-size: 0.76rem;
+      color: var(--apagado);
+      padding-left: 0.5rem;
+      border-left: 2px solid #3a3a42;
+      white-space: nowrap;
     }
 
     .sel-op-lixo {
@@ -1045,12 +1057,15 @@
       transform: none;
     }
 
-    .sel-add {
+    .sel-add-area {
+      border-top: 1px solid var(--borda);
+    }
+
+    .sel-add-btn {
       display: block;
       width: 100%;
       text-align: left;
       border: none;
-      border-top: 1px solid var(--borda);
       border-radius: 0;
       background: rgba(255, 205, 3, 0.05);
       color: var(--amarelo);
@@ -1062,18 +1077,51 @@
       transition: background 0.15s ease;
     }
 
-    .sel-add:hover {
-      background: rgba(255, 205, 3, 0.1);
+    .sel-add-btn:hover {
+      background: rgba(255, 205, 3, 0.12);
       box-shadow: none;
       transform: none;
     }
 
-    .sel-add[data-parent="__bloqueado__"] {
-      color: var(--apagado);
-      background: transparent;
-      cursor: default;
-      font-weight: 500;
+    .sel-add-titulo {
+      padding: 0.6rem 0.85rem 0.45rem;
       font-size: 0.8rem;
+      color: var(--suave);
+    }
+
+    .sel-add-pais {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      padding: 0 0.85rem 0.7rem;
+    }
+
+    .sel-add-pai {
+      border: 1px solid rgba(255, 205, 3, 0.4);
+      border-radius: 999px;
+      background: rgba(255, 205, 3, 0.06);
+      color: var(--amarelo);
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.3rem 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sel-add-pai:hover {
+      background: rgba(255, 205, 3, 0.14);
+      border-color: rgba(255, 205, 3, 0.7);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .sel-op-info {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
     }
 
     .sel-vazio {
@@ -1187,30 +1235,11 @@
       display: block;
     }
 
+    /* Reset leve para todos os botões (sem cor/altura fortes — evita o amarelo
+       da ação vazar para os botões utilitários por especificidade). */
     button {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 0.5rem;
-      width: 100%;
-      padding: 1.05rem 1.5rem;
       font-family: inherit;
-      font-size: 1.02rem;
-      font-weight: 700;
-      background-color: var(--amarelo);
-      color: #121212;
-      border: 1px solid var(--amarelo);
-      border-radius: 12px;
       cursor: pointer;
-      transition: background-color 0.25s ease, color 0.25s ease,
-                  border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
-    }
-
-    button:hover:not(:disabled) {
-      background-color: #ffd83d;
-      border-color: #ffd83d;
-      box-shadow: 0 8px 26px rgba(255, 205, 3, 0.3);
-      transform: translateY(-1px);
     }
 
     button:focus-visible {
@@ -1218,25 +1247,50 @@
       outline-offset: 3px;
     }
 
-    button:disabled {
+    /* Botão de ação principal (Ativar / Desativar) */
+    .btn-acao {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 1.05rem 1.5rem;
+      font-size: 1.02rem;
+      font-weight: 700;
+      background-color: var(--amarelo);
+      color: #121212;
+      border: 1px solid var(--amarelo);
+      border-radius: 12px;
+      transition: background-color 0.25s ease, color 0.25s ease,
+                  border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+    }
+
+    .btn-acao:hover:not(:disabled) {
+      background-color: #ffd83d;
+      border-color: #ffd83d;
+      box-shadow: 0 8px 26px rgba(255, 205, 3, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-acao:disabled {
       opacity: 0.55;
       cursor: wait;
       transform: none;
     }
 
-    button.encerrar {
+    .btn-acao.encerrar {
       background-color: transparent;
       border-color: rgba(248, 113, 113, 0.55);
       color: var(--vermelho);
     }
 
-    button.encerrar:hover:not(:disabled) {
+    .btn-acao.encerrar:hover:not(:disabled) {
       background-color: rgba(248, 113, 113, 0.12);
       border-color: var(--vermelho);
       box-shadow: 0 8px 26px rgba(248, 113, 113, 0.16);
     }
 
-    button.encerrar:focus-visible {
+    .btn-acao.encerrar:focus-visible {
       outline-color: var(--vermelho);
     }
 
@@ -1634,7 +1688,7 @@
                   </div>
                   <button type="button" class="sel-todos" id="selCidade-todos">Todas as cidades</button>
                   <div class="sel-lista" id="selCidade-lista"></div>
-                  <button type="button" class="sel-add" id="selCidade-add" hidden></button>
+                  <div class="sel-add-area" id="selCidade-add" hidden></div>
                 </div>
                 <div class="sel-tags" id="selCidade-tags"></div>
               </div>
@@ -1656,7 +1710,7 @@
                   </div>
                   <button type="button" class="sel-todos" id="selBairro-todos">Todos os bairros</button>
                   <div class="sel-lista" id="selBairro-lista"></div>
-                  <button type="button" class="sel-add" id="selBairro-add" hidden></button>
+                  <div class="sel-add-area" id="selBairro-add" hidden></div>
                 </div>
                 <div class="sel-tags" id="selBairro-tags"></div>
               </div>
@@ -1678,7 +1732,7 @@
                   </div>
                   <button type="button" class="sel-todos" id="selRua-todos">Todas as ruas</button>
                   <div class="sel-lista" id="selRua-lista"></div>
-                  <button type="button" class="sel-add" id="selRua-add" hidden></button>
+                  <div class="sel-add-area" id="selRua-add" hidden></div>
                 </div>
                 <div class="sel-tags" id="selRua-tags"></div>
               </div>
@@ -1693,7 +1747,7 @@
 
         <p class="dica-ativa">Para enviar um comunicado novo, encerre a massiva atual e ative outra em seguida.</p>
 
-        <button onclick="submitHandle()" id="button">
+        <button onclick="submitHandle()" id="button" class="btn-acao">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="flex-shrink:0;">
             <circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/>
             <path d="M8.3 8.3a5.4 5.4 0 0 1 7.4 0"/>
@@ -2398,9 +2452,11 @@ function criarSelecao(cfg) {
     } else {
       el.lista.innerHTML = filtrados.map((i) => {
         const marcado = estado.todos || estado.set.has(i.id);
+        const ctx = cfg.contexto ? cfg.contexto(i) : "";
         return '<label class="sel-op ' + (marcado ? "marcado" : "") + '" data-id="' + escapeHtml(i.id) + '">' +
           '<input type="checkbox" ' + (marcado ? "checked" : "") + '>' +
-          '<span class="sel-op-nome">' + escapeHtml(i.nome) + '</span>' +
+          '<span class="sel-op-info"><span class="sel-op-nome">' + escapeHtml(i.nome) + '</span>' +
+          (ctx ? '<span class="sel-op-ctx">' + escapeHtml(ctx) + '</span>' : '') + '</span>' +
           '<button type="button" class="sel-op-lixo" data-acao="excluir" aria-label="Excluir do catálogo" title="Excluir do catálogo">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>' +
           '</button></label>';
@@ -2409,27 +2465,37 @@ function criarSelecao(cfg) {
 
     const nome = el.busca.value.trim();
     const existe = lista.some((i) => normalizarTxt(i.nome) === normalizarTxt(nome));
-    if (nome && !existe) {
-      const parent = cfg.parentParaAdicionar ? cfg.parentParaAdicionar() : { ok: true, id: null };
-      el.add.hidden = false;
-      if (parent.ok) {
-        el.add.textContent = '+ Cadastrar “' + nome + '”';
-        el.add.dataset.parent = parent.id || "";
-      } else {
-        el.add.textContent = parent.hint;
-        el.add.dataset.parent = "__bloqueado__";
-      }
+    if (!nome || existe) {
+      el.add.hidden = true;
+      el.add.innerHTML = "";
+      return;
+    }
+    el.add.hidden = false;
+    const nomeEsc = escapeHtml(nome);
+    if (!cfg.temPai) {
+      el.add.innerHTML = '<button type="button" class="sel-add-btn" data-parent="">+ Cadastrar “' + nomeEsc + '”</button>';
+      return;
+    }
+    const pais = cfg.paisSelecionados();
+    if (pais.length === 1) {
+      el.add.innerHTML = '<button type="button" class="sel-add-btn" data-parent="' + escapeHtml(pais[0].id) + '">' +
+        '+ Cadastrar “' + nomeEsc + '” em ' + escapeHtml(pais[0].nome) + '</button>';
+    } else if (pais.length > 1) {
+      el.add.innerHTML = '<div class="sel-add-titulo">Cadastrar “' + nomeEsc + '” em qual ' + cfg.nomePai + '?</div>' +
+        '<div class="sel-add-pais">' +
+        pais.map((p) => '<button type="button" class="sel-add-pai" data-parent="' + escapeHtml(p.id) + '">' + escapeHtml(p.nome) + '</button>').join("") +
+        '</div>';
     } else {
       el.add.hidden = true;
+      el.add.innerHTML = "";
     }
   }
 
-  async function adicionar() {
+  async function adicionar(parentId) {
     const nome = el.busca.value.trim();
-    if (!nome || el.add.dataset.parent === "__bloqueado__") return;
-    const parentId = el.add.dataset.parent || null;
+    if (!nome) return;
     try {
-      const novo = await cfg.aoAdicionar(nome, parentId);
+      const novo = await cfg.aoAdicionar(nome, parentId || null);
       catalogo = await carregarCatalogo();
       estado.set.add(novo.id);
       el.busca.value = "";
@@ -2501,15 +2567,22 @@ function criarSelecao(cfg) {
 
   el.trigger.addEventListener("click", alternar);
   el.todos.addEventListener("click", toggleTodos);
-  el.add.addEventListener("click", adicionar);
+  el.add.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-parent]");
+    if (btn) adicionar(btn.dataset.parent || null);
+  });
   el.busca.addEventListener("input", renderLista);
   el.busca.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       const nome = el.busca.value.trim();
+      if (!nome) return;
       const existente = itens().find((i) => normalizarTxt(i.nome) === normalizarTxt(nome));
-      if (existente) { toggleItem(existente.id); el.busca.value = ""; renderLista(); }
-      else if (!el.add.hidden && el.add.dataset.parent !== "__bloqueado__") adicionar();
+      if (existente) { toggleItem(existente.id); el.busca.value = ""; renderLista(); return; }
+      // cadastra direto quando o destino é único; se ambíguo, o usuário escolhe o pai clicando
+      if (!cfg.temPai) { adicionar(null); return; }
+      const pais = cfg.paisSelecionados();
+      if (pais.length === 1) adicionar(pais[0].id);
     } else if (e.key === "Escape") {
       e.preventDefault(); fechar(); el.trigger.focus();
     }
@@ -2540,6 +2613,9 @@ function criarSelecao(cfg) {
 }
 
 /* ---------- Estrutura + texto da região a partir das seleções ---------- */
+function nomeCidade(id) { const c = catalogo.cidades.find((x) => x.id === id); return c ? c.nome : ""; }
+function nomeBairro(id) { const b = catalogo.bairros.find((x) => x.id === id); return b ? b.nome : ""; }
+
 function construirAreas() {
   if (!selCidade) return { todasCidades: false, todosBairros: false, todasRuas: false, cidades: [] };
   const cidItens = selCidade.selecionadosItens();
@@ -2595,6 +2671,7 @@ async function iniciarRegioes() {
   selCidade = criarSelecao({
     prefixo: "selCidade",
     placeholder: "Selecionar cidades", plural: "cidades", rotuloTodos: "Todas as cidades",
+    temPai: false,
     itens: () => catalogo.cidades,
     aoAdicionar: (nome) => Store.adicionarCidade(account_id, nome, token_id),
     aoExcluirCatalogo: (id) => Store.removerCidade(account_id, id),
@@ -2610,11 +2687,10 @@ async function iniciarRegioes() {
       const cid = new Set(selCidade.selecionadosIds());
       return catalogo.bairros.filter((b) => cid.has(b.cidadeId));
     },
-    parentParaAdicionar: () => {
-      const cids = selCidade.selecionadosIds();
-      if (cids.length === 1) return { ok: true, id: cids[0] };
-      return { ok: false, hint: "Selecione só 1 cidade para cadastrar um bairro nela" };
-    },
+    temPai: true,
+    nomePai: "cidade",
+    paisSelecionados: () => selCidade.selecionadosItens(),
+    contexto: (b) => nomeCidade(b.cidadeId),
     aoAdicionar: (nome, cidadeId) => Store.adicionarBairro(account_id, nome, cidadeId, token_id),
     aoExcluirCatalogo: (id) => Store.removerBairro(account_id, id),
     aoMudar: () => { selRua.sincronizar(); recalcularRegiao(); },
@@ -2629,11 +2705,10 @@ async function iniciarRegioes() {
       const bai = new Set(selBairro.selecionadosIds());
       return catalogo.ruas.filter((r) => bai.has(r.bairroId));
     },
-    parentParaAdicionar: () => {
-      const bais = selBairro.selecionadosIds();
-      if (bais.length === 1) return { ok: true, id: bais[0] };
-      return { ok: false, hint: "Selecione só 1 bairro para cadastrar uma rua nele" };
-    },
+    temPai: true,
+    nomePai: "bairro",
+    paisSelecionados: () => selBairro.selecionadosItens(),
+    contexto: (r) => nomeBairro(r.bairroId),
     aoAdicionar: (nome, bairroId) => Store.adicionarRua(account_id, nome, bairroId, token_id),
     aoExcluirCatalogo: (id) => Store.removerRua(account_id, id),
     aoMudar: () => { recalcularRegiao(); },
