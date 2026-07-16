@@ -1899,7 +1899,7 @@
  *   basta trocar o corpo de cada método por um fetch nos webhooks descritos
  *   em massiva/README.md — a UI não muda.
  *
- * Modo teste (dev): se os placeholders {{ ... }} do N8N não forem
+ * Modo teste (dev): se os placeholders do N8N não forem
  *   substituídos (ex.: abrindo o arquivo direto no navegador), a página cai
  *   em modo teste com conta "demo" e alguns modelos de exemplo, pra você ver
  *   e testar a UX sem depender do N8N.
@@ -1939,7 +1939,9 @@ const HISTORICO_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-hi
 /* ---------- Detecção de placeholder do N8N / modo teste ---------- */
 function ehPlaceholder(v) {
   if (!v) return true;
-  return v.indexOf("{{") !== -1 || v.indexOf("}}") !== -1 ||
+  var chaveAbre = "{" + "{";
+  var chaveFecha = "}" + "}";
+  return v.indexOf(chaveAbre) !== -1 || v.indexOf(chaveFecha) !== -1 ||
          v.indexOf("$json") !== -1 || v.indexOf("$(") !== -1;
 }
 
