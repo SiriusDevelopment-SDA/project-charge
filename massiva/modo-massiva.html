@@ -1935,6 +1935,9 @@ const modelosAviso = document.getElementById("modelosAviso");
 
 // URL do endpoint de leitura do histórico
 const HISTORICO_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-historico";
+const CATALOGO_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-catalogo";
+const CATALOGO_CRIAR_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-catalogo-criar";
+const CATALOGO_EXCLUIR_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-catalogo-excluir";
 
 /* ---------- Detecção de placeholder do N8N / modo teste ---------- */
 function ehPlaceholder(v) {
@@ -1958,173 +1961,201 @@ const statusBancoText = ehPlaceholder(statusBancoBruto) ? "false" : statusBancoB
 let ativado = statusBancoText === "true";
 
 /* ============================================================================
- * Store — camada de dados (mock-first via localStorage)
- * Troque o corpo dos métodos por fetch() nos webhooks para usar o backend.
- * Todos os métodos são assíncronos de propósito, para a troca ser transparente.
+ * Store — camada de dados
+ * ----------------------------------------------------------------------------
+ * PRODUÇÃO: grava no banco via 3 webhooks do N8N (ler / criar / excluir),
+ *   sobre a tabela única public.massiva_catalogo (tipo = modelo|cidade|bairro|rua).
+ * MODO TESTE (arquivo aberto no navegador): usa localStorage, com dados de
+ *   exemplo, pra continuar testável sem depender do N8N.
+ * A UI não sabe a diferença — só chama estes métodos.
  * ========================================================================== */
 const Store = {
-  _chaveModelos(account) {
-    return "massiva_modelos_" + account;
+  _cache: null,
+  _invalidar() { this._cache = null; },
+
+  // Carrega tudo de uma vez (modelos + catálogo). Memoriza até uma escrita.
+  async carregarTudo(account) {
+    if (this._cache) return this._cache;
+    this._cache = MODO_DEV ? this._carregarLocal(account) : await this._carregarRemoto(account);
+    return this._cache;
   },
 
-  _lerModelosLocal(account) {
-    try {
-      const bruto = localStorage.getItem(this._chaveModelos(account));
-      const lista = bruto ? JSON.parse(bruto) : [];
-      return Array.isArray(lista) ? lista : [];
-    } catch (e) {
-      return [];
+  // ---- API pública (mesmas assinaturas de antes) ----
+  async adicionarModelo(account, texto, token) { return this._criar(account, "modelo", { texto }); },
+  async removerModelo(account, id) { return this._excluir(account, id); },
+  async adicionarCidade(account, nome, token) { return this._criar(account, "cidade", { nome }); },
+  async removerCidade(account, id) { return this._excluir(account, id); },
+  async adicionarBairro(account, nome, cidadeId, token) { return this._criar(account, "bairro", { nome, pai_id: cidadeId }); },
+  async removerBairro(account, id) { return this._excluir(account, id); },
+  async adicionarRua(account, nome, bairroId, token) { return this._criar(account, "rua", { nome, pai_id: bairroId }); },
+  async removerRua(account, id) { return this._excluir(account, id); },
+
+  // ---- Núcleo (decide entre banco e localStorage) ----
+  async _criar(account, tipo, campos) {
+    this._invalidar();
+    if (MODO_DEV) return this._criarLocal(account, tipo, campos);
+    const r = await fetch(CATALOGO_CRIAR_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        account: account, token: token_id, tipo: tipo,
+        nome: campos.nome || null, texto: campos.texto || null, pai_id: campos.pai_id || null,
+      }),
+    });
+    if (!r.ok) throw new Error("falha ao salvar");
+    const resp = await r.json().catch(() => null);
+    const row = this._primeiraLinha(resp);
+    return this._normalizarItem(tipo, row, campos);
+  },
+
+  async _excluir(account, id) {
+    this._invalidar();
+    if (MODO_DEV) return this._excluirLocal(account, id);
+    const r = await fetch(CATALOGO_EXCLUIR_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: account, token: token_id, id: id }),
+    });
+    if (!r.ok) throw new Error("falha ao excluir");
+    return true;
+  },
+
+  // ---- Produção: leitura remota ----
+  async _carregarRemoto(account) {
+    const url = CATALOGO_URL + "?account=" + encodeURIComponent(account) + "&token=" + encodeURIComponent(token_id);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("falha ao carregar catálogo");
+    const resp = await r.json().catch(() => null);
+    return this._separar(this._linhas(resp));
+  },
+
+  // Aceita vários formatos que o N8N pode devolver.
+  _linhas(resp) {
+    if (!resp) return [];
+    if (Array.isArray(resp)) {
+      if (resp.length && resp[0] && Array.isArray(resp[0].dados)) return resp[0].dados;
+      return resp;
     }
+    if (Array.isArray(resp.dados)) return resp.dados;
+    if (Array.isArray(resp.data)) return resp.data;
+    if (resp.json) return this._linhas(resp.json);
+    return [];
   },
 
-  _salvarModelosLocal(account, lista) {
-    try {
-      localStorage.setItem(this._chaveModelos(account), JSON.stringify(lista));
-    } catch (e) { /* sem localStorage: segue sem persistir */ }
+  _primeiraLinha(resp) {
+    if (!resp) return null;
+    if (Array.isArray(resp)) return resp[0] || null;
+    if (resp.dados && Array.isArray(resp.dados)) return resp.dados[0] || null;
+    if (resp.json) return this._primeiraLinha(resp.json);
+    return resp;
   },
 
-  // GET  /webhook/massiva-modelos?account=&token=
-  async listarModelos(account) {
-    return this._lerModelosLocal(account);
-  },
-
-  // POST /webhook/massiva-modelos  { account, token, texto }
-  async adicionarModelo(account, texto, token) {
-    const lista = this._lerModelosLocal(account);
-    const novo = {
-      id: "loc_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-      texto: texto,
-      criado_por: token || null,
+  _separar(rows) {
+    const L = (rows || []).map((r) => ({
+      id: String(r.id),
+      tipo: r.tipo,
+      nome: r.nome,
+      texto: r.texto,
+      pai: (r.pai_id === null || r.pai_id === undefined) ? null : String(r.pai_id),
+    }));
+    return {
+      modelos: L.filter((r) => r.tipo === "modelo").map((r) => ({ id: r.id, texto: r.texto })),
+      cidades: L.filter((r) => r.tipo === "cidade").map((r) => ({ id: r.id, nome: r.nome })),
+      bairros: L.filter((r) => r.tipo === "bairro").map((r) => ({ id: r.id, nome: r.nome, cidadeId: r.pai })),
+      ruas: L.filter((r) => r.tipo === "rua").map((r) => ({ id: r.id, nome: r.nome, bairroId: r.pai })),
     };
-    lista.unshift(novo);
-    this._salvarModelosLocal(account, lista);
-    return novo;
   },
 
-  // DELETE /webhook/massiva-modelos  { account, token, id }
-  async removerModelo(account, id) {
-    const lista = this._lerModelosLocal(account).filter((m) => m.id !== id);
-    this._salvarModelosLocal(account, lista);
-    return true;
+  _normalizarItem(tipo, row, campos) {
+    row = row || {};
+    const id = String(row.id != null ? row.id : this._novoId(tipo));
+    if (tipo === "modelo") return { id: id, texto: row.texto != null ? row.texto : campos.texto };
+    if (tipo === "cidade") return { id: id, nome: row.nome != null ? row.nome : campos.nome };
+    const paiId = String(row.pai_id != null ? row.pai_id : campos.pai_id);
+    if (tipo === "bairro") return { id: id, nome: row.nome != null ? row.nome : campos.nome, cidadeId: paiId };
+    return { id: id, nome: row.nome != null ? row.nome : campos.nome, bairroId: paiId };
   },
 
-  // Semeia modelos de exemplo só no modo teste, na primeira abertura.
-  semearExemplosSePreciso(account) {
-    if (!MODO_DEV) return;
-    if (localStorage.getItem(this._chaveModelos(account)) !== null) return;
-    const exemplos = [
-      "Prezado cliente, informamos que há uma instabilidade geral no serviço de internet na sua região. Nossa equipe técnica já está atuando para normalizar o quanto antes. Agradecemos a compreensão.",
-      "Estamos com uma manutenção emergencial na rede da sua localidade. A previsão de normalização é até às 13h. Pedimos desculpas pelo transtorno.",
-      "Identificamos uma falha no fornecimento de energia elétrica que afeta a sua região e, consequentemente, o serviço de internet. Assim que a energia for restabelecida, o sinal volta ao normal.",
-    ];
-    this._salvarModelosLocal(account, exemplos.map((texto, i) => ({
-      id: "seed_" + i,
-      texto: texto,
-      criado_por: null,
-    })));
-  },
-
-  /* ---- Catálogo de localização (Fase 2): cidade > bairro > rua ---- */
-  _chave(tipo, account) {
-    return "massiva_" + tipo + "_" + account;
-  },
-
-  _ler(tipo, account) {
+  // ---- Modo teste: localStorage ----
+  _chave(tipoPlural, account) { return "massiva_" + tipoPlural + "_" + account; },
+  _plural(tipo) { return { modelo: "modelos", cidade: "cidades", bairro: "bairros", rua: "ruas" }[tipo]; },
+  _ler(tipoPlural, account) {
     try {
-      const bruto = localStorage.getItem(this._chave(tipo, account));
+      const bruto = localStorage.getItem(this._chave(tipoPlural, account));
       const lista = bruto ? JSON.parse(bruto) : [];
       return Array.isArray(lista) ? lista : [];
-    } catch (e) {
-      return [];
-    }
+    } catch (e) { return []; }
+  },
+  _salvar(tipoPlural, account, lista) {
+    try { localStorage.setItem(this._chave(tipoPlural, account), JSON.stringify(lista)); } catch (e) { /* sem localStorage */ }
+  },
+  _novoId(prefixo) { return prefixo + "_" + Date.now() + "_" + Math.floor(Math.random() * 10000); },
+  _pai(x) { return x.cidadeId != null ? x.cidadeId : (x.bairroId != null ? x.bairroId : x.pai_id); },
+
+  _carregarLocal(account) {
+    this._semearSePreciso(account);
+    return {
+      modelos: this._ler("modelos", account).map((m) => ({ id: String(m.id), texto: m.texto })),
+      cidades: this._ler("cidades", account).map((c) => ({ id: String(c.id), nome: c.nome })),
+      bairros: this._ler("bairros", account).map((b) => ({ id: String(b.id), nome: b.nome, cidadeId: String(this._pai(b)) })),
+      ruas: this._ler("ruas", account).map((r) => ({ id: String(r.id), nome: r.nome, bairroId: String(this._pai(r)) })),
+    };
   },
 
-  _salvar(tipo, account, lista) {
-    try {
-      localStorage.setItem(this._chave(tipo, account), JSON.stringify(lista));
-    } catch (e) { /* sem localStorage: segue sem persistir */ }
-  },
-
-  _novoId(prefixo) {
-    return prefixo + "_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-  },
-
-  // GET /webhook/massiva-cidades?account=&token=
-  async listarCidades(account) {
-    return this._ler("cidades", account);
-  },
-  // POST { account, token, nome }
-  async adicionarCidade(account, nome, token) {
-    const lista = this._ler("cidades", account);
-    const item = { id: this._novoId("cid"), nome: nome, criado_por: token || null };
+  _criarLocal(account, tipo, campos) {
+    const plural = this._plural(tipo);
+    const lista = this._ler(plural, account);
+    const id = this._novoId(tipo);
+    let item;
+    if (tipo === "modelo") item = { id: id, texto: campos.texto };
+    else if (tipo === "cidade") item = { id: id, nome: campos.nome };
+    else if (tipo === "bairro") item = { id: id, nome: campos.nome, cidadeId: campos.pai_id };
+    else item = { id: id, nome: campos.nome, bairroId: campos.pai_id };
     lista.push(item);
-    this._salvar("cidades", account, lista);
-    return item;
+    this._salvar(plural, account, lista);
+    return this._normalizarItem(tipo, { id: id, nome: campos.nome, texto: campos.texto, pai_id: campos.pai_id }, campos);
   },
-  // DELETE { account, token, id } — remove a cidade e, em cascata, seus bairros e ruas
-  async removerCidade(account, id) {
-    this._salvar("cidades", account, this._ler("cidades", account).filter((c) => c.id !== id));
+
+  // Exclusão com cascata (cidade -> bairros -> ruas), funciona pra qualquer tipo.
+  _excluirLocal(account, id) {
+    id = String(id);
+    this._salvar("modelos", account, this._ler("modelos", account).filter((m) => String(m.id) !== id));
     const bairros = this._ler("bairros", account);
-    const idsRemover = bairros.filter((b) => b.cidadeId === id).map((b) => b.id);
-    this._salvar("bairros", account, bairros.filter((b) => b.cidadeId !== id));
-    if (idsRemover.length) {
-      this._salvar("ruas", account, this._ler("ruas", account).filter((r) => idsRemover.indexOf(r.bairroId) === -1));
-    }
+    const bairrosDaCidade = bairros.filter((b) => String(this._pai(b)) === id).map((b) => String(b.id));
+    const alvos = new Set([id].concat(bairrosDaCidade));
+    this._salvar("ruas", account, this._ler("ruas", account).filter((r) => String(r.id) !== id && !alvos.has(String(this._pai(r)))));
+    this._salvar("bairros", account, bairros.filter((b) => String(b.id) !== id && String(this._pai(b)) !== id));
+    this._salvar("cidades", account, this._ler("cidades", account).filter((c) => String(c.id) !== id));
     return true;
   },
 
-  async listarBairros(account) {
-    return this._ler("bairros", account);
-  },
-  async adicionarBairro(account, nome, cidadeId, token) {
-    const lista = this._ler("bairros", account);
-    const item = { id: this._novoId("bai"), nome: nome, cidadeId: cidadeId, criado_por: token || null };
-    lista.push(item);
-    this._salvar("bairros", account, lista);
-    return item;
-  },
-  async removerBairro(account, id) {
-    this._salvar("bairros", account, this._ler("bairros", account).filter((b) => b.id !== id));
-    this._salvar("ruas", account, this._ler("ruas", account).filter((r) => r.bairroId !== id));
-    return true;
-  },
-
-  async listarRuas(account) {
-    return this._ler("ruas", account);
-  },
-  async adicionarRua(account, nome, bairroId, token) {
-    const lista = this._ler("ruas", account);
-    const item = { id: this._novoId("rua"), nome: nome, bairroId: bairroId, criado_por: token || null };
-    lista.push(item);
-    this._salvar("ruas", account, lista);
-    return item;
-  },
-  async removerRua(account, id) {
-    this._salvar("ruas", account, this._ler("ruas", account).filter((r) => r.id !== id));
-    return true;
-  },
-
-  // Semeia um catálogo de exemplo só no modo teste, na primeira abertura.
-  semearCatalogoSePreciso(account) {
-    if (!MODO_DEV) return;
-    if (localStorage.getItem(this._chave("cidades", account)) !== null) return;
+  _semearSePreciso(account) {
+    if (localStorage.getItem(this._chave("modelos", account)) !== null) return;
+    this._salvar("modelos", account, [
+      { id: "seed_0", texto: "Prezado cliente, informamos que há uma instabilidade geral no serviço de internet na sua região. Nossa equipe técnica já está atuando para normalizar o quanto antes. Agradecemos a compreensão." },
+      { id: "seed_1", texto: "Estamos com uma manutenção emergencial na rede da sua localidade. A previsão de normalização é até às 13h. Pedimos desculpas pelo transtorno." },
+      { id: "seed_2", texto: "Identificamos uma falha no fornecimento de energia elétrica que afeta a sua região e, consequentemente, o serviço de internet. Assim que a energia for restabelecida, o sinal volta ao normal." },
+    ]);
     this._salvar("cidades", account, [
-      { id: "cid_sp", nome: "São Paulo", criado_por: null },
-      { id: "cid_rj", nome: "Rio de Janeiro", criado_por: null },
+      { id: "cid_sp", nome: "São Paulo" }, { id: "cid_rj", nome: "Rio de Janeiro" },
     ]);
     this._salvar("bairros", account, [
-      { id: "bai_centro_sp", nome: "Centro", cidadeId: "cid_sp", criado_por: null },
-      { id: "bai_pinheiros", nome: "Pinheiros", cidadeId: "cid_sp", criado_por: null },
-      { id: "bai_copacabana", nome: "Copacabana", cidadeId: "cid_rj", criado_por: null },
-      { id: "bai_tijuca", nome: "Tijuca", cidadeId: "cid_rj", criado_por: null },
+      { id: "bai_centro_sp", nome: "Centro", cidadeId: "cid_sp" },
+      { id: "bai_pinheiros", nome: "Pinheiros", cidadeId: "cid_sp" },
+      { id: "bai_copacabana", nome: "Copacabana", cidadeId: "cid_rj" },
+      { id: "bai_tijuca", nome: "Tijuca", cidadeId: "cid_rj" },
     ]);
     this._salvar("ruas", account, [
-      { id: "rua_augusta", nome: "Rua Augusta", bairroId: "bai_centro_sp", criado_por: null },
-      { id: "rua_consolacao", nome: "Rua da Consolação", bairroId: "bai_centro_sp", criado_por: null },
-      { id: "rua_fradique", nome: "Rua Fradique Coutinho", bairroId: "bai_pinheiros", criado_por: null },
-      { id: "rua_nsc", nome: "Av. N. S. de Copacabana", bairroId: "bai_copacabana", criado_por: null },
+      { id: "rua_augusta", nome: "Rua Augusta", bairroId: "bai_centro_sp" },
+      { id: "rua_consolacao", nome: "Rua da Consolação", bairroId: "bai_centro_sp" },
+      { id: "rua_fradique", nome: "Rua Fradique Coutinho", bairroId: "bai_pinheiros" },
+      { id: "rua_nsc", nome: "Av. N. S. de Copacabana", bairroId: "bai_copacabana" },
     ]);
   },
+
+  // Compatibilidade: os seeds agora rodam dentro de carregarTudo (modo teste).
+  semearExemplosSePreciso() {},
+  semearCatalogoSePreciso() {},
 };
 
 /* ---------- Registro do horário de ativação (apenas visual, salvo no navegador) ---------- */
@@ -2476,8 +2507,8 @@ document.addEventListener("keydown", (e) => {
 
 async function carregarModelos() {
   try {
-    Store.semearExemplosSePreciso(account_id);
-    modelosCache = await Store.listarModelos(account_id);
+    const dados = await Store.carregarTudo(account_id);
+    modelosCache = dados.modelos;
   } catch (e) {
     console.error("Erro ao carregar modelos:", e);
     modelosCache = [];
@@ -2503,12 +2534,8 @@ function normalizarTxt(s) {
 }
 
 async function carregarCatalogo() {
-  const [cidades, bairros, ruas] = await Promise.all([
-    Store.listarCidades(account_id),
-    Store.listarBairros(account_id),
-    Store.listarRuas(account_id),
-  ]);
-  return { cidades, bairros, ruas };
+  const dados = await Store.carregarTudo(account_id);
+  return { cidades: dados.cidades, bairros: dados.bairros, ruas: dados.ruas };
 }
 
 function criarSelecao(cfg) {
@@ -2814,7 +2841,6 @@ function limparRegiao() {
 }
 
 async function iniciarRegioes() {
-  Store.semearCatalogoSePreciso(account_id);
   catalogo = await carregarCatalogo();
 
   selCidade = criarSelecao({

@@ -29,12 +29,17 @@ placeholders `{{ ... }}` do N8N não são substituídos, a página entra em
 
 Os dados do modo teste ficam no `localStorage` do próprio navegador.
 
-## Arquitetura de dados (mock-first)
+## Arquitetura de dados
 
-Toda leitura/escrita de dados novos passa pelo objeto **`Store`** dentro do
-HTML. Hoje ele guarda em `localStorage` por conta. Para plugar o backend real,
-troque o corpo de cada método por um `fetch` nos webhooks abaixo — **a UI não
-muda**. Os métodos já são assíncronos de propósito.
+Toda leitura/escrita passa pelo objeto **`Store`** dentro do HTML:
+
+- **Produção:** grava no **banco** (`public.massiva_catalogo`) via 3 webhooks do
+  N8N — ler / criar / excluir. SQL da tabela e das 3 queries em
+  [`queries/catalogo.sql`](queries/catalogo.sql).
+- **Modo teste** (arquivo aberto no navegador, placeholders não substituídos):
+  usa `localStorage` com dados de exemplo, pra continuar testável sem o N8N.
+
+A UI é a mesma nos dois casos — o `Store` decide sozinho pelo `MODO_DEV`.
 
 ### Escopo por empresa
 
@@ -74,7 +79,13 @@ Retorna um array de objetos com: `ativado_em`, `desativado_em`,
 > interface só exibe `operador_nome`; sem correspondência, mostra
 > "Não identificado" (nunca o token cru).
 
-### Fase 1 — Modelos de mensagem (a implementar no N8N)
+> ⚠️ **As seções "Fase 1/Fase 2 — endpoints" abaixo foram SUPERSEDIDAS.**
+> Modelos e catálogo agora vivem numa tabela só (`massiva_catalogo`) atrás de
+> **3 webhooks** (ler / criar / excluir). Use
+> [`queries/catalogo.sql`](queries/catalogo.sql) — é o desenho atual e
+> implementado no HTML. O texto abaixo fica só como histórico.
+
+### Fase 1 — Modelos de mensagem (histórico — não usar)
 
 Sugestão de webhook único `/webhook/massiva-modelos` roteando por método:
 

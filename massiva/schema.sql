@@ -1,72 +1,34 @@
 -- ============================================================================
--- Modo Massiva — schema de persistência (base n8n_utils, schema public)
+-- Modo Massiva — schema de persistência (banco n8n_utils, schema public)
 -- ----------------------------------------------------------------------------
--- Este arquivo acompanha massiva/modo-massiva.html. A interface hoje roda em
--- modo mock (localStorage); quando o backend N8N estiver pronto, estas tabelas
--- passam a ser a fonte da verdade e o Store do HTML aponta para os webhooks.
---
--- Convenção: tudo é escopo por empresa via coluna `account` (mesmo valor de
--- query.account que o N8N já injeta na página).
+-- Acompanha massiva/modo-massiva.html. Em produção a interface grava aqui via
+-- webhooks do N8N; no modo teste (arquivo aberto no navegador) usa localStorage.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- FASE 1 — Mensagens padrão (modelos) por empresa
+-- massiva_historico — já existe no banco (criada pelo fluxo de ativar/desativar).
+-- Documentada aqui só para referência das colunas usadas pela interface:
+--   id, account, operador_token, mensagem, regiao, ativado_em, desativado_em
+--   (o nome do operador vem de um JOIN — ver queries/historico-operador.sql).
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.massiva_modelos (
-    id          BIGSERIAL PRIMARY KEY,
-    account     TEXT        NOT NULL,
-    texto       TEXT        NOT NULL,
-    criado_por  TEXT,                          -- operador_token que criou
-    criado_em   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_massiva_modelos_account
-    ON public.massiva_modelos (account);
-
--- Evita modelos duplicados exatamente iguais dentro da mesma conta.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_massiva_modelos_account_texto
-    ON public.massiva_modelos (account, md5(texto));
-
 
 -- ----------------------------------------------------------------------------
--- FASE 2 — Catálogo de localização (cidade > bairro > rua), por empresa
--- Exclusão em cascata: apagar a cidade apaga seus bairros e ruas.
+-- massiva_catalogo — modelos + cidades + bairros + ruas numa tabela só.
+-- Hierarquia por pai_id (bairro -> cidade, rua -> bairro). O ON DELETE CASCADE
+-- apaga os filhos automaticamente. SQL completo + queries dos 3 webhooks em
+-- queries/catalogo.sql.
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.massiva_cidades (
+CREATE TABLE IF NOT EXISTS public.massiva_catalogo (
     id         BIGSERIAL PRIMARY KEY,
     account    TEXT        NOT NULL,
-    nome       TEXT        NOT NULL,
+    tipo       TEXT        NOT NULL CHECK (tipo IN ('modelo','cidade','bairro','rua')),
+    nome       TEXT,                       -- cidade/bairro/rua
+    texto      TEXT,                       -- modelo
+    pai_id     BIGINT REFERENCES public.massiva_catalogo(id) ON DELETE CASCADE,
     criado_por TEXT,
     criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_massiva_cidades_account
-    ON public.massiva_cidades (account);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_massiva_cidades_account_nome
-    ON public.massiva_cidades (account, lower(nome));
-
-CREATE TABLE IF NOT EXISTS public.massiva_bairros (
-    id         BIGSERIAL PRIMARY KEY,
-    account    TEXT        NOT NULL,
-    cidade_id  BIGINT      NOT NULL REFERENCES public.massiva_cidades(id) ON DELETE CASCADE,
-    nome       TEXT        NOT NULL,
-    criado_por TEXT,
-    criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_massiva_bairros_cidade
-    ON public.massiva_bairros (cidade_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_massiva_bairros_cidade_nome
-    ON public.massiva_bairros (cidade_id, lower(nome));
-
-CREATE TABLE IF NOT EXISTS public.massiva_ruas (
-    id         BIGSERIAL PRIMARY KEY,
-    account    TEXT        NOT NULL,
-    bairro_id  BIGINT      NOT NULL REFERENCES public.massiva_bairros(id) ON DELETE CASCADE,
-    nome       TEXT        NOT NULL,
-    criado_por TEXT,
-    criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_massiva_ruas_bairro
-    ON public.massiva_ruas (bairro_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_massiva_ruas_bairro_nome
-    ON public.massiva_ruas (bairro_id, lower(nome));
+CREATE INDEX IF NOT EXISTS idx_massiva_catalogo_account_tipo
+    ON public.massiva_catalogo (account, tipo);
+CREATE INDEX IF NOT EXISTS idx_massiva_catalogo_pai
+    ON public.massiva_catalogo (pai_id);
