@@ -548,129 +548,236 @@
       margin-bottom: 1.15rem;
     }
 
-    /* ---------- Mensagens padrão (modelos) ---------- */
-    .modelos {
+    /* ---------- Mensagens padrão (modelos) — seletor ---------- */
+    .modelos-bloco {
       margin-bottom: 1.15rem;
     }
 
-    .modelos-topo {
+    .modelos {
+      position: relative;
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 0.55rem;
+      align-items: stretch;
+      gap: 0.6rem;
+      flex-wrap: wrap;
     }
 
-    .modelos-dica {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.66rem;
+    .modelos-trigger {
+      flex: 1 1 220px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      width: auto;
+      padding: 0.72rem 0.9rem;
+      background: var(--painel-2);
+      border: 1px solid #2d2d34;
+      border-radius: 10px;
+      color: var(--suave);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s ease, color 0.2s ease;
+    }
+
+    .modelos-trigger:hover:not(:disabled),
+    .modelos.aberto .modelos-trigger {
+      border-color: rgba(255, 205, 3, 0.55);
+      color: var(--texto);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .modelos-trigger:disabled {
+      cursor: default;
       color: var(--apagado);
     }
 
-    .modelos-lista {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: center;
+    .modelos-trigger .ico-doc {
+      flex-shrink: 0;
+      color: var(--amarelo);
+      opacity: 0.9;
     }
 
-    .modelo-chip {
+    .modelos-trigger-texto {
+      flex: 1 1 auto;
+    }
+
+    .modelos-contagem {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--apagado);
+      background: #1c1c21;
+      border: 1px solid #313139;
+      border-radius: 999px;
+      padding: 0.1rem 0.5rem;
+    }
+
+    .modelos-contagem:empty {
+      display: none;
+    }
+
+    .modelos-chevron {
+      flex-shrink: 0;
+      color: var(--apagado);
+      transition: transform 0.25s ease, color 0.2s ease;
+    }
+
+    .modelos.aberto .modelos-chevron {
+      transform: rotate(180deg);
+      color: var(--amarelo);
+    }
+
+    .modelos-salvar {
+      flex: 0 0 auto;
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      max-width: 100%;
-      background: var(--painel-2);
+      gap: 0.45rem;
+      width: auto;
+      padding: 0.72rem 0.95rem;
+      background: transparent;
       border: 1px solid #2d2d34;
-      border-radius: 999px;
-      padding: 0.4rem 0.45rem 0.4rem 0.85rem;
-      cursor: pointer;
-      transition: border-color 0.2s ease, background 0.2s ease;
-    }
-
-    .modelo-chip:hover {
-      border-color: rgba(255, 205, 3, 0.5);
-      background: rgba(255, 205, 3, 0.05);
-    }
-
-    .modelo-chip.ativa {
-      border-color: rgba(255, 205, 3, 0.7);
-      background: rgba(255, 205, 3, 0.1);
-    }
-
-    .modelo-chip-texto {
-      font-size: 0.82rem;
+      border-radius: 10px;
       color: var(--suave);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      cursor: pointer;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 210px;
+      transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
     }
 
-    .modelo-chip:hover .modelo-chip-texto,
-    .modelo-chip.ativa .modelo-chip-texto {
+    .modelos-salvar:hover:not(:disabled) {
+      color: var(--amarelo);
+      background: rgba(255, 205, 3, 0.07);
+      border-color: rgba(255, 205, 3, 0.4);
+      box-shadow: none;
+      transform: none;
+    }
+
+    .modelos-salvar svg {
+      flex-shrink: 0;
+    }
+
+    .modelos-menu {
+      position: absolute;
+      top: calc(100% + 0.4rem);
+      left: 0;
+      right: 0;
+      z-index: 20;
+      background: var(--painel);
+      border: 1px solid #33333c;
+      border-radius: 12px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+      animation: menuSurgir 0.16s ease both;
+    }
+
+    .modelos-menu[hidden] {
+      display: none;
+    }
+
+    @keyframes menuSurgir {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .modelos-menu-lista {
+      max-height: 244px;
+      overflow-y: auto;
+      padding: 0.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .modelo-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      padding: 0.6rem 0.5rem 0.6rem 0.7rem;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .modelo-item:hover,
+    .modelo-item:focus-visible {
+      background: var(--painel-2);
+      outline: none;
+    }
+
+    .modelo-item.ativa {
+      border-color: rgba(255, 205, 3, 0.4);
+      background: rgba(255, 205, 3, 0.07);
+    }
+
+    .modelo-item-texto {
+      flex: 1 1 auto;
+      font-size: 0.86rem;
+      line-height: 1.5;
+      color: var(--suave);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .modelo-item:hover .modelo-item-texto,
+    .modelo-item.ativa .modelo-item-texto {
       color: var(--texto);
     }
 
-    .modelo-x {
-      width: 20px;
-      height: 20px;
+    .modelo-item-lixo {
       flex-shrink: 0;
-      border-radius: 50%;
-      border: none;
-      background: transparent;
-      color: var(--apagado);
-      font-size: 0.95rem;
-      line-height: 1;
+      width: 28px;
+      height: 28px;
+      padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      border: none;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--apagado);
       cursor: pointer;
-      padding: 0;
-      transition: color 0.2s ease, background 0.2s ease;
+      opacity: 0;
+      transition: opacity 0.15s ease, color 0.2s ease, background 0.2s ease;
     }
 
-    .modelo-x:hover {
+    .modelo-item:hover .modelo-item-lixo,
+    .modelo-item:focus-within .modelo-item-lixo {
+      opacity: 1;
+    }
+
+    .modelo-item-lixo:hover {
       color: var(--vermelho);
       background: rgba(248, 113, 113, 0.14);
       box-shadow: none;
       transform: none;
     }
 
-    .modelo-add {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      width: auto;
-      padding: 0.42rem 0.9rem;
-      border-radius: 999px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      background: transparent;
-      border: 1px dashed #3a3a42;
-      color: var(--suave);
-      cursor: pointer;
-      transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
-    }
-
-    .modelo-add:hover:not(:disabled) {
-      border-color: rgba(255, 205, 3, 0.6);
-      border-style: solid;
-      color: var(--amarelo);
-      background: rgba(255, 205, 3, 0.06);
-      box-shadow: none;
-      transform: none;
-    }
-
-    .modelo-add svg {
-      flex-shrink: 0;
-    }
-
-    .modelos-vazio {
-      font-size: 0.82rem;
+    .modelos-menu-vazio {
+      padding: 1.4rem 1rem;
+      text-align: center;
+      font-size: 0.84rem;
       color: var(--apagado);
-      font-style: italic;
+      line-height: 1.6;
+    }
+
+    .modelos-aviso {
+      display: none;
+      margin-top: 0.55rem;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: var(--suave);
+    }
+
+    .modelos-aviso.mostrar {
+      display: block;
     }
 
     .previa {
@@ -1000,10 +1107,6 @@
       .historico-caixa {
         max-height: 88vh;
       }
-
-      .modelo-chip-texto {
-        max-width: 150px;
-      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1120,14 +1223,33 @@
           <textarea name="texto" id="textoEnviar" placeholder="Digite sua mensagem aqui ou escolha um modelo abaixo..."></textarea>
 
           <!-- Mensagens padrão (modelos) — Fase 1 -->
-          <div class="modelos">
-            <div class="modelos-topo">
-              <label>Modelos de mensagem</label>
-              <span class="modelos-dica">clique para usar · × para excluir</span>
+          <div class="modelos-bloco">
+            <div class="modelos" id="modelosWrap">
+              <button type="button" class="modelos-trigger" id="modelosTrigger" aria-haspopup="listbox" aria-expanded="false">
+                <svg class="ico-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/>
+                  <path d="M14 3v5h5"/>
+                  <path d="M9 13h6"/>
+                  <path d="M9 17h4"/>
+                </svg>
+                <span class="modelos-trigger-texto" id="modelosTriggerTexto">Escolher um modelo</span>
+                <span class="modelos-contagem" id="modelosContagem"></span>
+                <svg class="modelos-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+              <button type="button" class="modelos-salvar" id="modelosSalvar" title="Salvar a mensagem atual como um novo modelo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                  <path d="M12 5v14"/>
+                  <path d="M5 12h14"/>
+                </svg>
+                Salvar como modelo
+              </button>
+              <div class="modelos-menu" id="modelosMenu" role="listbox" hidden>
+                <div class="modelos-menu-lista" id="modelosMenuLista"></div>
+              </div>
             </div>
-            <div class="modelos-lista" id="modelosLista">
-              <span class="modelos-vazio">Carregando modelos...</span>
-            </div>
+            <div class="modelos-aviso" id="modelosAviso"></div>
           </div>
 
           <div class="campo-topo">
@@ -1220,7 +1342,14 @@ const cronometro = document.getElementById("cronometro");
 const historicoFundo = document.getElementById("historicoFundo");
 const historicoLista = document.getElementById("historicoLista");
 const historicoConta = document.getElementById("historicoConta");
-const modelosLista = document.getElementById("modelosLista");
+const modelosWrap = document.getElementById("modelosWrap");
+const modelosTrigger = document.getElementById("modelosTrigger");
+const modelosTriggerTexto = document.getElementById("modelosTriggerTexto");
+const modelosContagem = document.getElementById("modelosContagem");
+const modelosMenu = document.getElementById("modelosMenu");
+const modelosMenuLista = document.getElementById("modelosMenuLista");
+const modelosSalvar = document.getElementById("modelosSalvar");
+const modelosAviso = document.getElementById("modelosAviso");
 
 // URL do endpoint de leitura do histórico
 const HISTORICO_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-historico";
@@ -1453,6 +1582,7 @@ atualizarInterface();
  * Modelos de mensagem (Fase 1)
  * ========================================================================== */
 let modelosCache = [];
+let menuAberto = false;
 
 function escapeHtml(texto) {
   const div = document.createElement("div");
@@ -1467,70 +1597,98 @@ function resumir(texto, max) {
 
 function marcarModeloAtivo() {
   const atual = campoMensagem.value.trim();
-  modelosLista.querySelectorAll(".modelo-chip").forEach((chip) => {
-    const texto = (chip.dataset.texto || "").trim();
-    chip.classList.toggle("ativa", texto !== "" && texto === atual);
+  modelosMenuLista.querySelectorAll(".modelo-item").forEach((item) => {
+    const texto = (item.dataset.texto || "").trim();
+    item.classList.toggle("ativa", texto !== "" && texto === atual);
   });
+}
+
+function atualizarGatilhoModelos() {
+  const n = modelosCache.length;
+  modelosTrigger.disabled = n === 0;
+  modelosTriggerTexto.textContent = n === 0 ? "Nenhum modelo salvo ainda" : "Escolher um modelo";
+  modelosContagem.textContent = n > 0 ? String(n) : "";
+  if (n === 0 && menuAberto) fecharMenuModelos();
 }
 
 function renderizarModelos() {
   if (!modelosCache.length) {
-    modelosLista.innerHTML = `<span class="modelos-vazio">Nenhum modelo salvo ainda para esta conta.</span>`;
+    modelosMenuLista.innerHTML = `<div class="modelos-menu-vazio">Nenhum modelo salvo ainda.<br>Escreva uma mensagem e clique em “Salvar como modelo”.</div>`;
   } else {
-    modelosLista.innerHTML = modelosCache.map((m) => `
-      <span class="modelo-chip" role="button" tabindex="0" data-id="${escapeHtml(m.id)}" data-texto="${escapeHtml(m.texto)}" title="${escapeHtml(m.texto)}">
-        <span class="modelo-chip-texto">${escapeHtml(resumir(m.texto, 46))}</span>
-        <button type="button" class="modelo-x" data-acao="excluir" aria-label="Excluir modelo" title="Excluir modelo">✕</button>
-      </span>
+    modelosMenuLista.innerHTML = modelosCache.map((m) => `
+      <div class="modelo-item" role="option" tabindex="0" data-id="${escapeHtml(m.id)}" data-texto="${escapeHtml(m.texto)}">
+        <span class="modelo-item-texto">${escapeHtml(m.texto)}</span>
+        <button type="button" class="modelo-item-lixo" data-acao="excluir" aria-label="Excluir modelo" title="Excluir modelo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+            <path d="M3 6h18"/>
+            <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/>
+            <path d="M14 11v6"/>
+          </svg>
+        </button>
+      </div>
     `).join("");
   }
-
-  // Botão de adicionar sempre presente no fim da lista
-  const add = document.createElement("button");
-  add.type = "button";
-  add.className = "modelo-add";
-  add.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-      <path d="M12 5v14"/><path d="M5 12h14"/>
-    </svg>
-    Salvar mensagem atual como modelo`;
-  add.addEventListener("click", salvarModeloAtual);
-  modelosLista.appendChild(add);
-
+  atualizarGatilhoModelos();
   marcarModeloAtivo();
+}
+
+function abrirMenuModelos() {
+  if (!modelosCache.length) return;
+  modelosMenu.hidden = false;
+  modelosWrap.classList.add("aberto");
+  modelosTrigger.setAttribute("aria-expanded", "true");
+  menuAberto = true;
+  marcarModeloAtivo();
+}
+
+function fecharMenuModelos() {
+  modelosMenu.hidden = true;
+  modelosWrap.classList.remove("aberto");
+  modelosTrigger.setAttribute("aria-expanded", "false");
+  menuAberto = false;
+}
+
+function alternarMenuModelos() {
+  if (menuAberto) fecharMenuModelos();
+  else abrirMenuModelos();
+}
+
+function mostrarAvisoModelos(msg, cor) {
+  modelosAviso.textContent = msg;
+  modelosAviso.style.color = cor || "var(--suave)";
+  modelosAviso.classList.add("mostrar");
+  clearTimeout(mostrarAvisoModelos._t);
+  mostrarAvisoModelos._t = setTimeout(() => modelosAviso.classList.remove("mostrar"), 3500);
 }
 
 function aplicarModelo(texto) {
   campoMensagem.value = texto;
   atualizarPrevia();
+  fecharMenuModelos();
   campoMensagem.focus();
 }
 
 async function salvarModeloAtual() {
   const texto = campoMensagem.value.trim();
   if (!texto) {
-    status.textContent = "Escreva a mensagem no campo acima antes de salvar como modelo.";
-    status.style.color = "#f87171";
-    setTimeout(() => { if (!ativado) status.textContent = ""; }, 3500);
+    mostrarAvisoModelos("Escreva a mensagem no campo acima antes de salvar como modelo.", "var(--vermelho)");
+    campoMensagem.focus();
     return;
   }
   if (modelosCache.some((m) => (m.texto || "").trim() === texto)) {
-    status.textContent = "Esse modelo já existe.";
-    status.style.color = "#9a9aa2";
-    setTimeout(() => { if (!ativado) status.textContent = ""; }, 3000);
+    mostrarAvisoModelos("Esse modelo já existe.", "var(--suave)");
     return;
   }
   try {
     const novo = await Store.adicionarModelo(account_id, texto, token_id);
     modelosCache.unshift(novo);
     renderizarModelos();
-    status.textContent = "Modelo salvo.";
-    status.style.color = "#ffcd03";
-    setTimeout(() => { if (!ativado) status.textContent = ""; }, 2500);
+    mostrarAvisoModelos("Modelo salvo.", "var(--amarelo)");
   } catch (e) {
     console.error("Erro ao salvar modelo:", e);
-    status.textContent = "Não foi possível salvar o modelo agora.";
-    status.style.color = "#f87171";
+    mostrarAvisoModelos("Não foi possível salvar o modelo agora.", "var(--vermelho)");
   }
 }
 
@@ -1544,30 +1702,40 @@ async function excluirModelo(id) {
     renderizarModelos();
   } catch (e) {
     console.error("Erro ao excluir modelo:", e);
-    status.textContent = "Não foi possível excluir o modelo agora.";
-    status.style.color = "#f87171";
+    mostrarAvisoModelos("Não foi possível excluir o modelo agora.", "var(--vermelho)");
   }
 }
 
-// Delegação de eventos nos chips (usar / excluir)
-modelosLista.addEventListener("click", (e) => {
+modelosTrigger.addEventListener("click", alternarMenuModelos);
+modelosSalvar.addEventListener("click", salvarModeloAtual);
+
+// Delegação de eventos nos itens do menu (usar / excluir)
+modelosMenuLista.addEventListener("click", (e) => {
   const btnExcluir = e.target.closest('[data-acao="excluir"]');
   if (btnExcluir) {
     e.stopPropagation();
-    const chip = btnExcluir.closest(".modelo-chip");
-    if (chip) excluirModelo(chip.dataset.id);
+    const item = btnExcluir.closest(".modelo-item");
+    if (item) excluirModelo(item.dataset.id);
     return;
   }
-  const chip = e.target.closest(".modelo-chip");
-  if (chip) aplicarModelo(chip.dataset.texto || "");
+  const item = e.target.closest(".modelo-item");
+  if (item) aplicarModelo(item.dataset.texto || "");
 });
 
-modelosLista.addEventListener("keydown", (e) => {
-  const chip = e.target.closest(".modelo-chip");
-  if (chip && (e.key === "Enter" || e.key === " ")) {
+modelosMenuLista.addEventListener("keydown", (e) => {
+  const item = e.target.closest(".modelo-item");
+  if (item && (e.key === "Enter" || e.key === " ")) {
     e.preventDefault();
-    aplicarModelo(chip.dataset.texto || "");
+    aplicarModelo(item.dataset.texto || "");
   }
+});
+
+// Fecha o menu ao clicar fora ou apertar Esc
+document.addEventListener("click", (e) => {
+  if (menuAberto && !modelosWrap.contains(e.target)) fecharMenuModelos();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && menuAberto) fecharMenuModelos();
 });
 
 async function carregarModelos() {
