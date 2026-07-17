@@ -12,9 +12,19 @@ Este diretório versiona esse HTML e o contrato de dados que o acompanha.
 
 | Arquivo | O que é |
 |---|---|
-| `modo-massiva.html` | A interface. É este arquivo que vai no nó HTML do fluxo do N8N. |
+| `modo-massiva.html` | A interface (arquivo único). **Fonte de verdade** — é aqui que se edita e testa. |
+| `build-split.mjs` | Reparte o HTML em 3 (`dist/`) pra aliviar o nó do N8N. Rode `node massiva/build-split.mjs`. |
+| `dist/massiva.html` | Esqueleto (marcação + placeholders) + `<link>`/`<script src>`. Vai no nó HTML. |
+| `dist/massiva.css` | Só o CSS — servido por `GET /webhook/massiva-css`. |
+| `dist/massiva.js` | Só o JS — servido por `GET /webhook/massiva-js`. |
 | `schema.sql` | Tabelas de persistência (base `n8n_utils`, schema `public`). |
 | `README.md` | Este documento: arquitetura, contrato dos endpoints e roadmap. |
+
+> **Node único ou em 3 partes?** O `modo-massiva.html` funciona sozinho num nó HTML
+> só (~102 KB, ~21 KB com gzip — leve pro navegador). Se o **editor do N8N** ficar
+> pesado com o nó grande, use os 3 de `dist/`: o nó HTML cai pra ~15 KB e o CSS/JS
+> viram webhooks próprios (mesma origem, sem CORS, e o navegador ainda cacheia).
+> Gere-os com `node massiva/build-split.mjs` sempre que mudar o HTML.
 
 ## Como testar sem o N8N (modo teste)
 

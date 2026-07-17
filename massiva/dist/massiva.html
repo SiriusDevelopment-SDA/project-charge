@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modo Massiva — Central de Comunicados</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/webhook/massiva-css?v=1" />
+</head>
+<body>
+  <div class="console">
+
+    <header class="topo">
+      <div class="marca">
+        <div class="marca-icone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+            <circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/>
+            <path d="M8.3 8.3a5.4 5.4 0 0 1 7.4 0"/>
+            <path d="M5.6 5.6a9.2 9.2 0 0 1 12.8 0"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Modo Massiva</h1>
+          <span class="marca-sub">Central de comunicados</span>
+        </div>
+      </div>
+      <div class="topo-direita">
+        <div class="relogio">
+          <span id="relogio">--:--:--</span>
+          <span id="dataHoje"></span>
+        </div>
+        <span class="selo">
+          <span class="ponto"></span>
+          <span id="seloTexto">Em espera</span>
+        </span>
+        <button type="button" class="btn-historico" onclick="abrirHistorico()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7.5v5l3.2 1.8"/>
+          </svg>
+          Histórico
+        </button>
+      </div>
+    </header>
+
+    <main class="paineis">
+
+      <section class="painel painel-transmissao">
+        <div class="farol">
+          <span class="onda"></span>
+          <span class="onda"></span>
+          <span class="onda"></span>
+          <div class="farol-icone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="34" height="34">
+              <circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/>
+              <path d="M7.8 7.8a5.9 5.9 0 0 1 8.4 0"/>
+              <path d="M4.9 4.9a10 10 0 0 1 14.2 0"/>
+            </svg>
+          </div>
+        </div>
+        <span class="rotulo-mono">Status da transmissão</span>
+        <h2 class="status-grande" id="statusGrande">Em espera</h2>
+        <p class="status-desc" id="statusDesc">Nenhum comunicado em transmissão no momento.</p>
+
+        <div class="tempo-ativacao" id="tempoAtivacao">
+          <div class="tempo-celula">
+            <span class="tempo-rotulo">Ativada às</span>
+            <span class="tempo-valor" id="horaAtivacao">--:--</span>
+          </div>
+          <div class="tempo-divisor"></div>
+          <div class="tempo-celula">
+            <span class="tempo-rotulo">No ar há</span>
+            <span class="tempo-valor" id="cronometro">00:00:00</span>
+          </div>
+        </div>
+        <p class="tempo-fallback" id="tempoFallback">A massiva foi ativada em outro navegador ou dispositivo, então o horário de ativação não ficou registrado aqui. Consulte o Histórico para ver o registro completo.</p>
+
+        <div class="passos">
+          <div class="passo"><span class="passo-num">1</span><span><b>Escreva o comunicado</b> ou escolha um modelo pronto.</span></div>
+          <div class="passo"><span class="passo-num">2</span><span><b>Informe as regiões afetadas</b> pela ocorrência.</span></div>
+          <div class="passo"><span class="passo-num">3</span><span><b>Ative a transmissão</b> e acompanhe por aqui.</span></div>
+        </div>
+
+        <div class="aviso">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="flex-shrink:0; margin-top:2px;">
+            <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>
+            <path d="M12 9v4"/>
+            <path d="M12 16.8h.01"/>
+          </svg>
+          <span>Os clientes das regiões informadas estão recebendo este comunicado. Para encerrar a transmissão, use o botão <strong>Desativar</strong> ao lado.</span>
+        </div>
+      </section>
+
+      <section class="painel painel-form">
+        <div class="campos">
+          <div class="campo-topo">
+            <label for="textoEnviar">Mensagem do comunicado</label>
+            <span class="contador" id="contador">0 caracteres</span>
+          </div>
+          <textarea name="texto" id="textoEnviar" placeholder="Digite sua mensagem aqui ou escolha um modelo abaixo..."></textarea>
+
+          <!-- Mensagens padrão (modelos) — Fase 1 -->
+          <div class="modelos-bloco">
+            <div class="modelos" id="modelosWrap">
+              <button type="button" class="modelos-trigger" id="modelosTrigger" aria-haspopup="listbox" aria-expanded="false">
+                <svg class="ico-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/>
+                  <path d="M14 3v5h5"/>
+                  <path d="M9 13h6"/>
+                  <path d="M9 17h4"/>
+                </svg>
+                <span class="modelos-trigger-texto" id="modelosTriggerTexto">Escolher um modelo</span>
+                <span class="modelos-contagem" id="modelosContagem"></span>
+                <svg class="modelos-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+              <button type="button" class="modelos-salvar" id="modelosSalvar" title="Salvar a mensagem atual como um novo modelo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                  <path d="M12 5v14"/>
+                  <path d="M5 12h14"/>
+                </svg>
+                Salvar como modelo
+              </button>
+              <div class="modelos-menu" id="modelosMenu" role="listbox" hidden>
+                <div class="modelos-menu-lista" id="modelosMenuLista"></div>
+              </div>
+            </div>
+            <div class="modelos-aviso" id="modelosAviso"></div>
+          </div>
+
+          <!-- Regiões afetadas (Fase 2): cidade > bairro > rua -->
+          <div class="regioes">
+            <label class="regioes-titulo">Regiões afetadas</label>
+
+            <div class="sel-grupo">
+              <span class="sel-rotulo">Cidade <b>*</b></span>
+              <div class="sel" id="selCidade">
+                <button type="button" class="sel-trigger" id="selCidade-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <svg class="ico-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span class="sel-trigger-texto" id="selCidade-texto">Selecionar cidades</span>
+                  <span class="sel-contagem" id="selCidade-contagem"></span>
+                  <svg class="sel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="sel-menu" id="selCidade-menu" role="listbox" hidden>
+                  <div class="sel-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="selCidade-busca" placeholder="Buscar ou cadastrar cidade..." autocomplete="off">
+                  </div>
+                  <button type="button" class="sel-todos" id="selCidade-todos">Todas as cidades</button>
+                  <div class="sel-lista" id="selCidade-lista"></div>
+                  <div class="sel-add-area" id="selCidade-add" hidden></div>
+                </div>
+                <div class="sel-tags" id="selCidade-tags"></div>
+              </div>
+            </div>
+
+            <div class="sel-grupo">
+              <span class="sel-rotulo">Bairro <b>*</b></span>
+              <div class="sel" id="selBairro">
+                <button type="button" class="sel-trigger" id="selBairro-trigger" aria-haspopup="listbox" aria-expanded="false" disabled>
+                  <svg class="ico-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span class="sel-trigger-texto" id="selBairro-texto">Selecione a cidade primeiro</span>
+                  <span class="sel-contagem" id="selBairro-contagem"></span>
+                  <svg class="sel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="sel-menu" id="selBairro-menu" role="listbox" hidden>
+                  <div class="sel-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="selBairro-busca" placeholder="Buscar ou cadastrar bairro..." autocomplete="off">
+                  </div>
+                  <button type="button" class="sel-todos" id="selBairro-todos">Todos os bairros</button>
+                  <div class="sel-lista" id="selBairro-lista"></div>
+                  <div class="sel-add-area" id="selBairro-add" hidden></div>
+                </div>
+                <div class="sel-tags" id="selBairro-tags"></div>
+              </div>
+            </div>
+
+            <div class="sel-grupo">
+              <span class="sel-rotulo">Rua <span class="opc">(opcional)</span></span>
+              <div class="sel" id="selRua">
+                <button type="button" class="sel-trigger" id="selRua-trigger" aria-haspopup="listbox" aria-expanded="false" disabled>
+                  <svg class="ico-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span class="sel-trigger-texto" id="selRua-texto">Selecione o bairro primeiro</span>
+                  <span class="sel-contagem" id="selRua-contagem"></span>
+                  <svg class="sel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="sel-menu" id="selRua-menu" role="listbox" hidden>
+                  <div class="sel-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="selRua-busca" placeholder="Buscar ou cadastrar rua..." autocomplete="off">
+                  </div>
+                  <button type="button" class="sel-todos" id="selRua-todos">Todas as ruas</button>
+                  <div class="sel-lista" id="selRua-lista"></div>
+                  <div class="sel-add-area" id="selRua-add" hidden></div>
+                </div>
+                <div class="sel-tags" id="selRua-tags"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="previa">
+            <span class="rotulo-mono">Prévia · o cliente vai receber</span>
+            <p id="previaTexto" class="vazia">Escreva a mensagem para ver aqui exatamente o que será enviado.</p>
+          </div>
+        </div>
+
+        <p class="dica-ativa">Para enviar um comunicado novo, encerre a massiva atual e ative outra em seguida.</p>
+
+        <button onclick="submitHandle()" id="button" class="btn-acao">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="flex-shrink:0;">
+            <circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/>
+            <path d="M8.3 8.3a5.4 5.4 0 0 1 7.4 0"/>
+            <path d="M5.6 5.6a9.2 9.2 0 0 1 12.8 0"/>
+          </svg>
+          <span id="buttonLabel">Ativar</span>
+        </button>
+        <div class="status" id="status"></div>
+      </section>
+
+    </main>
+
+    <footer class="rodape">
+      <span class="rotulo-mono" id="contaInfo"></span>
+      <span class="rotulo-mono">Painel de massiva · uso interno</span>
+    </footer>
+
+  </div>
+
+  <!-- Painel de Histórico -->
+  <div class="historico-fundo" id="historicoFundo">
+    <div class="historico-caixa">
+      <div class="historico-topo">
+        <div class="historico-titulo">
+          <h2>Histórico de comunicados</h2>
+          <span id="historicoConta">Conta —</span>
+        </div>
+        <button type="button" class="historico-fechar" onclick="fecharHistorico()">✕</button>
+      </div>
+      <div class="historico-lista" id="historicoLista">
+        <div class="historico-carregando">Carregando histórico...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação de exclusão (mostra o que será removido em cascata) -->
+  <div class="confirmar-fundo" id="confirmarFundo" role="dialog" aria-modal="true" aria-labelledby="confirmarTitulo">
+    <div class="confirmar-caixa">
+      <h2 id="confirmarTitulo">Excluir?</h2>
+      <p id="confirmarMensagem"></p>
+      <ul class="confirmar-vinculos" id="confirmarVinculos" hidden></ul>
+      <div class="confirmar-acoes">
+        <button type="button" class="confirmar-btn cancelar" id="confirmarCancelar">Cancelar</button>
+        <button type="button" class="confirmar-btn excluir" id="confirmarOk">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dados preenchidos pelo n8n (invisíveis ao cliente) -->
+  <p id="account" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.account }}</p>
+  <p id="statusBanco" class="dados" style="opacity: 0;">{{ $json.status.toString() }}</p>
+  <!-- Token do operador logado — mesmo valor já recebido em query.token pelo webhook que gera esta página -->
+  <p id="token" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.token }}</p>
+
+<script src="/webhook/massiva-js?v=1" defer></script>
+
+</body>
+</html>

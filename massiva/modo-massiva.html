@@ -1468,6 +1468,25 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
+    /* [hidden] não esconde sozinho porque display:flex acima vence — força aqui */
+    .confirmar-vinculos[hidden] {
+      display: none;
+    }
+
+    /* Sem nada vinculado: caixa neutra (cinza), sem o alerta vermelho */
+    .confirmar-vinculos.vazio {
+      border-color: var(--borda);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .confirmar-vinculos li.zero {
+      color: var(--suave);
+    }
+
+    .confirmar-vinculos li.zero::before {
+      background: var(--suave);
+    }
+
     .confirmar-acoes {
       display: flex;
       gap: 0.7rem;
@@ -2693,18 +2712,20 @@ async function carregarCatalogo() {
  * bairro. As contagens saem do catálogo já em memória (sem ida ao banco).
  * ========================================================================== */
 function contarVinculos(plural, id) {
+  const BAIRRO = { sing: "bairro vinculado", plur: "bairros vinculados", zero: "Nenhum bairro vinculado" };
+  const RUA = { sing: "rua vinculada", plur: "ruas vinculadas", zero: "Nenhuma rua vinculada" };
   if (plural === "cidades") {
     const bairros = catalogo.bairros.filter((b) => b.cidadeId === id);
     const idsBairros = new Set(bairros.map((b) => b.id));
     const ruas = catalogo.ruas.filter((r) => idsBairros.has(r.bairroId));
     return [
-      { n: bairros.length, sing: "bairro vinculado", plur: "bairros vinculados" },
-      { n: ruas.length, sing: "rua vinculada", plur: "ruas vinculadas" },
+      { n: bairros.length, ...BAIRRO },
+      { n: ruas.length, ...RUA },
     ];
   }
   if (plural === "bairros") {
     const ruas = catalogo.ruas.filter((r) => r.bairroId === id);
-    return [{ n: ruas.length, sing: "rua vinculada", plur: "ruas vinculadas" }];
+    return [{ n: ruas.length, ...RUA }];
   }
   return [];
 }
@@ -2715,14 +2736,21 @@ function abrirConfirmacao(opts) {
     document.getElementById("confirmarTitulo").textContent = opts.titulo || "Excluir?";
     document.getElementById("confirmarMensagem").textContent = opts.mensagem || "";
     const lista = document.getElementById("confirmarVinculos");
-    const vinc = (opts.vinculos || []).filter((v) => v.n > 0);
+    const vinc = opts.vinculos || [];
     if (vinc.length) {
+      // Mostra todos os níveis, inclusive os zerados ("Nenhum bairro...").
+      const total = vinc.reduce((s, v) => s + v.n, 0);
       lista.hidden = false;
+      lista.classList.toggle("vazio", total === 0);
       lista.innerHTML = vinc.map((v) =>
-        "<li><strong>" + v.n + "</strong> " + escapeHtml(v.n === 1 ? v.sing : v.plur) + "</li>"
+        v.n > 0
+          ? "<li><strong>" + v.n + "</strong> " + escapeHtml(v.n === 1 ? v.sing : v.plur) + "</li>"
+          : "<li class=\"zero\">" + escapeHtml(v.zero) + "</li>"
       ).join("");
     } else {
+      // Sem conceito de cascata (modelo, rua) — não mostra a caixa.
       lista.hidden = true;
+      lista.classList.remove("vazio");
       lista.innerHTML = "";
     }
     const btnOk = document.getElementById("confirmarOk");
