@@ -44,6 +44,7 @@ const js = script.conteudo.replace(/^\n/, '').replace(/\s+$/, '') + '\n';
 const linkTag = `<link rel="stylesheet" href="/webhook/massiva-css?v=${VERSAO}" />`;
 const scriptTag = `<script src="/webhook/massiva-js?v=${VERSAO}" defer></script>`;
 
+// Variante A — 3 partes: CSS e JS externos (nó HTML ~15 KB, 2 webhooks novos).
 const shell =
   html.slice(0, estilo.ini) +
   linkTag +
@@ -51,16 +52,24 @@ const shell =
   scriptTag +
   html.slice(script.fim);
 
+// Variante B — à prova de MIME: CSS fica INLINE, só o JS é externo.
+// Evita a pegadinha do Content-Type do CSS (navegador é rígido com stylesheet,
+// mas aceita <script> com qualquer MIME). Nó HTML ~53 KB, só 1 webhook novo (massiva-js).
+const shellCssInline =
+  html.slice(0, script.ini) +
+  scriptTag +
+  html.slice(script.fim);
+
 fs.mkdirSync(DIST, { recursive: true });
 fs.writeFileSync(path.join(DIST, 'massiva.css'), css);
 fs.writeFileSync(path.join(DIST, 'massiva.js'), js);
 fs.writeFileSync(path.join(DIST, 'massiva.html'), shell);
+fs.writeFileSync(path.join(DIST, 'massiva-css-inline.html'), shellCssInline);
 
 const kb = (s) => (Buffer.byteLength(s, 'utf8') / 1024).toFixed(0) + ' KB';
 console.log('Gerado em massiva/dist/ (v' + VERSAO + '):');
-console.log('  massiva.html (esqueleto):', kb(shell));
-console.log('  massiva.css            :', kb(css));
-console.log('  massiva.js             :', kb(js));
+console.log('  [3 partes] massiva.html   :', kb(shell), '+ massiva.css', kb(css), '+ massiva.js', kb(js));
+console.log('  [CSS inline] massiva-css-inline.html:', kb(shellCssInline), '(só precisa do webhook massiva-js)');
 
 // Sanidade: os 3 placeholders do n8n têm que ficar NO esqueleto (não no JS/CSS)
 for (const ph of ['query.account', 'status.toString', 'query.token']) {
