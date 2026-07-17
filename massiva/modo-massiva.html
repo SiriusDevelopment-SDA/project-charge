@@ -1392,6 +1392,123 @@
       outline-color: var(--vermelho);
     }
 
+    /* ---------- Modal de confirmação de exclusão ---------- */
+    .confirmar-fundo {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 6, 0.72);
+      backdrop-filter: blur(2px);
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .confirmar-fundo.aberto {
+      display: flex;
+    }
+
+    .confirmar-caixa {
+      width: 100%;
+      max-width: 430px;
+      background: var(--painel);
+      border: 1px solid var(--borda);
+      border-radius: 16px;
+      padding: 1.5rem;
+      animation: surgir 0.25s ease both;
+    }
+
+    .confirmar-caixa h2 {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--texto);
+      margin-bottom: 0.6rem;
+      line-height: 1.3;
+    }
+
+    .confirmar-caixa p {
+      font-size: 0.92rem;
+      color: var(--suave);
+      line-height: 1.45;
+    }
+
+    .confirmar-vinculos {
+      list-style: none;
+      margin: 0.9rem 0 0.2rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(248, 113, 113, 0.28);
+      background: rgba(248, 113, 113, 0.08);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .confirmar-vinculos li {
+      font-size: 0.9rem;
+      color: var(--texto);
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    .confirmar-vinculos li::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--vermelho);
+      flex: none;
+    }
+
+    .confirmar-vinculos strong {
+      color: var(--vermelho);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .confirmar-acoes {
+      display: flex;
+      gap: 0.7rem;
+      margin-top: 1.35rem;
+    }
+
+    .confirmar-btn {
+      flex: 1;
+      padding: 0.8rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 12px;
+      border: 1px solid var(--borda);
+      cursor: pointer;
+      transition: background-color 0.2s ease, border-color 0.2s ease,
+                  color 0.2s ease, transform 0.15s ease;
+    }
+
+    .confirmar-btn.cancelar {
+      background: transparent;
+      color: var(--suave);
+    }
+
+    .confirmar-btn.cancelar:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--texto);
+    }
+
+    .confirmar-btn.excluir {
+      background: var(--vermelho);
+      border-color: var(--vermelho);
+      color: #1a0808;
+    }
+
+    .confirmar-btn.excluir:hover {
+      background: #ef5350;
+      border-color: #ef5350;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 26px rgba(248, 113, 113, 0.22);
+    }
+
     .status {
       margin-top: 1rem;
       min-height: 1.4em;
@@ -1877,6 +1994,19 @@
       </div>
       <div class="historico-lista" id="historicoLista">
         <div class="historico-carregando">Carregando histórico...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação de exclusão (mostra o que será removido em cascata) -->
+  <div class="confirmar-fundo" id="confirmarFundo" role="dialog" aria-modal="true" aria-labelledby="confirmarTitulo">
+    <div class="confirmar-caixa">
+      <h2 id="confirmarTitulo">Excluir?</h2>
+      <p id="confirmarMensagem"></p>
+      <ul class="confirmar-vinculos" id="confirmarVinculos" hidden></ul>
+      <div class="confirmar-acoes">
+        <button type="button" class="confirmar-btn cancelar" id="confirmarCancelar">Cancelar</button>
+        <button type="button" class="confirmar-btn excluir" id="confirmarOk">Excluir</button>
       </div>
     </div>
   </div>
@@ -2474,8 +2604,13 @@ async function salvarModeloAtual() {
 
 async function excluirModelo(id) {
   const alvo = modelosCache.find((m) => m.id === id);
-  const previa = alvo ? `\n\n"${resumir(alvo.texto, 80)}"` : "";
-  if (!confirm("Excluir este modelo de mensagem?" + previa)) return;
+  const previa = alvo ? "“" + resumir(alvo.texto, 80) + "”" : "";
+  const ok = await abrirConfirmacao({
+    titulo: "Excluir este modelo de mensagem?",
+    mensagem: previa || "Esta ação não pode ser desfeita.",
+    vinculos: [],
+  });
+  if (!ok) return;
   try {
     await Store.removerModelo(account_id, id);
     modelosCache = modelosCache.filter((m) => m.id !== id);
@@ -2549,6 +2684,75 @@ function normalizarTxt(s) {
 async function carregarCatalogo() {
   const dados = await Store.carregarTudo(account_id);
   return { cidades: dados.cidades, bairros: dados.bairros, ruas: dados.ruas };
+}
+
+/* ============================================================================
+ * Confirmação de exclusão — modal próprio (não o confirm() nativo, que o iframe
+ * do Chatwoot às vezes bloqueia, retornando "cancelar" sozinho). Mostra, em
+ * cascata, o que será removido junto: bairros/ruas de uma cidade, ruas de um
+ * bairro. As contagens saem do catálogo já em memória (sem ida ao banco).
+ * ========================================================================== */
+function contarVinculos(plural, id) {
+  if (plural === "cidades") {
+    const bairros = catalogo.bairros.filter((b) => b.cidadeId === id);
+    const idsBairros = new Set(bairros.map((b) => b.id));
+    const ruas = catalogo.ruas.filter((r) => idsBairros.has(r.bairroId));
+    return [
+      { n: bairros.length, sing: "bairro vinculado", plur: "bairros vinculados" },
+      { n: ruas.length, sing: "rua vinculada", plur: "ruas vinculadas" },
+    ];
+  }
+  if (plural === "bairros") {
+    const ruas = catalogo.ruas.filter((r) => r.bairroId === id);
+    return [{ n: ruas.length, sing: "rua vinculada", plur: "ruas vinculadas" }];
+  }
+  return [];
+}
+
+function abrirConfirmacao(opts) {
+  return new Promise((resolve) => {
+    const fundo = document.getElementById("confirmarFundo");
+    document.getElementById("confirmarTitulo").textContent = opts.titulo || "Excluir?";
+    document.getElementById("confirmarMensagem").textContent = opts.mensagem || "";
+    const lista = document.getElementById("confirmarVinculos");
+    const vinc = (opts.vinculos || []).filter((v) => v.n > 0);
+    if (vinc.length) {
+      lista.hidden = false;
+      lista.innerHTML = vinc.map((v) =>
+        "<li><strong>" + v.n + "</strong> " + escapeHtml(v.n === 1 ? v.sing : v.plur) + "</li>"
+      ).join("");
+    } else {
+      lista.hidden = true;
+      lista.innerHTML = "";
+    }
+    const btnOk = document.getElementById("confirmarOk");
+    const btnCancel = document.getElementById("confirmarCancelar");
+
+    let ativo = true;
+    function fechar(v) {
+      if (!ativo) return;
+      ativo = false;
+      fundo.classList.remove("aberto");
+      btnOk.removeEventListener("click", aoOk);
+      btnCancel.removeEventListener("click", aoCancel);
+      fundo.removeEventListener("click", aoFundo);
+      document.removeEventListener("keydown", aoTecla);
+      resolve(v);
+    }
+    function aoOk() { fechar(true); }
+    function aoCancel() { fechar(false); }
+    function aoFundo(e) { if (e.target === fundo) fechar(false); }
+    function aoTecla(e) {
+      if (e.key === "Escape") fechar(false);
+      else if (e.key === "Enter") fechar(true);
+    }
+    btnOk.addEventListener("click", aoOk);
+    btnCancel.addEventListener("click", aoCancel);
+    fundo.addEventListener("click", aoFundo);
+    document.addEventListener("keydown", aoTecla);
+    fundo.classList.add("aberto");
+    btnOk.focus();
+  });
 }
 
 function criarSelecao(cfg) {
@@ -2699,7 +2903,16 @@ function criarSelecao(cfg) {
 
   async function excluirCatalogo(id) {
     const item = itens().find((i) => i.id === id) || { nome: "" };
-    if (!confirm('Excluir “' + item.nome + '” do catálogo?\nIsso remove também os níveis abaixo dele.')) return;
+    const vinculos = contarVinculos(cfg.plural, id);
+    const temVinculo = vinculos.some((v) => v.n > 0);
+    const ok = await abrirConfirmacao({
+      titulo: "Excluir “" + item.nome + "”?",
+      mensagem: temVinculo
+        ? "Também serão removidos, em cascata, os itens vinculados abaixo:"
+        : "Esta ação não pode ser desfeita.",
+      vinculos: vinculos,
+    });
+    if (!ok) return;
     try {
       await cfg.aoExcluirCatalogo(id);
       estado.set.delete(id);
