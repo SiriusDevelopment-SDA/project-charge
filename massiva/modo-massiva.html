@@ -1933,11 +1933,24 @@ const modelosMenuLista = document.getElementById("modelosMenuLista");
 const modelosSalvar = document.getElementById("modelosSalvar");
 const modelosAviso = document.getElementById("modelosAviso");
 
-// URL do endpoint de leitura do histórico
-const HISTORICO_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-historico";
-const CATALOGO_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-catalogo";
-const CATALOGO_CRIAR_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-catalogo-criar";
-const CATALOGO_EXCLUIR_URL = "https://toplink.webhooks.coraxy.com.br/webhook/massiva-catalogo-excluir";
+// Base dos webhooks: derivada da PRÓPRIA origem da página.
+// Cada empresa tem o seu n8n rodando o mesmo fluxo (uplink, toplink, ...) e é
+// esse mesmo n8n que serve esta página. Então, em vez de fixar um host, usamos
+// a origem atual — assim o mesmo HTML funciona em qualquer instância, sempre
+// falando com o n8n da própria empresa (mesma origem = sem CORS, conta certa).
+// Em modo teste (arquivo aberto no navegador) cai no fallback e nada é chamado.
+const WEBHOOK_BASE = (function () {
+  try {
+    var o = window.location && window.location.origin;
+    if (o && o.indexOf("http") === 0) return o;
+  } catch (e) {}
+  return "https://uplink.webhooks.coraxy.com.br";
+})();
+const MASSIVA_URL = WEBHOOK_BASE + "/webhook/massiva";
+const HISTORICO_URL = WEBHOOK_BASE + "/webhook/massiva-historico";
+const CATALOGO_URL = WEBHOOK_BASE + "/webhook/massiva-catalogo";
+const CATALOGO_CRIAR_URL = WEBHOOK_BASE + "/webhook/massiva-catalogo-criar";
+const CATALOGO_EXCLUIR_URL = WEBHOOK_BASE + "/webhook/massiva-catalogo-excluir";
 
 /* ---------- Detecção de placeholder do N8N / modo teste ---------- */
 function ehPlaceholder(v) {
@@ -3003,7 +3016,7 @@ async function submitHandle() {
     // No modo teste não há webhook — simula sucesso para dar pra testar a UX.
     let ok = true;
     if (!MODO_DEV) {
-      const response = await fetch("https://toplink.webhooks.coraxy.com.br/webhook/massiva", {
+      const response = await fetch(MASSIVA_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

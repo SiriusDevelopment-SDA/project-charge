@@ -35,7 +35,11 @@ Toda leitura/escrita passa pelo objeto **`Store`** dentro do HTML:
 
 - **Produção:** grava no **banco** (`public.massiva_catalogo`) via 3 webhooks do
   N8N — ler / criar / excluir. SQL da tabela e das 3 queries em
-  [`queries/catalogo.sql`](queries/catalogo.sql).
+  [`queries/catalogo.sql`](queries/catalogo.sql). As URLs dos webhooks são
+  derivadas de `window.location.origin` — ou seja, o HTML fala com o **mesmo
+  n8n que serviu a página**. Como cada empresa roda o seu próprio n8n com o
+  mesmo fluxo, o mesmo arquivo funciona em qualquer instância (uplink, toplink,
+  …), sempre na conta certa e sem CORS (mesma origem).
 - **Modo teste** (arquivo aberto no navegador, placeholders não substituídos):
   usa `localStorage` com dados de exemplo, pra continuar testável sem o N8N.
 
