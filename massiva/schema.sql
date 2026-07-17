@@ -14,19 +14,22 @@
 
 -- ----------------------------------------------------------------------------
 -- massiva_catalogo — modelos + cidades + bairros + ruas numa tabela só.
--- Hierarquia por pai_id (bairro -> cidade, rua -> bairro). O ON DELETE CASCADE
--- apaga os filhos automaticamente. SQL completo + queries dos 3 webhooks em
--- queries/catalogo.sql.
+-- Hierarquia por pai_id (bairro -> cidade, rua -> bairro). A exclusão é LÓGICA
+-- (soft delete): deletado_por/deletado_em marcam quem excluiu e quando, e a
+-- cascata (marcar bairros/ruas filhos junto) é feita por um CTE recursivo na
+-- query de excluir. SQL completo + queries dos 3 webhooks em queries/catalogo.sql.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.massiva_catalogo (
-    id         BIGSERIAL PRIMARY KEY,
-    account    TEXT        NOT NULL,
-    tipo       TEXT        NOT NULL CHECK (tipo IN ('modelo','cidade','bairro','rua')),
-    nome       TEXT,                       -- cidade/bairro/rua
-    texto      TEXT,                       -- modelo
-    pai_id     BIGINT REFERENCES public.massiva_catalogo(id) ON DELETE CASCADE,
-    criado_por TEXT,
-    criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id           BIGSERIAL PRIMARY KEY,
+    account      TEXT        NOT NULL,
+    tipo         TEXT        NOT NULL CHECK (tipo IN ('modelo','cidade','bairro','rua')),
+    nome         TEXT,                       -- cidade/bairro/rua
+    texto        TEXT,                       -- modelo
+    pai_id       BIGINT REFERENCES public.massiva_catalogo(id) ON DELETE CASCADE,
+    criado_por   TEXT,                       -- operador_token de quem criou
+    criado_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deletado_por TEXT,                       -- operador_token de quem excluiu
+    deletado_em  TIMESTAMPTZ                 -- quando excluiu (NULL = ativo)
 );
 CREATE INDEX IF NOT EXISTS idx_massiva_catalogo_account_tipo
     ON public.massiva_catalogo (account, tipo);

@@ -14,20 +14,33 @@
 
 -- ---------- 1) Criar a tabela (rode uma vez) ----------
 CREATE TABLE IF NOT EXISTS public.massiva_catalogo (
-    id         BIGSERIAL PRIMARY KEY,
-    account    TEXT        NOT NULL,
-    tipo       TEXT        NOT NULL CHECK (tipo IN ('modelo','cidade','bairro','rua')),
-    nome       TEXT,                       -- cidade/bairro/rua
-    texto      TEXT,                       -- modelo
-    pai_id     BIGINT REFERENCES public.massiva_catalogo(id) ON DELETE CASCADE,
-    criado_por TEXT,                       -- operador_token
-    criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+    id           BIGSERIAL PRIMARY KEY,
+    account      TEXT        NOT NULL,
+    tipo         TEXT        NOT NULL CHECK (tipo IN ('modelo','cidade','bairro','rua')),
+    nome         TEXT,                       -- cidade/bairro/rua
+    texto        TEXT,                       -- modelo
+    pai_id       BIGINT REFERENCES public.massiva_catalogo(id) ON DELETE CASCADE,
+    criado_por   TEXT,                       -- operador_token de quem CRIOU
+    criado_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deletado_por TEXT,                       -- operador_token de quem EXCLUIU
+    deletado_em  TIMESTAMPTZ                 -- quando foi excluído (NULL = ativo)
 );
 CREATE INDEX IF NOT EXISTS idx_massiva_catalogo_account_tipo
     ON public.massiva_catalogo (account, tipo);
 CREATE INDEX IF NOT EXISTS idx_massiva_catalogo_pai
     ON public.massiva_catalogo (pai_id);
--- O ON DELETE CASCADE faz o banco apagar bairros/ruas sozinho ao apagar a cidade.
+
+-- ---------- 1b) Migração p/ tabela que JÁ existe (rode uma vez) ----------
+-- Se a tabela foi criada antes, adiciona as colunas de exclusão lógica.
+ALTER TABLE public.massiva_catalogo
+    ADD COLUMN IF NOT EXISTS deletado_por TEXT,
+    ADD COLUMN IF NOT EXISTS deletado_em  TIMESTAMPTZ;
+
+-- EXCLUSÃO LÓGICA (soft delete): em vez de apagar a linha, marcamos
+-- deletado_por/deletado_em. Assim fica registrado NO BANCO quem excluiu
+-- (espelhando o criado_por) — um DELETE de verdade apagaria a linha e não
+-- sobraria onde gravar o autor. A cascata (apagar bairros/ruas junto) é feita
+-- na própria query de excluir, com um CTE recursivo (ver WEBHOOK 3).
 
 
 -- ============================================================================
@@ -42,7 +55,8 @@ SELECT COALESCE(
     '[]'
 ) AS dados
 FROM public.massiva_catalogo
-WHERE account = $1;
+WHERE account = $1
+  AND deletado_em IS NULL;   -- só os ativos (esconde os excluídos logicamente)
 
 
 -- ============================================================================
@@ -60,12 +74,33 @@ RETURNING id, tipo, nome, texto, pai_id;
 -- ============================================================================
 -- WEBHOOK 3 — EXCLUIR   (POST /webhook/massiva-catalogo-excluir)
 -- Body recebido: { account, token, id }
--- Node: Postgres · Execute Query. Query Parameters: {{ [$json.body.account, $json.body.id] }}
--- O ON DELETE CASCADE remove os bairros/ruas filhos automaticamente.
+-- Node: Postgres · Execute Query. Query Parameters (nesta ordem):
+--   {{ [$json.body.account, $json.body.id, $json.body.token] }}
+--     $1 = account | $2 = id do item | $3 = token do operador (quem excluiu)
+--
+-- Exclusão LÓGICA com cascata:
+--   - O CTE recursivo `sub` junta o próprio item + TODOS os descendentes
+--     (cidade -> seus bairros -> suas ruas; bairro -> suas ruas).
+--   - O UPDATE marca todos eles como excluídos (deletado_por = quem, deletado_em = now).
+--   - Como a leitura filtra `deletado_em IS NULL`, eles somem da tela na hora,
+--     mas continuam registrados no banco (com o autor da exclusão).
 -- ============================================================================
-DELETE FROM public.massiva_catalogo
-WHERE account = $1 AND id = $2
-RETURNING id;
+WITH RECURSIVE sub AS (
+    SELECT id
+      FROM public.massiva_catalogo
+     WHERE account = $1 AND id = $2::bigint
+    UNION ALL
+    SELECT c.id
+      FROM public.massiva_catalogo c
+      JOIN sub ON c.pai_id = sub.id
+)
+UPDATE public.massiva_catalogo m
+   SET deletado_por = $3,
+       deletado_em  = now()
+ WHERE m.account = $1
+   AND m.id IN (SELECT id FROM sub)
+   AND m.deletado_em IS NULL
+RETURNING m.id;
 
 
 -- ============================================================================
