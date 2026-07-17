@@ -1,44 +1,67 @@
 -- ============================================================================
--- Ativação da Massiva — POST /webhook/massiva  (grava no public.massiva_historico)
+-- Ativação da Massiva — POST /webhook/massiva  → grava TUDO no massiva_historico
 -- ----------------------------------------------------------------------------
--- Este webhook JÁ EXISTE (fluxo antigo). Depois da Fase 2 o payload ganhou o
--- objeto `areas` (cidade > bairro > rua estruturado). O ponto de atenção é:
--- NÃO tente gravar o objeto `areas` numa coluna de texto — ou o INSERT quebra.
--- Para o histórico, os campos planos já bastam (`regiao` é o resumo legível).
+-- O HTML já manda todos os campos abaixo. Aqui está o setup pra salvar tudo
+-- certinho, incluindo a estrutura cidade > bairro > rua (`areas`, em JSONB).
+-- Banco compartilhado (n8n_utils): todas as empresas usam a mesma tabela,
+-- separadas pela coluna `account`.
 --
--- Rodar no mesmo banco compartilhado (n8n_utils) — todas as empresas usam a
--- mesma massiva_historico, separadas pela coluna `account`.
--- ============================================================================
-
--- ---------- Payload recebido no body ----------
---   texto     TEXT     "<mensagem> áreas afetadas: <regiao>"  (compat. antiga)
---   account   TEXT     empresa (ex.: "15")
---   status    BOOL     true = ATIVAR | false = DESATIVAR
---   token     TEXT     operador_token (chatwootAccessToken do agente)
---   mensagem  TEXT     só o comunicado
---   regiao    TEXT     resumo legível das áreas (ex.: "São Paulo: Centro | Campinas")
---   areas     JSON     estruturado — { todasCidades, todosBairros, todasRuas, cidades:[...] }
---                      (para a IA casar o cliente; NÃO precisa ir pro histórico)
-
--- ============================================================================
--- No fluxo: [Webhook massiva] -> [IF status] -> [Postgres] -> [Respond]
---   IF (condição): {{ $json.body.status }} === true  -> ramo ATIVAR (INSERT)
---                                            senão    -> ramo DESATIVAR (UPDATE)
+-- Payload recebido no body:
+--   account   TEXT   empresa (ex.: "15")
+--   status    BOOL   true = ATIVAR | false = DESATIVAR
+--   token     TEXT   operador_token (chatwootAccessToken do agente)
+--   mensagem  TEXT   o comunicado
+--   regiao    TEXT   resumo legível das áreas (ex.: "São Paulo: Centro | Campinas")
+--   areas     JSON   estruturado { todasCidades, todosBairros, todasRuas, cidades:[...] }
+--   texto     TEXT   "<mensagem> áreas afetadas: <regiao>" (compat. antiga; redundante)
 -- ============================================================================
 
 
--- ---------- ATIVAR (status = true) : cria a linha ----------
--- Query Parameters: {{ [$json.body.account, $json.body.token, $json.body.mensagem, $json.body.regiao] }}
-INSERT INTO public.massiva_historico (account, operador_token, mensagem, regiao, ativado_em)
-VALUES ($1, $2, $3, $4, now());
--- (ajuste os nomes das colunas para os que já existem na sua massiva_historico)
+-- ---------- PASSO 1 — garantir as colunas (rode uma vez) ----------
+-- A tabela já existe; isto só adiciona o que faltar (não apaga nada).
+CREATE TABLE IF NOT EXISTS public.massiva_historico (
+    id               BIGSERIAL PRIMARY KEY,
+    account          TEXT NOT NULL,
+    operador_token   TEXT,
+    mensagem         TEXT,
+    regiao           TEXT,
+    areas            JSONB,
+    ativado_em       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    desativado_em    TIMESTAMPTZ,
+    duracao_segundos INTEGER
+);
+ALTER TABLE public.massiva_historico
+    ADD COLUMN IF NOT EXISTS operador_token   TEXT,
+    ADD COLUMN IF NOT EXISTS mensagem         TEXT,
+    ADD COLUMN IF NOT EXISTS regiao           TEXT,
+    ADD COLUMN IF NOT EXISTS areas            JSONB,
+    ADD COLUMN IF NOT EXISTS desativado_em    TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS duracao_segundos INTEGER;
+
+
+-- ============================================================================
+-- PASSO 2 — no fluxo: [Webhook massiva] -> [IF status] -> [Postgres] -> [Respond]
+--   IF (condição booleana): {{ $json.body.status }} é TRUE
+--      TRUE  -> ramo ATIVAR  (INSERT abaixo)
+--      FALSE -> ramo DESATIVAR (UPDATE abaixo)
+--   Credencial dos nós Postgres: BANCO IA_N8N (o n8n_utils, banco compartilhado).
+-- ============================================================================
+
+
+-- ---------- ATIVAR (status = true) : cria a linha com TUDO ----------
+-- Query Parameters (nesta ordem):
+--   {{ [$json.body.account, $json.body.token, $json.body.mensagem, $json.body.regiao, JSON.stringify($json.body.areas)] }}
+INSERT INTO public.massiva_historico
+    (account, operador_token, mensagem, regiao, areas, ativado_em)
+VALUES
+    ($1, $2, $3, $4, $5::jsonb, now());
 
 
 -- ---------- DESATIVAR (status = false) : fecha a última linha aberta ----------
 -- Query Parameters: {{ [$json.body.account] }}
 UPDATE public.massiva_historico
-   SET desativado_em     = now(),
-       duracao_segundos  = EXTRACT(EPOCH FROM (now() - ativado_em))::int
+   SET desativado_em    = now(),
+       duracao_segundos = EXTRACT(EPOCH FROM (now() - ativado_em))::int
  WHERE id = (
      SELECT id FROM public.massiva_historico
       WHERE account = $1 AND desativado_em IS NULL
@@ -48,23 +71,10 @@ UPDATE public.massiva_historico
 
 
 -- ============================================================================
--- OPCIONAL — guardar TAMBÉM o `areas` estruturado (pra IA ler do banco depois).
--- Só se você quiser; o histórico da tela não precisa disto.
--- ============================================================================
-ALTER TABLE public.massiva_historico ADD COLUMN IF NOT EXISTS areas JSONB;
-
--- No INSERT de ATIVAR, inclua a coluna areas (5º parâmetro):
--- Query Parameters:
---   {{ [$json.body.account, $json.body.token, $json.body.mensagem, $json.body.regiao, JSON.stringify($json.body.areas)] }}
---
--- INSERT INTO public.massiva_historico (account, operador_token, mensagem, regiao, areas, ativado_em)
--- VALUES ($1, $2, $3, $4, $5::jsonb, now());
-
-
--- ============================================================================
--- LER o histórico — GET /webhook/massiva-historico?account=&token=
--- Mostra o NOME do operador (JOIN com agents). Detalhe e variações em
--- queries/historico-operador.sql. Query Parameters: {{ [$json.query.account] }}
+-- PASSO 3 — LER o histórico : GET /webhook/massiva-historico?account=&token=
+-- Mostra o NOME do operador (JOIN com agents) e devolve também o `areas`.
+-- Query Parameters: {{ [$json.query.account] }}
+-- Variações/diagnóstico do JOIN em queries/historico-operador.sql.
 -- ============================================================================
 SELECT COALESCE(json_agg(json_build_object(
     'ativado_em',       h.ativado_em,
@@ -72,6 +82,7 @@ SELECT COALESCE(json_agg(json_build_object(
     'duracao_segundos', h.duracao_segundos,
     'mensagem',         h.mensagem,
     'regiao',           h.regiao,
+    'areas',            h.areas,
     'operador_token',   h.operador_token,
     'operador_nome',    COALESCE(a.name, 'Não identificado')
 ) ORDER BY h.ativado_em DESC), '[]') AS historico
