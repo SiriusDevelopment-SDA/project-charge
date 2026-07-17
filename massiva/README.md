@@ -67,7 +67,9 @@ Fase 2, seu próprio catálogo de cidade/bairro/rua).
 
 ### Já existentes (mantidos, sem alteração de contrato)
 
-**`POST /webhook/massiva`** — ativa/desativa a transmissão.
+**`POST /webhook/massiva`** — ativa/desativa a transmissão. SQL do INSERT
+(ativar) / UPDATE (desativar) e o tratamento do campo novo `areas` em
+[`queries/ativacao.sql`](queries/ativacao.sql).
 
 ```json
 {
