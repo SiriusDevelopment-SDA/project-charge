@@ -40,11 +40,18 @@ ALTER TABLE public.massiva_historico
 
 
 -- ============================================================================
--- PASSO 2 — no fluxo: [Webhook massiva] -> [IF status] -> [Postgres] -> [Respond]
---   IF (condição booleana): {{ $json.body.status }} é TRUE
+-- PASSO 2 — no fluxo: [Webhook massiva] -> ... -> [IF status] -> [Postgres] -> [Respond]
+--   IF (condição booleana): é TRUE
 --      TRUE  -> ramo ATIVAR  (INSERT abaixo)
 --      FALSE -> ramo DESATIVAR (UPDATE abaixo)
 --   Credencial dos nós Postgres: BANCO IA_N8N (o n8n_utils, banco compartilhado).
+--
+--   ⚠️ PEGADINHA: se houver nós ENTRE o webhook e o IF (ex.: um Execute Query
+--   pra resolver o nome do operador), NÃO use {{ $json.body.status }} no IF —
+--   ali o $json já é a saída do nó anterior, sem `body`, e cai sempre no FALSE.
+--   Referencie o webhook explicitamente:
+--       {{ $('Webhook1').item.json.body.status }}      (operador: is true)
+--   (mesmo padrão $('Webhook1').item.json.body.X usado no INSERT abaixo).
 -- ============================================================================
 
 
