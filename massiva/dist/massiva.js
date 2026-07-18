@@ -1157,13 +1157,30 @@ function renderizarHistorico(itens) {
   }).join("");
 }
 
+// Aceita qualquer formato que o webhook do N8N devolva e sempre retorna um array:
+// array de linhas, [{historico:[...]}], {historico:[...]}, {dados:[...]}, {data:[...]}, vazio.
+function normalizarHistorico(resp) {
+  if (!resp) return [];
+  if (Array.isArray(resp)) {
+    if (resp.length && resp[0] && Array.isArray(resp[0].historico)) return resp[0].historico;
+    if (resp.length && resp[0] && Array.isArray(resp[0].dados)) return resp[0].dados;
+    return resp;
+  }
+  if (Array.isArray(resp.historico)) return resp.historico;
+  if (Array.isArray(resp.dados)) return resp.dados;
+  if (Array.isArray(resp.data)) return resp.data;
+  return [];
+}
+
 async function carregarHistorico() {
   historicoLista.innerHTML = `<div class="historico-carregando">Carregando histórico...</div>`;
   try {
     const resposta = await fetch(`${HISTORICO_URL}?account=${encodeURIComponent(account_id)}&token=${encodeURIComponent(token_id)}`);
     if (!resposta.ok) throw new Error("Falha na resposta");
-    const dados = await resposta.json();
-    renderizarHistorico(dados);
+    // Lê como texto primeiro: resposta vazia não quebra o JSON.parse.
+    const texto = (await resposta.text()).trim();
+    const bruto = texto ? JSON.parse(texto) : [];
+    renderizarHistorico(normalizarHistorico(bruto));
   } catch (erro) {
     console.error("Erro ao carregar histórico:", erro);
     historicoLista.innerHTML = `<div class="historico-erro">Não foi possível carregar o histórico agora. Tente novamente em instantes.</div>`;
