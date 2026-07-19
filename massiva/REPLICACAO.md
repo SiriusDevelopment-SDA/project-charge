@@ -16,11 +16,31 @@ mudanças abaixo, empresa por empresa.
 > ⚠️ Se alguma empresa usar um **banco diferente** (não o compartilhado), rode as
 > migrations nesse banco também. Confirme antes.
 
+## Análise do fluxo MODO MASSIVA (feita sobre o export real)
+
+O fluxo é **genérico**: `account`/`token` vêm sempre do `query`/`body`, nenhuma
+query tem `account` cravado, o HTML não tem nada da empresa, e não há segredos
+hardcoded. **A única coisa que muda por instância são as credenciais.**
+
+### Credenciais a re-selecionar ao colar noutra empresa (9 nós, 2 credenciais)
+
+| Credencial | Nós | O que é |
+|---|---|---|
+| **BANCO IA_N8N** | Select rows · Update rows · dados histórico · Fechar Histórico · atualiza botão historico1 · Busca os dados dos endereços · salva os dados dos endereços · exclui | Banco IA compartilhado (histórico + catálogo + `webhook_massiva`) |
+| **chatwoot** ⚠️ | Execute a SQL query | Banco do Chatwoot — resolve o nome do operador (`access_tokens`→`users`). Mesma p/ todos se for o mesmo Chatwoot. |
+
+### Limpar
+- Apagar os nós desabilitados `HTML1` e `dados histórico1` (versões antigas).
+
+### Cuidado
+- Os webhook paths são iguais — se a empresa-alvo já tiver um MODO MASSIVA
+  **ativo** com esses paths, desative/apague o antigo antes de colar (path duplicado).
+
 ## Método rápido: copiar nós entre n8n (Ctrl+C / Ctrl+V)
 No n8n dá pra **selecionar nós** num workflow, **Ctrl+C**, e **Ctrl+V** em outro.
-Abra o fluxo que já funciona (uplink) e o da empresa-alvo, e copie os ramos novos.
-Depois de colar, **re-selecione a credencial** dos nós Postgres (credenciais NÃO
-viajam no copy/paste — cada n8n tem a sua) e **ative** o workflow.
+Abra o fluxo que já funciona (uplink) e o da empresa-alvo, cole tudo, **re-selecione
+as 2 credenciais** acima e **ative** o workflow. Como o resto é genérico, não há
+mais nada a ajustar.
 
 ---
 
