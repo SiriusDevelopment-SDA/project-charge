@@ -44,6 +44,13 @@ const INVOICE_VARIABLE_KEYS = new Set([
   "codigo_pix",
 ]);
 
+const PIX_VARIABLE_KEYS = new Set([
+  "code_pix",
+  "codigo_qr",
+  "codigo_qr_code",
+  "codigo_pix",
+]);
+
 type TemplateVars = Record<string, string>;
 type BlueprintComponent = Record<string, unknown>;
 type BlueprintButton = Record<string, unknown>;
@@ -97,6 +104,26 @@ export class TemplateDispatchPayloadService {
     return false;
   }
 
+  /**
+   * Detecta se o template realmente usa PIX dinâmico — seja por variável de
+   * corpo (code_pix/codigo_qr/codigo_qr_code/codigo_pix) ou por botão
+   * ORDER_DETAILS/COPY_CODE. Usado para só buscar o PIX no ERP quando faz
+   * diferença, evitando N chamadas em templates que só usam texto/boleto.
+   */
+  templateRequiresPix(template: Templates): boolean {
+    const vars = this.parseTemplateVars(template.variables);
+    const usesPixVar = Object.values(vars).some((v) =>
+      PIX_VARIABLE_KEYS.has(String(v).trim()),
+    );
+    if (usesPixVar) return true;
+
+    const comps = this.normalizeComponents(template.components);
+    return this.extractButtons(comps).some((b) => {
+      const bt = String(b?.type ?? b?.sub_type ?? "").toUpperCase();
+      return bt === "ORDER_DETAILS" || bt === "COPY_CODE";
+    });
+  }
+
   async buildQueueRecipients(
     template: Templates,
     _companyId: string,
@@ -105,6 +132,7 @@ export class TemplateDispatchPayloadService {
     if (!rows.length) return { recipients: [], skips: [] };
 
     const requiresInvoice = this.templateRequiresInvoiceData(template);
+    const requiresPix = requiresInvoice && this.templateRequiresPix(template);
     const clientIds = [
       ...new Set(
         rows.map((r) => String(r.clientId ?? "").trim()).filter(Boolean),
@@ -158,6 +186,13 @@ export class TemplateDispatchPayloadService {
           }
         }),
       );
+
+      // IXC não traz PIX no snapshot do getInvoices (removido em a06ef94 por
+      // performance). Quando o template usa PIX, buscamos o code_pix on-demand
+      // apenas das faturas que serão realmente disparadas, de forma concorrente.
+      if (requiresPix) {
+        await this.preloadIxcPix(rows, clientById, ixcByClient);
+      }
     }
 
     const templateVars = this.parseTemplateVars(template.variables);
@@ -456,6 +491,69 @@ export class TemplateDispatchPayloadService {
     }
 
     return null;
+  }
+
+  /**
+   * Busca o code_pix on-demand no ERP IXC apenas para as faturas que serão
+   * disparadas nesta campanha e que ainda não têm PIX no snapshot. Popula o
+   * campo `code_pix` diretamente nos InvoiceMapResultDto do `ixcByClient`, de
+   * modo que `buildDispatchScalars` (branch IXC) já leia o valor sem mudanças.
+   *
+   * - Concorrente (`Promise.allSettled`) para não reintroduzir o gargalo que
+   *   motivou a remoção da busca inline em a06ef94.
+   * - Idempotente: nunca sobrescreve um PIX já presente no snapshot.
+   * - Tolerante a falha: PIX indisponível segue vazio e não bloqueia o disparo.
+   */
+  private async preloadIxcPix(
+    rows: Record<string, unknown>[],
+    clientById: Map<string, Client>,
+    ixcByClient: Map<string, Map<string, InvoiceMapResultDto>>,
+  ): Promise<void> {
+    const pending = new Map<
+      string,
+      { companyId: string; invoiceId: string; inv: InvoiceMapResultDto }
+    >();
+
+    for (const row of rows) {
+      const clientId = String(row.clientId ?? "").trim();
+      const invoiceId = String(row.invoice_id ?? "").trim();
+      if (!clientId || !invoiceId) continue;
+
+      const company = clientById.get(clientId)?.company;
+      if (!company) continue;
+      if (String(company.erp ?? "").toUpperCase() !== "IXC") continue;
+
+      const inv = ixcByClient.get(clientId)?.get(invoiceId);
+      if (!inv) continue;
+      // Idempotência: não busca de novo se o snapshot já trouxe PIX.
+      if (String(inv.code_pix ?? "").trim()) continue;
+
+      pending.set(`${company.id}:${invoiceId}`, {
+        companyId: company.id,
+        invoiceId,
+        inv,
+      });
+    }
+
+    if (pending.size === 0) return;
+
+    await Promise.allSettled(
+      [...pending.values()].map(async ({ companyId, invoiceId, inv }) => {
+        try {
+          const { pix } = await this.ixcService.getPixByInvoice({
+            companyId,
+            invoiceId,
+          });
+          if (pix) inv.code_pix = pix;
+        } catch (e) {
+          this.logger.warn(
+            `[Dispatch] IXC PIX preload falhou company=${companyId} invoiceId=${invoiceId}: ${
+              e instanceof Error ? e.message : e
+            }`,
+          );
+        }
+      }),
+    );
   }
 
   private parseTemplateVars(variables: Templates["variables"]): TemplateVars {
