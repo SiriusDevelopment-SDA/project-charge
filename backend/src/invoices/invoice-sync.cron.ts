@@ -474,13 +474,21 @@ export class InvoiceSyncCron {
     let duplicateConflictTargets = 0;
     const syncTime = new Date();
 
+    let fetchedFromErp = 0;
+    let droppedForMissingClient = 0;
+
     for (const [key, invoices] of sourceMap) {
+      fetchedFromErp += invoices.length;
+
       // SGP indexa por documento (CPF/CNPJ); IXC e MK indexam por clientId.
       const client =
         erp === "SGP"
           ? byDocument.get(String(key))
           : byClientId.get(String(key));
-      if (!client) continue;
+      if (!client) {
+        droppedForMissingClient += invoices.length;
+        continue;
+      }
 
       for (const invoice of invoices) {
         const mapped = this.mapInvoiceSnapshot(
@@ -526,6 +534,25 @@ export class InvoiceSyncCron {
       this.logger.warn(
         `[InvoiceSync] ${erp} ${company.name}: detectadas ${duplicateConflictTargets} fatura(s) duplicada(s) no mesmo snapshot (id_fatura repetido). ` +
           `Para evitar erro do Postgres no upsert, apenas 1 versão por id_fatura foi mantida.`,
+      );
+    }
+
+    if (droppedForMissingClient > 0) {
+      this.logger.warn(
+        `[InvoiceSync] ${erp} ${company.name}: ${droppedForMissingClient} de ${fetchedFromErp} fatura(s) descartada(s) — ` +
+          `o cliente correspondente não existe na base local (${clients.length} cliente(s) cadastrado(s)).`,
+      );
+    }
+
+    // O ERP entregou faturas mas NENHUMA foi aproveitada: todas caíram no
+    // descarte por cliente inexistente. Isso e falha de sincronizacao de
+    // clientes, nao "empresa sem faturas" — antes passava como sucesso com
+    // "0 fatura(s) processada(s)", escondendo o problema por tempo indeterminado.
+    if (fetchedFromErp > 0 && toUpsert.length === 0 && droppedForMissingClient > 0) {
+      throw new Error(
+        `Sincronização abortada: o ERP retornou ${fetchedFromErp} fatura(s) para ${company.name}, ` +
+          `mas todas foram descartadas por não haver cliente correspondente na base local ` +
+          `(${clients.length} cliente(s) cadastrado(s)). Rode a sincronização de clientes antes das faturas.`,
       );
     }
 
