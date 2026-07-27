@@ -48,7 +48,7 @@ Peça o valor ao time do Vital — **não** é o mesmo que `token_system_coraxy`
 | Campo | Tipo | Observação |
 |---|---|---|
 | `name` | string | Nome da empresa |
-| `url` | string | **Host puro do ERP**, sem `https://`, sem barra final, sem caminho. Ex.: `ixc.toplinkbrasil.com.br` |
+| `url` | string | **Host puro do ERP**, sem `https://`, sem barra final, sem caminho. Ex.: `erp.exemplo.com.br` |
 | `account_chatwoot` | string | Precisa ser único. Repetido → `409` |
 | `erp` | string | Um dos códigos aceitos (ver tabela abaixo) |
 | `plano` | string | `"disparo"` ou `"cobranca"` |
@@ -64,7 +64,7 @@ Peça o valor ao time do Vital — **não** é o mesmo que `token_system_coraxy`
 | `cnpj` | string | Apenas dígitos |
 | `teamChargeId` | string | Id do time de cobrança no Chatwoot |
 | `token_notificameHub` | string | X-Api-Token da conta NotificaMe |
-| `canais` | objeto[] | `[{ "id": "...", "numero": "+55 11 3619-3617" }]` |
+| `canais` | objeto[] | `[{ "id": "...", "numero": "+55 00 0000-0000" }]` |
 
 > **Qualquer campo não listado acima resulta em `400`.** Em especial, **não é
 > possível enviar `config`** — ele é montado pelo backend. Essa restrição é
@@ -112,7 +112,7 @@ documento:
 implementada — a resposta traz isso em `erp.ressalva`. Repasse esse aviso a
 quem estiver fazendo o kickoff.
 
-O formato de `autorization` do IXC é `"id:token"`, ex.: `"41:89ac11d5..."`.
+O formato de `autorization` do IXC é `"id:token"`, ex.: `"00:0000..."`.
 
 ---
 
@@ -123,16 +123,16 @@ curl -X POST https://<host-do-vital>/api/webhooks/companies \
   -H "Content-Type: application/json" \
   -H "x-provisioning-token: $PROVISIONING_TOKEN" \
   -d '{
-    "crm_company_id": "CRM-4821",
-    "name": "TOPLINK",
-    "url": "ixc.toplinkbrasil.com.br",
-    "account_chatwoot": "13",
+    "crm_company_id": "CRM-0001",
+    "name": "PROVEDOR EXEMPLO",
+    "url": "erp.exemplo.com.br",
+    "account_chatwoot": "99",
     "erp": "IXC",
     "plano": "cobranca",
     "token_system_coraxy": "<token da empresa>",
-    "cnpj": "53932197000163",
+    "cnpj": "00000000000000",
     "credenciais": {
-      "autorization": "41:89ac11d5..."
+      "autorization": "00:0000000000000000000000000000000000000000"
     }
   }'
 ```
@@ -149,16 +149,16 @@ abaixo).
   "success": true,
   "message": "Empresa cadastrada e credencial validada no ERP.",
   "company": {
-    "id": "e8f49479-9ae0-4fe9-9b38-8f3dafc4d620",
-    "name": "TOPLINK",
-    "account_chatwoot": "13",
+    "id": "00000000-0000-0000-0000-000000000000",
+    "name": "PROVEDOR EXEMPLO",
+    "account_chatwoot": "99",
     "erp": "IXC",
     "active": true
   },
   "preflight": {
     "status": "ok",
-    "clientesVisiveis": 2894,
-    "faturasVisiveis": 18551,
+    "clientesVisiveis": 1234,
+    "faturasVisiveis": 5678,
     "erro": null,
     "verificadoEm": "2026-07-27T15:38:59.858Z"
   },
