@@ -17,9 +17,42 @@ function toChunks<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
+/**
+ * Folga aplicada ao `since` do modo incremental. Cobre (a) clientes alterados
+ * durante a propria janela de sincronizacao e (b) divergencia de relogio/fuso
+ * entre este container (UTC) e o ERP (horario de Brasilia). O custo e baixo: a
+ * janela incremental e ordens de grandeza menor que a carga completa.
+ */
+const INCREMENTAL_OVERLAP_MS = 24 * 60 * 60 * 1000;
+
+function parseConfig(company: Company): Record<string, any> {
+  return typeof company.config === 'string'
+    ? JSON.parse(company.config)
+    : ((company.config as Record<string, any>) ?? {});
+}
+
+/**
+ * Data inicial do modo incremental, ou `undefined` para forcar carga completa.
+ *
+ * O modo incremental SO e liberado depois que uma carga completa terminou com
+ * sucesso (`fullClientLoadAt`). Sem essa trava, uma empresa cujo config ja
+ * nascesse com `lastClientSyncAt` — por exemplo clonado de outra empresa no
+ * onboarding — nunca faria a carga inicial: cairia direto no filtro incremental,
+ * importaria ~0 clientes e, como `saveLastSync` empurra a data para frente a
+ * cada rodada, a janela seguiria vazia para sempre. As faturas eram entao todas
+ * descartadas no `persistSnapshot` (`if (!client) continue`), resultando em
+ * "0 fatura(s) processada(s)" indefinidamente.
+ */
 function getLastSync(company: Company): Date | undefined {
-  const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
-  return config.lastClientSyncAt ? new Date(config.lastClientSyncAt) : undefined;
+  const config = parseConfig(company);
+
+  if (!config.fullClientLoadAt) return undefined;
+  if (!config.lastClientSyncAt) return undefined;
+
+  const since = new Date(config.lastClientSyncAt);
+  if (Number.isNaN(since.getTime())) return undefined;
+
+  return new Date(since.getTime() - INCREMENTAL_OVERLAP_MS);
 }
 
 @Injectable()
@@ -91,6 +124,7 @@ export class ClientsSyncCron {
   ): Promise<{ synced: number; skipped: number }> {
     let synced = 0;
     let skipped = 0;
+    const startedAt = new Date();
 
     switch (company.erp) {
       case 'IXC': {
@@ -135,7 +169,11 @@ export class ClientsSyncCron {
         synced += toUpsert.length;
         this.logger.log(`[ClientsSync] IXC ${company.name}: ${toUpsert.length} sincronizados`);
 
-        await this.saveLastSync(company);
+        await this.saveLastSync(company, {
+          wasFullLoad: !since,
+          imported: toUpsert.length,
+          startedAt,
+        });
         break;
       }
       case 'SGP': {
@@ -184,7 +222,11 @@ export class ClientsSyncCron {
         synced += toUpsert.length;
         this.logger.log(`[ClientsSync] SGP ${company.name}: ${toUpsert.length} sincronizados`);
 
-        await this.saveLastSync(company);
+        await this.saveLastSync(company, {
+          wasFullLoad: !since,
+          imported: toUpsert.length,
+          startedAt,
+        });
         break;
       }
       case 'MK': {
@@ -218,7 +260,11 @@ export class ClientsSyncCron {
         synced += toUpsert.length;
         this.logger.log(`[ClientsSync] MK ${company.name}: ${toUpsert.length} sincronizados`);
 
-        await this.saveLastSync(company);
+        await this.saveLastSync(company, {
+          wasFullLoad: !since,
+          imported: toUpsert.length,
+          startedAt,
+        });
         break;
       }
       default:
@@ -228,10 +274,43 @@ export class ClientsSyncCron {
     return { synced, skipped };
   }
 
-  private async saveLastSync(company: Company): Promise<void> {
-    const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
-    await this.companyRepository.update(company.id, {
-      config: { ...config, lastClientSyncAt: new Date().toISOString() },
-    });
+  /**
+   * Registra o ponto de corte da proxima sincronizacao.
+   *
+   * Dois cuidados que a versao anterior nao tinha:
+   *
+   * 1. `startedAt` (inicio da coleta), nao `new Date()` (fim). Gravar o fim
+   *    descarta silenciosamente tudo que mudou no ERP enquanto a sync rodava.
+   *
+   * 2. Uma carga completa so promove a empresa para o modo incremental
+   *    (`fullClientLoadAt`) se realmente importou alguem. Carga completa que
+   *    volta vazia e sintoma de problema — credencial, filtro ou ERP fora do ar
+   *    — e nao pode armar o modo incremental, senao a empresa fica presa numa
+   *    janela vazia para sempre. Ela permanece em carga completa ate dar certo.
+   */
+  private async saveLastSync(
+    company: Company,
+    { wasFullLoad, imported, startedAt }: { wasFullLoad: boolean; imported: number; startedAt: Date },
+  ): Promise<void> {
+    const config = parseConfig(company);
+
+    if (wasFullLoad && imported === 0) {
+      this.logger.warn(
+        `[ClientsSync] ${company.erp} ${company.name}: carga completa retornou 0 cliente(s) importavel(is). ` +
+          `Mantendo a empresa em modo de carga completa — o modo incremental so e liberado apos uma carga bem-sucedida.`,
+      );
+      return;
+    }
+
+    const nextConfig: Record<string, any> = {
+      ...config,
+      lastClientSyncAt: startedAt.toISOString(),
+    };
+
+    if (wasFullLoad) {
+      nextConfig.fullClientLoadAt = startedAt.toISOString();
+    }
+
+    await this.companyRepository.update(company.id, { config: nextConfig });
   }
 }

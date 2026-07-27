@@ -19,6 +19,30 @@ import { RedisService } from '../../redis/redis.service';
 
 const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 
+/**
+ * Formata uma data para o filtro DATETIME do IXC (`YYYY-MM-DD HH:mm:ss`).
+ *
+ * A conversao e feita explicitamente para America/Sao_Paulo: o container roda em
+ * UTC e o IXC grava/compara em horario de Brasilia, entao formatar com os
+ * componentes UTC deslocaria a janela em 3 horas.
+ */
+export function toIXCDateTime(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+}
+
 @Injectable()
 export class IXCInvoicesService {
   constructor(
@@ -249,9 +273,6 @@ export class IXCInvoicesService {
     let page = 1;
     const rp = 1000;
 
-    const toIXCDate = (d: Date) =>
-      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-
     while (true) {
       const body: any = {
         qtype: 'cliente.ativo',
@@ -264,11 +285,22 @@ export class IXCInvoicesService {
       };
 
       if (since) {
+        // Filtra por `ultima_atualizacao`, nao por `data_cadastro`: o que
+        // interessa no modo incremental e quem MUDOU desde a ultima rodada
+        // (telefone novo, reativacao, correcao de CPF), nao apenas quem foi
+        // cadastrado. Com `data_cadastro` o cliente existente nunca voltava e a
+        // base local acumulava divergencia em relacao ao ERP.
+        //
+        // O formato importa: `ultima_atualizacao` e DATETIME e so aceita
+        // `YYYY-MM-DD HH:mm:ss`. Passando `DD/MM/YYYY` o IXC nao rejeita a
+        // requisicao — ele devolve silenciosamente um resultado quase vazio
+        // (medido no ERP da UPLINK: 10 registros em BR contra 702 em ISO para a
+        // mesma janela de 90 dias).
         body.grid_param = JSON.stringify([{
-          TB: 'cliente.data_cadastro',
+          TB: 'cliente.ultima_atualizacao',
           OP: 'BE',
-          P: toIXCDate(since),
-          P2: toIXCDate(new Date()),
+          P: toIXCDateTime(since),
+          P2: toIXCDateTime(new Date()),
         }]);
       }
 
