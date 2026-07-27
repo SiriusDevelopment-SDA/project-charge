@@ -8,8 +8,40 @@ import { formatarDataBR } from '../../utils';
 import { InvoiceMapResultDto, InvoicesResponseDto, InvoiceSearchFilterDto } from '../dto/search.request.dto.invoices';
 import { getInvoiceRuleQueryWindow } from '../utils/invoice-rule';
 import { RedisService } from '../../redis/redis.service';
+import { ErpDefinition } from '../../integrations/erp/erp.types';
 
 const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
+
+/**
+ * Capacidades do SGP. Ver `integrations/erp/erp.types.ts`.
+ *
+ * `preflight: 'counts'` porque `/api/ura/clientes` aceita `limit: 1` com
+ * `omitir_titulos: 'sim'` e devolve o total em `paginacao.total` — barato e
+ * suficiente para validar credencial e contar.
+ */
+export const SGP_ERP: ErpDefinition = {
+  code: 'SGP',
+  label: 'SGP',
+  syncClients: true,
+  syncInvoices: true,
+  pix: true,
+  dispatch: true,
+  preflight: 'counts',
+  credenciais: [
+    {
+      campo: 'username',
+      destino: 'config',
+      obrigatorio: true,
+      descricao: 'Usuario da API URA do SGP.',
+    },
+    {
+      campo: 'password',
+      destino: 'config',
+      obrigatorio: true,
+      descricao: 'Senha da API URA do SGP.',
+    },
+  ],
+};
 
 @Injectable()
 export class SGPInvoicesService {

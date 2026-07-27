@@ -16,8 +16,35 @@ import {
 import { ResponseFnAReceber } from '../types/ixcTypes';
 import { getInvoiceRuleQueryWindow } from '../utils/invoice-rule';
 import { RedisService } from '../../redis/redis.service';
+import { ErpDefinition } from '../../integrations/erp/erp.types';
 
 const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
+
+/**
+ * Capacidades do IXC. Ver `integrations/erp/erp.types.ts`.
+ *
+ * `preflight: 'counts'` porque `/webservice/v1/cliente` e `/fn_areceber` aceitam
+ * `rp: '1'` e devolvem o total em `data.total` — da para validar credencial e
+ * contar registros sem varrer a base.
+ */
+export const IXC_ERP: ErpDefinition = {
+  code: 'IXC',
+  label: 'IXC',
+  syncClients: true,
+  syncInvoices: true,
+  pix: true,
+  dispatch: true,
+  preflight: 'counts',
+  credenciais: [
+    {
+      campo: 'autorization',
+      destino: 'autorization',
+      obrigatorio: true,
+      descricao:
+        'Credencial do IXC no formato "id:token" (ex.: 41:89ac11d5...). E enviada como Basic base64 no header Authorization.',
+    },
+  ],
+};
 
 /**
  * Formata uma data para o filtro DATETIME do IXC (`YYYY-MM-DD HH:mm:ss`).
