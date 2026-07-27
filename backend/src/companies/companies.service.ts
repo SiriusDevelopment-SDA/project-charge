@@ -1,7 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Company } from './entities/companies';
+import { CreateCompanyDto } from './dto/create-company.dto';
+import { getErpDefinition } from '../integrations/erp/erp.registry';
+import {
+  ErpPreflightService,
+  PreflightResult,
+} from '../integrations/erp/erp-preflight.service';
+import { resolvePagePermissions } from './planos';
 
 export type CompanyListItem = {
   id: string;
@@ -18,7 +30,235 @@ export class CompaniesService {
   constructor(
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly preflight: ErpPreflightService,
   ) {}
+
+  /**
+   * Cadastra uma empresa, testando a credencial do ERP ANTES de gravar.
+   *
+   * Substitui o cadastro manual via SQL, que era a causa raiz do incidente de
+   * TOPLINK e UPLINK: o `config` era copiado de outra empresa e vinha com o
+   * marcador `lastClientSyncAt` preenchido, o que fazia a empresa nascer presa
+   * no modo incremental e nunca fazer a carga inicial de clientes — e sem
+   * clientes, todas as faturas eram descartadas na sincronizacao.
+   *
+   * Duas garantias estruturais aqui:
+   *
+   * 1. O `config` e MONTADO, nunca recebido. Marcadores internos como
+   *    `lastClientSyncAt` e `fullClientLoadAt` sao impossiveis de injetar, entao
+   *    nenhuma empresa consegue nascer travada.
+   * 2. Credencial que o ERP recusa NAO impede o cadastro — a empresa e gravada
+   *    INATIVA com o motivo registrado em `config.preflight`. No kickoff a
+   *    credencial nem sempre ja esta liberada do lado do cliente, e "cadastrada
+   *    e inativa com motivo" e informacao melhor que "nao cadastrou".
+   */
+  async create(dto: CreateCompanyDto) {
+    const definicao = getErpDefinition(dto.erp);
+    if (!definicao) {
+      // Defesa em profundidade: o @IsIn do DTO ja barra, mas o registro e a
+      // autoridade sobre o que existe.
+      throw new BadRequestException(`ERP nao reconhecido: "${dto.erp}".`);
+    }
+
+    const accountNormalizada = String(dto.account_chatwoot).trim();
+
+    // Idempotencia por `crm_company_id`: o CRM e um chamador de maquina e vai
+    // repetir a requisicao depois de qualquer timeout de rede. Sem isso, a
+    // repeticao voltaria 409 e o CRM nao teria como saber se o cadastro
+    // anterior deu certo. Com isso, repetir e seguro e devolve a mesma empresa.
+    const crmId = dto.crm_company_id?.trim();
+    if (crmId) {
+      const existente = await this.companyRepository
+        .createQueryBuilder('company')
+        .where("company.config ->> 'crm_company_id' = :crmId", { crmId })
+        .getOne();
+
+      if (existente) {
+        this.logger.log(
+          `[create] reenvio idempotente para crm_company_id=${crmId} — devolvendo ${existente.name}.`,
+        );
+        return {
+          success: true,
+          jaExistia: true,
+          message:
+            'Empresa ja cadastrada para este crm_company_id. Nenhuma alteracao foi feita.',
+          company: {
+            id: existente.id,
+            name: existente.name,
+            account_chatwoot: existente.account_chatwoot,
+            erp: existente.erp,
+            active: existente.active,
+          },
+          erp: {
+            label: definicao.label,
+            syncClients: definicao.syncClients,
+            syncInvoices: definicao.syncInvoices,
+            ressalva: definicao.ressalva ?? null,
+          },
+          preflight: this.parseConfig(existente.config).preflight ?? null,
+          permissoes: resolvePagePermissions(existente.config),
+        };
+      }
+    }
+
+    const jaExiste = await this.companyRepository.exists({
+      where: { account_chatwoot: accountNormalizada },
+    });
+    if (jaExiste) {
+      throw new ConflictException(
+        `Ja existe empresa com account_chatwoot "${accountNormalizada}".`,
+      );
+    }
+
+    // Credenciais: o registro diz quais campos cada ERP exige e onde cada um
+    // mora (coluna `autorization` ou dentro de `config`).
+    const credenciais = dto.credenciais ?? {};
+    const faltando = definicao.credenciais
+      .filter((c) => c.obrigatorio && !String(credenciais[c.campo] ?? '').trim())
+      .map((c) => `${c.campo} (${c.descricao})`);
+
+    if (faltando.length) {
+      throw new BadRequestException(
+        `Credenciais obrigatorias faltando para ${definicao.label}: ${faltando.join('; ')}`,
+      );
+    }
+
+    const desconhecidas = Object.keys(credenciais).filter(
+      (campo) => !definicao.credenciais.some((c) => c.campo === campo),
+    );
+    if (desconhecidas.length) {
+      throw new BadRequestException(
+        `Credenciais nao reconhecidas para ${definicao.label}: ${desconhecidas.join(', ')}. ` +
+          `Aceitas: ${definicao.credenciais.map((c) => c.campo).join(', ')}.`,
+      );
+    }
+
+    // Monta `autorization` e `config` a partir dos campos nomeados.
+    // `undefined` (e nao `null`) porque a entidade tipa a coluna como `string`
+    // mesmo sendo `nullable: true` — o TypeORM grava NULL para undefined.
+    let autorization: string | undefined;
+    const configCredenciais: Record<string, string> = {};
+
+    for (const campo of definicao.credenciais) {
+      const valor = String(credenciais[campo.campo] ?? '').trim();
+      if (!valor) continue;
+      if (campo.destino === 'autorization') {
+        autorization = valor;
+      } else {
+        configCredenciais[campo.campo] = valor;
+      }
+    }
+
+    const url = this.normalizaUrl(dto.url);
+
+    const resultado = await this.preflight.run({
+      erp: definicao.code,
+      url,
+      autorization,
+      config: configCredenciais,
+    });
+
+    const config: Record<string, any> = {
+      ...configCredenciais,
+      ...(crmId ? { crm_company_id: crmId } : {}),
+      plano: dto.plano,
+      ...(dto.paginasExtras?.length
+        ? { paginasExtras: dto.paginasExtras }
+        : {}),
+      preflight: this.resumoPreflight(resultado),
+    };
+
+    const ativa = resultado.status !== 'falhou';
+
+    const empresa = this.companyRepository.create({
+      name: dto.name.trim(),
+      url,
+      account_chatwoot: accountNormalizada,
+      erp: definicao.code,
+      autorization,
+      config,
+      active: ativa,
+      token_system_coraxy: dto.token_system_coraxy,
+      cnpj: dto.cnpj?.replace(/\D/g, '') || undefined,
+      teamChargeId: dto.teamChargeId?.trim() || null,
+      token_notificameHub: dto.token_notificameHub?.trim() || undefined,
+      canalId_notificameHub: dto.canais ?? [],
+      // Colunas sem nenhuma leitura em backend ou frontend, mantidas apenas
+      // porque sao NOT NULL. Nao sao perguntadas ao operador e nao devem ganhar
+      // significado novo — sao candidatas a remocao numa limpeza futura.
+      table_vector: '',
+      label: '',
+      total_active_customers: '0',
+      downtime: '0',
+      acess_token_agentbot_chatwoot: '',
+    });
+
+    const salva = await this.companyRepository.save(empresa);
+
+    this.logger.log(
+      `[create] ${salva.name} (${definicao.label}, account ${salva.account_chatwoot}) ` +
+        `cadastrada ${ativa ? 'ATIVA' : 'INATIVA'} — preflight: ${resultado.status}` +
+        (resultado.erro ? ` (${resultado.erro})` : ''),
+    );
+
+    return {
+      success: true,
+      message: ativa
+        ? 'Empresa cadastrada e credencial validada no ERP.'
+        : 'Empresa cadastrada como INATIVA: o ERP recusou a credencial. Corrija a credencial e reative a empresa.',
+      // Nunca devolver tokens nem credenciais — mesma regra do listAll.
+      company: {
+        id: salva.id,
+        name: salva.name,
+        account_chatwoot: salva.account_chatwoot,
+        erp: salva.erp,
+        active: salva.active,
+      },
+      erp: {
+        label: definicao.label,
+        syncClients: definicao.syncClients,
+        syncInvoices: definicao.syncInvoices,
+        ressalva: definicao.ressalva ?? null,
+      },
+      preflight: this.resumoPreflight(resultado),
+      permissoes: resolvePagePermissions(config),
+    };
+  }
+
+  /**
+   * O `url` do banco e sempre host puro — os services montam
+   * `https://${company.url}/...`. Um operador colando "https://host/" quebraria
+   * todas as chamadas ao ERP com um erro dificil de ler, entao normalizamos.
+   */
+  private normalizaUrl(url: string): string {
+    return String(url ?? '')
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/+$/, '');
+  }
+
+  /** O `config` ja apareceu como string JSON no banco — normaliza os dois casos. */
+  private parseConfig(config: unknown): Record<string, any> {
+    if (!config) return {};
+    if (typeof config === 'string') {
+      try {
+        return JSON.parse(config);
+      } catch {
+        return {};
+      }
+    }
+    return config as Record<string, any>;
+  }
+
+  private resumoPreflight(resultado: PreflightResult) {
+    return {
+      status: resultado.status,
+      clientesVisiveis: resultado.clientesVisiveis,
+      faturasVisiveis: resultado.faturasVisiveis,
+      erro: resultado.erro,
+      verificadoEm: new Date().toISOString(),
+    };
+  }
 
   /**
    * Lista todas as empresas ativas que possuem ERP configurado. Endpoint

@@ -30,6 +30,7 @@ import { compare, hash } from 'bcryptjs';
 import { Templates } from '../templates/entities/templatesMeta';
 import { ClientInteraction } from '../client-interaction/entities/client-interaction.entity';
 import { ChatwootService } from '../chatwoot/chatwoot.service';
+import { resolvePagePermissions } from '../companies/planos';
 
 type PromiseAutomationSettings = {
   reminderEnabled: boolean;
@@ -1540,13 +1541,15 @@ export class AuthService {
       }));
   }
 
+  /**
+   * Delega para o registro de paginas (`companies/planos.ts`), que e a fonte
+   * unica da lista. O retorno passou a incluir TODAS as paginas conhecidas —
+   * antes eram apenas dashboard/clientesVencidos/chat, e as demais nao tinham
+   * permissao nenhuma. Chaves novas sao aditivas: o frontend indexa por nome,
+   * entao quem ainda le so as tres continua funcionando.
+   */
   private extractPagePermissions(config: Record<string, any> | null) {
-    const cfg = (config as Record<string, any>) ?? {};
-    return {
-      dashboard: cfg.page_dashboard !== false,
-      clientesVencidos: cfg.page_clientesVencidos !== false,
-      chat: cfg.page_chat !== false,
-    };
+    return resolvePagePermissions(config);
   }
 
   private async getTokenPayload(authorization?: string) {

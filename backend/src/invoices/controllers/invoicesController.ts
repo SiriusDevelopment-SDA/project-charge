@@ -8,10 +8,19 @@ import {
   NotFoundException,
   Param,
   Post,
+  UseGuards,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, In, Raw, Repository } from "typeorm";
-import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBody,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from "@nestjs/swagger";
+import { PlanGuard } from "../../auth/guards/plan.guard";
+import { RequirePage } from "../../auth/decorators/require-page.decorator";
 import { Client } from "../../clients/entities.ts/clients";
 import { Company } from "../../companies/entities/companies";
 import { Invoice } from "../entities/invoices";
@@ -109,8 +118,19 @@ export class InvoicesController {
     return this.invoicesService.buildBatchResponse(resultados, errors);
   }
 
+  /**
+   * Unico endpoint deste controller exclusivo da pagina de Clientes Vencidos —
+   * os demais (search, sync, pix/batch) servem tambem o fluxo de disparo, entao
+   * a exigencia de plano fica no handler e nao na classe.
+   */
   @Post("overdue-clients/search")
   @HttpCode(200)
+  @UseGuards(PlanGuard)
+  @RequirePage('clientesVencidos')
+  @ApiForbiddenResponse({
+    description:
+      'A empresa nao tem Clientes Vencidos incluido no plano contratado.',
+  })
   @ApiOperation({
     summary: "Lista clientes vencidos a partir do snapshot local de faturas",
   })

@@ -1,11 +1,24 @@
-import { Controller, Post, Param} from "@nestjs/common";
-import { ApiTags, ApiOkResponse, ApiOperation, ApiParam } from '@nestjs/swagger';
+import { Controller, Post, Param, UseGuards} from "@nestjs/common";
+import { ApiTags, ApiOkResponse, ApiOperation, ApiParam, ApiForbiddenResponse } from '@nestjs/swagger';
 import { AppServiceGraphics } from "./app.service.graphics";
 import { ChargesDto } from "./dto/chargesDto";
 import { TemplateMetricsDto } from "./dto/templateMetricsDto";
+import { PlanGuard } from "../auth/guards/plan.guard";
+import { RequirePage } from "../auth/decorators/require-page.decorator";
 
+/**
+ * Todos os endpoints daqui alimentam a Dashboard, entao a exigencia de plano e
+ * declarada na classe. Ate agora o bloqueio era so visual: o frontend embacava
+ * a pagina mas montava o componente por baixo, entao estas rotas respondiam
+ * normalmente para empresa sem o produto de cobranca.
+ */
 @ApiTags('gráficos')
 @Controller('graphics')
+@UseGuards(PlanGuard)
+@RequirePage('dashboard')
+@ApiForbiddenResponse({
+  description: 'A empresa nao tem a Dashboard incluida no plano contratado.',
+})
 export class GraphicsController{
     constructor(private readonly graphicsService: AppServiceGraphics){}
 
