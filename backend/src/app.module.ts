@@ -71,6 +71,7 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
 import { CompaniesController } from './companies/companies.controller';
 import { CompaniesService } from './companies/companies.service';
 import { SuperAdminGuard } from './auth/guards/super-admin.guard';
+import { PlanGuard } from './auth/guards/plan.guard';
 
 @Module({
   imports: [
@@ -152,6 +153,9 @@ import { SuperAdminGuard } from './auth/guards/super-admin.guard';
     CampaignScheduler,
     CompaniesService,
     SuperAdminGuard,
+    // Nao e APP_GUARD: atua apenas nos handlers que declaram @RequirePage(...),
+    // entao registrar aqui nao muda nada por si so.
+    PlanGuard,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
