@@ -11,6 +11,54 @@ import {
   InvoicesResponseDto,
 } from "../dto/search.request.dto.invoices";
 import { getInvoiceRuleQueryWindow } from "../utils/invoice-rule";
+import { ErpDefinition } from "../../integrations/erp/erp.types";
+
+/**
+ * Capacidades do MK / Proxer. Ver `integrations/erp/erp.types.ts`.
+ *
+ * `preflight: 'credential'` — a autenticação (`WSAutenticacao.rule`) valida a
+ * credencial, mas nenhuma rotina do MK expõe total: `WSMKConsultaClientes` e
+ * `WSMKFaturasAbertas` devolvem array puro, sem metadado de paginação. Contar
+ * exigiria varrer o cursor inteiro, o que não cabe num preflight.
+ */
+export const MK_ERP: ErpDefinition = {
+  code: "MK",
+  label: "MK / Proxer",
+  syncClients: true,
+  syncInvoices: true,
+  pix: true,
+  dispatch: true,
+  preflight: "credential",
+  ressalva:
+    "Fica fora do ciclo de faturas de 10 minutos por custo; sincroniza no ciclo diário das 4h e no disparo manual.",
+  credenciais: [
+    {
+      campo: "sys",
+      destino: "config",
+      obrigatorio: true,
+      descricao: "Identificador do sistema no MK (ex.: MK0).",
+    },
+    {
+      campo: "password",
+      destino: "config",
+      obrigatorio: true,
+      descricao: "Senha da integração MK.",
+    },
+    {
+      campo: "cd_servico",
+      destino: "config",
+      obrigatorio: true,
+      descricao: "Código do serviço autorizado no MK.",
+    },
+    {
+      campo: "masterToken",
+      destino: "config",
+      obrigatorio: true,
+      descricao:
+        "Token mestre usado em WSAutenticacao.rule para emitir o token de sessão.",
+    },
+  ],
+};
 
 // Margem de segurança aplicada ao TTL do token de sessão, para renovar antes
 // de o ERP de fato expirar o token e evitar 401 no meio de uma sincronização.

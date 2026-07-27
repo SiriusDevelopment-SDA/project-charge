@@ -7,6 +7,64 @@ import { Client } from '../../clients/entities.ts/clients';
 import { Company } from '../../companies/entities/companies';
 import { InvoiceMapResultDto, InvoicesResponseDto } from '../dto/search.request.dto.invoices';
 import { HubsoftFatura } from '../types/hubsoftTypes';
+import { ErpDefinition } from '../../integrations/erp/erp.types';
+
+/**
+ * Capacidades do Hubsoft. Ver `integrations/erp/erp.types.ts`.
+ *
+ * Este service NÃO está ligado em cron nenhum: não existe `fetchClients*` nem
+ * `getInvoicesByDateWindowBatch` aqui, e nem `ClientsSyncCron` nem
+ * `InvoiceSyncCron` o injetam. Por isso `syncClients`/`syncInvoices` são false —
+ * a base local de uma empresa Hubsoft nunca é populada (ver RAP 10: 4.651
+ * clientes vindos de outra origem e 0 faturas).
+ *
+ * `pix: false` apesar de `getInvoices` mapear `code_pix`: o consumidor
+ * (`template-dispatch-payload.service.ts`) sobrescreve o campo com `undefined`,
+ * então o valor buscado nunca chega ao disparo.
+ *
+ * `preflight: 'credential'` — `/oauth/token` valida a credencial inteira, mas o
+ * único endpoint de negócio implementado busca por CPF/CNPJ de um cliente
+ * específico e não devolve total.
+ */
+export const HUBSOFT_ERP: ErpDefinition = {
+  code: 'HUBSOFT',
+  label: 'Hubsoft',
+  syncClients: false,
+  syncInvoices: false,
+  pix: false,
+  dispatch: true,
+  preflight: 'credential',
+  ressalva:
+    'Não sincroniza clientes nem faturas — a base local nunca é populada. O disparo funciona apenas com dados vindos de outra origem, e sem PIX.',
+  credenciais: [
+    {
+      campo: 'client_id',
+      destino: 'config',
+      obrigatorio: true,
+      descricao: 'client_id da aplicação OAuth no Hubsoft.',
+    },
+    {
+      campo: 'client_secret',
+      destino: 'config',
+      // O service trata ausente como string vazia (`client_secret ?? ''`),
+      // então nem toda instalação exige.
+      obrigatorio: false,
+      descricao: 'client_secret da aplicação OAuth. Opcional em algumas instalações.',
+    },
+    {
+      campo: 'username',
+      destino: 'config',
+      obrigatorio: true,
+      descricao: 'Usuário do grant password.',
+    },
+    {
+      campo: 'password',
+      destino: 'config',
+      obrigatorio: true,
+      descricao: 'Senha do grant password.',
+    },
+  ],
+};
 
 @Injectable()
 export class HubsoftInvoicesService {

@@ -8,6 +8,8 @@ import { Client } from './entities.ts/clients';
 import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
 import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
 import { MkInvoicesService } from '../invoices/services/mkInvoicesService';
+import { getErpDefinition } from '../integrations/erp/erp.registry';
+import { normalizeErpCode } from '../integrations/erp/erp.types';
 
 const CHUNK_SIZE = 500;
 
@@ -126,7 +128,14 @@ export class ClientsSyncCron {
     let skipped = 0;
     const startedAt = new Date();
 
-    switch (company.erp) {
+    // Normaliza antes do dispatch. Este era o UNICO dos 16 pontos de leitura de
+    // `company.erp` no backend que comparava a string crua — todos os outros ja
+    // faziam `.toUpperCase()`. Uma empresa gravada como "ixc" minusculo caia no
+    // `default` aqui e sincronizava faturas normalmente no InvoiceSyncCron; sem
+    // cliente na base, `persistSnapshot` descartava todas as faturas
+    // (`if (!client) continue`) — o mesmo modo de falha que travou TOPLINK e
+    // UPLINK, por outra porta.
+    switch (normalizeErpCode(company.erp)) {
       case 'IXC': {
         const since = getLastSync(company);
         this.logger.log(
@@ -267,8 +276,26 @@ export class ClientsSyncCron {
         });
         break;
       }
-      default:
-        this.logger.warn(`[ClientsSync] ERP não suportado: ${company.erp}`);
+      default: {
+        // Distingue os dois casos que antes caíam no mesmo warn genérico:
+        // um ERP conhecido que declara não ter sync de clientes (esperado, é
+        // configuração) e um ERP que o registro não reconhece (erro de cadastro,
+        // e o sintoma é a empresa ficar em silêncio para sempre).
+        const definicao = getErpDefinition(company.erp);
+
+        if (!definicao) {
+          this.logger.error(
+            `[ClientsSync] ERP não reconhecido: "${company.erp}" (empresa: ${company.name}). ` +
+              `Nenhuma rotina automática vai atender esta empresa até o cadastro ser corrigido.`,
+          );
+        } else {
+          this.logger.verbose(
+            `[ClientsSync] ${definicao.label} ${company.name} — sem sincronização de clientes implementada.` +
+              (definicao.ressalva ? ` ${definicao.ressalva}` : ''),
+          );
+        }
+        break;
+      }
     }
 
     return { synced, skipped };

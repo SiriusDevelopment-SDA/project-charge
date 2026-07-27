@@ -46,6 +46,7 @@ import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
 import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
 import { MaestroWebhookController } from './webhooks/maestro.webhook.controller';
+import { ProvisioningWebhookController } from './webhooks/provisioning.webhook.controller';
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
 import { TemplateStatusSyncCron } from './templates/template-status-sync.cron';
 import { ClientsSyncCron } from './clients/clients-sync.cron';
@@ -71,6 +72,8 @@ import { CampaignScheduler } from './message-queue/campaign-scheduler';
 import { CompaniesController } from './companies/companies.controller';
 import { CompaniesService } from './companies/companies.service';
 import { SuperAdminGuard } from './auth/guards/super-admin.guard';
+import { PlanGuard } from './auth/guards/plan.guard';
+import { ErpPreflightService } from './integrations/erp/erp-preflight.service';
 
 @Module({
   imports: [
@@ -113,6 +116,7 @@ import { SuperAdminGuard } from './auth/guards/super-admin.guard';
     GraphicsController,
     NotificaMeWebhookController,
     MaestroWebhookController,
+    ProvisioningWebhookController,
     PaymentPromiseController,
     ClientInteractionController,
     CompaniesController,
@@ -152,6 +156,10 @@ import { SuperAdminGuard } from './auth/guards/super-admin.guard';
     CampaignScheduler,
     CompaniesService,
     SuperAdminGuard,
+    // Nao e APP_GUARD: atua apenas nos handlers que declaram @RequirePage(...),
+    // entao registrar aqui nao muda nada por si so.
+    PlanGuard,
+    ErpPreflightService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
