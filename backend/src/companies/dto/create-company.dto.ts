@@ -13,18 +13,28 @@ import { erpCodes } from '../../integrations/erp/erp.registry';
 import { PAGINAS_IDS, PLANOS } from '../planos';
 
 export class CanalNotificameDto {
-  @ApiProperty({ description: 'Id do canal no NotificaMe Hub.' })
+  @ApiProperty({
+    description: 'Id do canal no NotificaMe Hub.',
+    example: '00000000-0000-0000-0000-000000000000',
+  })
   @IsString()
   @IsNotEmpty()
   id!: string;
 
-  @ApiProperty({ description: 'Numero do canal.', example: '+55 11 3619-3617' })
+  @ApiProperty({
+    description: 'Numero do canal, com DDI e DDD.',
+    example: '+55 00 0000-0000',
+  })
   @IsString()
   numero!: string;
 }
 
 /**
  * Cadastro de empresa.
+ *
+ * ATENCAO AO EDITAR: os `example` deste arquivo aparecem na documentacao
+ * Swagger, que hoje esta publicamente acessivel em `/api/docs`. Use somente
+ * valores ficticios — nunca host, CNPJ, telefone ou token de cliente real.
  *
  * O que este DTO deliberadamente NAO aceita:
  *
@@ -44,23 +54,27 @@ export class CanalNotificameDto {
  * tentativa de mandar `config`.
  */
 export class CreateCompanyDto {
-  @ApiProperty({ description: 'Nome da empresa.', example: 'TOPLINK' })
+  @ApiProperty({
+    description: 'Nome da empresa, como deve aparecer no sistema.',
+    example: 'PROVEDOR EXEMPLO',
+  })
   @IsString()
   @IsNotEmpty()
   name!: string;
 
   @ApiProperty({
     description:
-      'Host do ERP, SEM protocolo e SEM caminho. O backend monta a URL completa.',
-    example: 'ixc.toplinkbrasil.com.br',
+      'Endereco do ERP: apenas o host. Sem "https://", sem barra no final e sem caminho — o backend monta a URL completa.',
+    example: 'erp.exemplo.com.br',
   })
   @IsString()
   @IsNotEmpty()
   url!: string;
 
   @ApiProperty({
-    description: 'account_chatwoot da empresa. Precisa ser unico.',
-    example: '13',
+    description:
+      'Numero da conta da empresa no Chatwoot. Precisa ser unico: repetido devolve 409.',
+    example: '99',
   })
   @IsString()
   @IsNotEmpty()
@@ -68,8 +82,9 @@ export class CreateCompanyDto {
 
   @ApiProperty({
     description:
-      'ERP integrado. Aceita apenas codigos do registro — consulte GET /integrations/erps para ver capacidades e ressalvas de cada um.',
+      'ERP da empresa. Consulte GET /companies/erps para ver, de cada ERP, o que o sistema sincroniza e quais credenciais exige.',
     enum: erpCodes(),
+    example: 'IXC',
   })
   @IsString()
   @IsIn(erpCodes(), {
@@ -78,9 +93,18 @@ export class CreateCompanyDto {
   erp!: string;
 
   @ApiProperty({
-    description:
-      'Credenciais do ERP. Os campos exigidos variam por ERP e sao declarados no registro — GET /integrations/erps lista quais sao obrigatorios para cada um. Sao persistidas no local correto (coluna ou config) pelo backend.',
-    example: { username: 'usuario', password: 'senha' },
+    description: [
+      'Credenciais de acesso ao ERP. Os campos mudam conforme o `erp` escolhido:',
+      '',
+      '- IXC: autorization',
+      '- SGP: username, password',
+      '- MK: sys, password, cd_servico, masterToken',
+      '- HUBSOFT: client_id, username, password (client_secret e opcional)',
+      '- RADIUSNET: nenhuma',
+      '',
+      'A credencial e testada no ERP antes de a empresa ser gravada. Campo faltando devolve 400 dizendo qual e e para que serve. GET /companies/erps traz a lista sempre atualizada.',
+    ].join('\n'),
+    example: { autorization: '00:0000000000000000000000000000000000000000' },
     type: 'object',
     additionalProperties: true,
   })
@@ -88,26 +112,43 @@ export class CreateCompanyDto {
   credenciais!: Record<string, string>;
 
   @ApiProperty({
-    description:
-      'Plano contratado. Define quais paginas a empresa enxerga. "disparo" libera campanhas, templates, disparo manual e historico; "cobranca" libera tudo. Obrigatorio de proposito: e uma decisao comercial e defaulta-la em silencio significa entregar o produto de cobranca de graca.',
+    description: [
+      'Produto contratado pela empresa. Aceita EXATAMENTE um destes dois valores:',
+      '',
+      '  "disparo"  -> libera: disparo manual, campanhas, templates, historico',
+      '  "cobranca" -> libera tudo acima + dashboard, clientes vencidos, chat',
+      '',
+      'Obrigatorio de proposito: e uma decisao comercial, e assumir um valor padrao em silencio significaria entregar o produto de cobranca sem ter sido vendido.',
+    ].join('\n'),
     enum: PLANOS,
+    example: 'cobranca',
   })
   @IsIn(PLANOS as unknown as string[])
   plano!: string;
 
   @ApiProperty({
     description:
-      'token_system_coraxy da empresa. Usado na autorizacao do webhook de agentes do Maestro.',
+      'Token da empresa, usado na autorizacao do webhook de agentes do Maestro.',
+    example: 'token-da-empresa-aqui',
   })
   @IsString()
   @IsNotEmpty()
   token_system_coraxy!: string;
 
   @ApiPropertyOptional({
-    description:
-      'Paginas liberadas alem do plano, para adicional vendido avulso (ex.: plano "disparo" com clientes vencidos).',
+    description: [
+      'Paginas liberadas ALEM do plano, para quando um item e vendido avulso.',
+      'Ex.: plano "disparo" com clientes vencidos incluso.',
+      '',
+      'Aceita apenas os nomes abaixo, escritos exatamente assim:',
+      '',
+      `  ${PAGINAS_IDS.join('\n  ')}`,
+      '',
+      'Nome fora dessa lista devolve 400. Omita o campo se nao houver adicional.',
+    ].join('\n'),
     enum: PAGINAS_IDS,
     isArray: true,
+    example: ['clientesVencidos'],
   })
   @IsOptional()
   @IsArray()
@@ -116,31 +157,39 @@ export class CreateCompanyDto {
 
   @ApiPropertyOptional({
     description:
-      'Id da empresa no CRM. Serve para correlacionar os dois lados e torna o cadastro idempotente: reenviar o mesmo id devolve a empresa existente em vez de erro, entao o CRM pode repetir com seguranca depois de um timeout de rede.',
+      'Id da empresa no CRM. Envie sempre: e o que permite repetir a chamada com seguranca depois de um timeout de rede — o reenvio devolve a empresa ja existente em vez de erro.',
+    example: 'CRM-0001',
   })
   @IsOptional()
   @IsString()
   crm_company_id?: string;
 
-  @ApiPropertyOptional({ description: 'CNPJ, apenas digitos.' })
+  @ApiPropertyOptional({
+    description: 'CNPJ da empresa, apenas digitos.',
+    example: '00000000000000',
+  })
   @IsOptional()
   @IsString()
   cnpj?: string;
 
-  @ApiPropertyOptional({ description: 'Id do time de cobranca no Chatwoot.' })
+  @ApiPropertyOptional({
+    description: 'Id do time de cobranca no Chatwoot.',
+    example: '00',
+  })
   @IsOptional()
   @IsString()
   teamChargeId?: string;
 
   @ApiPropertyOptional({
-    description: 'X-Api-Token da conta NotificaMe (compartilhado por canal).',
+    description:
+      'X-Api-Token da conta NotificaMe. E compartilhado entre os canais da empresa.',
   })
   @IsOptional()
   @IsString()
   token_notificameHub?: string;
 
   @ApiPropertyOptional({
-    description: 'Canais NotificaMe da empresa.',
+    description: 'Canais NotificaMe pelos quais a empresa dispara.',
     type: [CanalNotificameDto],
   })
   @IsOptional()
