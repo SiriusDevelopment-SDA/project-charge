@@ -15,6 +15,12 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_DATABASE: ${DB_DATABASE}
       CHATWOOT_PLATFORM_TOKEN: ${CHATWOOT_PLATFORM_TOKEN}
+      # Segredo que o CRM envia no header x-provisioning-token do
+      # POST /api/webhooks/companies. Sem ele o endpoint recusa TODAS as
+      # chamadas com 401 (falha fechada) e loga o motivo no boot da chamada.
+      # Gere com: openssl rand -base64 32
+      # Ver docs/integracao-crm-provisionamento.md
+      PROVISIONING_TOKEN: ${PROVISIONING_TOKEN}
     depends_on:
       redis:
         condition: service_healthy
