@@ -734,6 +734,16 @@ export class MkInvoicesService {
           })(),
         );
 
+    // Filtro por cliente NO LADO DO ERP: a WSMKFaturasAbertas aceita `cd_pessoa`
+    // (= codpessoa = client.clientId). Sem ele, a rota devolve TODAS as faturas
+    // da janela (a base inteira) e o filtro ficava só na memória — o que fazia o
+    // MK gravar respostas gigantes por requisição (coluna `par_saida`) e pesar o
+    // servidor da PROXER. Com `cd_pessoa` a resposta volta só as faturas do
+    // cliente, igual ao IXC (id_cliente) e ao SGP (cpfcnpj). Descoberto ao vivo
+    // em 2026-07-29: janela 20-31/07 sem filtro=2851 faturas; com
+    // cd_pessoa=<cliente> caiu para as faturas do próprio cliente (7).
+    const clientId = String(cliente.clientId);
+
     const listResponse: MkFaturasAbertasResponse =
       await this.fetchJsonWithRetry(
         company,
@@ -742,20 +752,28 @@ export class MkInvoicesService {
           `?sys=${encodeURIComponent(sys)}` +
           `&token=${encodeURIComponent(token)}` +
           `&dt_venc_inicio=${encodeURIComponent(startDate)}` +
-          `&dt_venc_fim=${encodeURIComponent(endDate)}`,
+          `&dt_venc_fim=${encodeURIComponent(endDate)}` +
+          `&cd_pessoa=${encodeURIComponent(clientId)}`,
         "faturas abertas",
       );
 
-    const clientId = String(cliente.clientId);
     const lista = Array.isArray(listResponse?.ListaFaturas)
       ? listResponse.ListaFaturas
       : [];
 
-    const own = lista.filter(
-      (item) =>
-        String(item?.codpessoa) === clientId &&
-        !this.isClosedStatus(item?.status),
-    );
+    // Mantém o filtro por codpessoa como rede de segurança (caso o ERP ignore o
+    // cd_pessoa em algum cenário) + descarta status fechado. Dedupe por cd_fatura
+    // porque a WSMKFaturasAbertas às vezes repete a mesma fatura na lista (visto
+    // ao vivo: uma fatura vindo 3x), o que dobraria as chamadas de detalhe/PIX.
+    const seenFatura = new Set<string>();
+    const own = lista.filter((item) => {
+      if (String(item?.codpessoa) !== clientId) return false;
+      if (this.isClosedStatus(item?.status)) return false;
+      const key = String(item?.cd_fatura);
+      if (seenFatura.has(key)) return false;
+      seenFatura.add(key);
+      return true;
+    });
 
     const detailed = await this.runWithConcurrency(
       own,
