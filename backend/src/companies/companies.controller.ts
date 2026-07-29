@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -6,14 +14,17 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 import { listErps } from '../integrations/erp/erp.registry';
 
 @ApiTags('Companies')
@@ -89,5 +100,28 @@ export class CompaniesController {
   @ApiForbiddenResponse({ description: 'Apenas super administradores.' })
   create(@Body() dto: CreateCompanyDto) {
     return this.companiesService.create(dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary: 'Altera uma empresa ja cadastrada, revalidando a credencial.',
+    description:
+      'Substitui o UPDATE manual no banco. Aceita apenas campos nomeados — o `config` e montado pelo backend, preservando o que o sistema escreve (lastClientSyncAt e afins) e descartando o que o contrato nao reconhece. Alterar `url` ou `credenciais` dispara novo preflight: aceito reativa a empresa, recusado deixa inativa com o motivo. `account_chatwoot` e `erp` nao mudam aqui.',
+  })
+  @ApiParam({ name: 'id', description: 'Id da empresa.', format: 'uuid' })
+  @ApiBody({ type: UpdateCompanyDto })
+  @ApiOkResponse({
+    description:
+      'Empresa alterada. `preflight.status` diz se a credencial foi aceita; `config.descartadas` lista as chaves fora do contrato que foram removidas.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido ou credenciais do ERP faltando.',
+  })
+  @ApiNotFoundResponse({ description: 'Empresa nao encontrada.' })
+  @ApiUnauthorizedResponse({ description: 'Token nao informado ou invalido.' })
+  @ApiForbiddenResponse({ description: 'Apenas super administradores.' })
+  update(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
+    return this.companiesService.update({ id }, dto);
   }
 }

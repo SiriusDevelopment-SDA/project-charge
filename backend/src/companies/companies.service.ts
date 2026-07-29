@@ -3,11 +3,14 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Company } from './entities/companies';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateCompanyDto } from './dto/update-company.dto';
+import { montarConfig } from './config.contract';
 import { getErpDefinition } from '../integrations/erp/erp.registry';
 import {
   ErpPreflightService,
@@ -223,6 +226,209 @@ export class CompaniesService {
       preflight: this.resumoPreflight(resultado),
       permissoes: resolvePagePermissions(config),
     };
+  }
+
+  /**
+   * Altera uma empresa ja cadastrada.
+   *
+   * Existe para encerrar o `UPDATE` manual no banco — que nao era descuido de
+   * ninguem, era a unica forma disponivel. O custo dessa ausencia esta medido: o
+   * `config` acumulou 22 chaves distintas, 5 sem nenhum leitor, incluindo
+   * credencial de outro produto em texto puro.
+   *
+   * Tres garantias que o SQL manual nao tinha:
+   *
+   * 1. **Credencial e testada antes de valer.** Mexeu em `url` ou `credenciais`,
+   *    roda preflight. Passou, a empresa reativa; recusou, fica inativa com o
+   *    motivo — em vez de sincronizar contra o vazio por semanas.
+   * 2. **O que o sistema escreve e preservado.** `lastClientSyncAt` e companhia
+   *    sobrevivem intactas. Perder isso de vista foi o que travou TOPLINK e
+   *    UPLINK.
+   * 3. **O que o contrato nao reconhece e descartado**, e a lista volta na
+   *    resposta. Cada alteracao deixa a empresa mais limpa, sem sumir com nada
+   *    caladamente.
+   *
+   * `account_chatwoot` e `erp` nao mudam por aqui: sao identidade, nao ajuste.
+   */
+  async update(
+    alvo: { id?: string; crmCompanyId?: string },
+    dto: UpdateCompanyDto,
+  ) {
+    const empresa = await this.buscarParaAlteracao(alvo);
+    const definicao = getErpDefinition(empresa.erp);
+
+    if (!definicao) {
+      throw new BadRequestException(
+        `Empresa gravada com ERP nao reconhecido: "${empresa.erp}".`,
+      );
+    }
+
+    const configAtual = this.parseConfig(empresa.config);
+
+    // Credenciais efetivas = as atuais com as enviadas por cima. Permite trocar
+    // so a senha sem reenviar o resto, e da ao preflight o conjunto completo.
+    const credenciaisAtuais: Record<string, string> = {};
+    for (const campo of definicao.credenciais) {
+      const valor =
+        campo.destino === 'autorization'
+          ? empresa.autorization
+          : configAtual[campo.campo];
+      if (valor) credenciaisAtuais[campo.campo] = String(valor);
+    }
+
+    if (dto.credenciais) {
+      const desconhecidas = Object.keys(dto.credenciais).filter(
+        (campo) => !definicao.credenciais.some((c) => c.campo === campo),
+      );
+      if (desconhecidas.length) {
+        throw new BadRequestException(
+          `Credenciais nao reconhecidas para ${definicao.label}: ${desconhecidas.join(', ')}. ` +
+            `Aceitas: ${definicao.credenciais.map((c) => c.campo).join(', ')}.`,
+        );
+      }
+    }
+
+    const credenciaisEfetivas = { ...credenciaisAtuais, ...(dto.credenciais ?? {}) };
+
+    const faltando = definicao.credenciais
+      .filter(
+        (c) => c.obrigatorio && !String(credenciaisEfetivas[c.campo] ?? '').trim(),
+      )
+      .map((c) => `${c.campo} (${c.descricao})`);
+
+    if (faltando.length) {
+      throw new BadRequestException(
+        `Credenciais obrigatorias faltando para ${definicao.label}: ${faltando.join('; ')}`,
+      );
+    }
+
+    const url = dto.url === undefined ? empresa.url : this.normalizaUrl(dto.url);
+
+    let autorization = empresa.autorization;
+    const configCredenciais: Record<string, string> = {};
+    for (const campo of definicao.credenciais) {
+      const valor = String(credenciaisEfetivas[campo.campo] ?? '').trim();
+      if (!valor) continue;
+      if (campo.destino === 'autorization') {
+        autorization = valor;
+      } else {
+        configCredenciais[campo.campo] = valor;
+      }
+    }
+
+    // Preflight so quando ha o que revalidar. Um PATCH que so troca o plano nao
+    // deve bater no ERP nem, muito menos, poder inativar a empresa por uma
+    // instabilidade momentanea de rede.
+    const revalidar =
+      dto.credenciais !== undefined ||
+      (dto.url !== undefined && url !== empresa.url);
+
+    let resultado: PreflightResult | null = null;
+    if (revalidar) {
+      resultado = await this.preflight.run({
+        erp: definicao.code,
+        url,
+        autorization,
+        config: configCredenciais,
+      });
+    }
+
+    const { config, descartadas, normalizadas } = montarConfig(
+      configAtual,
+      {
+        credenciais: dto.credenciais ? credenciaisEfetivas : undefined,
+        plano: dto.plano,
+        paginasExtras: dto.paginasExtras,
+        ajustes: dto.ajustes as Record<string, number> | undefined,
+        preflight: resultado ? this.resumoPreflight(resultado) : undefined,
+      },
+      definicao.code,
+    );
+
+    empresa.url = url;
+    empresa.autorization = autorization;
+    empresa.config = config;
+
+    if (dto.name !== undefined) empresa.name = dto.name.trim();
+    if (dto.cnpj !== undefined) empresa.cnpj = dto.cnpj.replace(/\D/g, '');
+    if (dto.teamChargeId !== undefined) {
+      empresa.teamChargeId = dto.teamChargeId.trim() || null;
+    }
+    if (dto.token_system_coraxy !== undefined) {
+      empresa.token_system_coraxy = dto.token_system_coraxy.trim();
+    }
+    if (dto.token_notificameHub !== undefined) {
+      empresa.token_notificameHub = dto.token_notificameHub.trim();
+    }
+    if (dto.canais !== undefined) {
+      empresa.canalId_notificameHub = dto.canais;
+    }
+
+    if (resultado) {
+      empresa.active = resultado.status !== 'falhou';
+    }
+
+    const salva = await this.companyRepository.save(empresa);
+
+    this.logger.log(
+      `[update] ${salva.name} (${definicao.label}) alterada` +
+        (resultado ? ` — preflight: ${resultado.status}` : ' — sem revalidacao') +
+        (descartadas.length
+          ? ` | chaves fora do contrato descartadas: ${descartadas.join(', ')}`
+          : ''),
+    );
+
+    return {
+      success: true,
+      message: resultado
+        ? resultado.status === 'falhou'
+          ? 'Empresa alterada, mas o ERP recusou a credencial: ficou INATIVA. Corrija e reenvie.'
+          : 'Empresa alterada e credencial validada no ERP.'
+        : 'Empresa alterada.',
+      // Nunca devolver tokens nem credenciais — mesma regra do listAll.
+      company: {
+        id: salva.id,
+        name: salva.name,
+        account_chatwoot: salva.account_chatwoot,
+        erp: salva.erp,
+        url: salva.url,
+        active: salva.active,
+      },
+      preflight: resultado ? this.resumoPreflight(resultado) : null,
+      permissoes: resolvePagePermissions(config),
+      config: {
+        descartadas,
+        normalizadas,
+      },
+    };
+  }
+
+  private async buscarParaAlteracao(alvo: {
+    id?: string;
+    crmCompanyId?: string;
+  }): Promise<Company> {
+    if (alvo.id) {
+      const empresa = await this.companyRepository.findOne({
+        where: { id: alvo.id },
+      });
+      if (!empresa) {
+        throw new NotFoundException(`Empresa ${alvo.id} nao encontrada.`);
+      }
+      return empresa;
+    }
+
+    const crmId = String(alvo.crmCompanyId ?? '').trim();
+    const empresa = await this.companyRepository
+      .createQueryBuilder('company')
+      .where("company.config ->> 'crm_company_id' = :crmId", { crmId })
+      .getOne();
+
+    if (!empresa) {
+      throw new NotFoundException(
+        `Nenhuma empresa cadastrada com crm_company_id "${crmId}".`,
+      );
+    }
+    return empresa;
   }
 
   /**
