@@ -1,6 +1,7 @@
 import {
   Injectable,
-  BadRequestException
+  BadRequestException,
+  Logger
 } from '@nestjs/common';
 import { Company } from '../../companies/entities/companies';
 import { Client } from '../../clients/entities.ts/clients';
@@ -45,6 +46,8 @@ export const SGP_ERP: ErpDefinition = {
 
 @Injectable()
 export class SGPInvoicesService {
+  private readonly logger = new Logger(SGPInvoicesService.name);
+
   constructor(
       private readonly redisService: RedisService,
     ) { }
@@ -166,7 +169,15 @@ export class SGPInvoicesService {
     const timeoutMs = Number((company.config as any)?.timeoutMs ?? 90_000);
     const maxRetries = Number((company.config as any)?.retries ?? 3);
 
-    const fetchPage = async (offset: number): Promise<{ titulos: SGPTitleRecord[]; total?: number }> => {
+    /**
+     * Mesmo contrato de tres desfechos usado em `fetchClientsFromSGP`: sucesso,
+     * `ilegivel` (HTTP 200 com corpo nao-JSON, causado por um registro que o
+     * SGP nao serializa) ou excecao para falha real de rede/HTTP.
+     */
+    const fetchRange = async (
+      offset: number,
+      take: number,
+    ): Promise<{ titulos: SGPTitleRecord[]; total?: number; ilegivel: boolean }> => {
       let response: Response | undefined;
       let lastErr: unknown;
 
@@ -180,7 +191,7 @@ export class SGPInvoicesService {
               data_vencimento_inicio: startDate,
               data_vencimento_fim: endDate,
               offset,
-              limit,
+              limit: take,
             }),
             signal: AbortSignal.timeout(timeoutMs),
           });
@@ -202,33 +213,95 @@ export class SGPInvoicesService {
         const err = await response.text();
         throw new Error(`SGP titulos erro ${response.status}: ${err.slice(0, 300)}`);
       }
-      const data = await response.json();
+
+      // Lido como texto de proposito — ver o comentario equivalente em
+      // fetchClientsFromSGP.
+      const texto = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(texto);
+      } catch {
+        return { titulos: [], ilegivel: true };
+      }
+
       return {
         titulos: Array.isArray(data?.titulos) ? data.titulos : [],
         total: data?.paginacao?.total,
+        ilegivel: false,
       };
     };
 
-    const first = await fetchPage(0);
-    const total: number = first.total ?? 0;
+    let pulados = 0;
 
-    for (const titulo of first.titulos) {
-      const cpf = String(titulo.clienteCpfcnpj ?? '').replace(/\D/g, '');
-      if (!cpf) continue;
-      if (!invoicesByCpf.has(cpf)) invoicesByCpf.set(cpf, []);
-      invoicesByCpf.get(cpf)!.push(titulo);
+    /** Divide ao meio ate isolar o(s) titulo(s) que o SGP nao serializa. */
+    const recuperarFaixa = async (
+      offset: number,
+      take: number,
+    ): Promise<SGPTitleRecord[]> => {
+      if (take <= 1) {
+        pulados += 1;
+        this.logger.warn(
+          `[SGP] ${company.name}: titulo no offset ${offset} e ilegivel (o ERP devolve HTML no lugar de JSON) — pulado.`,
+        );
+        return [];
+      }
+
+      const meio = Math.floor(take / 2);
+      const partes = await Promise.all([
+        (async () => {
+          const r = await fetchRange(offset, meio);
+          return r.ilegivel ? recuperarFaixa(offset, meio) : r.titulos;
+        })(),
+        (async () => {
+          const r = await fetchRange(offset + meio, take - meio);
+          return r.ilegivel ? recuperarFaixa(offset + meio, take - meio) : r.titulos;
+        })(),
+      ]);
+
+      return [...partes[0], ...partes[1]];
+    };
+
+    const acumular = (titulos: SGPTitleRecord[]) => {
+      for (const titulo of titulos) {
+        const cpf = String(titulo.clienteCpfcnpj ?? '').replace(/\D/g, '');
+        if (!cpf) continue;
+        if (!invoicesByCpf.has(cpf)) invoicesByCpf.set(cpf, []);
+        invoicesByCpf.get(cpf)!.push(titulo);
+      }
+    };
+
+    const buscarPagina = async (offset: number): Promise<SGPTitleRecord[]> => {
+      const r = await fetchRange(offset, limit);
+      if (!r.ilegivel) return r.titulos;
+
+      this.logger.warn(
+        `[SGP] ${company.name}: pagina de titulos no offset ${offset} veio ilegivel — isolando os registros problematicos.`,
+      );
+      return recuperarFaixa(offset, limit);
+    };
+
+    // Sem a 1ª página não há total, e sem total não há paginação — aqui a falha
+    // precisa subir mesmo.
+    const first = await fetchRange(0, limit);
+    if (first.ilegivel) {
+      throw new Error(
+        `SGP titulos — a primeira pagina de ${url} nao devolveu JSON, impossivel descobrir o total.`,
+      );
     }
+
+    const total: number = first.total ?? 0;
+    acumular(first.titulos);
 
     if (total > limit) {
       for (let offset = limit; offset < total; offset += limit) {
-        const result = await fetchPage(offset);
-        for (const titulo of result.titulos) {
-          const cpf = String(titulo.clienteCpfcnpj ?? '').replace(/\D/g, '');
-          if (!cpf) continue;
-          if (!invoicesByCpf.has(cpf)) invoicesByCpf.set(cpf, []);
-          invoicesByCpf.get(cpf)!.push(titulo);
-        }
+        acumular(await buscarPagina(offset));
       }
+    }
+
+    if (pulados) {
+      this.logger.warn(
+        `[SGP] ${company.name}: ${pulados} titulo(s) ilegivel(is) pulado(s) de ${total} informados pelo ERP.`,
+      );
     }
 
     return invoicesByCpf;
@@ -248,8 +321,23 @@ export class SGPInvoicesService {
     const maxRetries = Number(config?.retries ?? 3);
     const concurrency = Number(config?.clientsConcurrency ?? 5);
 
-    const fetchPage = async (offset: number): Promise<{ clientes: SGPClientRecord[]; total: number }> => {
-      const body: Record<string, string | number> = { offset, limit, omitir_titulos: 'sim' };
+    /**
+     * Busca uma faixa. Distingue tres desfechos, porque cada um pede uma
+     * reacao diferente:
+     *
+     * - sucesso;
+     * - `ilegivel`: HTTP 200 com corpo que nao e JSON. Acontece quando algum
+     *   registro da faixa quebra a serializacao do lado do SGP e ele devolve a
+     *   pagina HTML do portal. NAO adianta repetir — e deterministico;
+     * - excecao: falha de rede ou HTTP de erro. Continua subindo, porque
+     *   credencial invalida ou ERP fora do ar sao problemas reais e nao devem
+     *   virar "pulei alguns registros".
+     */
+    const fetchRange = async (
+      offset: number,
+      take: number,
+    ): Promise<{ clientes: SGPClientRecord[]; total: number; ilegivel: boolean }> => {
+      const body: Record<string, string | number> = { offset, limit: take, omitir_titulos: 'sim' };
       if (since) body['data_cadastro_inicio'] = since.toISOString().split('T')[0];
       let response: Response | undefined;
       let lastErr: unknown;
@@ -281,14 +369,80 @@ export class SGPInvoicesService {
         const errText = await response.text();
         throw new Error(`SGP clientes erro ${response.status} em ${url}: ${errText.slice(0, 300)}`);
       }
-      const data = await response.json();
+
+      // Lido como texto de proposito: `response.json()` estourando aqui era o
+      // que matava a sincronizacao inteira por causa de um unico registro.
+      const texto = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(texto);
+      } catch {
+        return { clientes: [], total: 0, ilegivel: true };
+      }
+
       const paginacao = data?.[0]?.paginacao ?? data?.paginacao;
       const clientes: SGPClientRecord[] = data?.[0]?.clientes ?? data?.clientes ?? [];
-      return { clientes, total: paginacao?.total ?? clientes.length };
+      return { clientes, total: paginacao?.total ?? clientes.length, ilegivel: false };
     };
 
-    // 1ª página para descobrir o total
-    const first = await fetchPage(0);
+    let pulados = 0;
+
+    /**
+     * Faixa ilegivel: divide ao meio recursivamente ate isolar o(s) registro(s)
+     * que o SGP nao serializa, e devolve todo o resto.
+     *
+     * Sem isso, um cadastro problematico zera a importacao inteira — foi o que
+     * aconteceu com a ADRENALINA NET: 1 registro ruim em 13.752 e nenhum
+     * cliente entrava. Com a divisao, ~14 requisicoes extras recuperam 99 dos
+     * 100 registros da pagina.
+     */
+    const recuperarFaixa = async (
+      offset: number,
+      take: number,
+    ): Promise<SGPClientRecord[]> => {
+      if (take <= 1) {
+        pulados += 1;
+        this.logger.warn(
+          `[SGP] ${company.name}: registro no offset ${offset} e ilegivel (o ERP devolve HTML no lugar de JSON) — pulado. ` +
+            `Corrija o cadastro no SGP para inclui-lo.`,
+        );
+        return [];
+      }
+
+      const meio = Math.floor(take / 2);
+      const partes = await Promise.all([
+        (async () => {
+          const r = await fetchRange(offset, meio);
+          return r.ilegivel ? recuperarFaixa(offset, meio) : r.clientes;
+        })(),
+        (async () => {
+          const r = await fetchRange(offset + meio, take - meio);
+          return r.ilegivel ? recuperarFaixa(offset + meio, take - meio) : r.clientes;
+        })(),
+      ]);
+
+      return [...partes[0], ...partes[1]];
+    };
+
+    const buscarPagina = async (offset: number): Promise<SGPClientRecord[]> => {
+      const r = await fetchRange(offset, limit);
+      if (!r.ilegivel) return r.clientes;
+
+      this.logger.warn(
+        `[SGP] ${company.name}: pagina no offset ${offset} veio ilegivel — isolando os registros problematicos.`,
+      );
+      return recuperarFaixa(offset, limit);
+    };
+
+    // 1ª página para descobrir o total. Se ela vier ilegível não há como saber
+    // o total, então aí sim a sincronização falha — sem total não há paginação.
+    const first = await fetchRange(0, limit);
+    if (first.ilegivel) {
+      throw new Error(
+        `SGP clientes — a primeira pagina de ${url} nao devolveu JSON, impossivel descobrir o total.`,
+      );
+    }
+
     const total = first.total;
     const allClients: SGPClientRecord[] = [...first.clientes];
 
@@ -299,9 +453,16 @@ export class SGPInvoicesService {
       // páginas restantes em paralelo, com concorrência limitada para reduzir timeouts
       for (let i = 0; i < offsets.length; i += concurrency) {
         const batch = offsets.slice(i, i + concurrency);
-        const results = await Promise.all(batch.map(fetchPage));
-        results.forEach(r => allClients.push(...r.clientes));
+        const results = await Promise.all(batch.map(buscarPagina));
+        results.forEach(clientes => allClients.push(...clientes));
       }
+    }
+
+    if (pulados) {
+      this.logger.warn(
+        `[SGP] ${company.name}: ${pulados} registro(s) ilegivel(is) pulado(s). ` +
+          `Importados ${allClients.length} de ${total} informados pelo ERP.`,
+      );
     }
 
     return allClients;
