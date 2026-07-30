@@ -61,6 +61,41 @@ function getLastSync(company: Company): Date | undefined {
 export class ClientsSyncCron {
   private readonly logger = new Logger(ClientsSyncCron.name);
 
+  /**
+   * Serializa a sincronização de clientes POR EMPRESA.
+   *
+   * `syncCompanyClients` faz `upsert(chunk, ['cnpj_cpf', 'companyId'])`, e o
+   * `ON CONFLICT` do Postgres NAO protege contra inserção concorrente: se duas
+   * transações inserem a mesma chave ao mesmo tempo, a que perde a corrida
+   * enxergou a chave como inexistente, tenta inserir e leva duplicate key em vez
+   * de cair no DO UPDATE. É o erro do índice IDX_2859c5e162c7390dc297223ba5.
+   *
+   * O método tem TRÊS pontos de entrada independentes, e até aqui nenhum deles
+   * enxergava os outros:
+   *   - o cron das 3h (`syncClientsFromERP`);
+   *   - `POST /clients/sync`, que chama o mesmo cron sob demanda;
+   *   - o sync manual de faturas (`InvoiceSyncCron.performSync` com
+   *     `reason: 'manual'`), disparado pelo botão "Atualizar ERP" e pelo
+   *     `campaign-scheduler`, que roda a cada minuto.
+   *
+   * O `runningSyncs` do InvoiceSyncCron só cobre o terceiro. A trava fica aqui
+   * dentro, e não em cada chamador, justamente para que qualquer ponto de
+   * entrada futuro herde a garantia sem precisar lembrar dela.
+   *
+   * Um chamador que chega com a empresa já em andamento recebe a execução em
+   * curso em vez de iniciar uma segunda — mesma semântica do `runningSyncs`. Para
+   * quem chama, o contrato ("os clientes desta empresa estão sincronizados quando
+   * a promise resolver") continua valendo.
+   *
+   * Ressalva: isto é memória de processo. Com mais de uma réplica do backend, as
+   * réplicas não se enxergam e a corrida volta — aí a trava precisa migrar para
+   * um lock distribuído (Redis com SET NX, que o RedisService ainda não expõe).
+   */
+  private readonly syncsEmAndamento = new Map<
+    string,
+    Promise<{ synced: number; skipped: number }>
+  >();
+
   constructor(
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
@@ -122,6 +157,26 @@ export class ClientsSyncCron {
    * sincronização. Retorna a contagem de sincronizados/ignorados.
    */
   async syncCompanyClients(
+    company: Company,
+  ): Promise<{ synced: number; skipped: number }> {
+    const emAndamento = this.syncsEmAndamento.get(company.id);
+    if (emAndamento) {
+      this.logger.warn(
+        `[ClientsSync] ${company.erp} ${company.name}: já havia uma sincronização de clientes em andamento; ` +
+          `aguardando a execução em curso em vez de iniciar outra em paralelo.`,
+      );
+      return emAndamento;
+    }
+
+    const task = this.executarSyncCompanyClients(company).finally(() =>
+      this.syncsEmAndamento.delete(company.id),
+    );
+
+    this.syncsEmAndamento.set(company.id, task);
+    return task;
+  }
+
+  private async executarSyncCompanyClients(
     company: Company,
   ): Promise<{ synced: number; skipped: number }> {
     let synced = 0;

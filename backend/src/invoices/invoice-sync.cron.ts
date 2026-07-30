@@ -46,6 +46,58 @@ export class InvoiceSyncCron {
   private readonly logger = new Logger(InvoiceSyncCron.name);
   private readonly runningSyncs = new Map<string, Promise<number>>();
 
+  // O @Cron do Nest dispara no horário independente de haver execução em
+  // andamento. Quando um ciclo completo passa dos 10 minutos (acontece: as
+  // empresas grandes sozinhas levam vários minutos), o tick seguinte entra por
+  // cima do anterior e as duas execuções varrem a mesma lista de empresas.
+  //
+  // Isso quebra de verdade: dois `upsert` concorrentes na mesma chave
+  // (cnpj_cpf, companyId) fazem o ON CONFLICT falhar em vez de virar UPDATE —
+  // a transação que perde a corrida enxerga a chave como inexistente, tenta
+  // inserir e leva duplicate key. Era o erro recorrente da FIBRAS DO RIO.
+  //
+  // O runningSyncs abaixo não cobre isso: ele é por empresa e some do Map assim
+  // que a empresa termina, então basta as duas execuções se cruzarem com um
+  // pequeno desencontro de tempo para ambas processarem a mesma empresa.
+  private readonly ciclosEmAndamento = new Map<string, number>();
+
+  /**
+   * A trava e POR CICLO, nao global.
+   *
+   * Uma versao anterior usava uma trava unica compartilhada, e estava errada: o
+   * ciclo de 10min pula empresas MK (linha ~136) e o ciclo diario processa
+   * SOMENTE empresas MK. Os dois conjuntos sao disjuntos, entao nunca houve
+   * colisao possivel entre eles — e a trava compartilhada tinha um custo real e
+   * silencioso: um ciclo de 10min lento fazia o sync diario do MK daquele dia
+   * ser pulado inteiro, deixando as campanhas do dia seguinte com snapshot de
+   * 48h.
+   *
+   * O que precisa mesmo ser serializado e cada ciclo consigo mesmo. A protecao
+   * entre ciclos diferentes que toquem a mesma empresa ja e do `runningSyncs`,
+   * que e por empresa.
+   */
+  private async executarCicloExclusivo(
+    rotulo: string,
+    ciclo: () => Promise<void>,
+  ): Promise<void> {
+    const inicioAnterior = this.ciclosEmAndamento.get(rotulo);
+    if (inicioAnterior !== undefined) {
+      const decorridoMin = Math.round((Date.now() - inicioAnterior) / 60000);
+      this.logger.warn(
+        `[InvoiceSync] ${rotulo} ignorado: a execução anterior ainda está rodando há ${decorridoMin} min. ` +
+          `Se isso se repetir, o ciclo está estourando a janela da cron e vale revisar o intervalo ou a concorrência por empresa.`,
+      );
+      return;
+    }
+
+    this.ciclosEmAndamento.set(rotulo, Date.now());
+    try {
+      await ciclo();
+    } finally {
+      this.ciclosEmAndamento.delete(rotulo);
+    }
+  }
+
   constructor(
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
@@ -69,6 +121,12 @@ export class InvoiceSyncCron {
 
   @Cron("0 */10 * * * *", { timeZone: "America/Sao_Paulo" })
   async syncAll(): Promise<void> {
+    await this.executarCicloExclusivo("ciclo de 10min", () =>
+      this.executarSyncAll(),
+    );
+  }
+
+  private async executarSyncAll(): Promise<void> {
     this.logger.log("[InvoiceSync] Iniciando sincronização de faturas");
 
     const companies = await this.companyRepo.find({ where: { active: true } });
@@ -117,6 +175,16 @@ export class InvoiceSyncCron {
 
   @Cron("0 0 4 * * *", { timeZone: "America/Sao_Paulo" })
   async syncMkInvoicesDaily(): Promise<void> {
+    // Trava propria, independente da do ciclo de 10min: este cron processa
+    // SOMENTE empresas MK, que o ciclo de 10min pula. Conjuntos disjuntos, nenhuma
+    // colisao possivel entre os dois — e compartilhar a trava faria um ciclo de
+    // 10min lento cancelar o sync diario do dia.
+    await this.executarCicloExclusivo("sync diário MK", () =>
+      this.executarSyncMkDiario(),
+    );
+  }
+
+  private async executarSyncMkDiario(): Promise<void> {
     this.logger.log(
       "[InvoiceSync] Iniciando sincronização diária de faturas MK (4h)",
     );

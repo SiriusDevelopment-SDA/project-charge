@@ -1,10 +1,13 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
   HttpCode,
   HttpStatus,
   Logger,
+  Param,
+  Patch,
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -14,8 +17,10 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiHeader,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -23,6 +28,7 @@ import { timingSafeEqual } from 'crypto';
 import { Public } from '../auth/decorators/public.decorator';
 import { CompaniesService } from '../companies/companies.service';
 import { CreateCompanyDto } from '../companies/dto/create-company.dto';
+import { UpdateCompanyDto } from '../companies/dto/update-company.dto';
 
 @ApiTags('Webhooks')
 @Controller('webhooks')
@@ -91,6 +97,105 @@ export class ProvisioningWebhookController {
     );
 
     return this.companiesService.create(dto);
+  }
+
+  /**
+   * Alteracao de empresa a partir do CRM.
+   *
+   * Identificada por `crm_company_id`, e nao pelo id interno: o CRM conhece o
+   * proprio identificador e nao deveria precisar guardar o nosso. E o mesmo
+   * campo que ja torna o provisionamento idempotente.
+   *
+   * Existe para tirar o `UPDATE` manual do banco de circulacao. Enquanto ele foi
+   * a unica forma de alterar uma empresa, o `config` acumulou 22 chaves, 5 sem
+   * nenhum leitor — e uma URL errada so aparecia semanas depois, como
+   * "sincronizacao vazia".
+   *
+   * Toda a regra vive em `CompaniesService.update()`, a mesma do endpoint
+   * humano: campos nomeados, config montado pelo backend, e credencial testada
+   * no ERP antes de valer.
+   */
+  @Public()
+  @Patch('companies/:crmCompanyId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Altera uma empresa provisionada, identificada pelo id do CRM.',
+    description:
+      'Mesma regra do PATCH /companies/:id, com autenticacao por segredo de provisionamento. Envie apenas os campos que mudaram. Alterar `url` ou `credenciais` dispara novo preflight — util para corrigir uma empresa que ficou inativa por credencial recusada, sem precisar recadastrar. Um ERP que nao responde nao inativa empresa ja ativa (veja `preflight.causa`). Corpo vazio nao altera nada e serve de previa: `aplicado: false` e `config.descartadas` com o que um PATCH real removeria — seguro para health-check.',
+  })
+  @ApiHeader({
+    name: 'x-provisioning-token',
+    required: true,
+    description:
+      'Segredo de provisionamento (variavel de ambiente PROVISIONING_TOKEN).',
+  })
+  @ApiParam({
+    name: 'crmCompanyId',
+    description: 'O mesmo `crm_company_id` enviado no provisionamento.',
+    example: 'CRM-0001',
+  })
+  @ApiBody({ type: UpdateCompanyDto })
+  @ApiOkResponse({
+    description:
+      'Empresa alterada. Confira `preflight.status` e `company.active`; `config.descartadas` lista chaves fora do contrato que foram removidas.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Header ausente ou segredo invalido.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Nenhuma empresa cadastrada com esse crm_company_id.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido ou credenciais do ERP faltando.',
+  })
+  async alterar(
+    @Headers('x-provisioning-token') token: string | undefined,
+    @Param('crmCompanyId') crmCompanyId: string,
+    @Body() dto: UpdateCompanyDto,
+  ) {
+    this.autorizar(token);
+
+    // O vinculo NAO se altera por este canal, nem quando o valor enviado e o
+    // mesmo da URL. Duas razoes:
+    //
+    // 1. Nao resolveria nada. Este endpoint encontra a empresa PELO vinculo —
+    //    quem ainda nao tem nunca chega ate aqui, devolve 404 antes. Vincular
+    //    empresa antiga e trabalho do lado de ca: POST /companies/vincular-crm.
+    // 2. Abriria sequestro. O `PROVISIONING_TOKEN` e unico e sem escopo por
+    //    empresa: quem o tiver repontaria o vinculo de uma empresa existente
+    //    para um id que controla, e passaria a alterar empresa alheia com 200
+    //    em toda resposta.
+    if (dto.crm_company_id !== undefined) {
+      throw new BadRequestException(
+        'crm_company_id nao pode ser alterado por este endpoint. Ele identifica ' +
+          'a empresa aqui — muda-lo por este canal apontaria o CRM para outra ' +
+          'empresa. Use POST /companies/vincular-crm (super_admin).',
+      );
+    }
+
+    // Alteracao de `url` ou `credenciais` por este canal merece log proprio, em
+    // WARN. O `PROVISIONING_TOKEN` e unico e sem escopo por empresa: quem o
+    // tiver pode apontar o ERP de uma empresa existente para um host que
+    // controle, e a proxima sincronizacao entregaria CPF, telefone e faturas
+    // para la. Nao da para impedir isso sem trocar o modelo de segredo, mas da
+    // para nao deixar acontecer em silencio.
+    if (dto.url !== undefined || dto.credenciais !== undefined) {
+      const campos = [
+        dto.url !== undefined ? 'url' : null,
+        dto.credenciais !== undefined ? 'credenciais' : null,
+      ].filter(Boolean);
+      this.logger.warn(
+        `[Provisioning] AUDITORIA: alteracao de ${campos.join(' e ')} via webhook para ` +
+          `crm_company_id=${crmCompanyId}` +
+          (dto.url !== undefined ? ` (novo host: ${dto.url})` : ''),
+      );
+    }
+
+    this.logger.log(
+      `[Provisioning] alteracao pedida para crm_company_id=${crmCompanyId}`,
+    );
+
+    return this.companiesService.update({ crmCompanyId }, dto);
   }
 
   /**
