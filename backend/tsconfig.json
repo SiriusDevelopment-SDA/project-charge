@@ -10,5 +10,11 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "skipLibCheck": true
-  }
+  },
+  // Sem isto o TypeScript inclui `**/*` por padrao e puxa `scripts/` para dentro
+  // do programa, quebrando o build com TS6059 (fora do `rootDir`). Os arquivos
+  // de `scripts/` sao utilitarios de operacao, rodados via
+  // `ts-node --transpile-only`, e nao fazem parte da aplicacao.
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }
