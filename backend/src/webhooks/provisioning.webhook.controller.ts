@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -120,7 +121,7 @@ export class ProvisioningWebhookController {
   @ApiOperation({
     summary: 'Altera uma empresa provisionada, identificada pelo id do CRM.',
     description:
-      'Mesma regra do PATCH /companies/:id, com autenticacao por segredo de provisionamento. Envie apenas os campos que mudaram. Alterar `url` ou `credenciais` dispara novo preflight — util para corrigir uma empresa que ficou inativa por credencial recusada, sem precisar recadastrar.',
+      'Mesma regra do PATCH /companies/:id, com autenticacao por segredo de provisionamento. Envie apenas os campos que mudaram. Alterar `url` ou `credenciais` dispara novo preflight — util para corrigir uma empresa que ficou inativa por credencial recusada, sem precisar recadastrar. Um ERP que nao responde nao inativa empresa ja ativa (veja `preflight.causa`). Corpo vazio nao altera nada e serve de previa: `aplicado: false` e `config.descartadas` com o que um PATCH real removeria — seguro para health-check.',
   })
   @ApiHeader({
     name: 'x-provisioning-token',
@@ -153,6 +154,24 @@ export class ProvisioningWebhookController {
     @Body() dto: UpdateCompanyDto,
   ) {
     this.autorizar(token);
+
+    // O vinculo NAO se altera por este canal, nem quando o valor enviado e o
+    // mesmo da URL. Duas razoes:
+    //
+    // 1. Nao resolveria nada. Este endpoint encontra a empresa PELO vinculo —
+    //    quem ainda nao tem nunca chega ate aqui, devolve 404 antes. Vincular
+    //    empresa antiga e trabalho do lado de ca: POST /companies/vincular-crm.
+    // 2. Abriria sequestro. O `PROVISIONING_TOKEN` e unico e sem escopo por
+    //    empresa: quem o tiver repontaria o vinculo de uma empresa existente
+    //    para um id que controla, e passaria a alterar empresa alheia com 200
+    //    em toda resposta.
+    if (dto.crm_company_id !== undefined) {
+      throw new BadRequestException(
+        'crm_company_id nao pode ser alterado por este endpoint. Ele identifica ' +
+          'a empresa aqui — muda-lo por este canal apontaria o CRM para outra ' +
+          'empresa. Use POST /companies/vincular-crm (super_admin).',
+      );
+    }
 
     // Alteracao de `url` ou `credenciais` por este canal merece log proprio, em
     // WARN. O `PROVISIONING_TOKEN` e unico e sem escopo por empresa: quem o

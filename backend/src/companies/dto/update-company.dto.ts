@@ -129,7 +129,7 @@ export class UpdateCompanyDto {
       '- MK: sys, password, cd_servico, masterToken',
       '- HUBSOFT: client_id, username, password (client_secret e opcional)',
       '',
-      'Alterar este campo dispara um novo preflight: se o ERP aceitar, a empresa e reativada; se recusar, fica inativa com o motivo registrado.',
+      'Alterar este campo dispara um novo preflight. Aceito, a empresa e reativada. Recusado, o que acontece depende de `preflight.causa`: `credencial` e `configuracao` inativam a empresa com o motivo registrado; `inacessivel` (timeout, DNS) NAO inativa uma empresa que ja estava ativa, por ser possivelmente transitorio.',
     ].join('\n'),
     type: 'object',
     additionalProperties: true,
@@ -147,6 +147,12 @@ export class UpdateCompanyDto {
       '  "cobranca" -> tudo acima + dashboard, clientes vencidos, chat',
       '',
       'Definir o plano remove as flags de pagina do modelo antigo (page_*), que teriam precedencia e fariam a troca parecer sem efeito.',
+      '',
+      'O plano pode ser TROCADO, nunca removido — nao ha valor que o apague, e',
+      'null ou "" devolvem 400. Sem plano a empresa cai no modelo legado, onde a',
+      'ausencia LIBERA: remover entregaria dashboard, clientes vencidos e chat',
+      'sem venda. Para reduzir acesso use "disparo"; para devolver tudo,',
+      '"cobranca" — que libera as sete paginas, igual ao legado sem flags.',
     ].join('\n'),
     enum: PLANOS,
     example: 'cobranca',
@@ -182,6 +188,28 @@ export class UpdateCompanyDto {
   @ValidateNested()
   @Type(() => AjustesErpDto)
   ajustes?: AjustesErpDto;
+
+  @ApiPropertyOptional({
+    description: [
+      'Vincula esta empresa a empresa correspondente no CRM. Aceito APENAS em',
+      'PATCH /companies/:id (super_admin) — o webhook do CRM devolve 400.',
+      '',
+      'Existe para as empresas cadastradas antes deste endpoint: sem vinculo, o',
+      'CRM nao alcanca a empresa (PATCH /webhooks/companies/:crm_company_id',
+      'devolve 404) e nao consegue recadastra-la (o account_chatwoot ja existe,',
+      'devolve 409). Para vincular varias de uma vez, use',
+      'POST /companies/vincular-crm.',
+      '',
+      'So pode ser DEFINIDO, nunca trocado: com vinculo diferente ja gravado a',
+      'resposta e 400. Repontar o vinculo faria o CRM passar a alterar outra',
+      'empresa, e o pedido seguinte pareceria ter funcionado.',
+    ].join('\n'),
+    example: 'CRM-0001',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  crm_company_id?: string;
 
   @ApiPropertyOptional({
     description: 'CNPJ da empresa, apenas digitos.',

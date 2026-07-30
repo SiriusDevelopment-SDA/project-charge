@@ -55,6 +55,17 @@ mas que não deve ser usado em cadastro novo:
 São *opt-out*: a ausência libera, `false` bloqueia. Semântica invertida em relação
 ao `plano`, e é justamente por isso que convivem dois caminhos no código.
 
+**O plano se troca, nunca se remove.** Não existe valor que o apague — `null` e
+`""` devolvem 400, e `montarConfig` não tem ramo de remoção. Não é esquecimento:
+sem `plano` a empresa cai no legado, onde a **ausência libera**. Remover seria a
+única operação capaz de entregar dashboard, clientes vencidos e chat sem venda —
+exatamente o que a obrigatoriedade do plano no cadastro impede.
+
+O legado é rampa de compatibilidade para empresa antiga, não destino: legado →
+plano, nunca de volta. Para reduzir acesso, troque para `disparo`; para devolver
+tudo, `cobranca`, que libera as sete páginas — o mesmo que o legado sem flags
+dava, só que por decisão em vez de por omissão.
+
 ---
 
 ## 3. Integração com o Chatwoot
@@ -106,8 +117,12 @@ Opcionais. Só existem para o caso de um ERP específico não aguentar o padrão
 |---|---|
 | `fullClientLoadAt` | [clients-sync.cron.ts](../backend/src/clients/clients-sync.cron.ts) |
 | `lastClientSyncAt` | idem |
-| `preflight` | [companies.service.ts](../backend/src/companies/companies.service.ts) no cadastro |
-| `crm_company_id` | idem, quando vem do CRM |
+| `preflight` | [companies.service.ts](../backend/src/companies/companies.service.ts) no cadastro e a cada revalidação |
+| `crm_company_id` | o cadastro, quando vem do CRM; ou a vinculação (ver abaixo) |
+
+`crm_company_id` é a exceção da tabela: as outras o sistema escreve sozinho, esta
+alguém informa uma vez. É o que liga a empresa daqui à empresa lá no CRM, e sem
+ela o CRM não alcança a empresa por nenhuma rota.
 
 `fullClientLoadAt` e `lastClientSyncAt` controlam a janela incremental de
 sincronização. Preencher isso à mão foi **a causa raiz** do incidente em que
@@ -167,6 +182,7 @@ dois caminhos suportados, e nenhum aceita `config` cru:
 |---|---|---|
 | Cadastrar | `POST /companies` | `POST /webhooks/companies` |
 | Alterar | `PATCH /companies/:id` | `PATCH /webhooks/companies/:crm_company_id` |
+| Vincular ao CRM | `POST /companies/vincular-crm` | — (ver abaixo) |
 
 O `PATCH` é o ponto onde o contrato vira código: ele chama
 [`montarConfig`](../backend/src/companies/config.contract.ts), que **preserva** o
@@ -178,9 +194,69 @@ Efeito prático: cada alteração deixa a empresa mais limpa do que estava. Uma
 empresa com `acs`, `app` e `gatewayViabilidade` perde as três no primeiro PATCH
 que receber, sem ninguém precisar lembrar de limpar.
 
-Alterar `url` ou `credenciais` dispara novo preflight: aceito reativa a empresa,
-recusado deixa inativa com o motivo legível. É o caminho para consertar uma
-empresa cuja credencial foi recusada, sem recadastrar.
+**Antes de aplicar, dá para olhar.** `PATCH` com corpo vazio não escreve nada:
+responde `aplicado: false` e devolve em `config.descartadas` exatamente o que um
+PATCH real removeria daquela empresa. Duas coisas de uma vez — a limpeza deixa de
+ser surpresa, e um PATCH vazio disparado por engano (ou usado como health-check
+por um CRM) não mexe no dado de ninguém. Alteração precisa ser pedida, não ser
+efeito colateral de um ping.
+
+### Quando o preflight falha
+
+Alterar `url` ou `credenciais` dispara novo preflight. Aceito, a empresa reativa
+— é o caminho para consertar uma empresa recusada, sem recadastrar. Recusado, o
+que acontece depende de **por que** falhou, e `preflight.causa` diz qual foi:
+
+| `causa` | O que houve | Empresa já ativa | Empresa inativa |
+|---|---|---|---|
+| `credencial` | O ERP respondeu e recusou (401/403, token não emitido) | **Inativa** | Continua inativa |
+| `configuracao` | O ERP respondeu outra coisa (404, 5xx, corpo não-JSON), ou falta dado nosso | **Inativa** | Continua inativa |
+| `inacessivel` | Não deu para falar com o ERP: timeout, DNS, conexão recusada | **Mantida ativa**, com WARN no log | Continua inativa |
+
+A linha que importa é a última. `inacessivel` é transitório e pode não ter nada a
+ver com a credencial enviada: inativar por causa de três segundos de instabilidade
+para a sincronização e ninguém percebe — o operador acha que salvou e foi embora.
+Se a credencial estiver de fato errada, a sincronização acusa em seguida. As
+outras duas causas são estáveis: precisam ficar visíveis, e inativam.
+
+Cadastro novo (`POST`) não tem essa distinção — qualquer falha nasce inativa. Não
+há o que proteger: a empresa nunca esteve funcionando.
+
+### Vinculando empresa antiga ao CRM
+
+Toda empresa cadastrada antes do provisionamento por webhook está sem
+`crm_company_id`, e sem ele o CRM não a alcança por nenhuma porta: o `PATCH`
+devolve 404 e o `POST` devolve 409, porque o `account_chatwoot` já existe. Não é
+uma ou outra — é praticamente todas.
+
+```
+POST /companies/vincular-crm          (super_admin)
+{ "vinculos": [ { "account_chatwoot": "99", "crm_company_id": "CRM-0001" } ] }
+```
+
+Identifica pela `account_chatwoot` porque é o que o CRM já conhece; exigir o uuid
+interno transformaria o vínculo numa consulta manual empresa por empresa. Cada
+par é decidido por conta própria e o resultado volta item a item — `vinculada`,
+`ja_vinculada`, `nao_encontrada`, `conflito_vinculo_existente` ou
+`conflito_crm_id_em_uso`. Um par errado não derruba o lote, e reenviar o mesmo
+lote é seguro.
+
+**Vincular não limpa o config.** É a única escrita do módulo que não passa por
+`montarConfig`: vincular é estabelecer correspondência, não pedir faxina. A
+limpeza continua acontecendo no primeiro PATCH de verdade, onde dá para ver a
+lista antes de aplicar.
+
+Três recusas guardam o vínculo:
+
+- **Trocar um vínculo existente** devolve 400, aqui e no `PATCH`. Repontar não
+  quebra nada na hora, e a partir dali o CRM passa a alterar outra empresa
+  recebendo 200 em todo pedido.
+- **Id do CRM já usado por outra empresa** devolve 409. Dois vínculos iguais
+  deixariam a busca do webhook devolvendo uma das duas sem critério.
+- **O webhook do CRM não altera `crm_company_id`**, devolve 400. Não resolveria
+  nada — ele acha a empresa *pelo* vínculo, então quem não tem nunca chega lá — e
+  abriria sequestro: o `PROVISIONING_TOKEN` é único e sem escopo por empresa,
+  quem o tiver repontaria empresa alheia para um id que controla.
 
 E as três regras que continuam valendo:
 

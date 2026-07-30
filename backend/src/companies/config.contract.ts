@@ -126,6 +126,14 @@ export type AlteracoesConfig = {
   readonly ajustes?: Record<string, number>;
   /** Resumo do preflight recem-executado. */
   readonly preflight?: Record<string, any>;
+  /**
+   * Vinculo com a empresa no CRM.
+   *
+   * Chave de sistema, mas com uma diferenca: as outras o backend escreve
+   * sozinho, esta alguem precisa informar uma vez. Quem decide SE pode ser
+   * escrita e o servico — aqui ela so e aplicada.
+   */
+  readonly crmCompanyId?: string;
 };
 
 export type ResultadoConfig = {
@@ -193,6 +201,22 @@ export function montarConfig(
     for (const legada of CHAVES_PAGINA_LEGADO) delete proximo[legada];
   }
 
+  // NAO EXISTE REMOVER O PLANO, e a ausencia de um `delete` aqui e deliberada.
+  //
+  // Tirar `plano` nao devolve a empresa a um estado neutro: devolve ao legado,
+  // onde ausencia LIBERA. Seria a unica operacao do sistema capaz de entregar
+  // dashboard, clientes vencidos e chat sem ninguem ter vendido — exatamente o
+  // que a obrigatoriedade do plano no cadastro existe para impedir.
+  //
+  // O legado e rampa de compatibilidade para empresa antiga, nao destino:
+  // legado -> plano, nunca de volta. Para reduzir o que uma empresa enxerga,
+  // troque para `disparo`; para devolver tudo, `cobranca` — que libera as sete
+  // paginas, o mesmo que o legado sem flags dava, so que por decisao em vez de
+  // por omissao.
+  //
+  // Antes de adicionar remocao aqui, saiba que ela nao restaura nada: promove
+  // a empresa a "tudo liberado" com outro nome.
+
   if (alteracoes.paginasExtras !== undefined) {
     if (alteracoes.paginasExtras.length) {
       proximo.paginasExtras = alteracoes.paginasExtras;
@@ -213,6 +237,10 @@ export function montarConfig(
 
   if (alteracoes.preflight !== undefined) {
     proximo.preflight = alteracoes.preflight;
+  }
+
+  if (alteracoes.crmCompanyId !== undefined) {
+    proximo.crm_company_id = alteracoes.crmCompanyId;
   }
 
   return { config: proximo, descartadas, normalizadas };

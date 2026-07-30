@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -25,6 +27,7 @@ import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { VincularCrmDto } from './dto/vincular-crm.dto';
 import { listErps } from '../integrations/erp/erp.registry';
 
 @ApiTags('Companies')
@@ -102,12 +105,32 @@ export class CompaniesController {
     return this.companiesService.create(dto);
   }
 
+  @Post('vincular-crm')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary: 'Vincula empresas ja cadastradas as suas correspondentes no CRM.',
+    description:
+      'Para as empresas que existem dos dois lados mas nunca se conheceram. Sem `crm_company_id` o CRM nao alcanca a empresa: `PATCH /webhooks/companies/:crm_company_id` devolve 404 e recadastrar devolve 409 porque o `account_chatwoot` ja existe. Identifica pela account, que e o que o CRM conhece. Nao roda preflight nem altera qualquer outro dado — inclusive NAO limpa chaves fora do contrato, porque vincular nao e pedir faxina. Item invalido nao derruba o lote: o resultado volta item a item. Reenviar o mesmo lote e seguro.',
+  })
+  @ApiBody({ type: VincularCrmDto })
+  @ApiOkResponse({
+    description:
+      'Lote processado. `resumo` traz os totais e `resultados` o status de cada par: `vinculada`, `ja_vinculada`, `nao_encontrada`, `conflito_vinculo_existente` ou `conflito_crm_id_em_uso`. `success` e true apenas quando nenhum par falhou.',
+  })
+  @ApiBadRequestResponse({ description: 'Lote vazio ou par mal formado.' })
+  @ApiUnauthorizedResponse({ description: 'Token nao informado ou invalido.' })
+  @ApiForbiddenResponse({ description: 'Apenas super administradores.' })
+  @HttpCode(HttpStatus.OK)
+  vincularCrm(@Body() dto: VincularCrmDto) {
+    return this.companiesService.vincularCrm(dto);
+  }
+
   @Patch(':id')
   @UseGuards(SuperAdminGuard)
   @ApiOperation({
     summary: 'Altera uma empresa ja cadastrada, revalidando a credencial.',
     description:
-      'Substitui o UPDATE manual no banco. Aceita apenas campos nomeados — o `config` e montado pelo backend, preservando o que o sistema escreve (lastClientSyncAt e afins) e descartando o que o contrato nao reconhece. Alterar `url` ou `credenciais` dispara novo preflight: aceito reativa a empresa, recusado deixa inativa com o motivo. `account_chatwoot` e `erp` nao mudam aqui.',
+      'Substitui o UPDATE manual no banco. Aceita apenas campos nomeados — o `config` e montado pelo backend, preservando o que o sistema escreve (lastClientSyncAt e afins) e descartando o que o contrato nao reconhece. Alterar `url` ou `credenciais` dispara novo preflight: aceito reativa a empresa; credencial recusada deixa inativa com o motivo; ERP inalcancavel (timeout, DNS) NAO derruba uma empresa que estava ativa, por ser possivelmente transitorio — veja `preflight.causa`. Corpo vazio nao altera nada: e a previa, e devolve em `config.descartadas` o que um PATCH real removeria. `account_chatwoot` e `erp` nao mudam aqui.',
   })
   @ApiParam({ name: 'id', description: 'Id da empresa.', format: 'uuid' })
   @ApiBody({ type: UpdateCompanyDto })

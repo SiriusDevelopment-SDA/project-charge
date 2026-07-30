@@ -28,8 +28,26 @@ export type PreflightStatus =
   /** O ERP recusou a credencial, ou nao foi possivel alcanca-lo. */
   | 'falhou';
 
+/**
+ * Por que falhou. `null` quando nao falhou.
+ *
+ * Existe para o chamador poder decidir diferente conforme a natureza da falha —
+ * em especial, para nao inativar uma empresa que estava funcionando so porque o
+ * ERP do cliente piscou.
+ */
+export type PreflightCausa =
+  /** O ERP respondeu e recusou a credencial. Fato estavel. */
+  | 'credencial'
+  /** Nao foi possivel falar com o ERP: timeout, DNS, conexao recusada. Pode ser transitorio. */
+  | 'inacessivel'
+  /** O ERP respondeu algo que nao sustenta a integracao, ou falta dado do nosso lado. */
+  | 'configuracao';
+
 export interface PreflightResult {
   readonly status: PreflightStatus;
+
+  /** Natureza da falha. `null` quando `status` nao e `falhou`. */
+  readonly causa: PreflightCausa | null;
 
   /**
    * Registros visiveis no ERP com a credencial informada. `null` quando o ERP
@@ -63,12 +81,16 @@ export class ErpPreflightService {
     const definicao = getErpDefinition(input.erp);
 
     if (!definicao) {
-      return this.falha(`ERP nao reconhecido: "${input.erp}".`);
+      return this.falha(
+        `ERP nao reconhecido: "${input.erp}".`,
+        'configuracao',
+      );
     }
 
     if (definicao.preflight === 'none') {
       return {
         status: 'sem_integracao',
+        causa: null,
         clientesVisiveis: null,
         faturasVisiveis: null,
         erro: null,
@@ -82,11 +104,12 @@ export class ErpPreflightService {
     if (faltando.length) {
       return this.falha(
         `Credencial incompleta para ${definicao.label}: faltam ${faltando.join(', ')}.`,
+        'configuracao',
       );
     }
 
     if (!String(input.url ?? '').trim()) {
-      return this.falha('URL do ERP nao informada.');
+      return this.falha('URL do ERP nao informada.', 'configuracao');
     }
 
     try {
@@ -104,6 +127,7 @@ export class ErpPreflightService {
           // Nao mente dizendo que esta ok — declara que nao sabe.
           return {
             status: 'sem_integracao',
+            causa: null,
             clientesVisiveis: null,
             faturasVisiveis: null,
             erro: null,
@@ -115,7 +139,7 @@ export class ErpPreflightService {
       this.logger.warn(
         `[Preflight] ${definicao.label} ${input.url} falhou: ${motivo}`,
       );
-      return this.falha(motivo);
+      return this.falha(motivo, this.classificaCausa(err));
     }
   }
 
@@ -151,6 +175,7 @@ export class ErpPreflightService {
     if (String(clientes?.type ?? '').toLowerCase() === 'error') {
       return this.falha(
         `IXC recusou a credencial: ${clientes?.message ?? 'sem detalhe'}`,
+        'credencial',
       );
     }
 
@@ -170,6 +195,7 @@ export class ErpPreflightService {
 
     return {
       status: 'ok',
+      causa: null,
       clientesVisiveis: this.numeroOuNull(clientes?.total),
       faturasVisiveis: this.numeroOuNull(faturas?.total),
       erro: null,
@@ -200,6 +226,7 @@ export class ErpPreflightService {
 
     return {
       status: 'ok',
+      causa: null,
       clientesVisiveis: this.numeroOuNull(paginacao?.total),
       // Faturas exigiriam uma janela de datas obrigatoria e uma segunda
       // chamada; nao vale o custo no cadastro.
@@ -233,11 +260,13 @@ export class ErpPreflightService {
     if (String(data?.status ?? '').toUpperCase() !== 'OK' || !data?.Token) {
       return this.falha(
         `MK recusou a credencial: ${data?.mensagem ?? data?.status ?? 'sem detalhe'}`,
+        'credencial',
       );
     }
 
     return {
       status: 'ok',
+      causa: null,
       clientesVisiveis: null,
       faturasVisiveis: null,
       erro: null,
@@ -272,11 +301,13 @@ export class ErpPreflightService {
     if (!data?.access_token) {
       return this.falha(
         `Hubsoft nao emitiu token: ${data?.message ?? data?.error ?? 'sem detalhe'}`,
+        'credencial',
       );
     }
 
     return {
       status: 'ok',
+      causa: null,
       clientesVisiveis: null,
       faturasVisiveis: null,
       erro: null,
@@ -377,12 +408,44 @@ export class ErpPreflightService {
     return bruto.slice(0, 300);
   }
 
-  private falha(erro: string): PreflightResult {
+  private falha(erro: string, causa: PreflightCausa): PreflightResult {
     return {
       status: 'falhou',
+      causa,
       clientesVisiveis: null,
       faturasVisiveis: null,
       erro,
     };
+  }
+
+  /**
+   * Separa "o ERP respondeu e recusou" de "nao consegui falar com o ERP".
+   *
+   * A distincao existe porque as duas exigem decisoes opostas de quem chama.
+   * Credencial recusada e fato estavel: a empresa deve ficar inativa ate alguem
+   * corrigir. Timeout e transitorio: inativar por causa de alguns segundos de
+   * instabilidade derruba o que estava funcionando, e ninguem percebe.
+   *
+   * Usa a mesma classificacao de `motivoLegivel`, para as duas nao divergirem.
+   */
+  private classificaCausa(err: any): PreflightCausa {
+    const bruto = String(err?.message ?? err);
+
+    if (
+      err?.name === 'TimeoutError' ||
+      /timeout|abort/i.test(bruto) ||
+      /ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(bruto) ||
+      /ECONNREFUSED|ECONNRESET|fetch failed/i.test(bruto)
+    ) {
+      return 'inacessivel';
+    }
+
+    if (/HTTP 401|HTTP 403/.test(bruto)) return 'credencial';
+
+    // HTTP 404, 5xx, corpo nao-JSON: o ERP respondeu, mas com algo que nao
+    // sustenta a integracao. E cadastro errado (URL apontando para o portal em
+    // vez da API, por exemplo), nao instabilidade — tratar como transitorio
+    // esconderia o erro justamente no caso em que ele e permanente.
+    return 'configuracao';
   }
 }
