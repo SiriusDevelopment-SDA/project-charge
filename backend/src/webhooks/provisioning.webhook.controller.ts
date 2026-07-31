@@ -29,6 +29,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { CompaniesService } from '../companies/companies.service';
 import { CreateCompanyDto } from '../companies/dto/create-company.dto';
 import { UpdateCompanyDto } from '../companies/dto/update-company.dto';
+import { VincularCrmDto } from '../companies/dto/vincular-crm.dto';
 
 @ApiTags('Webhooks')
 @Controller('webhooks')
@@ -100,6 +101,63 @@ export class ProvisioningWebhookController {
   }
 
   /**
+   * Vinculo em lote das empresas que existem dos dois lados mas nunca se
+   * conheceram.
+   *
+   * Fica NESTE controller, e nao no humano, por uma razao operacional: quem
+   * precisa vincular e o CRM, que e maquina e nao tem JWT de agente. Exigir
+   * super_admin transformaria o vinculo em trabalho manual para alguem que ja
+   * tem o proprio identificador na mao.
+   *
+   * Identifica pela `account_chatwoot` — e o que o CRM conhece dos dois lados.
+   * Nao poderia ser pelo `crm_company_id`, que e justamente o que falta.
+   *
+   * O QUE ESTE ENDPOINT NAO PODE FAZER
+   *
+   * So DEFINE vinculo ausente. Empresa que ja tem vinculo volta como conflito,
+   * sem escrita, e id do CRM ja usado por outra empresa tambem. Isso importa
+   * aqui mais do que no endpoint humano: o `PROVISIONING_TOKEN` e unico e sem
+   * escopo por empresa, entao permitir repontar vinculo existente deixaria quem
+   * tem o token assumir o controle de qualquer empresa ja provisionada. Definir
+   * o que esta vazio e o suficiente para o CRM operar, e e o limite.
+   */
+  @Public()
+  @Post('companies/vincular')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Vincula empresas ja cadastradas as suas correspondentes no CRM.',
+    description:
+      'Para as empresas que existem dos dois lados mas nunca se conheceram. Sem `crm_company_id` o CRM nao alcanca a empresa: `PATCH /webhooks/companies/:crm_company_id` devolve 404 e recadastrar devolve 409 porque o `account_chatwoot` ja existe. Identifica pela account, que e o que o CRM conhece. Nao roda preflight nem altera qualquer outro dado — inclusive NAO limpa chaves fora do contrato, porque vincular nao e pedir faxina. Item invalido nao derruba o lote: o resultado volta item a item. Reenviar o mesmo lote e seguro. So DEFINE vinculo ausente: empresa ja vinculada volta como conflito, nunca e repontada.',
+  })
+  @ApiHeader({
+    name: 'x-provisioning-token',
+    required: true,
+    description:
+      'Segredo de provisionamento (variavel de ambiente PROVISIONING_TOKEN).',
+  })
+  @ApiBody({ type: VincularCrmDto })
+  @ApiOkResponse({
+    description:
+      'Lote processado. `resumo` traz os totais e `resultados` o status de cada par: `vinculada`, `ja_vinculada`, `nao_encontrada`, `conflito_vinculo_existente` ou `conflito_crm_id_em_uso`. `success` e true apenas quando nenhum par falhou.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Header ausente ou segredo invalido.',
+  })
+  @ApiBadRequestResponse({ description: 'Lote vazio ou par mal formado.' })
+  vincular(
+    @Headers('x-provisioning-token') token: string | undefined,
+    @Body() dto: VincularCrmDto,
+  ) {
+    this.autorizar(token);
+
+    this.logger.log(
+      `[Provisioning] vinculo pedido para ${dto.vinculos.length} empresa(s).`,
+    );
+
+    return this.companiesService.vincularCrm(dto);
+  }
+
+  /**
    * Alteracao de empresa a partir do CRM.
    *
    * Identificada por `crm_company_id`, e nao pelo id interno: o CRM conhece o
@@ -159,17 +217,18 @@ export class ProvisioningWebhookController {
     // mesmo da URL. Duas razoes:
     //
     // 1. Nao resolveria nada. Este endpoint encontra a empresa PELO vinculo —
-    //    quem ainda nao tem nunca chega ate aqui, devolve 404 antes. Vincular
-    //    empresa antiga e trabalho do lado de ca: POST /companies/vincular-crm.
+    //    quem ainda nao tem nunca chega ate aqui, devolve 404 antes. Definir
+    //    vinculo ausente e trabalho do `POST companies/vincular`, logo acima.
     // 2. Abriria sequestro. O `PROVISIONING_TOKEN` e unico e sem escopo por
     //    empresa: quem o tiver repontaria o vinculo de uma empresa existente
     //    para um id que controla, e passaria a alterar empresa alheia com 200
-    //    em toda resposta.
+    //    em toda resposta. Por isso o endpoint de vinculo tambem so DEFINE o
+    //    que esta vazio: os dois caminhos param na mesma linha.
     if (dto.crm_company_id !== undefined) {
       throw new BadRequestException(
         'crm_company_id nao pode ser alterado por este endpoint. Ele identifica ' +
           'a empresa aqui — muda-lo por este canal apontaria o CRM para outra ' +
-          'empresa. Use POST /companies/vincular-crm (super_admin).',
+          'empresa. Use POST /webhooks/companies/vincular para DEFINIR vinculo ausente.',
       );
     }
 
