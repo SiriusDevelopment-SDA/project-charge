@@ -182,7 +182,7 @@ dois caminhos suportados, e nenhum aceita `config` cru:
 |---|---|---|
 | Cadastrar | `POST /companies` | `POST /webhooks/companies` |
 | Alterar | `PATCH /companies/:id` | `PATCH /webhooks/companies/:crm_company_id` |
-| Vincular ao CRM | `POST /companies/vincular-crm` | — (ver abaixo) |
+| Vincular ao CRM | — | `POST /webhooks/companies/vincular` |
 
 O `PATCH` é o ponto onde o contrato vira código: ele chama
 [`montarConfig`](../backend/src/companies/config.contract.ts), que **preserva** o
@@ -230,12 +230,17 @@ devolve 404 e o `POST` devolve 409, porque o `account_chatwoot` já existe. Não
 uma ou outra — é praticamente todas.
 
 ```
-POST /companies/vincular-crm          (super_admin)
+POST /webhooks/companies/vincular     (x-provisioning-token)
 { "vinculos": [ { "account_chatwoot": "99", "crm_company_id": "CRM-0001" } ] }
 ```
 
-Identifica pela `account_chatwoot` porque é o que o CRM já conhece; exigir o uuid
-interno transformaria o vínculo numa consulta manual empresa por empresa. Cada
+Autentica pelo mesmo `x-provisioning-token` do provisionamento, e não por JWT de
+agente. Quem precisa vincular é o CRM, que é máquina e não tem sessão humana —
+exigir super_admin transformaria o vínculo em trabalho manual para alguém que já
+tem o próprio identificador na mão.
+
+Identifica pela `account_chatwoot` porque é o que o CRM já conhece dos dois
+lados; não poderia ser pelo `crm_company_id`, que é justamente o que falta. Cada
 par é decidido por conta própria e o resultado volta item a item — `vinculada`,
 `ja_vinculada`, `nao_encontrada`, `conflito_vinculo_existente` ou
 `conflito_crm_id_em_uso`. Um par errado não derruba o lote, e reenviar o mesmo
@@ -246,17 +251,24 @@ lote é seguro.
 limpeza continua acontecendo no primeiro PATCH de verdade, onde dá para ver a
 lista antes de aplicar.
 
-Três recusas guardam o vínculo:
+Três recusas guardam o vínculo, e todas existem pelo mesmo motivo: o
+`PROVISIONING_TOKEN` é **único e sem escopo por empresa**. Quem o tiver fala por
+todas — então o que este canal pode fazer precisa parar onde o estrago começaria.
 
-- **Trocar um vínculo existente** devolve 400, aqui e no `PATCH`. Repontar não
-  quebra nada na hora, e a partir dali o CRM passa a alterar outra empresa
-  recebendo 200 em todo pedido.
-- **Id do CRM já usado por outra empresa** devolve 409. Dois vínculos iguais
-  deixariam a busca do webhook devolvendo uma das duas sem critério.
-- **O webhook do CRM não altera `crm_company_id`**, devolve 400. Não resolveria
+- **Vínculo existente nunca é repontado.** O lote devolve
+  `conflito_vinculo_existente` sem escrita, e o `PATCH` devolve 400. Só se DEFINE
+  o que está vazio. Permitir a troca deixaria quem tem o token assumir o controle
+  de qualquer empresa já provisionada — e nada quebraria na hora: a partir dali o
+  CRM alteraria outra empresa recebendo 200 em todo pedido.
+- **Id do CRM já usado por outra empresa** vira `conflito_crm_id_em_uso` (409 no
+  `PATCH`). Dois vínculos iguais deixariam a busca do webhook devolvendo uma das
+  duas sem critério.
+- **O `PATCH` do CRM não aceita `crm_company_id`**, devolve 400. Não resolveria
   nada — ele acha a empresa *pelo* vínculo, então quem não tem nunca chega lá — e
-  abriria sequestro: o `PROVISIONING_TOKEN` é único e sem escopo por empresa,
-  quem o tiver repontaria empresa alheia para um id que controla.
+  vincular é trabalho do endpoint acima, que só preenche o que falta.
+
+Definir o que está vazio é o suficiente para o CRM operar, e é o limite. Fechar o
+resto pede trocar o modelo de segredo: token por empresa, ou HMAC do payload.
 
 E as três regras que continuam valendo:
 

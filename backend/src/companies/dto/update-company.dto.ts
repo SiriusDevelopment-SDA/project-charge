@@ -198,7 +198,7 @@ export class UpdateCompanyDto {
       'CRM nao alcanca a empresa (PATCH /webhooks/companies/:crm_company_id',
       'devolve 404) e nao consegue recadastra-la (o account_chatwoot ja existe,',
       'devolve 409). Para vincular varias de uma vez, use',
-      'POST /companies/vincular-crm.',
+      'POST /webhooks/companies/vincular.',
       '',
       'So pode ser DEFINIDO, nunca trocado: com vinculo diferente ja gravado a',
       'resposta e 400. Repontar o vinculo faria o CRM passar a alterar outra',
