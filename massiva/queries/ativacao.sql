@@ -55,8 +55,19 @@ ALTER TABLE public.massiva_historico
 -- ============================================================================
 
 
--- ---------- ATIVAR (status = true) : cria a linha com TUDO ----------
--- Query Parameters (nesta ordem):
+-- ---------- ATIVAR (status = true) ----------
+-- REGRA: só pode haver 1 massiva ativa por conta. Então, ANTES de inserir a
+-- nova, feche qualquer uma que esteja aberta (isso encerra a anterior).
+--
+-- (a) Nó "Encerrar anteriores" — colocar na saída TRUE do If, ANTES do insert:
+--     Query Parameters: {{ [$('Webhook1').item.json.body.account] }}
+UPDATE public.massiva_historico
+   SET desativado_em    = now(),
+       duracao_segundos = EXTRACT(EPOCH FROM (now() - ativado_em))::int
+ WHERE account = $1 AND desativado_em IS NULL;
+
+-- (b) Nó "dados histórico" — insere a nova (mapa de colunas, já com areas).
+-- Query Parameters (se fosse SQL):
 --   {{ [$json.body.account, $json.body.token, $json.body.mensagem, $json.body.regiao, JSON.stringify($json.body.areas)] }}
 INSERT INTO public.massiva_historico
     (account, operador_token, mensagem, regiao, areas, ativado_em)
@@ -64,17 +75,14 @@ VALUES
     ($1, $2, $3, $4, $5::jsonb, now());
 
 
--- ---------- DESATIVAR (status = false) : fecha a última linha aberta ----------
--- Query Parameters: {{ [$json.body.account] }}
+-- ---------- DESATIVAR (status = false) : fecha TODAS as abertas da conta ----------
+-- Fecha todas as linhas em aberto (não só a última) — assim nunca sobra massiva
+-- "no ar" presa, e grava a duração. Nó "Fechar Histórico".
+-- Query Parameters: {{ [$('Webhook1').item.json.body.account] }}
 UPDATE public.massiva_historico
    SET desativado_em    = now(),
        duracao_segundos = EXTRACT(EPOCH FROM (now() - ativado_em))::int
- WHERE id = (
-     SELECT id FROM public.massiva_historico
-      WHERE account = $1 AND desativado_em IS NULL
-      ORDER BY ativado_em DESC
-      LIMIT 1
- );
+ WHERE account = $1 AND desativado_em IS NULL;
 
 
 -- ============================================================================
