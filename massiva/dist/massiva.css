@@ -1518,6 +1518,33 @@
       box-shadow: 0 8px 26px rgba(248, 113, 113, 0.22);
     }
 
+    /* Aviso + trava de edição enquanto a massiva está no ar */
+    .trava-aviso {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.75rem 0.95rem;
+      margin-bottom: 1rem;
+      border: 1px solid color-mix(in srgb, var(--amarelo) 45%, var(--borda));
+      background: color-mix(in srgb, var(--amarelo) 10%, transparent);
+      border-radius: 10px;
+      font-size: 0.86rem;
+      color: var(--texto);
+      line-height: 1.4;
+    }
+    .trava-aviso .trava-ic { font-size: 1rem; flex: none; }
+
+    #textoEnviar:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      resize: none;
+    }
+    .modelos-trigger:disabled,
+    .modelos-salvar:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .status {
       margin-top: 1rem;
       min-height: 1.4em;

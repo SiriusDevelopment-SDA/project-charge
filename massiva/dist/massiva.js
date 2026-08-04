@@ -25,6 +25,11 @@ const campoMensagem = document.getElementById("textoEnviar");
 let regiaoTextoAtual = "";
 let regiaoAreasAtual = null;
 let catalogo = { cidades: [], bairros: [], ruas: [] };
+// Declarados aqui (no topo) porque atualizarInterface() -> aplicarTravaEdicao()
+// já os referencia no carregamento, antes dos blocos de modelos/regiões.
+let modelosCache = [];
+let menuAberto = false;
+let selCidade = null, selBairro = null, selRua = null;
 const contador = document.getElementById("contador");
 const previaTexto = document.getElementById("previaTexto");
 const tempoAtivacao = document.getElementById("tempoAtivacao");
@@ -371,8 +376,25 @@ function atualizarInterface() {
     ? "O comunicado está sendo transmitido para os clientes das regiões informadas."
     : "Nenhum comunicado em transmissão no momento.";
   atualizarTempoAtivacao();
+  aplicarTravaEdicao();
   status.textContent = "";
   status.style.color = "";
+}
+
+// Enquanto a massiva está NO AR, trava a edição: mensagem, modelos e regiões.
+// Só é possível Desativar. Isso evita ativar uma segunda massiva por cima.
+function aplicarTravaEdicao() {
+  const b = ativado;
+  campoMensagem.disabled = b;
+  modelosSalvar.disabled = b;
+  modelosTrigger.disabled = b || modelosCache.length === 0;
+  if (b) fecharMenuModelos();
+  document.body.classList.toggle("edicao-travada", b);
+  const aviso = document.getElementById("travaEdicaoAviso");
+  if (aviso) aviso.hidden = !b;
+  if (selCidade) selCidade.render();
+  if (selBairro) selBairro.render();
+  if (selRua) selRua.render();
 }
 
 function atualizarRelogio() {
@@ -471,8 +493,6 @@ atualizarInterface();
 /* ============================================================================
  * Modelos de mensagem (Fase 1)
  * ========================================================================== */
-let modelosCache = [];
-let menuAberto = false;
 
 function escapeHtml(texto) {
   const div = document.createElement("div");
@@ -495,7 +515,7 @@ function marcarModeloAtivo() {
 
 function atualizarGatilhoModelos() {
   const n = modelosCache.length;
-  modelosTrigger.disabled = n === 0;
+  modelosTrigger.disabled = (n === 0) || ativado;
   modelosTriggerTexto.textContent = n === 0 ? "Nenhum modelo salvo ainda" : "Escolher um modelo";
   modelosContagem.textContent = n > 0 ? String(n) : "";
   if (n === 0 && menuAberto) fecharMenuModelos();
@@ -655,7 +675,7 @@ atualizarPrevia();
  * um objeto estruturado (regiaoAreasAtual) + um texto legível
  * (regiaoTextoAtual) usados na prévia e no disparo.
  * ========================================================================== */
-let selCidade = null, selBairro = null, selRua = null;
+// selCidade/selBairro/selRua declarados no topo (evita TDZ na trava de edição)
 
 function normalizarTxt(s) {
   return (s || "").trim().toLowerCase();
@@ -767,7 +787,7 @@ function criarSelecao(cfg) {
   }
 
   function abrir() {
-    if (!habilitado()) return;
+    if (ativado || !habilitado()) return;
     el.menu.hidden = false;
     el.wrap.classList.add("aberto");
     el.trigger.setAttribute("aria-expanded", "true");
@@ -785,11 +805,14 @@ function criarSelecao(cfg) {
   function alternar() { if (estado.aberto) fechar(); else abrir(); }
 
   function render() {
-    const hab = habilitado();
+    const bloqueado = ativado;                 // massiva no ar -> edição travada
+    const hab = !bloqueado && habilitado();
     el.trigger.disabled = !hab;
     const sel = selecionadosItens();
     el.contagem.textContent = sel.length > 0 ? String(sel.length) : "";
-    if (!hab) {
+    if (bloqueado) {
+      el.texto.textContent = "Massiva no ar — desative para editar";
+    } else if (!hab) {
       el.texto.textContent = cfg.dicaDesabilitado;
     } else if (estado.todos) {
       el.texto.textContent = cfg.rotuloTodos;
