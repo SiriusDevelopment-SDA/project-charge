@@ -63,12 +63,31 @@ export const teamAgentFormSchema = z.object({
   role: agentRoleSchema,
 });
 
+export const resetAgentPasswordFormSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .trim()
+      .min(6, "A nova senha precisa ter pelo menos 6 caracteres."),
+    confirmPassword: z.string().trim().min(1, "Repita a nova senha."),
+  })
+  .superRefine((data, ctx) => {
+    if (data.newPassword !== data.confirmPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "A confirmacao da nova senha nao confere.",
+      });
+    }
+  });
+
 export const chatwootConfigFormSchema = z.object({
   chatwootAdminToken: z.string().trim().default(""),
   teamChargeId: z.string().trim().default(""),
 });
 
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
+export type ResetAgentPasswordFormValues = z.infer<typeof resetAgentPasswordFormSchema>;
 export type TeamAgentFormValues = z.infer<typeof teamAgentFormSchema>;
 export type AgentRoleValue = z.infer<typeof agentRoleSchema>;
 export type ChatwootConfigFormValues = z.infer<typeof chatwootConfigFormSchema>;

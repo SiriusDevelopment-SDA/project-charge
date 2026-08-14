@@ -266,6 +266,18 @@ export class AuthService {
     return data;
   }
 
+  static async resetAgentPassword(
+    agentId: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; chatwootUpdated: boolean; message?: string }> {
+    const { data } = await Api.patch<{
+      success: boolean;
+      chatwootUpdated: boolean;
+      message?: string;
+    }>(`/auth/agents/${agentId}/password`, { newPassword });
+    return data;
+  }
+
   static async removeAgent(agentId: string): Promise<RemoveAgentResponse> {
     const { data } = await Api.delete<RemoveAgentResponse>(`/auth/agents/${agentId}`);
     return data;

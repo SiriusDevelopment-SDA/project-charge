@@ -167,6 +167,13 @@ export class ManageAgentDto {
   chatwootAccessToken?: string | null;
 }
 
+export class ResetAgentPasswordDto {
+  @ApiProperty({ example: 'nova-senha-forte-123', minLength: 6 })
+  @IsString()
+  @MinLength(6)
+  newPassword!: string;
+}
+
 export class UpdateChatwootConfigDto {
   @ApiProperty({ example: 'admin-token-da-account', required: false })
   @IsOptional()

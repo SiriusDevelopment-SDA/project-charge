@@ -10,9 +10,11 @@ import {
 import { AppStorage } from "../../../services/storage/storage.service";
 import {
   profileFormSchema,
+  resetAgentPasswordFormSchema,
   teamAgentFormSchema,
   type AgentRoleValue,
   type ProfileFormValues,
+  type ResetAgentPasswordFormValues,
   type TeamAgentFormValues,
 } from "../../../schemas/profile.schema";
 import { getErrorMessage } from "../../../utils/error";
@@ -85,6 +87,9 @@ export function usePerfilPageController() {
   const [isSyncingChatwootAgents, setIsSyncingChatwootAgents] = useState(false);
   const [isTeamLoading, setIsTeamLoading] = useState(false);
   const [busyAgentId, setBusyAgentId] = useState("");
+  const [resetPasswordTarget, setResetPasswordTarget] =
+    useState<CompanyAgent | null>(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const normalizedSearch = buildNormalizedSearch(location.search);
@@ -98,6 +103,12 @@ export function usePerfilPageController() {
   const newAgentForm = useForm<TeamAgentFormValues>({
     resolver: zodResolver(teamAgentFormSchema),
     defaultValues: DEFAULT_TEAM_AGENT_VALUES,
+    mode: "onChange",
+  });
+
+  const resetPasswordForm = useForm<ResetAgentPasswordFormValues>({
+    resolver: zodResolver(resetAgentPasswordFormSchema),
+    defaultValues: { newPassword: "", confirmPassword: "" },
     mode: "onChange",
   });
 
@@ -376,18 +387,64 @@ export function usePerfilPageController() {
     [busyAgentId, profileMeta.currentAgentId],
   );
 
+  const openResetPassword = useCallback(
+    (member: CompanyAgent) => {
+      if (member.id === profileMeta.currentAgentId) {
+        return;
+      }
+      // Admin comum não redefine senha de super_admin (o backend também barra).
+      if (member.role === "super_admin" && !isSuperAdmin) {
+        return;
+      }
+      resetPasswordForm.reset({ newPassword: "", confirmPassword: "" });
+      setResetPasswordTarget(member);
+    },
+    [isSuperAdmin, profileMeta.currentAgentId, resetPasswordForm],
+  );
+
+  const closeResetPassword = useCallback(() => {
+    setResetPasswordTarget(null);
+    resetPasswordForm.reset({ newPassword: "", confirmPassword: "" });
+  }, [resetPasswordForm]);
+
+  const handleResetPassword = resetPasswordForm.handleSubmit(async (values) => {
+    if (!resetPasswordTarget || isResettingPassword) {
+      return;
+    }
+
+    try {
+      setIsResettingPassword(true);
+      const result = await AuthService.resetAgentPassword(
+        resetPasswordTarget.id,
+        values.newPassword.trim(),
+      );
+      toast.success(result.message || "Senha redefinida com sucesso.");
+      closeResetPassword();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Nao foi possivel redefinir a senha."));
+    } finally {
+      setIsResettingPassword(false);
+    }
+  });
+
   return {
     busyAgentId,
+    closeResetPassword,
     closeTeamModal,
     currentAgentId: profileMeta.currentAgentId,
     filteredTeamMembers,
     handleCreateAgent,
     handleLogout,
     handleRemoveAgent,
+    handleResetPassword,
     handleRoleChange,
     handleSaveProfile,
     handleSyncChatwootAgents,
     handleToggleAccess,
+    isResettingPassword,
+    openResetPassword,
+    resetPasswordForm,
+    resetPasswordTarget,
     isAdmin,
     isSuperAdmin,
     isCreatingAgent,

@@ -21,6 +21,7 @@ import {
   EmbedLoginDto,
   LoginAgentDto,
   ManageAgentDto,
+  ResetAgentPasswordDto,
   UpdateChatwootConfigDto,
   UpdatePromiseAutomationSettingsDto,
   UpdateProfileDto,
@@ -136,6 +137,24 @@ export class AuthController {
     @Body() dto: ManageAgentDto,
   ) {
     return this.authService.manageCompanyAgent(authorization, agentId, dto);
+  }
+
+  @Patch('agents/:agentId/password')
+  @ApiOperation({
+    summary:
+      'Redefine a senha de um agente da empresa autenticada (cobranca + Chatwoot)',
+  })
+  @ApiBody({ type: ResetAgentPasswordDto })
+  resetAgentPassword(
+    @Headers('authorization') authorization: string | undefined,
+    @Param('agentId') agentId: string,
+    @Body() dto: ResetAgentPasswordDto,
+  ) {
+    return this.authService.resetCompanyAgentPassword(
+      authorization,
+      agentId,
+      dto,
+    );
   }
 
   @Delete('agents/:agentId')

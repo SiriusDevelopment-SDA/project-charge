@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Controller } from "react-hook-form";
 import { DynamicModal, InputFields, MyButton, PageContainer } from "../../componente/Index";
 import { usePerfilPageController } from "../../hooks/controller/profile/usePerfilPageController";
@@ -12,6 +12,7 @@ type TeamMemberRowProps = {
   currentAgentId: string;
   member: CompanyAgent;
   onRemove: (member: CompanyAgent) => void;
+  onResetPassword: (member: CompanyAgent) => void;
   onToggleAccess: (member: CompanyAgent) => void;
   onUpdateRole: (member: CompanyAgent, role: AgentRoleValue) => void;
 };
@@ -106,6 +107,7 @@ const TeamMemberRow = memo(function TeamMemberRow({
   currentAgentId,
   member,
   onRemove,
+  onResetPassword,
   onToggleAccess,
   onUpdateRole,
 }: TeamMemberRowProps) {
@@ -182,6 +184,19 @@ const TeamMemberRow = memo(function TeamMemberRow({
 
         <button
           type="button"
+          className={styles.secondaryAction}
+          disabled={
+            isBusy ||
+            isCurrentUser ||
+            (member.role === "super_admin" && !allowSuperAdmin)
+          }
+          onClick={() => onResetPassword(member)}
+        >
+          Redefinir senha
+        </button>
+
+        <button
+          type="button"
           className={styles.removeMemberButton}
           disabled={isBusy || isCurrentUser}
           onClick={() => onRemove(member)}
@@ -196,12 +211,14 @@ const TeamMemberRow = memo(function TeamMemberRow({
 export function PerfilPage() {
   const {
     busyAgentId,
+    closeResetPassword,
     closeTeamModal,
     currentAgentId,
     filteredTeamMembers,
     handleCreateAgent,
     handleLogout,
     handleRemoveAgent,
+    handleResetPassword,
     handleRoleChange,
     handleSaveProfile,
     handleSyncChatwootAgents,
@@ -210,19 +227,26 @@ export function PerfilPage() {
     isSuperAdmin,
     isCreatingAgent,
     isLoading,
+    isResettingPassword,
     isSaving,
     isSyncingChatwootAgents,
     isTeamLoading,
     isTeamModalOpen,
     newAgentForm,
+    openResetPassword,
     openTeamModal,
     profileForm,
     profileEmail,
     profileMeta,
+    resetPasswordForm,
+    resetPasswordTarget,
     setTeamSearch,
     teamSearch,
     teamSummary,
   } = usePerfilPageController();
+
+  // "Olhinho" do modal de redefinição: mostra/oculta as duas senhas juntas.
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   return (
     <PageContainer className={styles.page}>
@@ -505,6 +529,10 @@ export function PerfilPage() {
                       currentAgentId={currentAgentId}
                       member={member}
                       onRemove={handleRemoveAgent}
+                      onResetPassword={(target) => {
+                        setShowResetPassword(false);
+                        openResetPassword(target);
+                      }}
                       onToggleAccess={handleToggleAccess}
                       onUpdateRole={handleRoleChange}
                     />
@@ -515,6 +543,86 @@ export function PerfilPage() {
           }
         />
       )}
+
+      <DynamicModal
+        open={Boolean(resetPasswordTarget)}
+        type="custom"
+        size="default"
+        title={`Redefinir senha — ${
+          resetPasswordTarget
+            ? resetPasswordTarget.name?.trim() || resetPasswordTarget.email || ""
+            : ""
+        }`}
+        onClose={closeResetPassword}
+        buttons={[
+          {
+            label: "Cancelar",
+            variant: "BtnOpcoes",
+            onClick: closeResetPassword,
+            disabled: isResettingPassword,
+          },
+          {
+            label: isResettingPassword ? "Salvando..." : "Confirmar nova senha",
+            variant: "primary",
+            onClick: () => void handleResetPassword(),
+            disabled: isResettingPassword,
+          },
+        ]}
+        customContent={
+          <div className={styles.resetPasswordContent}>
+            <p className={styles.resetPasswordHint}>
+              A senha será alterada no sistema de cobrança e no chat (Maestro).
+              Combine a nova senha com a pessoa antes de confirmar.
+            </p>
+
+            <Controller
+              name="newPassword"
+              control={resetPasswordForm.control}
+              render={({ field }) => (
+                <div className={styles.fieldBlock}>
+                  <InputFields
+                    label="Nova senha"
+                    type={showResetPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    {...field}
+                  />
+                  <FormFieldError
+                    message={resetPasswordForm.formState.errors.newPassword?.message}
+                  />
+                </div>
+              )}
+            />
+
+            <Controller
+              name="confirmPassword"
+              control={resetPasswordForm.control}
+              render={({ field }) => (
+                <div className={styles.fieldBlock}>
+                  <InputFields
+                    label="Repetir nova senha"
+                    type={showResetPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    {...field}
+                  />
+                  <FormFieldError
+                    message={
+                      resetPasswordForm.formState.errors.confirmPassword?.message
+                    }
+                  />
+                </div>
+              )}
+            />
+
+            <button
+              type="button"
+              className={styles.togglePasswordButton}
+              onClick={() => setShowResetPassword((previous) => !previous)}
+            >
+              {showResetPassword ? "Ocultar senhas" : "Mostrar senhas"}
+            </button>
+          </div>
+        }
+      />
 
     </PageContainer>
   );

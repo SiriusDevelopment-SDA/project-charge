@@ -756,3 +756,33 @@
   }
 
 }
+
+/* Modal de redefinição de senha (equipe) */
+.resetPasswordContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resetPasswordHint {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.togglePasswordButton {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.togglePasswordButton:hover {
+  opacity: 1;
+}
