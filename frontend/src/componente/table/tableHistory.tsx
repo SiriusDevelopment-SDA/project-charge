@@ -19,6 +19,8 @@ import {
 type TableProps = {
   data: HistoryRow[];
   className: string;
+  /** Busca global no servidor (conjunto inteiro), com repaginação do resultado. */
+  onSearch?: (value: string) => void;
 };
 
 type DateFilterOptions = {
@@ -27,14 +29,14 @@ type DateFilterOptions = {
   filterCallback: (value: Date | null, index?: number) => void;
 };
 
-export default function Table({ data, className }: TableProps) {
+export default function Table({ data, className, onSearch }: TableProps) {
   const {
     filters,
     parsedData,
     globalFilterValue,
     initFilters,
     onGlobalFilterChange,
-  } = useHistoryTableController(data);
+  } = useHistoryTableController(data, { onSearch });
 
   const dateFilterTemplate = (options: DateFilterOptions) => (
     <Calendar
@@ -61,7 +63,7 @@ export default function Table({ data, className }: TableProps) {
           <InputText
             value={globalFilterValue}
             onChange={(event) => onGlobalFilterChange(event.target.value)}
-            placeholder="Busca global..."
+            placeholder="Buscar cliente ou número..."
             className="global-search-input p-inputtext"
           />
         </div>
@@ -77,13 +79,6 @@ export default function Table({ data, className }: TableProps) {
         dataKey="id"
         filters={filters}
         filterDisplay="menu"
-        globalFilterFields={[
-          "name",
-          "number",
-          "date_dispatch",
-          "status_label",
-          "response_label",
-        ]}
         header={header}
         showGridlines
         scrollable

@@ -754,6 +754,7 @@ export class AuthService {
     let invalidEmailSkipped = 0;
     let duplicatePayloadSkipped = 0;
     let emailConflictSkipped = 0;
+    let superAdminGlobalSkipped = 0;
 
     const accountAgents = await this.chatwootService.listCompanyAgentsFromWebhook(company.id);
     const normalizedRemoteEmails = Array.from(
@@ -785,6 +786,7 @@ export class AuthService {
           select: {
             id: true,
             email: true,
+            role: true,
             company: { id: true },
           },
         })
@@ -909,8 +911,15 @@ export class AuthService {
         existingInAnotherCompany.company.id !== company.id
       ) {
         skipped += 1;
-        emailConflictSkipped += 1;
-        conflictingEmails.push(normalizedEmail);
+        // super_admin ja acessa todas as empresas pelo seletor (switch-company);
+        // o email dele registrado em outra empresa nao e um conflito real e nao
+        // deve alarmar o toast da sincronizacao.
+        if (existingInAnotherCompany.role === 'super_admin') {
+          superAdminGlobalSkipped += 1;
+        } else {
+          emailConflictSkipped += 1;
+          conflictingEmails.push(normalizedEmail);
+        }
         continue;
       }
 
@@ -952,6 +961,11 @@ export class AuthService {
     }
     if (emailConflictSkipped) {
       parts.push(`${emailConflictSkipped} conflito(s) de email em outra empresa`);
+    }
+    if (superAdminGlobalSkipped) {
+      parts.push(
+        `${superAdminGlobalSkipped} super admin(s) ignorado(s) (ja possuem acesso global)`,
+      );
     }
     if (duplicatePayloadSkipped) {
       parts.push(`${duplicatePayloadSkipped} registro(s) duplicado(s) ignorado(s) no retorno`);
