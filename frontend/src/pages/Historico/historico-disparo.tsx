@@ -31,7 +31,7 @@ function formatBatchDate(value?: string | Date | null) {
 }
 
 export function HistoricoDisparoPage() {
-  const { histories, total, page, limit, setPage } = useHistorico();
+  const { histories, total, page, limit, setPage, setQuery } = useHistorico();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = createNormalizedSearchParams(location.search);
@@ -210,7 +210,7 @@ export function HistoricoDisparoPage() {
         </section>
       )}
 
-      <Table data={histories} className={S.table} />
+      <Table data={histories} className={S.table} onSearch={setQuery} />
 
       <Pagination
         page={page}

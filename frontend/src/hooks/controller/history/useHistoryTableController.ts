@@ -154,7 +154,6 @@ function extractErrorReason(components: unknown): string | null {
 
 function createInitialFilters() {
   return {
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     name: {
       operator: FilterOperator.AND,
       constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }],
@@ -178,7 +177,19 @@ function createInitialFilters() {
   };
 }
 
-export function useHistoryTableController(data: HistoryRow[]) {
+type HistoryTableControllerOptions = {
+  /**
+   * Busca global no SERVIDOR (name/number sobre o conjunto inteiro, via
+   * useHistorico.setQuery). O filtro global client-side foi removido: ele só
+   * enxergava a página atual, espalhando os resultados entre as páginas.
+   */
+  onSearch?: (value: string) => void;
+};
+
+export function useHistoryTableController(
+  data: HistoryRow[],
+  options?: HistoryTableControllerOptions,
+) {
   const [filters, setFilters] = useState(createInitialFilters);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
 
@@ -222,14 +233,12 @@ export function useHistoryTableController(data: HistoryRow[]) {
   const initFilters = () => {
     setFilters(createInitialFilters());
     setGlobalFilterValue("");
+    options?.onSearch?.("");
   };
 
   const onGlobalFilterChange = (value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      global: { value, matchMode: FilterMatchMode.CONTAINS },
-    }));
     setGlobalFilterValue(value);
+    options?.onSearch?.(value);
   };
 
   return {

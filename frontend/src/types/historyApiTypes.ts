@@ -21,7 +21,9 @@ export interface IHistoricoContext {
     total: number;
     page: number;
     limit: number;
-    setQuery: React.Dispatch<SetStateAction<string>>;
+    // Setter com debounce interno (useHistorico): dispara a busca no SERVIDOR
+    // (name/number) e repagina o resultado filtrado a partir da página 1.
+    setQuery: (value: string) => void;
     setPage: React.Dispatch<SetStateAction<number>>;
     setLimit: React.Dispatch<SetStateAction<number>>;
     setOrder: React.Dispatch<SetStateAction<"DESC" | "ASC">>;
