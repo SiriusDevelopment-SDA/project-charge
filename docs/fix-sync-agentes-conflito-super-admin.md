@@ -28,3 +28,22 @@ No bloco de conflito do sync:
 ## Validação
 - `npx tsc --noEmit` OK (não há spec de auth no projeto).
 - Sem mudança de schema/rotas; só a composição da mensagem e a contagem.
+
+---
+
+## Evolução (toast compacto)
+
+Mesmo depois do ajuste do super_admin, o toast seguia GRANDE: 4 contadores por
+motivo + lista de e-mails "em conflito" — parecia erro e poluía a tela (pedido
+do usuário: encurtar e tirar o tom de erro).
+
+**Mudança (mesmo método, `syncChatwootAgents`):**
+- Toast mostra só o que ACONTECEU (`N importado(s), N vinculado(s), N cargo(s)
+  ajustado(s)`) + resumo único dos pulados:
+  `(N ignorado(s) — ja possuem login em outra empresa ou registros repetidos)`.
+- Sem novidade: `"Sincronizacao concluida: equipe ja esta em dia (N ignorado(s)...)"`.
+- A lista de e-mails e os contadores por motivo (conflito, super_admin,
+  duplicado, e-mail inválido, senha/token sincronizados) saíram do toast e vão
+  para o LOG do backend (`[SyncAgents] company=... | emails em outra empresa: ...`),
+  onde o suporte encontra quando precisar investigar.
+- Campos da resposta (synced/skipped/imported/linked/roleUpdated) inalterados.
