@@ -13,6 +13,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { Activity } from '../activity-log/activity.decorator';
 
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -25,6 +26,7 @@ export class CategoryController {
 
   // POST /categories - Cria uma nova categoria
   @Post()
+  @Activity({ category: 'create', action: 'Criou uma categoria', entity: 'category' })
   @ApiOperation({ summary: 'Cria uma nova categoria' })
   @ApiBody({ type: CreateCategoryDto })
   create(@Body() createDto: CreateCategoryDto) {

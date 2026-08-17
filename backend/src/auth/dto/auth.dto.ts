@@ -6,9 +6,13 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   MinLength,
   ValidateIf,
 } from 'class-validator';
+
+/** Limite do nome exibido do agente/perfil (evita quebra de layout). */
+export const AGENT_NAME_MAX = 30;
 import { ApiProperty } from '@nestjs/swagger';
 import { AGENT_ROLES, type AgentRole } from '../../agents/entities/agent.entity';
 
@@ -59,9 +63,12 @@ export class ChatwootLoginDto {
 }
 
 export class CreateAgentDto {
-  @ApiProperty({ example: 'Maria Silva' })
+  @ApiProperty({ example: 'Maria Silva', maxLength: AGENT_NAME_MAX })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(AGENT_NAME_MAX, {
+    message: `O nome deve ter no máximo ${AGENT_NAME_MAX} caracteres.`,
+  })
   name!: string;
 
   @ApiProperty({ example: 'maria@empresa.com' })
@@ -103,10 +110,13 @@ export class CreateAgentDto {
 }
 
 export class UpdateProfileDto {
-  @ApiProperty({ example: 'Maria Silva', required: false })
+  @ApiProperty({ example: 'Maria Silva', required: false, maxLength: AGENT_NAME_MAX })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(AGENT_NAME_MAX, {
+    message: `O nome deve ter no máximo ${AGENT_NAME_MAX} caracteres.`,
+  })
   name?: string;
 
   @ApiProperty({ example: 'senha-atual-123', required: false })
@@ -159,9 +169,12 @@ export class UpdatePromiseAutomationSettingsDto {
 }
 
 export class ManageAgentDto {
-  @ApiProperty({ example: 'Maria Silva', required: false })
+  @ApiProperty({ example: 'Maria Silva', required: false, maxLength: AGENT_NAME_MAX })
   @IsOptional()
   @IsString()
+  @MaxLength(AGENT_NAME_MAX, {
+    message: `O nome deve ter no máximo ${AGENT_NAME_MAX} caracteres.`,
+  })
   name?: string;
 
   @ApiProperty({ example: true, required: false })

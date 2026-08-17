@@ -4,7 +4,11 @@ const agentRoleSchema = z.enum(["admin", "operator", "super_admin"]);
 
 export const profileFormSchema = z
   .object({
-    name: z.string().trim().min(1, "Informe o nome do usuario."),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Informe o nome do usuario.")
+      .max(30, "O nome deve ter no máximo 30 caracteres."),
     email: z.string().trim().email("Email invalido."),
     currentPassword: z.string().optional().default(""),
     newPassword: z.string().optional().default(""),
@@ -66,7 +70,11 @@ const chatwootPasswordSchema = z
 
 export const teamAgentFormSchema = z
   .object({
-    name: z.string().trim().min(1, "Preencha o nome do agente."),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Preencha o nome do agente.")
+      .max(30, "O nome deve ter no máximo 30 caracteres."),
     email: z.string().trim().email("Informe um email valido."),
     password: chatwootPasswordSchema,
     confirmPassword: z.string().trim().min(1, "Repita a senha."),

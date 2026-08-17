@@ -19,6 +19,7 @@ import {
   ApiOperation,
   ApiTags,
 } from "@nestjs/swagger";
+import { Activity } from "../../activity-log/activity.decorator";
 import { PlanGuard } from "../../auth/guards/plan.guard";
 import { RequirePage } from "../../auth/decorators/require-page.decorator";
 import { Client } from "../../clients/entities.ts/clients";
@@ -503,6 +504,7 @@ export class InvoicesController {
   }
 
   @Post("sync/company/:companyId")
+  @Activity({ category: "execute", action: "Sincronizou faturas no ERP", entity: "invoice" })
   @HttpCode(202)
   @ApiOperation({
     summary: "Dispara sincronização manual de faturas da empresa no ERP",

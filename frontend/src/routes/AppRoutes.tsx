@@ -16,6 +16,7 @@ import { BlockedRoute } from "./BlockedRoute";
 import { AgentOnlyRoute } from "./AgentOnlyRoute";
 import { PermissionRoute } from "./PermissionRoute";
 import { PerfilPage } from "../pages/Perfil/Perfil";
+import { HistoricoGeralPage } from "../pages/HistoricoGeral/historico-geral";
 
 export function AppRoutes() {
   return (
@@ -35,6 +36,14 @@ export function AppRoutes() {
           element={
             <AgentOnlyRoute>
               <PerfilPage />
+            </AgentOnlyRoute>
+          }
+        />
+        <Route
+          path="auditoria"
+          element={
+            <AgentOnlyRoute>
+              <HistoricoGeralPage />
             </AgentOnlyRoute>
           }
         />

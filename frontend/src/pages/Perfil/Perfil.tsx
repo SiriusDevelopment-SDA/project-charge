@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Controller } from "react-hook-form";
 import { Eye, EyeOff, KeyRound, Pencil } from "lucide-react";
 import { DynamicModal, InputFields, MyButton, PageContainer } from "../../componente/Index";
@@ -276,6 +277,7 @@ export function PerfilPage() {
     teamSummary,
   } = usePerfilPageController();
 
+  const navigate = useNavigate();
   // "Olhinho" do modal de redefinição: mostra/oculta as duas senhas juntas.
   const [showResetPassword, setShowResetPassword] = useState(false);
 
@@ -328,7 +330,7 @@ export function PerfilPage() {
                 control={profileForm.control}
                 render={({ field }) => (
                   <div className={styles.fieldBlock}>
-                    <InputFields label="Nome do usuário" {...field} />
+                    <InputFields label="Nome do usuário" maxLength={30} {...field} />
                     <FormFieldError message={profileForm.formState.errors.name?.message} />
                   </div>
                 )}
@@ -437,6 +439,11 @@ export function PerfilPage() {
                   onClick={openTeamModal}
                 />
                 <MyButton
+                  text="Auditoria"
+                  variant="secondary"
+                  onClick={() => navigate("/auditoria")}
+                />
+                <MyButton
                   text={isSyncingChatwootAgents ? "Sincronizando..." : "Importar e sincronizar agentes"}
                   variant="btn-enviar"
                   disabled={isSyncingChatwootAgents}
@@ -469,7 +476,7 @@ export function PerfilPage() {
                     control={newAgentForm.control}
                     render={({ field }) => (
                       <div className={styles.fieldBlock}>
-                        <InputFields label="Nome do agente" {...field} />
+                        <InputFields label="Nome do agente" maxLength={30} {...field} />
                         <FormFieldError
                           message={newAgentForm.formState.errors.name?.message}
                         />
@@ -694,6 +701,7 @@ export function PerfilPage() {
             <div className={styles.fieldBlock}>
               <InputFields
                 label="Nome do agente"
+                maxLength={30}
                 value={editNameValue}
                 onChange={(event) => setEditNameValue(event.target.value)}
               />
