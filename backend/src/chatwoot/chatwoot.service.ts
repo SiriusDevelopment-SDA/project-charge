@@ -1572,11 +1572,25 @@ export class ChatwootService {
     }
 
     const context = await this.resolvePlatformAccessContext(companyId);
-    await this.platformRequest(
-      `/platform/api/v1/users/${userId}`,
-      context.platformToken,
-      { method: 'PATCH', body: JSON.stringify({ password }) },
-    );
+    try {
+      await this.platformRequest(
+        `/platform/api/v1/users/${userId}`,
+        context.platformToken,
+        { method: 'PATCH', body: JSON.stringify({ password }) },
+      );
+    } catch (error) {
+      // Traduz o 422 de política de senha do Chatwoot (que vem como JSON cru
+      // gigante) para uma mensagem curta e legível no toast.
+      const raw = error instanceof Error ? String(error.message) : '';
+      if (raw.includes('Password must contain')) {
+        throw new BadRequestException(
+          'O chat (Maestro) recusou a senha: use no minimo 6 caracteres, com ' +
+            'letra maiuscula, minuscula e um caractere especial (ex.: !@#$%). ' +
+            'Nada foi alterado.',
+        );
+      }
+      throw error;
+    }
   }
 
   async removeAgentIdentity(companyId: string, chatwootUserId?: number | null) {

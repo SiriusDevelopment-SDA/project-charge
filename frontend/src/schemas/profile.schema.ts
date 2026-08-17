@@ -53,22 +53,38 @@ export const profileFormSchema = z
     }
   });
 
-export const teamAgentFormSchema = z.object({
-  name: z.string().trim().min(1, "Preencha o nome do agente."),
-  email: z.string().trim().email("Informe um email valido."),
-  password: z
-    .string()
-    .trim()
-    .min(6, "A senha do novo agente precisa ter pelo menos 6 caracteres."),
-  role: agentRoleSchema,
-});
+// Regras de senha do Chatwoot (aplicadas onde a senha é enviada a ele — criar
+// agente e redefinir senha): mínimo 6, 1 maiúscula, 1 minúscula e 1 caractere
+// especial. Validar aqui evita o usuário só descobrir no erro 422 do chat.
+const chatwootPasswordSchema = z
+  .string()
+  .trim()
+  .min(6, "A senha precisa ter pelo menos 6 caracteres.")
+  .regex(/[A-Z]/, "Inclua pelo menos 1 letra maiuscula (A-Z).")
+  .regex(/[a-z]/, "Inclua pelo menos 1 letra minuscula (a-z).")
+  .regex(/[^A-Za-z0-9\s]/, "Inclua pelo menos 1 caractere especial (ex.: !@#$%).");
+
+export const teamAgentFormSchema = z
+  .object({
+    name: z.string().trim().min(1, "Preencha o nome do agente."),
+    email: z.string().trim().email("Informe um email valido."),
+    password: chatwootPasswordSchema,
+    confirmPassword: z.string().trim().min(1, "Repita a senha."),
+    role: agentRoleSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "A confirmacao da senha nao confere.",
+      });
+    }
+  });
 
 export const resetAgentPasswordFormSchema = z
   .object({
-    newPassword: z
-      .string()
-      .trim()
-      .min(6, "A nova senha precisa ter pelo menos 6 caracteres."),
+    newPassword: chatwootPasswordSchema,
     confirmPassword: z.string().trim().min(1, "Repita a nova senha."),
   })
   .superRefine((data, ctx) => {

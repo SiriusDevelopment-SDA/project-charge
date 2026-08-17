@@ -245,20 +245,31 @@
 }
 
 .createGrid {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: end;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+  align-items: start;
 }
 
+/* nome, email, senha e confirmar senha: uma coluna cada (2 por linha) */
 .createGrid > :nth-child(1),
-.createGrid > :nth-child(2) {
-  grid-column: span 6;
+.createGrid > :nth-child(2),
+.createGrid > :nth-child(3),
+.createGrid > :nth-child(4) {
+  grid-column: span 1;
 }
 
-.createGrid > :nth-child(3),
-.createGrid > :nth-child(4),
+/* dica de senha, perfil e botão "Adicionar agente": linha inteira */
 .createGrid > :nth-child(5),
-.createGrid > :nth-child(6) {
-  grid-column: span 4;
+.createGrid > :nth-child(6),
+.createGrid > :nth-child(7) {
+  grid-column: 1 / -1;
+}
+
+.createPasswordHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(255, 239, 192, 0.6);
+  line-height: 1.45;
 }
 
 .readOnlyField {
@@ -294,12 +305,16 @@
 }
 
 .createActions {
-  margin-top: 0;
+  margin-top: 4px;
   align-self: stretch;
+  justify-content: flex-end;
 }
 
 .createActions :global(button) {
-  width: 100%;
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 200px;
+  max-width: none;
 }
 
 .dropdownField {
@@ -562,9 +577,41 @@
   gap: 4px;
 }
 
+.teamIdentityName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .teamIdentity strong {
   color: #fff3c6;
   font-size: 0.9rem;
+}
+
+.editNameButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(245, 208, 51, 0.28);
+  background: transparent;
+  color: rgba(245, 208, 51, 0.85);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.editNameButton:hover:not(:disabled) {
+  background: rgba(212, 166, 0, 0.16);
+  border-color: #f0c234;
+  color: #fff7d1;
+}
+
+.editNameButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .teamIdentity span {
@@ -572,17 +619,54 @@
   font-size: 0.82rem;
 }
 
-.teamTags,
-.teamRowActions,
-.inlineRoleSwitcher {
+.teamTags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .teamRowActions {
-  justify-content: flex-start;
-  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(245, 208, 51, 0.12);
+}
+
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.actionGroupManage {
+  align-items: flex-end;
+}
+
+.actionGroupLabel {
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(245, 208, 51, 0.55);
+}
+
+.inlineRoleSwitcher {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 208, 51, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.manageButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .roleBadge,
@@ -624,53 +708,93 @@
 }
 
 .roleSwitchButton,
+.resetPasswordAction,
 .secondaryAction,
 .removeMemberButton {
-  padding: 7px 11px;
-  border-radius: 999px;
   font-weight: 700;
   cursor: pointer;
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
-    background 0.18s ease;
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
+/* Cargo: controle segmentado neutro; só o ativo acende em dourado. */
 .roleSwitchButton {
-  border: 1px solid rgba(245, 208, 51, 0.2);
-  background: rgba(255, 255, 255, 0.03);
-  color: #f4e7b2;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 239, 192, 0.6);
+  font-size: 0.76rem;
 }
 
 .roleSwitchActive {
-  border-color: rgba(245, 208, 51, 0.62);
-  background: rgba(245, 208, 51, 0.14);
+  background: #d4a600;
+  color: #1a1400;
+}
+
+/* Ações: botões com pílula e ícone; hierarquia por cor. */
+.resetPasswordAction,
+.secondaryAction,
+.removeMemberButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+/* Destaque: a ação principal desta feature. */
+.resetPasswordAction {
+  border: 1.5px solid #d4a600;
+  background: rgba(212, 166, 0, 0.12);
+  color: #f6d86b;
+}
+
+.resetPasswordAction:hover:not(:disabled) {
+  background: rgba(212, 166, 0, 0.22);
+  border-color: #f0c234;
   color: #fff7d1;
 }
 
+/* Bloquear/Desbloquear: neutro, discreto. */
 .secondaryAction {
-  margin-left: auto;
-  border: 1px solid rgba(96, 165, 250, 0.24);
-  background: rgba(30, 64, 175, 0.16);
-  color: #dbeafe;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 239, 192, 0.82);
 }
 
+.secondaryAction:hover:not(:disabled) {
+  border-color: rgba(255, 239, 192, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Excluir: perigo, mas contido (outline). */
 .removeMemberButton {
-  border: 1px solid rgba(248, 113, 113, 0.34);
-  background: rgba(127, 29, 29, 0.18);
-  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: transparent;
+  color: #f5a3a3;
 }
 
-.roleSwitchButton:hover:not(:disabled),
+.removeMemberButton:hover:not(:disabled) {
+  background: rgba(127, 29, 29, 0.22);
+  border-color: rgba(248, 113, 113, 0.7);
+}
+
+.resetPasswordAction:hover:not(:disabled),
 .secondaryAction:hover:not(:disabled),
 .removeMemberButton:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
 .roleSwitchButton:disabled,
+.resetPasswordAction:disabled,
 .secondaryAction:disabled,
 .removeMemberButton:disabled {
-  opacity: 0.58;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -761,28 +885,43 @@
 .resetPasswordContent {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  text-align: left;
 }
 
 .resetPasswordHint {
   margin: 0;
   font-size: 0.85rem;
-  opacity: 0.8;
-  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.45;
 }
 
 .togglePasswordButton {
   align-self: flex-start;
-  background: none;
-  border: none;
-  padding: 0;
-  color: inherit;
-  font-size: 0.85rem;
-  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(212, 166, 0, 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: #f4d875;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  opacity: 0.85;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .togglePasswordButton:hover {
-  opacity: 1;
+  background: rgba(212, 166, 0, 0.14);
+  border-color: #f0c234;
+}
+
+.resetPasswordActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(212, 166, 0, 0.18);
 }

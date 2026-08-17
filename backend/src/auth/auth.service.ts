@@ -1250,6 +1250,9 @@ export class AuthService {
       dto.chatwootAccessToken === undefined
         ? agent.chatwootAccessToken
         : (String(dto.chatwootAccessToken ?? '').trim() || null);
+    // Nome editável: só troca quando vem no payload e não é vazio.
+    const nextName =
+      dto.name === undefined ? agent.name : String(dto.name).trim() || agent.name;
 
     if (isSelf && dto.active === false) {
       throw new BadRequestException('Voce nao pode bloquear o proprio usuario.');
@@ -1286,6 +1289,7 @@ export class AuthService {
       await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
     }
 
+    agent.name = nextName;
     agent.role = nextRole;
     agent.active = nextActive;
     agent.chatwootAccessToken = nextChatwootToken;

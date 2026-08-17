@@ -39,6 +39,7 @@ const DEFAULT_TEAM_AGENT_VALUES: TeamAgentFormValues = {
   name: "",
   email: "",
   password: "",
+  confirmPassword: "",
   role: "operator",
 };
 
@@ -90,6 +91,9 @@ export function usePerfilPageController() {
   const [resetPasswordTarget, setResetPasswordTarget] =
     useState<CompanyAgent | null>(null);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [editNameTarget, setEditNameTarget] = useState<CompanyAgent | null>(null);
+  const [editNameValue, setEditNameValue] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const normalizedSearch = buildNormalizedSearch(location.search);
@@ -427,24 +431,77 @@ export function usePerfilPageController() {
     }
   });
 
+  const openEditName = useCallback(
+    (member: CompanyAgent) => {
+      // O próprio usuário edita o nome pelo formulário de perfil (acima).
+      if (member.id === profileMeta.currentAgentId) {
+        return;
+      }
+      setEditNameValue(member.name?.trim() ?? "");
+      setEditNameTarget(member);
+    },
+    [profileMeta.currentAgentId],
+  );
+
+  const closeEditName = useCallback(() => {
+    setEditNameTarget(null);
+    setEditNameValue("");
+  }, []);
+
+  const handleSaveName = useCallback(async () => {
+    if (!editNameTarget || isSavingName) {
+      return;
+    }
+    const trimmed = editNameValue.trim();
+    if (!trimmed) {
+      toast.error("Informe o nome do agente.");
+      return;
+    }
+    if (trimmed === (editNameTarget.name?.trim() ?? "")) {
+      closeEditName();
+      return;
+    }
+
+    try {
+      setIsSavingName(true);
+      const result = await AuthService.manageAgent(editNameTarget.id, {
+        name: trimmed,
+      });
+      setTeamMembers((previous) => replaceTeamMember(previous, result.agent));
+      toast.success(result.message || "Nome atualizado com sucesso.");
+      closeEditName();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Nao foi possivel atualizar o nome."));
+    } finally {
+      setIsSavingName(false);
+    }
+  }, [closeEditName, editNameTarget, editNameValue, isSavingName]);
+
   return {
     busyAgentId,
+    closeEditName,
     closeResetPassword,
     closeTeamModal,
     currentAgentId: profileMeta.currentAgentId,
+    editNameTarget,
+    editNameValue,
     filteredTeamMembers,
     handleCreateAgent,
     handleLogout,
     handleRemoveAgent,
     handleResetPassword,
     handleRoleChange,
+    handleSaveName,
     handleSaveProfile,
     handleSyncChatwootAgents,
     handleToggleAccess,
     isResettingPassword,
+    isSavingName,
+    openEditName,
     openResetPassword,
     resetPasswordForm,
     resetPasswordTarget,
+    setEditNameValue,
     isAdmin,
     isSuperAdmin,
     isCreatingAgent,

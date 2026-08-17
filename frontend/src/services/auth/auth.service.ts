@@ -254,6 +254,7 @@ export class AuthService {
   static async manageAgent(
     agentId: string,
     payload: {
+      name?: string;
       role?: "admin" | "operator" | "super_admin";
       active?: boolean;
       chatwootAccessToken?: string | null;
