@@ -950,41 +950,35 @@ export class AuthService {
       }
     }
 
-    const parts: string[] = [];
-    if (imported) parts.push(`${imported} importado(s) do Maestro`);
-    if (linked) parts.push(`${linked} vinculado(s) por email`);
-    if (roleUpdated) parts.push(`${roleUpdated} cargo(s) ajustado(s)`);
-    if (passwordUpdated) parts.push(`${passwordUpdated} senha(s) sincronizada(s)`);
-    if (tokenUpdated) parts.push(`${tokenUpdated} token(s) sincronizado(s)`);
-    if (missingPasswordHash) {
-      parts.push(`${missingPasswordHash} usuario(s) importado(s) sem hash de senha`);
-    }
-    if (emailConflictSkipped) {
-      parts.push(`${emailConflictSkipped} conflito(s) de email em outra empresa`);
-    }
-    if (superAdminGlobalSkipped) {
-      parts.push(
-        `${superAdminGlobalSkipped} super admin(s) ignorado(s) (ja possuem acesso global)`,
-      );
-    }
-    if (duplicatePayloadSkipped) {
-      parts.push(`${duplicatePayloadSkipped} registro(s) duplicado(s) ignorado(s) no retorno`);
-    }
-    if (invalidEmailSkipped) {
-      parts.push(`${invalidEmailSkipped} registro(s) sem email valido ignorado(s)`);
-    }
+    // Toast COMPACTO: mostra só o que aconteceu (importados/vinculados/cargos)
+    // e resume todos os pulados numa frase, SEM listar e-mails. O detalhe
+    // completo (contadores por motivo + e-mails em outra empresa) vai para o
+    // log do backend, onde o suporte encontra quando precisar investigar.
+    this.logger.log(
+      `[SyncAgents] company=${company.id} imported=${imported} linked=${linked} ` +
+        `roleUpdated=${roleUpdated} passwordUpdated=${passwordUpdated} ` +
+        `tokenUpdated=${tokenUpdated} missingPasswordHash=${missingPasswordHash} ` +
+        `emailConflict=${emailConflictSkipped} superAdminGlobal=${superAdminGlobalSkipped} ` +
+        `duplicates=${duplicatePayloadSkipped} invalidEmail=${invalidEmailSkipped}` +
+        (conflictingEmails.length
+          ? ` | emails em outra empresa: ${conflictingEmails.join(', ')}`
+          : ''),
+    );
 
-    const conflictPreview = conflictingEmails.length
-      ? ` Emails em conflito: ${conflictingEmails.slice(0, 5).join(', ')}${
-          conflictingEmails.length > 5 ? '...' : ''
-        }.`
+    const actions: string[] = [];
+    if (imported) actions.push(`${imported} importado(s)`);
+    if (linked) actions.push(`${linked} vinculado(s)`);
+    if (roleUpdated) actions.push(`${roleUpdated} cargo(s) ajustado(s)`);
+
+    const ignoredSuffix = skipped
+      ? ` (${skipped} ignorado(s) — ja possuem login em outra empresa ou registros repetidos)`
       : '';
 
     return {
       success: true,
-      message: parts.length
-        ? `Sincronizacao concluida: ${parts.join(', ')}.${imported || linked ? '' : ' Nenhum novo usuario foi criado nesta rodada.'}${conflictPreview}`
-        : 'Nenhum usuario pendente de sincronizacao com o Maestro.',
+      message: actions.length
+        ? `Sincronizacao concluida: ${actions.join(', ')}${ignoredSuffix}.`
+        : `Sincronizacao concluida: equipe ja esta em dia${ignoredSuffix}.`,
       synced: imported + linked,
       skipped,
       imported,
