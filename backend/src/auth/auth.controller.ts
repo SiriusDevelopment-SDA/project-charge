@@ -37,6 +37,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
+import { Activity } from '../activity-log/activity.decorator';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import type { AgentRole } from '../agents/entities/agent.entity';
 
@@ -119,6 +120,7 @@ export class AuthController {
   }
 
   @Post('me/team')
+  @Activity({ category: 'create', action: 'Adicionou um agente', entity: 'agent' })
   @ApiOperation({ summary: 'Cria um agente na empresa autenticada' })
   @ApiBody({ type: CreateAgentDto })
   createTeamAgent(
@@ -140,6 +142,7 @@ export class AuthController {
   }
 
   @Patch('agents/:agentId/password')
+  @Activity({ category: 'execute', action: 'Redefiniu a senha de um agente', entity: 'agent' })
   @ApiOperation({
     summary:
       'Redefine a senha de um agente da empresa autenticada (cobranca + Chatwoot)',
@@ -183,6 +186,7 @@ export class AuthController {
   }
 
   @Post('me/chatwoot-sync-agents')
+  @Activity({ category: 'execute', action: 'Sincronizou os agentes com o Chatwoot', entity: 'agent' })
   @ApiOperation({ summary: 'Sincroniza agentes legados da empresa autenticada com o Chatwoot' })
   syncChatwootAgents(@Headers('authorization') authorization?: string) {
     return this.authService.syncCompanyAgentsWithChatwoot(authorization);

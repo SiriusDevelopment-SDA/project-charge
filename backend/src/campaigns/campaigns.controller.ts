@@ -16,6 +16,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Activity } from '../activity-log/activity.decorator';
 
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto, UpdateCampaignDto } from './dto/create-campanhas.dto';
@@ -27,6 +28,7 @@ export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 
   @Post('create')
+  @Activity({ category: 'create', action: 'Criou uma campanha', entity: 'campaign' })
   @ApiOperation({ summary: 'Cria uma nova campanha' })
   @ApiBody({ type: CreateCampaignDto })
   create(@Body() createDto: CreateCampaignDto) {

@@ -13,6 +13,7 @@ import {
   TemplateUsageRequestDto,
 } from './dto/search.request.dto.templates';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Activity } from '../activity-log/activity.decorator';
 import { DeleteTemplateDto } from './dto/delete.request.dto.templates';
 import { CreateTemplateDTO } from './dto/create.request.dto.template';
 
@@ -29,6 +30,7 @@ export class ControllerTemplates {
   }
 
   @Post('send')
+  @Activity({ category: 'execute', action: 'Disparou um template', entity: 'template' })
   @ApiOperation({ summary: 'Dispara um template para os destinatários informados' })
   @ApiBody({ type: SendTemplateDto })
   sendTemplate(@Body() sendTemplateDto: SendTemplateDto) {
@@ -64,6 +66,7 @@ export class ControllerTemplates {
   }
 
   @Post('delete')
+  @Activity({ category: 'delete', action: 'Excluiu um template', entity: 'template' })
   @ApiOperation({ summary: 'Desativa template por ID' })
   @ApiBody({ type: DeleteTemplateDto })
   disableTemplate(@Body() deleteTemplateDto: DeleteTemplateDto) {
@@ -71,6 +74,7 @@ export class ControllerTemplates {
   }
 
   @Post('create')
+  @Activity({ category: 'create', action: 'Criou um template', entity: 'template' })
   @ApiOperation({ summary: 'Cria template e envia para integração NotificaMe' })
   @ApiBody({ type: CreateTemplateDTO })
   createTemplate(@Body() dto: CreateTemplateDTO) {

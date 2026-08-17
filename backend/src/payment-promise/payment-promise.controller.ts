@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Activity } from '../activity-log/activity.decorator';
 import { PaymentPromiseService } from './payment-promise.service';
 import { CreatePaymentPromiseDto } from './dto/create-payment-promise.dto';
 
@@ -34,6 +35,7 @@ export class PaymentPromiseController {
   }
 
   @Post()
+  @Activity({ category: 'create', action: 'Registrou uma promessa de pagamento', entity: 'payment-promise' })
   @ApiOperation({ summary: 'Create a new payment promise' })
   create(@Body() dto: CreatePaymentPromiseDto) {
     return this.service.create(dto);
