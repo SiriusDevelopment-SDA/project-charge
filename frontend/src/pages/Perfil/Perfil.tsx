@@ -1,5 +1,6 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Controller } from "react-hook-form";
+import { Eye, EyeOff, KeyRound, Pencil } from "lucide-react";
 import { DynamicModal, InputFields, MyButton, PageContainer } from "../../componente/Index";
 import { usePerfilPageController } from "../../hooks/controller/profile/usePerfilPageController";
 import type { AgentRoleValue } from "../../schemas/profile.schema";
@@ -11,7 +12,9 @@ type TeamMemberRowProps = {
   busyAgentId: string;
   currentAgentId: string;
   member: CompanyAgent;
+  onEditName: (member: CompanyAgent) => void;
   onRemove: (member: CompanyAgent) => void;
+  onResetPassword: (member: CompanyAgent) => void;
   onToggleAccess: (member: CompanyAgent) => void;
   onUpdateRole: (member: CompanyAgent, role: AgentRoleValue) => void;
 };
@@ -105,7 +108,9 @@ const TeamMemberRow = memo(function TeamMemberRow({
   busyAgentId,
   currentAgentId,
   member,
+  onEditName,
   onRemove,
+  onResetPassword,
   onToggleAccess,
   onUpdateRole,
 }: TeamMemberRowProps) {
@@ -116,7 +121,19 @@ const TeamMemberRow = memo(function TeamMemberRow({
     <article className={styles.teamRow}>
       <div className={styles.teamRowMain}>
         <div className={styles.teamIdentity}>
-          <strong>{member.name?.trim() || "Usuário sem nome"}</strong>
+          <div className={styles.teamIdentityName}>
+            <strong>{member.name?.trim() || "Usuário sem nome"}</strong>
+            <button
+              type="button"
+              className={styles.editNameButton}
+              disabled={isBusy || isCurrentUser}
+              onClick={() => onEditName(member)}
+              title="Editar nome"
+              aria-label="Editar nome"
+            >
+              <Pencil size={13} />
+            </button>
+          </div>
           <span>{member.email?.trim() || "Email não informado"}</span>
         </div>
         <div className={styles.teamTags}>
@@ -136,58 +153,80 @@ const TeamMemberRow = memo(function TeamMemberRow({
       </div>
 
       <div className={styles.teamRowActions}>
-        <div className={styles.inlineRoleSwitcher}>
-          <button
-            type="button"
-            className={`${styles.roleSwitchButton} ${
-              member.role === "operator" ? styles.roleSwitchActive : ""
-            }`}
-            disabled={isBusy || isCurrentUser}
-            onClick={() => onUpdateRole(member, "operator")}
-          >
-            Operador
-          </button>
-          <button
-            type="button"
-            className={`${styles.roleSwitchButton} ${
-              member.role === "admin" ? styles.roleSwitchActive : ""
-            }`}
-            disabled={isBusy || isCurrentUser}
-            onClick={() => onUpdateRole(member, "admin")}
-          >
-            Admin
-          </button>
-          {allowSuperAdmin && (
+        <div className={styles.actionGroup}>
+          <span className={styles.actionGroupLabel}>Cargo</span>
+          <div className={styles.inlineRoleSwitcher}>
             <button
               type="button"
               className={`${styles.roleSwitchButton} ${
-                member.role === "super_admin" ? styles.roleSwitchActive : ""
+                member.role === "operator" ? styles.roleSwitchActive : ""
               }`}
               disabled={isBusy || isCurrentUser}
-              onClick={() => onUpdateRole(member, "super_admin")}
+              onClick={() => onUpdateRole(member, "operator")}
             >
-              Super Admin
+              Operador
             </button>
-          )}
+            <button
+              type="button"
+              className={`${styles.roleSwitchButton} ${
+                member.role === "admin" ? styles.roleSwitchActive : ""
+              }`}
+              disabled={isBusy || isCurrentUser}
+              onClick={() => onUpdateRole(member, "admin")}
+            >
+              Admin
+            </button>
+            {allowSuperAdmin && (
+              <button
+                type="button"
+                className={`${styles.roleSwitchButton} ${
+                  member.role === "super_admin" ? styles.roleSwitchActive : ""
+                }`}
+                disabled={isBusy || isCurrentUser}
+                onClick={() => onUpdateRole(member, "super_admin")}
+              >
+                Super Admin
+              </button>
+            )}
+          </div>
         </div>
 
-        <button
-          type="button"
-          className={styles.secondaryAction}
-          disabled={isBusy || isCurrentUser}
-          onClick={() => onToggleAccess(member)}
-        >
-          {isBusy ? "Salvando..." : member.active ? "Bloquear" : "Desbloquear"}
-        </button>
+        <div className={`${styles.actionGroup} ${styles.actionGroupManage}`}>
+          <span className={styles.actionGroupLabel}>Ações</span>
+          <div className={styles.manageButtons}>
+            <button
+              type="button"
+              className={styles.resetPasswordAction}
+              disabled={
+                isBusy ||
+                isCurrentUser ||
+                (member.role === "super_admin" && !allowSuperAdmin)
+              }
+              onClick={() => onResetPassword(member)}
+            >
+              <KeyRound size={13} />
+              Redefinir senha
+            </button>
 
-        <button
-          type="button"
-          className={styles.removeMemberButton}
-          disabled={isBusy || isCurrentUser}
-          onClick={() => onRemove(member)}
-        >
-          {isBusy ? "Processando..." : "Excluir"}
-        </button>
+            <button
+              type="button"
+              className={styles.secondaryAction}
+              disabled={isBusy || isCurrentUser}
+              onClick={() => onToggleAccess(member)}
+            >
+              {isBusy ? "Salvando..." : member.active ? "Bloquear" : "Desbloquear"}
+            </button>
+
+            <button
+              type="button"
+              className={styles.removeMemberButton}
+              disabled={isBusy || isCurrentUser}
+              onClick={() => onRemove(member)}
+            >
+              {isBusy ? "Processando..." : "Excluir"}
+            </button>
+          </div>
+        </div>
       </div>
     </article>
   );
@@ -196,13 +235,19 @@ const TeamMemberRow = memo(function TeamMemberRow({
 export function PerfilPage() {
   const {
     busyAgentId,
+    closeEditName,
+    closeResetPassword,
     closeTeamModal,
     currentAgentId,
+    editNameTarget,
+    editNameValue,
     filteredTeamMembers,
     handleCreateAgent,
     handleLogout,
     handleRemoveAgent,
+    handleResetPassword,
     handleRoleChange,
+    handleSaveName,
     handleSaveProfile,
     handleSyncChatwootAgents,
     handleToggleAccess,
@@ -210,19 +255,29 @@ export function PerfilPage() {
     isSuperAdmin,
     isCreatingAgent,
     isLoading,
+    isResettingPassword,
+    isSavingName,
     isSaving,
     isSyncingChatwootAgents,
     isTeamLoading,
     isTeamModalOpen,
     newAgentForm,
+    openEditName,
+    openResetPassword,
     openTeamModal,
     profileForm,
     profileEmail,
     profileMeta,
+    resetPasswordForm,
+    resetPasswordTarget,
+    setEditNameValue,
     setTeamSearch,
     teamSearch,
     teamSummary,
   } = usePerfilPageController();
+
+  // "Olhinho" do modal de redefinição: mostra/oculta as duas senhas juntas.
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   return (
     <PageContainer className={styles.page}>
@@ -449,6 +504,25 @@ export function PerfilPage() {
                   />
 
                   <Controller
+                    name="confirmPassword"
+                    control={newAgentForm.control}
+                    render={({ field }) => (
+                      <div className={styles.fieldBlock}>
+                        <InputFields label="Confirmar senha" type="password" {...field} />
+                        <FormFieldError
+                          message={newAgentForm.formState.errors.confirmPassword?.message}
+                        />
+                      </div>
+                    )}
+                  />
+
+                  <p className={styles.createPasswordHint}>
+                    A senha precisa ter no mínimo <strong>6 caracteres</strong>, com
+                    letra <strong>maiúscula</strong>, <strong>minúscula</strong> e um{" "}
+                    <strong>caractere especial</strong> (ex.: !@#$%).
+                  </p>
+
+                  <Controller
                     name="role"
                     control={newAgentForm.control}
                     render={({ field }) => (
@@ -504,7 +578,12 @@ export function PerfilPage() {
                       busyAgentId={busyAgentId}
                       currentAgentId={currentAgentId}
                       member={member}
+                      onEditName={openEditName}
                       onRemove={handleRemoveAgent}
+                      onResetPassword={(target) => {
+                        setShowResetPassword(false);
+                        openResetPassword(target);
+                      }}
                       onToggleAccess={handleToggleAccess}
                       onUpdateRole={handleRoleChange}
                     />
@@ -515,6 +594,128 @@ export function PerfilPage() {
           }
         />
       )}
+
+      <DynamicModal
+        open={Boolean(resetPasswordTarget)}
+        type="custom"
+        size="default"
+        title={`Redefinir senha — ${
+          resetPasswordTarget
+            ? resetPasswordTarget.name?.trim() || resetPasswordTarget.email || ""
+            : ""
+        }`}
+        onClose={closeResetPassword}
+        customContent={
+          <div className={styles.resetPasswordContent}>
+            <p className={styles.resetPasswordHint}>
+              A senha será alterada no sistema de cobrança e no chat (Maestro).
+              Requisitos: mínimo de <strong>6 caracteres</strong>, com letra{" "}
+              <strong>maiúscula</strong>, <strong>minúscula</strong> e um{" "}
+              <strong>caractere especial</strong> (ex.: !@#$%).
+            </p>
+
+            <Controller
+              name="newPassword"
+              control={resetPasswordForm.control}
+              render={({ field }) => (
+                <div className={styles.fieldBlock}>
+                  <InputFields
+                    label="Nova senha"
+                    type={showResetPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    {...field}
+                  />
+                  <FormFieldError
+                    message={resetPasswordForm.formState.errors.newPassword?.message}
+                  />
+                </div>
+              )}
+            />
+
+            <Controller
+              name="confirmPassword"
+              control={resetPasswordForm.control}
+              render={({ field }) => (
+                <div className={styles.fieldBlock}>
+                  <InputFields
+                    label="Repetir nova senha"
+                    type={showResetPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    {...field}
+                  />
+                  <FormFieldError
+                    message={
+                      resetPasswordForm.formState.errors.confirmPassword?.message
+                    }
+                  />
+                </div>
+              )}
+            />
+
+            <button
+              type="button"
+              className={styles.togglePasswordButton}
+              onClick={() => setShowResetPassword((previous) => !previous)}
+            >
+              {showResetPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              {showResetPassword ? "Ocultar senhas" : "Mostrar senhas"}
+            </button>
+
+            <div className={styles.resetPasswordActions}>
+              <MyButton
+                text="Cancelar"
+                variant="secondary"
+                disabled={isResettingPassword}
+                onClick={closeResetPassword}
+              />
+              <MyButton
+                text={isResettingPassword ? "Salvando..." : "Confirmar nova senha"}
+                variant="primary"
+                disabled={isResettingPassword}
+                onClick={() => void handleResetPassword()}
+              />
+            </div>
+          </div>
+        }
+      />
+
+      <DynamicModal
+        open={Boolean(editNameTarget)}
+        type="custom"
+        size="default"
+        title="Editar nome do agente"
+        onClose={closeEditName}
+        customContent={
+          <div className={styles.resetPasswordContent}>
+            <p className={styles.resetPasswordHint}>
+              {editNameTarget?.email || "Atualize apenas o nome exibido do agente."}
+            </p>
+
+            <div className={styles.fieldBlock}>
+              <InputFields
+                label="Nome do agente"
+                value={editNameValue}
+                onChange={(event) => setEditNameValue(event.target.value)}
+              />
+            </div>
+
+            <div className={styles.resetPasswordActions}>
+              <MyButton
+                text="Cancelar"
+                variant="secondary"
+                disabled={isSavingName}
+                onClick={closeEditName}
+              />
+              <MyButton
+                text={isSavingName ? "Salvando..." : "Salvar nome"}
+                variant="primary"
+                disabled={isSavingName}
+                onClick={() => void handleSaveName()}
+              />
+            </div>
+          </div>
+        }
+      />
 
     </PageContainer>
   );

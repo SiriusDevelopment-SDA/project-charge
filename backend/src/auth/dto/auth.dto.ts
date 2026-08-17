@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MinLength,
   ValidateIf,
 } from 'class-validator';
@@ -67,9 +68,20 @@ export class CreateAgentDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'senha-forte-123', minLength: 6 })
+  // Regras de senha do Chatwoot (a criação provisiona o agente lá): sem elas a
+  // Platform API devolve 422.
+  @ApiProperty({ example: 'SenhaForte@123', minLength: 6 })
   @IsString()
-  @MinLength(6)
+  @MinLength(6, { message: 'A senha precisa ter pelo menos 6 caracteres.' })
+  @Matches(/[A-Z]/, {
+    message: 'A senha precisa de pelo menos 1 letra maiuscula (A-Z).',
+  })
+  @Matches(/[a-z]/, {
+    message: 'A senha precisa de pelo menos 1 letra minuscula (a-z).',
+  })
+  @Matches(/[^A-Za-z0-9\s]/, {
+    message: 'A senha precisa de pelo menos 1 caractere especial (ex.: !@#$%).',
+  })
   password!: string;
 
   @ApiProperty({
@@ -147,6 +159,11 @@ export class UpdatePromiseAutomationSettingsDto {
 }
 
 export class ManageAgentDto {
+  @ApiProperty({ example: 'Maria Silva', required: false })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @ApiProperty({ example: true, required: false })
   @IsOptional()
   @IsBoolean()
@@ -165,6 +182,24 @@ export class ManageAgentDto {
   @IsOptional()
   @IsString()
   chatwootAccessToken?: string | null;
+}
+
+export class ResetAgentPasswordDto {
+  // Regras de senha do Chatwoot (a redefinição troca lá também): sem elas a
+  // Platform API devolve 422 e nada é alterado.
+  @ApiProperty({ example: 'NovaSenha@123', minLength: 6 })
+  @IsString()
+  @MinLength(6, { message: 'A nova senha precisa ter pelo menos 6 caracteres.' })
+  @Matches(/[A-Z]/, {
+    message: 'A nova senha precisa de pelo menos 1 letra maiuscula (A-Z).',
+  })
+  @Matches(/[a-z]/, {
+    message: 'A nova senha precisa de pelo menos 1 letra minuscula (a-z).',
+  })
+  @Matches(/[^A-Za-z0-9\s]/, {
+    message: 'A nova senha precisa de pelo menos 1 caractere especial (ex.: !@#$%).',
+  })
+  newPassword!: string;
 }
 
 export class UpdateChatwootConfigDto {

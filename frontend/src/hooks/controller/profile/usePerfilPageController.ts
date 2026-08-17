@@ -10,9 +10,11 @@ import {
 import { AppStorage } from "../../../services/storage/storage.service";
 import {
   profileFormSchema,
+  resetAgentPasswordFormSchema,
   teamAgentFormSchema,
   type AgentRoleValue,
   type ProfileFormValues,
+  type ResetAgentPasswordFormValues,
   type TeamAgentFormValues,
 } from "../../../schemas/profile.schema";
 import { getErrorMessage } from "../../../utils/error";
@@ -37,6 +39,7 @@ const DEFAULT_TEAM_AGENT_VALUES: TeamAgentFormValues = {
   name: "",
   email: "",
   password: "",
+  confirmPassword: "",
   role: "operator",
 };
 
@@ -85,6 +88,12 @@ export function usePerfilPageController() {
   const [isSyncingChatwootAgents, setIsSyncingChatwootAgents] = useState(false);
   const [isTeamLoading, setIsTeamLoading] = useState(false);
   const [busyAgentId, setBusyAgentId] = useState("");
+  const [resetPasswordTarget, setResetPasswordTarget] =
+    useState<CompanyAgent | null>(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [editNameTarget, setEditNameTarget] = useState<CompanyAgent | null>(null);
+  const [editNameValue, setEditNameValue] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const normalizedSearch = buildNormalizedSearch(location.search);
@@ -98,6 +107,12 @@ export function usePerfilPageController() {
   const newAgentForm = useForm<TeamAgentFormValues>({
     resolver: zodResolver(teamAgentFormSchema),
     defaultValues: DEFAULT_TEAM_AGENT_VALUES,
+    mode: "onChange",
+  });
+
+  const resetPasswordForm = useForm<ResetAgentPasswordFormValues>({
+    resolver: zodResolver(resetAgentPasswordFormSchema),
+    defaultValues: { newPassword: "", confirmPassword: "" },
     mode: "onChange",
   });
 
@@ -376,18 +391,117 @@ export function usePerfilPageController() {
     [busyAgentId, profileMeta.currentAgentId],
   );
 
+  const openResetPassword = useCallback(
+    (member: CompanyAgent) => {
+      if (member.id === profileMeta.currentAgentId) {
+        return;
+      }
+      // Admin comum não redefine senha de super_admin (o backend também barra).
+      if (member.role === "super_admin" && !isSuperAdmin) {
+        return;
+      }
+      resetPasswordForm.reset({ newPassword: "", confirmPassword: "" });
+      setResetPasswordTarget(member);
+    },
+    [isSuperAdmin, profileMeta.currentAgentId, resetPasswordForm],
+  );
+
+  const closeResetPassword = useCallback(() => {
+    setResetPasswordTarget(null);
+    resetPasswordForm.reset({ newPassword: "", confirmPassword: "" });
+  }, [resetPasswordForm]);
+
+  const handleResetPassword = resetPasswordForm.handleSubmit(async (values) => {
+    if (!resetPasswordTarget || isResettingPassword) {
+      return;
+    }
+
+    try {
+      setIsResettingPassword(true);
+      const result = await AuthService.resetAgentPassword(
+        resetPasswordTarget.id,
+        values.newPassword.trim(),
+      );
+      toast.success(result.message || "Senha redefinida com sucesso.");
+      closeResetPassword();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Nao foi possivel redefinir a senha."));
+    } finally {
+      setIsResettingPassword(false);
+    }
+  });
+
+  const openEditName = useCallback(
+    (member: CompanyAgent) => {
+      // O próprio usuário edita o nome pelo formulário de perfil (acima).
+      if (member.id === profileMeta.currentAgentId) {
+        return;
+      }
+      setEditNameValue(member.name?.trim() ?? "");
+      setEditNameTarget(member);
+    },
+    [profileMeta.currentAgentId],
+  );
+
+  const closeEditName = useCallback(() => {
+    setEditNameTarget(null);
+    setEditNameValue("");
+  }, []);
+
+  const handleSaveName = useCallback(async () => {
+    if (!editNameTarget || isSavingName) {
+      return;
+    }
+    const trimmed = editNameValue.trim();
+    if (!trimmed) {
+      toast.error("Informe o nome do agente.");
+      return;
+    }
+    if (trimmed === (editNameTarget.name?.trim() ?? "")) {
+      closeEditName();
+      return;
+    }
+
+    try {
+      setIsSavingName(true);
+      const result = await AuthService.manageAgent(editNameTarget.id, {
+        name: trimmed,
+      });
+      setTeamMembers((previous) => replaceTeamMember(previous, result.agent));
+      toast.success(result.message || "Nome atualizado com sucesso.");
+      closeEditName();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Nao foi possivel atualizar o nome."));
+    } finally {
+      setIsSavingName(false);
+    }
+  }, [closeEditName, editNameTarget, editNameValue, isSavingName]);
+
   return {
     busyAgentId,
+    closeEditName,
+    closeResetPassword,
     closeTeamModal,
     currentAgentId: profileMeta.currentAgentId,
+    editNameTarget,
+    editNameValue,
     filteredTeamMembers,
     handleCreateAgent,
     handleLogout,
     handleRemoveAgent,
+    handleResetPassword,
     handleRoleChange,
+    handleSaveName,
     handleSaveProfile,
     handleSyncChatwootAgents,
     handleToggleAccess,
+    isResettingPassword,
+    isSavingName,
+    openEditName,
+    openResetPassword,
+    resetPasswordForm,
+    resetPasswordTarget,
+    setEditNameValue,
     isAdmin,
     isSuperAdmin,
     isCreatingAgent,

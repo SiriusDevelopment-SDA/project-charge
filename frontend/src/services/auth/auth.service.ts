@@ -254,6 +254,7 @@ export class AuthService {
   static async manageAgent(
     agentId: string,
     payload: {
+      name?: string;
       role?: "admin" | "operator" | "super_admin";
       active?: boolean;
       chatwootAccessToken?: string | null;
@@ -263,6 +264,18 @@ export class AuthService {
       `/auth/agents/${agentId}`,
       payload,
     );
+    return data;
+  }
+
+  static async resetAgentPassword(
+    agentId: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; chatwootUpdated: boolean; message?: string }> {
+    const { data } = await Api.patch<{
+      success: boolean;
+      chatwootUpdated: boolean;
+      message?: string;
+    }>(`/auth/agents/${agentId}/password`, { newPassword });
     return data;
   }
 

@@ -6,7 +6,8 @@ function App() {
   return (
     <div className="app">
       <AppRoutes />
-      <ToastContainer position="top-right" autoClose={3000} />
+      {/* zIndex acima do overlay dos modais (9999) para o toast nunca ficar atrás. */}
+      <ToastContainer position="top-right" autoClose={3000} style={{ zIndex: 20000 }} />
     </div>
   );
 }
