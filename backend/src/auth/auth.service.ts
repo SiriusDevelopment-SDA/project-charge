@@ -20,6 +20,7 @@ import {
   LoginAgentDto,
   ManageAgentDto,
   PromiseReminderTiming,
+  ResetAgentPasswordDto,
   UpdateChatwootConfigDto,
   UpdatePromiseAutomationSettingsDto,
   UpdateProfileDto,
@@ -1243,6 +1244,9 @@ export class AuthService {
       dto.chatwootAccessToken === undefined
         ? agent.chatwootAccessToken
         : (String(dto.chatwootAccessToken ?? '').trim() || null);
+    // Nome editável: só troca quando vem no payload e não é vazio.
+    const nextName =
+      dto.name === undefined ? agent.name : String(dto.name).trim() || agent.name;
 
     if (isSelf && dto.active === false) {
       throw new BadRequestException('Voce nao pode bloquear o proprio usuario.');
@@ -1279,6 +1283,7 @@ export class AuthService {
       await this.ensureCompanyHasAnotherAdmin(actingAgent.company.id, agent.id);
     }
 
+    agent.name = nextName;
     agent.role = nextRole;
     agent.active = nextActive;
     agent.chatwootAccessToken = nextChatwootToken;
@@ -1299,6 +1304,90 @@ export class AuthService {
         active: saved.active,
         chatwootLinked: Boolean(saved.chatwootUserId || saved.chatwootAccessToken),
       },
+    };
+  }
+
+  /**
+   * Redefine a senha de um agente da empresa autenticada nos DOIS sistemas:
+   * Chatwoot (Platform API) e cobrança (bcrypt). Regras:
+   * - admin/super_admin apenas (requireAdminAgent), sempre na empresa da
+   *   sessão — admin alcança só a própria empresa;
+   * - só super_admin redefine a senha de outro super_admin;
+   * - ninguém redefine a PRÓPRIA senha por aqui (fluxo do perfil em
+   *   PATCH /me exige a senha atual — mais seguro para autotroca);
+   * - TUDO-OU-NADA: com vínculo no Chatwoot, a Platform API é chamada
+   *   primeiro; se recusar, nada muda (evita senha divergente entre os
+   *   sistemas). Sem vínculo, troca só na cobrança e sinaliza no retorno.
+   */
+  async resetCompanyAgentPassword(
+    authorization: string | undefined,
+    agentId: string,
+    dto: ResetAgentPasswordDto,
+  ) {
+    const actingAgent = await this.requireAdminAgent(authorization);
+    const normalizedAgentId = String(agentId).trim();
+
+    if (!normalizedAgentId) {
+      throw new BadRequestException('Agente nao informado.');
+    }
+
+    const agent = await this.agentRepository.findOne({
+      where: {
+        id: normalizedAgentId,
+        company: { id: actingAgent.company.id },
+      },
+      relations: ['company'],
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        active: true,
+        chatwootUserId: true,
+        passwordHash: true,
+        company: { id: true },
+      },
+    });
+
+    if (!agent) {
+      throw new NotFoundException('Agente nao encontrado para esta empresa.');
+    }
+
+    if (agent.id === actingAgent.id) {
+      throw new BadRequestException(
+        'Para alterar a propria senha, use o perfil (exige a senha atual).',
+      );
+    }
+
+    if (agent.role === 'super_admin' && actingAgent.role !== 'super_admin') {
+      throw new ForbiddenException(
+        'Apenas super administradores podem redefinir a senha de outro super administrador.',
+      );
+    }
+
+    // Chatwoot primeiro: se a Platform API recusar, aborta sem tocar na
+    // senha local (updateAgentPassword lança BadRequestException).
+    const chatwootUpdated = Boolean(agent.chatwootUserId);
+    if (agent.chatwootUserId) {
+      await this.chatwootService.updateAgentPassword(
+        agent.company.id,
+        agent.chatwootUserId,
+        dto.newPassword,
+      );
+    }
+
+    agent.passwordHash = await hash(dto.newPassword, 10);
+    await this.agentRepository.save(agent);
+
+    this.logger.log(
+      `[ResetPassword] agente=${agent.email} por=${actingAgent.email} chatwoot=${chatwootUpdated}`,
+    );
+
+    return {
+      success: true,
+      chatwootUpdated,
+      message: chatwootUpdated
+        ? 'Senha redefinida no sistema e no chat.'
+        : 'Senha redefinida no sistema (perfil sem vinculo com o chat).',
     };
   }
 

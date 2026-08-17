@@ -1552,6 +1552,47 @@ export class ChatwootService {
     return { userId, accessToken };
   }
 
+  /**
+   * Atualiza a senha de um usuário do Chatwoot via Platform API (PATCH
+   * /platform/api/v1/users/:id). Usado pelo reset de senha de agentes para
+   * manter chat e sistema de cobrança com a MESMA senha. Lança
+   * BadRequestException quando a Platform API recusa — o chamador então NÃO
+   * altera a senha local (tudo-ou-nada, evita senhas divergentes).
+   * Viabilidade validada ao vivo em 14/08/2026 (GET/PATCH/sign_in HTTP 200,
+   * inclusive para usuário NÃO criado pelo Platform App).
+   */
+  async updateAgentPassword(
+    companyId: string,
+    chatwootUserId: number | null | undefined,
+    password: string,
+  ) {
+    const userId = this.toNumericId(chatwootUserId);
+    if (!userId) {
+      throw new BadRequestException('Agente sem vinculo valido com o Chatwoot.');
+    }
+
+    const context = await this.resolvePlatformAccessContext(companyId);
+    try {
+      await this.platformRequest(
+        `/platform/api/v1/users/${userId}`,
+        context.platformToken,
+        { method: 'PATCH', body: JSON.stringify({ password }) },
+      );
+    } catch (error) {
+      // Traduz o 422 de política de senha do Chatwoot (que vem como JSON cru
+      // gigante) para uma mensagem curta e legível no toast.
+      const raw = error instanceof Error ? String(error.message) : '';
+      if (raw.includes('Password must contain')) {
+        throw new BadRequestException(
+          'O chat (Maestro) recusou a senha: use no minimo 6 caracteres, com ' +
+            'letra maiuscula, minuscula e um caractere especial (ex.: !@#$%). ' +
+            'Nada foi alterado.',
+        );
+      }
+      throw error;
+    }
+  }
+
   async removeAgentIdentity(companyId: string, chatwootUserId?: number | null) {
     const userId = this.toNumericId(chatwootUserId);
     if (!userId) return;
