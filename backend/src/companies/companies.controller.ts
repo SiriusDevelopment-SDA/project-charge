@@ -21,6 +21,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Activity } from '../activity-log/activity.decorator';
 import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
@@ -78,6 +79,7 @@ export class CompaniesController {
   }
 
   @Post()
+  @Activity({ category: 'create', action: 'Cadastrou uma empresa', entity: 'company' })
   @UseGuards(SuperAdminGuard)
   @ApiOperation({
     summary: 'Cadastra uma empresa, validando a credencial do ERP antes de gravar.',

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -74,6 +74,10 @@ import { CompaniesService } from './companies/companies.service';
 import { SuperAdminGuard } from './auth/guards/super-admin.guard';
 import { PlanGuard } from './auth/guards/plan.guard';
 import { ErpPreflightService } from './integrations/erp/erp-preflight.service';
+import { ActivityLog } from './activity-log/entities/activity-log.entity';
+import { ActivityLogController } from './activity-log/activity-log.controller';
+import { ActivityLogService } from './activity-log/activity-log.service';
+import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
 
 @Module({
   imports: [
@@ -96,6 +100,7 @@ import { ErpPreflightService } from './integrations/erp/erp-preflight.service';
     TypeOrmModule.forFeature([ChatSession]),
     TypeOrmModule.forFeature([ChatSessionMessage]),
     TypeOrmModule.forFeature([MessageQueue]),
+    TypeOrmModule.forFeature([ActivityLog]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET || 'coraxy-jwt-secret',
@@ -120,6 +125,7 @@ import { ErpPreflightService } from './integrations/erp/erp-preflight.service';
     PaymentPromiseController,
     ClientInteractionController,
     CompaniesController,
+    ActivityLogController,
 
   ],
   providers: [
@@ -160,8 +166,10 @@ import { ErpPreflightService } from './integrations/erp/erp-preflight.service';
     // entao registrar aqui nao muda nada por si so.
     PlanGuard,
     ErpPreflightService,
+    ActivityLogService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: ActivityLogInterceptor },
   ],
   exports: [
     AppServiceTemplate, 

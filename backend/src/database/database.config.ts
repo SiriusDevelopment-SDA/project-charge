@@ -21,6 +21,7 @@ import { PaymentPromise } from '../payment-promise/entities/payment-promise.enti
 import { ClientInteraction } from '../client-interaction/entities/client-interaction.entity';
 import { ChatSession } from '../chatwoot/entities/chat-session.entity';
 import { ChatSessionMessage } from '../chatwoot/entities/chat-session-message.entity';
+import { ActivityLog } from '../activity-log/entities/activity-log.entity';
 
 export default <TypeOrmModuleAsyncOptions>{
   inject: [ConfigService],
@@ -51,6 +52,7 @@ export default <TypeOrmModuleAsyncOptions>{
         ClientInteraction,
         ChatSession,
         ChatSessionMessage,
+        ActivityLog,
       ],
       synchronize: configService.get('NODE_ENV') !== 'production',
       migrations: [__dirname + '/migrations/*.{ts,js}'],
