@@ -38,3 +38,7 @@
 - Código limpo e reutilizável
 - Nomeação consistente
 - Separação clara de responsabilidades
+- Acoplamento
+- Idempotência
+- Pensar em longa Escala
+- Microservices
