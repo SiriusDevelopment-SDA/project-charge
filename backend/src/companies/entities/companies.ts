@@ -86,17 +86,27 @@ import { NotificameChannel } from './notificame-channel.type';
      * empresa). É a fonte autoritativa do token usado em TODOS os envios e
      * chamadas à API NotificaMe; os canais em `canalId_notificameHub` guardam
      * apenas { id, numero } e não carregam token.
+     *
+     * NOT NULL desde a migration `RequireCompanyCnpjAndNotificameToken`: sem
+     * token o worker de disparo aborta com "Empresa sem integração NotificaMe
+     * configurada", ou seja, a empresa nasce incapaz de mandar mensagem.
      */
     @IsString()
-    @Column({ nullable: true })
+    @Column()
     token_notificameHub!: string;
 
     @IsString()
     @Column()
     acess_token_agentbot_chatwoot!: string;
 
+    /**
+     * CNPJ da empresa, só dígitos. NOT NULL desde a migration
+     * `RequireCompanyCnpjAndNotificameToken`: é a chave PIX de recebimento
+     * usada por `resolverChavePix` quando a empresa não configura
+     * `config.order_pix_key`.
+     */
     @IsString()
-    @Column({ nullable: true })
+    @Column()
     cnpj!: string;
 
     @IsString()
