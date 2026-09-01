@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import {
   CampoOpcional,
+  ListaOpcional,
   TextoOpcional,
 } from '../../validations/campo-opcional.decorator';
 import { CnpjValidoConstraint } from '../../validations/cnpj.validator';
@@ -36,6 +37,9 @@ import { CanalNotificameDto } from './create-company.dto';
  *   `token_notificameHub`, onde limpar nunca foi alcancavel (colunas NOT NULL
  *   desde a migration `RequireCompanyCnpjAndNotificameToken`, que trata
  *   `btrim(coluna) = ''` como coluna FALTANDO).
+ * - `@ListaOpcional()` normaliza `null` E `[]`. So em `canais`, onde esvaziar
+ *   nunca foi alcancavel — o cadastro exige ao menos um canal, e o `[]` e o
+ *   `""` de um campo de lista.
  *
  * Nos DEMAIS campos o `""` mantem o significado que sempre teve — "limpa" em
  * `teamChargeId` e nas chaves PIX, 400 em `name`, `url`, `token_system_coraxy`
@@ -284,11 +288,12 @@ export class PagamentoPixDto {
  * estourava no service (`dto.campo.trim()`) como 500, ou — pior, porque calado
  * — apagava a `url` e removia o `plano` com 200 na resposta.
  *
- * O QUE `""` SIGNIFICA EM CADA CAMPO
+ * O QUE `""` — E `[]` — SIGNIFICA EM CADA CAMPO
  *
  * Todo campo aqui e opcional — omitir mantem o valor atual, porque trocar o
  * nome de uma empresa nao pode exigir reenviar o cadastro inteiro. O que muda
- * de campo para campo e o que uma STRING VAZIA quer dizer. Tres grupos:
+ * de campo para campo e o que um VAZIO quer dizer: string vazia nos campos de
+ * texto, lista vazia nos de lista. Quatro grupos:
  *
  * - **Limpavel** (`teamChargeId`, e so ele): `""` e um valor legitimo, "esta
  *   empresa nao tem isso". Declarado com `@CampoOpcional() @IsString()` e a
@@ -302,6 +307,20 @@ export class PagamentoPixDto {
  *   `crm_company_id`): declarados com `@IsNotEmpty()`. Desde o
  *   `@CampoOpcional()`, `"   "` cai aqui tambem — antes ele furava o
  *   `@IsNotEmpty()` e era gravado como vazio.
+ * - **Lista vazia vale como ausente** (`canais`, e so ele): `[]` NAO esvazia,
+ *   NAO devolve 400 — e ignorado, e os canais atuais permanecem. E o mesmo
+ *   grupo do `cnpj`, so que com o vazio de um campo de lista. Nao entrou nele
+ *   por analogia: o canal e o remetente (`from`) do disparo, e empresa sem
+ *   canal nenhum faz o `MessageQueueWorker` abortar TODA mensagem com "Empresa
+ *   sem integracao NotificaMe configurada" — uma a uma, na hora do envio, nem
+ *   no cadastro nem na campanha. `CreateCompanyDto` exige ao menos um canal
+ *   (`@ArrayNotEmpty()`); deixar o PATCH desfazer isso era a mesma empresa
+ *   quebrada entrando por outra porta, e o CRM a abriria sem querer, porque
+ *   reenvia o registro inteiro.
+ *
+ * `paginasExtras` e a contraparte e continua fora deste ultimo grupo: la o
+ * `[]` E o pedido — "remove todos os adicionais" — e remover pagina extra e
+ * resultado alcancavel e reversivel, o oposto de ficar sem remetente.
  *
  * As chaves PIX mudaram de grupo: `""` LIMPAVA a chave de recebimento e agora
  * vale como campo nao enviado. O motivo esta no docblock de `PagamentoPixDto` —
@@ -549,14 +568,36 @@ export class UpdateCompanyDto {
   token_notificameHub?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Canais NotificaMe da empresa. Substitui a lista atual por completo. `null` mantem os canais atuais.',
+    description: [
+      'Canais NotificaMe da empresa. Lista COM conteudo substitui a atual por',
+      'completo, e cada item continua validado ({ id, numero }).',
+      '',
+      '`null` e `[]` valem como campo NAO ENVIADO: mantem os canais atuais, sem',
+      'erro. Nao ha como esvaziar os canais por aqui, e nao ha 400 por tentar.',
+      '',
+      'O canal e o remetente (`from`) do disparo, e por isso o cadastro exige ao',
+      'menos um. Empresa sem canal nenhum nao falha no PATCH nem na campanha:',
+      'falha no envio, mensagem por mensagem, com o worker abortando cada uma',
+      'com "Empresa sem integracao NotificaMe configurada". Como esvaziar nunca',
+      'foi um resultado alcancavel pelo cadastro, um `[]` aqui so pode ser ruido',
+      'do chamador que reenvia o registro inteiro — e nao um pedido.',
+    ].join('\n'),
     type: [CanalNotificameDto],
   })
-  // A coluna e `jsonb` NOT NULL com default '[]'. Sem o `@CampoOpcional()`,
+  // A coluna e `jsonb` NOT NULL com default '[]'. Sem a normalizacao do `null`,
   // `canais: null` era gravado como NULL e o Postgres derrubava o save — 500
-  // tambem, so que vindo do banco em vez de TypeError.
-  @CampoOpcional()
+  // tambem, so que vindo do banco em vez de TypeError. Mas o NOT NULL nao cobre
+  // o `[]`: array vazio satisfaz a constraint, entao a defesa contra esvaziar
+  // precisa estar aqui, no DTO.
+  //
+  // Uma `CHECK (jsonb_array_length("canalId_notificameHub") > 0)` fecharia
+  // tambem o `UPDATE` manual no banco, e NAO foi criada de proposito: ha
+  // empresa cadastrada hoje com zero canais — a exigencia do cadastro nunca foi
+  // aplicada retroativamente (ver a migration
+  // `RequireCompanyCnpjAndNotificameToken`, que registra isso) — e a constraint
+  // quebraria o primeiro UPDATE de cada uma delas. Sanear exige criar canal de
+  // verdade no NotificaMe, que e decisao de negocio, nao de migration.
+  @ListaOpcional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CanalNotificameDto)
