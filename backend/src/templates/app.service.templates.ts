@@ -318,10 +318,19 @@ export class AppServiceTemplate {
           null,
           dispatchSkips,
         );
+        // O ERP fora do ar tem que ser dito como tal: sem esta distincao a
+        // mensagem culpa a fatura do cliente por uma indisponibilidade do
+        // provedor, e o operador desiste de um disparo que so precisava esperar.
+        const semRespostaDoErp = dispatchSkips.filter(
+          (s) => s.reason === 'erp_unavailable',
+        ).length;
+
         throw new BadRequestException(
-          dispatchSkips.length
-            ? `Nenhum destinatario valido apos validar faturas no ERP (${dispatchSkips.length} ignorado(s); registros no relatorio com status "não enviado (Fatura indisponível)").`
-            : 'Nenhum destinatario valido apos montagem das variaveis no servidor.',
+          semRespostaDoErp
+            ? `O ERP nao respondeu ao validar as faturas (${semRespostaDoErp} de ${dispatchSkips.length} destinatario(s)). Nenhuma mensagem foi enviada; tente novamente em alguns minutos. Detalhes no relatorio.`
+            : dispatchSkips.length
+              ? `Nenhum destinatario valido apos validar faturas no ERP (${dispatchSkips.length} ignorado(s); registros no relatorio com status "não enviado (Fatura indisponível)").`
+              : 'Nenhum destinatario valido apos montagem das variaveis no servidor.',
         );
       }
     } else {

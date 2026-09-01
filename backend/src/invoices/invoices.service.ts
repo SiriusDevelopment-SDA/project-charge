@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from '../clients/entities.ts/clients';
@@ -150,10 +156,23 @@ export class InvoicesService {
     try {
       result = await this.searchByCompanyRule(companyId, filter);
     } catch (err) {
-      this.logger.warn(
+      // Exceção de negócio (empresa sem cliente, ERP fora da régua de cobrança)
+      // é resposta legítima: hoje não há destinatário, e a campanha pode ser
+      // concluída. Qualquer outra falha — banco, Redis, bug — NÃO pode virar
+      // "campanha sem destinatários": era exatamente assim que uma campanha se
+      // marcava como executada sem ter avaliado ninguém. Deixa subir para o
+      // agendador decidir se retenta.
+      if (err instanceof HttpException) {
+        this.logger.warn(
+          `[InvoiceRule] getRecipientsForDispatchDate sem destinatarios company=${companyId} referenceDate=${referenceDate}: ${(err as Error)?.message}`,
+        );
+        return [];
+      }
+
+      this.logger.error(
         `[InvoiceRule] getRecipientsForDispatchDate falhou company=${companyId} referenceDate=${referenceDate}: ${(err as Error)?.message}`,
       );
-      return [];
+      throw err;
     }
 
     return result.data.map((r) => ({
