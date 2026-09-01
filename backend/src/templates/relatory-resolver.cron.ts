@@ -9,6 +9,7 @@ import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from '../invoices/services/hubsoftInvoicesService';
 import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
 import { MkInvoicesService } from '../invoices/services/mkInvoicesService';
+import { GamaIspInvoicesService } from '../invoices/services/gamaIspInvoicesService';
 
 type PendingGroup = { number: string; companyId: string };
 
@@ -30,6 +31,7 @@ export class RelatoryResolverCron {
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
     private readonly mkService: MkInvoicesService,
+    private readonly gamaIspService: GamaIspInvoicesService,
   ) {}
 
   // Roda a cada 2 horas (horário de Brasília)
@@ -83,6 +85,7 @@ export class RelatoryResolverCron {
       else if (erp === 'HUBSOFT') result = await this.hubsoftService.getInvoices(client);
       else if (erp === 'SGP')result = await this.sgpService.getInvoices(client);
       else if (erp === 'MK') result = await this.mkService.getInvoices(client);
+      else if (erp === 'GAMAISP') result = await this.gamaIspService.getInvoices(client);
       else {
         this.logger.warn(`[RelatoryResolver] ERP desconhecido "${erp}" para empresa ${companyId}`);
         return false;

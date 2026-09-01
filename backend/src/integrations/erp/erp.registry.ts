@@ -3,6 +3,7 @@ import { IXC_ERP } from '../../invoices/services/ixcInvoicesService';
 import { SGP_ERP } from '../../invoices/services/sgpInvoicesService';
 import { MK_ERP } from '../../invoices/services/mkInvoicesService';
 import { HUBSOFT_ERP } from '../../invoices/services/hubsoftInvoicesService';
+import { GAMA_ISP_ERP } from '../../invoices/services/gamaIspInvoicesService';
 
 /**
  * ERPs que aparecem no banco mas nao tem service — nao ha arquivo de
@@ -29,6 +30,7 @@ const DEFINICOES: ErpDefinition[] = [
   SGP_ERP,
   MK_ERP,
   HUBSOFT_ERP,
+  GAMA_ISP_ERP,
   ...SEM_INTEGRACAO,
 ];
 

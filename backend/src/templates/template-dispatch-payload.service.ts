@@ -9,7 +9,12 @@ import { IXCInvoicesService } from "../invoices/services/ixcInvoicesService";
 import { HubsoftInvoicesService } from "../invoices/services/hubsoftInvoicesService";
 import { SGPInvoicesService } from "../invoices/services/sgpInvoicesService";
 import { MkInvoicesService } from "../invoices/services/mkInvoicesService";
+import { GamaIspInvoicesService } from "../invoices/services/gamaIspInvoicesService";
 import { InvoiceMapResultDto } from "../invoices/dto/search.request.dto.invoices";
+import {
+  ehTipoChavePix,
+  resolverChavePix,
+} from "../companies/config.contract";
 
 export type DispatchSkipReason =
   | "missing_contact"
@@ -56,6 +61,13 @@ type BlueprintComponent = Record<string, unknown>;
 type BlueprintButton = Record<string, unknown>;
 type MappedScalar = Record<string, string | undefined>;
 
+/**
+ * Quem e o destinatario em construcao, para o log dizer QUAL empresa e QUAL
+ * cliente ficaram de fora quando um botao nao pode ser montado. Sem isso o
+ * aviso e inacionavel numa campanha de milhares de linhas.
+ */
+type DispatchContext = { companyId: string; clientId: string };
+
 @Injectable()
 export class TemplateDispatchPayloadService {
   private readonly logger = new Logger(TemplateDispatchPayloadService.name);
@@ -69,6 +81,7 @@ export class TemplateDispatchPayloadService {
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
     private readonly mkService: MkInvoicesService,
+    private readonly gamaIspService: GamaIspInvoicesService,
   ) {}
 
   templateRequiresInvoiceData(template: Templates): boolean {
@@ -153,6 +166,7 @@ export class TemplateDispatchPayloadService {
     const hubsoftByClient = new Map<string, InvoiceMapResultDto[]>();
     const sgpByClient = new Map<string, InvoiceMapResultDto[]>();
     const mkByClient = new Map<string, InvoiceMapResultDto[]>();
+    const gamaIspByClient = new Map<string, InvoiceMapResultDto[]>();
 
     if (requiresInvoice) {
       const uniqueClients = [...new Set(clients.map((c) => c.id))];
@@ -178,6 +192,9 @@ export class TemplateDispatchPayloadService {
             } else if (erp === "MK") {
               const res = await this.mkService.getInvoices(client);
               mkByClient.set(cid, res.list ?? []);
+            } else if (erp === "GAMAISP") {
+              const res = await this.gamaIspService.getInvoices(client);
+              gamaIspByClient.set(cid, res.list ?? []);
             }
           } catch (e) {
             this.logger.warn(
@@ -237,6 +254,7 @@ export class TemplateDispatchPayloadService {
         const hubList = hubsoftByClient.get(client.id);
         const sgpList = sgpByClient.get(client.id);
         const mkList = mkByClient.get(client.id);
+        const gamaIspList = gamaIspByClient.get(client.id);
 
         const invoiceId = String(row.invoice_id ?? "").trim();
 
@@ -253,7 +271,7 @@ export class TemplateDispatchPayloadService {
 
         this.logger.log(
           `[Dispatch] erp=${erp} clientId=${client.id} invoiceId=${invoiceId} ` +
-            `ixcMapSize=${ixcMap?.size ?? "no-entry"} hubListLen=${hubList?.length ?? "no-entry"} sgpListLen=${sgpList?.length ?? "no-entry"} mkListLen=${mkList?.length ?? "no-entry"}`,
+            `ixcMapSize=${ixcMap?.size ?? "no-entry"} hubListLen=${hubList?.length ?? "no-entry"} sgpListLen=${sgpList?.length ?? "no-entry"} mkListLen=${mkList?.length ?? "no-entry"} gamaIspListLen=${gamaIspList?.length ?? "no-entry"}`,
         );
 
         const fresh = await this.buildDispatchScalars(
@@ -264,6 +282,7 @@ export class TemplateDispatchPayloadService {
           hubList,
           sgpList,
           mkList,
+          gamaIspList,
         );
         if (!fresh) {
           skips.push({
@@ -284,17 +303,29 @@ export class TemplateDispatchPayloadService {
         const companyName = String(client.company?.name ?? "")
           .trim()
           .toLowerCase();
-        const companyCnpj = String(client.company?.cnpj ?? "").replace(
-          /\D/g,
-          "",
-        );
         if (!merged.nome_empresa && companyName)
           merged.nome_empresa = companyName;
         if (!merged.order_pix_merchant_name && companyName)
           merged.order_pix_merchant_name = companyName;
-        if (!merged.order_pix_key && companyCnpj) {
-          merged.order_pix_key = companyCnpj;
-          merged.order_pix_key_type = "CNPJ";
+        // A chave PIX sai da MESMA funcao que o cron de promessa usa
+        // (`resolverChavePix`): sobreposicao configurada quando existe, CNPJ da
+        // empresa com tipo `CNPJ` no caso normal. Antes daqui saia o CNPJ
+        // direto, com o tipo fixo no codigo — o que estava certo para o
+        // negocio, mas deixava chave de e-mail, telefone ou aleatoria
+        // inalcancavel para a empresa que registrou uma dessas no PSP.
+        //
+        // O que NAO existe, aqui nem la, e chave de reserva: empresa sem chave
+        // e sem CNPJ nao monta botao e o destinatario e pulado com log. Ver o
+        // docblock de `resolverChavePix`.
+        //
+        // Continua sendo fallback quanto ao SNAPSHOT: nao sobrescreve o que a
+        // campanha ja trouxe.
+        if (!merged.order_pix_key) {
+          const chavePix = resolverChavePix(client.company);
+          if (chavePix) {
+            merged.order_pix_key = chavePix.key;
+            merged.order_pix_key_type = chavePix.keyType;
+          }
         }
       }
 
@@ -302,6 +333,10 @@ export class TemplateDispatchPayloadService {
         templateVars,
         templateComponents,
         merged,
+        {
+          companyId: String(client?.company?.id ?? ""),
+          clientId,
+        },
       );
       if (!built) {
         skips.push({
@@ -399,6 +434,7 @@ export class TemplateDispatchPayloadService {
     hubList: InvoiceMapResultDto[] | undefined,
     sgpList: InvoiceMapResultDto[] | undefined,
     mkList: InvoiceMapResultDto[] | undefined,
+    gamaIspList: InvoiceMapResultDto[] | undefined,
   ): Promise<MappedScalar | null> {
     if (erp === "IXC") {
       const inv = ixcMap?.get(invoiceId);
@@ -482,6 +518,32 @@ export class TemplateDispatchPayloadService {
         valor_fatura: String(inv.invoice_amount ?? ""),
         linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ""),
         link_boleto_pdf: String(inv.ticket_pdf_link ?? ""),
+        code_pix: pixCode,
+        codigo_qr: pixCode,
+        codigo_qr_code: pixCode,
+        codigo_pix: pixCode,
+        order_reference_id: String(inv.contract_id ?? ""),
+      };
+    }
+
+    if (erp === "GAMAISP") {
+      const inv = gamaIspList?.find((x) => String(x.invoice_id) === invoiceId);
+      if (!inv) return null;
+
+      // A Gama ISP traz o PIX (pix_qrcode) no MESMO payload das faturas, entao
+      // nao ha busca on-demand como no MK/IXC: o valor ja veio do getInvoices.
+      const pixCode = String(inv.code_pix ?? "");
+
+      return {
+        invoice_id: invoiceId,
+        numero_contrato: String(inv.contract_id ?? ""),
+        data_vencimento_fatura: String(inv.invoice_due_date ?? ""),
+        valor_fatura: String(inv.invoice_amount ?? ""),
+        linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ""),
+        // Sem link de PDF nesta entrega: a Gama ISP so devolve o boleto como
+        // base64 num endpoint proprio, sem URL publica. Ver
+        // `gamaIspInvoicesService.ts` (ticket_pdf_link e sempre null).
+        link_boleto_pdf: "",
         code_pix: pixCode,
         codigo_qr: pixCode,
         codigo_qr_code: pixCode,
@@ -626,6 +688,7 @@ export class TemplateDispatchPayloadService {
     templateVars: TemplateVars,
     templateComponents: BlueprintComponent[],
     mapped: MappedScalar,
+    contexto: DispatchContext,
   ): { components: MessageQueuePayload["components"] } | null {
     const hasDocumentHeader = templateComponents.some(
       (c) =>
@@ -686,7 +749,12 @@ export class TemplateDispatchPayloadService {
       if (buttonType === "QUICK_REPLY") continue;
 
       if (buttonType === "ORDER_DETAILS") {
-        const oc = this.buildOrderDetailsComponent(button, i, mapped);
+        const oc = this.buildOrderDetailsComponent(
+          button,
+          i,
+          mapped,
+          contexto,
+        );
         if (!oc) return null;
         components.push(oc);
         continue;
@@ -710,6 +778,7 @@ export class TemplateDispatchPayloadService {
     button: BlueprintButton,
     buttonIndex: number,
     mapped: MappedScalar,
+    contexto: DispatchContext,
   ): MessageQueuePayload["components"][number] | null {
     const referenceId = String(
       mapped.numero_contrato ?? mapped.order_reference_id ?? "",
@@ -721,70 +790,72 @@ export class TemplateDispatchPayloadService {
         mapped.codigo_pix ??
         "",
     ).trim();
+    const merchantName = String(
+      mapped.order_pix_merchant_name ?? mapped.nome_empresa ?? "",
+    ).trim();
+    const amountCents = this.parseAmountToCents(mapped.valor_fatura);
+    const pixKey = String(mapped.order_pix_key ?? "").trim();
+    const pixKeyType = String(mapped.order_pix_key_type ?? "")
+      .trim()
+      .toUpperCase();
 
-    if (!referenceId || !pixCode) {
-      this.logger.log(
-        `[Dispatch] ORDER_DETAILS falhou: referenceId="${referenceId}" pixCode="${pixCode}" ` +
-          `code_pix="${mapped.code_pix}" codigo_qr="${mapped.codigo_qr}" valor_fatura="${mapped.valor_fatura}"`,
+    // `key` e `key_type` sao OBRIGATORIOS para a Meta dentro de
+    // `pix_dynamic_code`. Ate aqui os dois eram opcionais e o tipo era
+    // ADIVINHADO pelo formato da chave (`inferPixKeyType`, removido). As duas
+    // coisas produziam o mesmo desfecho: o NotificaMe aceitava o disparo com
+    // `status: queued` e HTTP 200, e a Meta recusava depois —
+    //
+    //   CODE: 100 — violated JSON schema constraint 'required'
+    //   ... missing 'key_type' ... missing 'key'
+    //
+    // — sem ninguem ver. Adivinhar era pior ainda que omitir: 11 digitos e CPF
+    // e telefone sem DDI ao mesmo tempo, e o tipo errado gera um payload que a
+    // Meta ACEITA e o banco do cliente recusa. O tipo vem de quem configurou a
+    // chave (`resolverChavePix`), ou o botao nao e montado.
+    const faltando: string[] = [];
+    if (!referenceId) faltando.push("numero_contrato");
+    if (!pixCode) faltando.push("code_pix");
+    if (!merchantName) faltando.push("order_pix_merchant_name");
+    if (amountCents <= 0) faltando.push("valor_fatura");
+
+    const problemaDeChave: string[] = [];
+    if (!pixKey) problemaDeChave.push("order_pix_key");
+    if (!pixKeyType) problemaDeChave.push("order_pix_key_type");
+    else if (!ehTipoChavePix(pixKeyType)) {
+      problemaDeChave.push(`order_pix_key_type invalido ("${pixKeyType}")`);
+    }
+
+    if (faltando.length || problemaDeChave.length) {
+      this.logger.warn(
+        `[Dispatch] Botao ORDER_DETAILS nao montado para o cliente ` +
+          `${contexto.clientId || "?"} da empresa ${contexto.companyId || "?"}: ` +
+          `${[...faltando, ...problemaDeChave].join(", ")}. A Meta recusaria o ` +
+          `disparo depois de aceito, entao o destinatario foi PULADO.` +
+          (problemaDeChave.length
+            ? " Configure a chave em PATCH /companies/:id -> pagamento."
+            : ""),
       );
       return null;
     }
 
-    const merchantName = String(
-      mapped.order_pix_merchant_name ?? mapped.nome_empresa ?? "",
-    ).trim();
-    const pixKeyCandidate = String(mapped.order_pix_key ?? "").trim();
-    const explicitPixKeyType = String(mapped.order_pix_key_type ?? "")
-      .trim()
-      .toUpperCase();
-    const amountCents = this.parseAmountToCents(mapped.valor_fatura);
     const itemName = String(mapped.order_item_name ?? "Fatura").trim();
     const itemDescription = String(mapped.order_item_description ?? "").trim();
-
-    if (amountCents <= 0) return null;
-
     const buildAmount = (value: number) => ({ value, offset: 100 });
-
-    type PixKeyType = "CNPJ" | "CPF" | "EMAIL" | "PHONE" | "RANDOM";
-    const inferPixKeyType = (key: string): PixKeyType | null => {
-      const digits = key.replace(/\D/g, "");
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) return "EMAIL";
-      if (digits.length === 14) return "CNPJ";
-      if (digits.length === 11) return "CPF";
-      if (digits.length >= 10 && digits.length <= 13) return "PHONE";
-      if (
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          key,
-        )
-      )
-        return "RANDOM";
-      return null;
-    };
-
-    const inferredPixKeyType = inferPixKeyType(pixKeyCandidate);
-    const VALID: PixKeyType[] = ["CNPJ", "CPF", "EMAIL", "PHONE", "RANDOM"];
-    const isValidExplicit = VALID.includes(explicitPixKeyType as PixKeyType);
-    const shouldIncludePixKey =
-      pixKeyCandidate.length > 0 &&
-      (isValidExplicit || inferredPixKeyType !== null);
-    const resolvedPixKeyType: PixKeyType | null = isValidExplicit
-      ? (explicitPixKeyType as PixKeyType)
-      : inferredPixKeyType;
-
-    const pixDynamicCode: Record<string, unknown> = {
-      code: pixCode,
-      merchant_name: merchantName,
-      ...(shouldIncludePixKey && resolvedPixKeyType
-        ? { key: pixKeyCandidate, key_type: resolvedPixKeyType }
-        : {}),
-    };
 
     const orderDetails = {
       reference_id: referenceId,
       type: "digital-goods",
       payment_type: "br",
       payment_settings: [
-        { type: "pix_dynamic_code", pix_dynamic_code: pixDynamicCode },
+        {
+          type: "pix_dynamic_code",
+          pix_dynamic_code: {
+            code: pixCode,
+            merchant_name: merchantName,
+            key: pixKey,
+            key_type: pixKeyType,
+          },
+        },
       ],
       currency: "BRL",
       total_amount: buildAmount(amountCents),

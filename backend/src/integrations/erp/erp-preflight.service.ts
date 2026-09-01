@@ -122,6 +122,8 @@ export class ErpPreflightService {
           return await this.preflightMk(input);
         case 'HUBSOFT':
           return await this.preflightHubsoft(input);
+        case 'GAMAISP':
+          return await this.preflightGamaIsp(input);
         default:
           // ERP declarado no registro mas sem preflight implementado aqui.
           // Nao mente dizendo que esta ok — declara que nao sabe.
@@ -301,6 +303,69 @@ export class ErpPreflightService {
     if (!data?.access_token) {
       return this.falha(
         `Hubsoft nao emitiu token: ${data?.message ?? data?.error ?? 'sem detalhe'}`,
+        'credencial',
+      );
+    }
+
+    return {
+      status: 'ok',
+      causa: null,
+      clientesVisiveis: null,
+      faturasVisiveis: null,
+      erro: null,
+    };
+  }
+
+  // ------------------------------------------------------------ GAMA ISP
+
+  /**
+   * `POST /api/v1/auth` — valida rest_key, login e senha de uma vez so, que e
+   * tudo que a Gama ISP exige. Nao da para contar nada: a listagem de faturas
+   * ignora filtros e estoura a memoria do PHP, e a unica rota util e por
+   * documento de UM cliente. Por isso as contagens ficam `null`.
+   *
+   * Nao usa `postJson`: aqui o corpo e `multipart/form-data` (nao JSON) e o
+   * header `Authorization` leva a rest_key CRUA depois da palavra "Basic" — nao
+   * e Basic HTTP, nao ha base64 de usuario:senha.
+   */
+  private async preflightGamaIsp(
+    input: PreflightInput,
+  ): Promise<PreflightResult> {
+    const cfg = this.configObjeto(input);
+
+    const form = new FormData();
+    form.append('login', String(cfg.login));
+    form.append('password', String(cfg.password));
+
+    const response = await fetch(`https://${input.url}/api/v1/auth`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${String(cfg.rest_key)}`,
+        Accept: 'application/json',
+      },
+      body: form,
+      signal: AbortSignal.timeout(PREFLIGHT_TIMEOUT_MS),
+    });
+
+    const texto = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${this.resumeCorpo(texto)}`);
+    }
+
+    // A Gama ISP responde HTTP 200 com corpo HTML de fatal error do PHP quando
+    // algo estoura do lado dela — `response.ok` nao valida nada. Ver
+    // `gamaIspInvoicesService.ts`.
+    let data: any;
+    try {
+      data = JSON.parse(texto);
+    } catch {
+      throw new Error(`resposta nao e JSON: ${this.resumeCorpo(texto)}`);
+    }
+
+    if (String(data?.status ?? '').toLowerCase() !== 'success' || !data?.data) {
+      return this.falha(
+        `Gama ISP nao emitiu token: ${this.resumeCorpo(texto)}`,
         'credencial',
       );
     }
