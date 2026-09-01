@@ -7,8 +7,8 @@ import { IsOptional } from 'class-validator';
  *
  * Um chamador de maquina nao omite campo: ele manda o registro inteiro e
  * preenche com o que tem. O que ele nao tem viaja como `null` — ou, dependendo
- * de quem serializou, como `""`. Os dois querem dizer a MESMA coisa que omitir:
- * "nao estou pedindo alteracao neste campo".
+ * de quem serializou, como `""`, e em campo de lista como `[]`. Os tres querem
+ * dizer a MESMA coisa que omitir: "nao estou pedindo alteracao neste campo".
  *
  * O `@IsOptional()` do class-validator pula a validacao para `null` e para
  * `undefined`. Ele NAO converte um no outro: o `null` atravessa o DTO intacto e
@@ -37,7 +37,7 @@ import { IsOptional } from 'class-validator';
  * endpoints que ninguem revisou, e o sintoma seria "o campo nao limpa mais",
  * sem erro nenhum apontando para a causa.
  *
- * QUAL DOS DOIS USAR
+ * QUAL DELES USAR
  *
  * - `CampoOpcional()`: normaliza `null` e apara os espacos das pontas, mas NAO
  *   converte vazio em ausencia. Para campo onde `""` tem significado proprio a
@@ -48,11 +48,17 @@ import { IsOptional } from 'class-validator';
  *   nao e uma operacao valida — `cnpj` e `token_notificameHub` (colunas NOT
  *   NULL) e as chaves PIX (`order_pix_key` e o tipo dela) —, logo um vazio so
  *   pode ser ruido do chamador.
+ * - `ListaOpcional()`: normaliza `null` E `[]`. Para campo de LISTA onde
+ *   esvaziar nao e uma operacao valida — hoje so `canais`, que o cadastro exige
+ *   com `@ArrayNotEmpty()` e o PATCH nao pode desfazer. `[]` esta para lista
+ *   assim como `""` esta para texto: e a forma que a ausencia assume quando o
+ *   chamador serializa um campo de lista que ele nao tem preenchido. NAO use em
+ *   `paginasExtras`, onde o `[]` E o pedido — "remova todos os adicionais".
  * - `textoAparado` solto, em campo OBRIGATORIO: apara e deixa o vazio para o
  *   `@IsNotEmpty()` do proprio campo recusar. Nao ha o que compor ali, porque
  *   campo obrigatorio nao leva `@IsOptional()`.
  *
- * O QUE NENHUM DOS DOIS FAZ
+ * O QUE NENHUM DELES FAZ
  *
  * Afrouxar validacao de valor COM conteudo. Depois do transform o campo esta
  * `undefined` — e a validacao nem roda —, vazio (e ai quem decide e o
@@ -112,6 +118,24 @@ export function vazioComoAusente(params: TransformFnParams): unknown {
 }
 
 /**
+ * `null` e `[]` viram `undefined`. Qualquer outro valor passa intacto —
+ * inclusive o que NAO e lista, para que o `@IsArray()` do proprio campo
+ * continue recusando `canais: "abc"` com 400.
+ *
+ * Passa pelo `nuloComoAusente` pelo mesmo motivo que o `vazioComoAusente`: o
+ * tratamento de `null` e um so no projeto inteiro, e nao dois caminhos que
+ * podem divergir.
+ *
+ * O `[]` so vale como ausencia onde ESVAZIAR nunca foi um resultado
+ * alcancavel. Onde a lista vazia e pedido legitimo — `paginasExtras` —, use
+ * `CampoOpcional()`, que normaliza so o `null`.
+ */
+export function listaVaziaComoAusente(params: TransformFnParams): unknown {
+  const valor = nuloComoAusente(params);
+  return Array.isArray(valor) && valor.length === 0 ? undefined : valor;
+}
+
+/**
  * Campo opcional em que `null` vale como CAMPO NAO ENVIADO.
  *
  * `@IsOptional()` e o `@Transform` precisam andar juntos: sozinho, o
@@ -131,4 +155,18 @@ export function CampoOpcional() {
  */
 export function TextoOpcional() {
   return applyDecorators(IsOptional(), Transform(vazioComoAusente));
+}
+
+/**
+ * Campo de LISTA opcional em que `null` e `[]` valem como CAMPO NAO ENVIADO.
+ *
+ * Use somente onde esvaziar a lista nunca foi um resultado alcancavel — do
+ * contrario o `[]` de quem queria esvaziar seria engolido em silencio, que e o
+ * mesmo erro que este arquivo existe para evitar, so que do outro lado.
+ *
+ * Lista COM conteudo segue substituindo a atual por completo e segue validada
+ * item a item: o transform nao afrouxa nada sobre valor de verdade.
+ */
+export function ListaOpcional() {
+  return applyDecorators(IsOptional(), Transform(listaVaziaComoAusente));
 }

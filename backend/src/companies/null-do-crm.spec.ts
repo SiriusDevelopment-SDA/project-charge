@@ -15,7 +15,9 @@ import { Company } from './entities/companies';
  * `null` VINDO DO CRM.
  *
  * O CRM reenvia o registro inteiro a cada alteracao, e campo que ele nao
- * preencheu viaja como `null` — nao como ausencia. O `@IsOptional()` do
+ * preencheu viaja como `null` — nao como ausencia. Num campo de LISTA a mesma
+ * ausencia chega como `[]`, e o ultimo describe deste arquivo cobre esse caso:
+ * mesmo chamador, mesmo fenomeno, outro token. O `@IsOptional()` do
  * class-validator pula a validacao para `null` E para `undefined`, entao o
  * `null` atravessava o DTO intacto; ja o `companies.service.ts` decide campo a
  * campo com `if (dto.campo !== undefined)`, e `null !== undefined` e verdadeiro.
@@ -505,6 +507,111 @@ describe('PATCH: espaco em branco nao passa mais por campo obrigatorio', () => {
 
     expect(campos).toEqual([]);
     expect(empresa.teamChargeId).toBeNull();
+  });
+});
+
+/**
+ * `canais: []` — A AUSENCIA NUM CAMPO DE LISTA.
+ *
+ * Mora neste arquivo porque e o MESMO fenomeno dos testes acima: o chamador de
+ * maquina que reenvia o registro inteiro e serializa como vazio o campo que ele
+ * nao tem preenchido. Muda so o token — `[]` em vez de `null`, porque o campo e
+ * uma lista.
+ *
+ * A ASSIMETRIA QUE ISTO FECHA
+ *
+ * `CreateCompanyDto` tem `@ArrayNotEmpty()`: empresa nao NASCE sem canal. O
+ * PATCH so tinha `@IsArray()`, entao aceitava `[]` e esvaziava a lista — a
+ * empresa nao podia nascer sem canal, mas podia FICAR sem, por um PATCH que
+ * ninguem leu como pedido.
+ *
+ * E o estrago nao aparece na resposta: 200. O canal e o remetente (`from`) do
+ * disparo, entao a empresa so quebra na hora do envio, e mensagem por mensagem
+ * — o `MessageQueueWorker` aborta cada uma com "Empresa sem integracao
+ * NotificaMe configurada". Nao falha no PATCH, nao falha na campanha.
+ *
+ * O NOT NULL da coluna nao ajuda: `canalId_notificameHub` e `jsonb` com default
+ * `'[]'`, e array vazio satisfaz a constraint.
+ */
+describe('PATCH: canais nao pode ser esvaziado', () => {
+  const canaisAtuais = [{ id: 'canal-a', numero: '+55 00 0000-0000' }];
+
+  it('canais: [] vale como campo nao enviado — os canais atuais permanecem', async () => {
+    const { campos, empresa } = await patch({ canais: [] });
+
+    expect(campos).toEqual([]);
+    expect(empresa.canalId_notificameHub).toEqual(canaisAtuais);
+  });
+
+  it('canais: [] sozinho nao escreve nada e cai na previa', async () => {
+    // Consequencia de virar `undefined` no DTO: o corpo inteiro fica sem campo
+    // algum, e o service nem chega ao `save`.
+    const { resposta, salvou } = await patch({ canais: [] });
+
+    expect(resposta.aplicado).toBe(false);
+    expect(salvou()).toBe(false);
+  });
+
+  it('canais: [] nao atrapalha o campo que o PATCH realmente queria mudar', async () => {
+    const { campos, empresa, salvou } = await patch({
+      name: 'NOVO NOME',
+      canais: [],
+    });
+
+    expect(campos).toEqual([]);
+    expect(empresa.name).toBe('NOVO NOME');
+    expect(empresa.canalId_notificameHub).toEqual(canaisAtuais);
+    expect(salvou()).toBe(true);
+  });
+
+  it('lista COM conteudo continua substituindo a atual por completo', async () => {
+    // O `[]` virar ausencia nao pode custar a troca de canal, que e a razao de
+    // o campo existir no PATCH.
+    const novos = [
+      { id: 'canal-b', numero: '+55 11 1111-1111' },
+      { id: 'canal-c', numero: '+55 22 2222-2222' },
+    ];
+    const { campos, empresa } = await patch({ canais: novos });
+
+    expect(campos).toEqual([]);
+    expect(empresa.canalId_notificameHub).toEqual(novos);
+  });
+
+  it('item sem id continua 400 — o transform nao afrouxa o @ValidateNested', () => {
+    expect(validarUpdate({ canais: [{ numero: '+55 00 0000-0000' }] }).campos).toEqual([
+      'canais',
+    ]);
+  });
+
+  it('item sem numero continua 400', () => {
+    expect(validarUpdate({ canais: [{ id: 'canal-a' }] }).campos).toEqual([
+      'canais',
+    ]);
+  });
+
+  it('canais que nao e lista continua 400', () => {
+    // O transform devolve intacto tudo que nao e array vazio, entao o
+    // `@IsArray()` do campo segue sendo quem recusa.
+    expect(validarUpdate({ canais: 'canal-a' }).campos).toEqual(['canais']);
+  });
+
+  it('CADASTRO continua recusando lista vazia — a assimetria acabou pelo lado certo', () => {
+    // O outro lado da correcao: o PATCH parou de esvaziar, e o cadastro NAO
+    // afrouxou. Empresa continua sem poder nascer sem canal.
+    const { campos } = validarCreate({
+      name: 'PROVEDOR EXEMPLO',
+      url: 'erp.exemplo.com.br',
+      account_chatwoot: '99',
+      erp: 'IXC',
+      credenciais: { autorization: '00:0000' },
+      plano: 'cobranca',
+      token_system_coraxy: 'token-da-empresa-aqui',
+      cnpj: '11222333000181',
+      token_notificameHub: 'x-api-token-ficticio',
+      canais: [],
+    });
+
+    expect(campos).toEqual(['canais']);
   });
 });
 
