@@ -21,6 +21,7 @@ import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from './invoices/services/hubsoftInvoicesService';
 import { SGPInvoicesService } from './invoices/services/sgpInvoicesService';
 import { MkInvoicesService } from './invoices/services/mkInvoicesService';
+import { GamaIspInvoicesService } from './invoices/services/gamaIspInvoicesService';
 import { Campaign } from './campaigns/entities/campanhas.entity';
 import { CampaignsController } from './campaigns/campaigns.controller';
 import { CampaignsService } from './campaigns/campaigns.service';
@@ -157,6 +158,7 @@ import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor'
     HubsoftInvoicesService,
     SGPInvoicesService,
     MkInvoicesService,
+    GamaIspInvoicesService,
     RedisService,
     TemplateDispatchPayloadService,
     CampaignScheduler,
@@ -179,6 +181,7 @@ import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor'
     HubsoftInvoicesService,
     SGPInvoicesService,
     MkInvoicesService,
+    GamaIspInvoicesService,
     TemplateDispatchPayloadService,
     RedisService
   ],

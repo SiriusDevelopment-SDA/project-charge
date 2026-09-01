@@ -396,6 +396,7 @@ export class CompaniesService {
         plano: dto.plano,
         paginasExtras: dto.paginasExtras,
         ajustes: dto.ajustes as Record<string, number> | undefined,
+        pagamento: dto.pagamento,
         preflight: resultado ? this.resumoPreflight(resultado) : undefined,
         crmCompanyId: vincularCom,
       },
