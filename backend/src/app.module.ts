@@ -70,6 +70,7 @@ import { MessageQueueWorker } from './message-queue/message-queue.worker';
 import { TemplateDispatchPayloadService } from './templates/template-dispatch-payload.service';
 import { MessageQueue } from './message-queue/entities/message-queue.entity';
 import { CampaignScheduler } from './message-queue/campaign-scheduler';
+import { CampaignErpRetryService } from './message-queue/campaign-erp-retry.service';
 import { CompaniesController } from './companies/companies.controller';
 import { CompaniesService } from './companies/companies.service';
 import { SuperAdminGuard } from './auth/guards/super-admin.guard';
@@ -162,6 +163,7 @@ import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor'
     RedisService,
     TemplateDispatchPayloadService,
     CampaignScheduler,
+    CampaignErpRetryService,
     CompaniesService,
     SuperAdminGuard,
     // Nao e APP_GUARD: atua apenas nos handlers que declaram @RequirePage(...),

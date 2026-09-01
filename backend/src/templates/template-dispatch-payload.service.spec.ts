@@ -196,3 +196,148 @@ describe("buildRecipientFromBlueprint — ORDER_DETAILS", () => {
     expect(construir({ order_pix_key: undefined })).toBeNull();
   });
 });
+
+/**
+ * ERP indisponivel x cliente sem fatura — dois desfechos que chegavam iguais.
+ *
+ * O preload de faturas consulta o ERP ao vivo, cliente por cliente, dentro de um
+ * try/catch. Ate esta correcao a excecao virava lista vazia, e lista vazia
+ * produzia o mesmo skip de quem realmente quitou
+ * (`invoice_not_open_in_erp`). O agendador entao concluia a campanha e ela se
+ * perdia pelo resto do dia com o relatorio dizendo que ninguem devia nada.
+ *
+ * O que estes testes trancam: a falha do ERP tem que chegar ao chamador
+ * separada, e separada tambem por natureza — o que pode passar sozinho
+ * (`erp_unavailable`) nao se confunde com o que exige alguem mexer no cadastro
+ * (`erp_integration_error`).
+ */
+describe("buildQueueRecipients — falha de ERP no preload", () => {
+  const cliente = (sufixo: string) => ({
+    id: `cliente-${sufixo}`,
+    name: `Cliente ${sufixo}`,
+    whatsapp: `551199999000${sufixo}`,
+    cnpj_cpf: "11222333000181",
+    company: { id: "empresa-1", erp: "SGP", name: "provedor exemplo" },
+  });
+
+  const linha = (sufixo: string) => ({
+    clientId: `cliente-${sufixo}`,
+    whatsapp: `551199999000${sufixo}`,
+    nome_cliente: `Cliente ${sufixo}`,
+    invoice_id: `fatura-${sufixo}`,
+  });
+
+  /** Template que USA dado de fatura — sem isso o preload nem roda. */
+  const template = {
+    id: "template-1",
+    variables: { "1": "valor_fatura" },
+    components: [],
+  } as never;
+
+  const montar = (
+    clientes: ReturnType<typeof cliente>[],
+    getInvoices: jest.Mock,
+  ) => {
+    const instancia = new TemplateDispatchPayloadService(
+      { find: jest.fn(async () => clientes) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { getInvoices } as never,
+      {} as never,
+      {} as never,
+    );
+    jest.spyOn(instancia["logger"], "warn").mockImplementation();
+    jest.spyOn(instancia["logger"], "log").mockImplementation();
+    return instancia;
+  };
+
+  it("marca erp_unavailable quando o ERP nao responde", async () => {
+    const servico = montar(
+      [cliente("1")],
+      jest.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+
+    const { recipients, skips } = await servico.buildQueueRecipients(
+      template,
+      "empresa-1",
+      [linha("1")],
+    );
+
+    expect(recipients).toHaveLength(0);
+    expect(skips).toHaveLength(1);
+    expect(skips[0].reason).toBe("erp_unavailable");
+    expect(skips[0].detail).toContain("não respondeu");
+  });
+
+  it("marca erp_integration_error quando o ERP recusa a credencial", async () => {
+    const servico = montar(
+      [cliente("1")],
+      jest.fn(async () => {
+        throw new Error("Erro no ERP (SGP): 401 -> Unauthorized");
+      }),
+    );
+
+    const { skips } = await servico.buildQueueRecipients(template, "empresa-1", [
+      linha("1"),
+    ]);
+
+    expect(skips[0].reason).toBe("erp_integration_error");
+  });
+
+  it("mantem invoice_not_open_in_erp quando o ERP responde e nao ha fatura", async () => {
+    // Comportamento legitimo, e o que NAO pode mudar: com o ERP saudavel o
+    // cliente que quitou continua sendo um skip normal e a campanha conclui.
+    const servico = montar(
+      [cliente("1")],
+      jest.fn(async () => ({ status: "success", message: "ok", list: [] })),
+    );
+
+    const { skips } = await servico.buildQueueRecipients(template, "empresa-1", [
+      linha("1"),
+    ]);
+
+    expect(skips[0].reason).toBe("invoice_not_open_in_erp");
+  });
+
+  it("isola a falha por cliente: quem o ERP atendeu segue no disparo", async () => {
+    const getInvoices = jest.fn(async (c: { id: string }) => {
+      if (c.id === "cliente-2") throw new TypeError("fetch failed");
+      return {
+        status: "success",
+        message: "ok",
+        list: [
+          {
+            invoice_id: "fatura-1",
+            contract_id: "CT-1",
+            invoice_due_date: "10/09/2026",
+            invoice_amount: "120,00",
+            invoice_status: "A Receber",
+            ticket_digitable_line: "",
+            ticket_pdf_link: "",
+            code_pix: null,
+          },
+        ],
+      };
+    });
+
+    const servico = montar([cliente("1"), cliente("2")], getInvoices);
+
+    const { recipients, skips } = await servico.buildQueueRecipients(
+      template,
+      "empresa-1",
+      [linha("1"), linha("2")],
+    );
+
+    expect(recipients).toHaveLength(1);
+    expect(recipients[0].number).toBe("5511999990001");
+    expect(skips).toEqual([
+      expect.objectContaining({
+        reason: "erp_unavailable",
+        clientId: "cliente-2",
+      }),
+    ]);
+  });
+});

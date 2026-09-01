@@ -15,11 +15,27 @@ import {
   ehTipoChavePix,
   resolverChavePix,
 } from "../companies/config.contract";
+import {
+  classifyErpFailure,
+  describeErpFailure,
+  type ErpFailure,
+} from "../integrations/erp/erp-failure";
 
 export type DispatchSkipReason =
   | "missing_contact"
   | "missing_client_or_invoice"
   | "invoice_not_open_in_erp"
+  /**
+   * O ERP nao respondeu (rede, timeout, 5xx, corpo quebrado). NAO se sabe se o
+   * cliente tem fatura em aberto — e o unico motivo que autoriza o agendador a
+   * manter a campanha pendente e tentar de novo.
+   */
+  | "erp_unavailable"
+  /**
+   * O ERP respondeu recusando a credencial, ou a integracao esta mal
+   * configurada. Repetir nao muda a resposta: fica registrado para alguem ver.
+   */
+  | "erp_integration_error"
   | "template_variables_incomplete"
   | "duplicate_dispatch_today";
 
@@ -36,6 +52,18 @@ export type BuildQueueRecipientsResult = {
   recipients: MessageQueuePayload[];
   skips: DispatchSkipRecord[];
 };
+
+/**
+ * Telefone do destinatario a partir da linha do disparo, em digitos.
+ *
+ * Exportado porque o agendador precisa comparar a linha da campanha com o que
+ * ja foi enfileirado hoje ANTES de montar o payload (para o retry nao reprocessar
+ * quem ja recebeu). Se cada lado normalizasse do seu jeito, a comparacao falharia
+ * em silencio e o cliente receberia duas vezes.
+ */
+export function normalizeDispatchNumber(row: Record<string, unknown>): string {
+  return String(row.whatsapp ?? row.number ?? "").replace(/\D/g, "");
+}
 
 const INVOICE_VARIABLE_KEYS = new Set([
   "data_vencimento_fatura",
@@ -167,6 +195,12 @@ export class TemplateDispatchPayloadService {
     const sgpByClient = new Map<string, InvoiceMapResultDto[]>();
     const mkByClient = new Map<string, InvoiceMapResultDto[]>();
     const gamaIspByClient = new Map<string, InvoiceMapResultDto[]>();
+    /**
+     * Clientes cujo preload FALHOU, com a natureza da falha. E o que separa
+     * "o ERP disse que nao ha fatura" de "o ERP nao respondeu": sem este mapa
+     * os dois chegam ao loop abaixo como lista vazia.
+     */
+    const erpFailureByClient = new Map<string, ErpFailure>();
 
     if (requiresInvoice) {
       const uniqueClients = [...new Set(clients.map((c) => c.id))];
@@ -197,8 +231,11 @@ export class TemplateDispatchPayloadService {
               gamaIspByClient.set(cid, res.list ?? []);
             }
           } catch (e) {
+            const failure = classifyErpFailure(e);
+            erpFailureByClient.set(cid, failure);
             this.logger.warn(
-              `ERP preload falhou client=${cid} erp=${erp}: ${e instanceof Error ? e.message : e}`,
+              `ERP preload falhou client=${cid} erp=${erp} causa=${failure.cause} ` +
+                `transitorio=${failure.transient} http=${failure.httpStatus ?? "-"}: ${failure.message}`,
             );
           }
         }),
@@ -219,10 +256,7 @@ export class TemplateDispatchPayloadService {
     const skips: DispatchSkipRecord[] = [];
 
     for (const row of rows) {
-      const number = String(row.whatsapp ?? row.number ?? "").replace(
-        /\D/g,
-        "",
-      );
+      const number = normalizeDispatchNumber(row);
       const name = String(row.nome_cliente ?? row.name ?? "").trim();
       if (!number || !name) {
         skips.push({
@@ -285,14 +319,23 @@ export class TemplateDispatchPayloadService {
           gamaIspList,
         );
         if (!fresh) {
+          // A fatura nao foi encontrada. Duas causas MUITO diferentes chegam
+          // aqui do mesmo jeito (lista vazia), e o relatorio precisa dizer qual
+          // foi: o cliente quitou, ou o ERP nao respondeu por este cliente.
+          const failure = erpFailureByClient.get(client.id);
           skips.push({
-            reason: "invoice_not_open_in_erp",
+            reason: failure
+              ? failure.transient
+                ? "erp_unavailable"
+                : "erp_integration_error"
+              : "invoice_not_open_in_erp",
             number,
             name,
             clientId,
             invoiceId,
-            detail:
-              "Nenhuma fatura em aberto encontrada no ERP para este cliente no momento do disparo.",
+            detail: failure
+              ? describeErpFailure(failure)
+              : "Nenhuma fatura em aberto encontrada no ERP para este cliente no momento do disparo.",
           });
           continue;
         }
@@ -407,6 +450,10 @@ export class TemplateDispatchPayloadService {
         return "Destinatário ignorado: vínculo cliente/fatura incompleto.";
       case "invoice_not_open_in_erp":
         return `Fatura ${s.invoiceId ?? ""} indisponível ou quitada no ERP.`;
+      case "erp_unavailable":
+        return "Mensagem não enviada: o ERP não respondeu no momento do disparo.";
+      case "erp_integration_error":
+        return "Mensagem não enviada: o ERP recusou a consulta (credencial ou configuração da integração).";
       case "template_variables_incomplete":
         return "Destinatário ignorado: dados insuficientes para o template.";
       case "duplicate_dispatch_today":
