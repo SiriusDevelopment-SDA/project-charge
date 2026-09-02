@@ -212,8 +212,11 @@ describe("buildRecipientFromBlueprint — ORDER_DETAILS", () => {
  * (`erp_integration_error`).
  */
 describe("buildQueueRecipients — falha de ERP no preload", () => {
+  /** `Client.id` e uuid na base: o service descarta clientId fora do formato. */
+  const idCliente = (sufixo: string) => `0000000${sufixo}-0000-4000-8000-000000000000`;
+
   const cliente = (sufixo: string) => ({
-    id: `cliente-${sufixo}`,
+    id: idCliente(sufixo),
     name: `Cliente ${sufixo}`,
     whatsapp: `551199999000${sufixo}`,
     cnpj_cpf: "11222333000181",
@@ -221,7 +224,7 @@ describe("buildQueueRecipients — falha de ERP no preload", () => {
   });
 
   const linha = (sufixo: string) => ({
-    clientId: `cliente-${sufixo}`,
+    clientId: idCliente(sufixo),
     whatsapp: `551199999000${sufixo}`,
     nome_cliente: `Cliente ${sufixo}`,
     invoice_id: `fatura-${sufixo}`,
@@ -304,7 +307,7 @@ describe("buildQueueRecipients — falha de ERP no preload", () => {
 
   it("isola a falha por cliente: quem o ERP atendeu segue no disparo", async () => {
     const getInvoices = jest.fn(async (c: { id: string }) => {
-      if (c.id === "cliente-2") throw new TypeError("fetch failed");
+      if (c.id === idCliente("2")) throw new TypeError("fetch failed");
       return {
         status: "success",
         message: "ok",
@@ -336,7 +339,7 @@ describe("buildQueueRecipients — falha de ERP no preload", () => {
     expect(skips).toEqual([
       expect.objectContaining({
         reason: "erp_unavailable",
-        clientId: "cliente-2",
+        clientId: idCliente("2"),
       }),
     ]);
   });

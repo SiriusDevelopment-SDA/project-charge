@@ -318,3 +318,72 @@ export function buildTemplateRecipients(template: Template, mappedVarsList: mapp
     )
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
+
+/**
+ * Destinatarios no formato da montagem SERVER-SIDE.
+ *
+ * O backend liga esse modo quando NENHUM destinatario traz `components`
+ * (`useServerBuild` em `app.service.templates.ts`): ele busca a fatura e o PIX
+ * no ERP no momento do disparo, monta os componentes la e registra no relatorio
+ * quem nao pode ser montado, com o motivo.
+ *
+ * E por isso que o disparo para clientes usa este caminho em vez de
+ * `buildTemplateRecipients`: o snapshot que o front tem em maos pode estar
+ * velho ou incompleto — a Gama ISP, por exemplo, so grava `pixCode` para parte
+ * das faturas — e descartar o cliente aqui o tira do lote sem deixar rastro,
+ * antes mesmo de perguntar ao ERP.
+ *
+ * `components: []` E o gatilho: o DTO exige o campo, entao mandar array vazio
+ * (e nao omitir) e proposital. `clientId` e `invoice_id` sao o que o backend usa
+ * para achar o cliente e a fatura de referencia no ERP.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isPersistedClientId(value?: string): boolean {
+  return typeof value === "string" && UUID_PATTERN.test(value.trim());
+}
+
+export function buildServerSideRecipients(
+  mappedVarsList: mappedVars[]
+): TemplateRecipient[] {
+  return mappedVarsList
+    .map((mappedVar): TemplateRecipient | null => {
+      // Mesma faixa do @Matches do ToComponentDto: fora dela o backend rejeita
+      // o lote INTEIRO com 400, entao o destinatario sem telefone util fica de
+      // fora aqui mesmo.
+      const number = String(mappedVar.whatsapp ?? "").replace(/\D/g, "");
+      if (number.length < 10 || number.length > 15) return null;
+
+      const templateVars: Record<string, string> = {};
+      for (const [key, value] of Object.entries(mappedVar)) {
+        // `mensagem` e o texto ja compilado para o preview: nao e variavel de
+        // template e o backend recompoe a mensagem por conta propria.
+        if (key === "mensagem") continue;
+        if (typeof value === "string" && value.trim() !== "") {
+          templateVars[key] = value;
+        }
+      }
+
+      return {
+        name: String(mappedVar.nome_cliente ?? ""),
+        number,
+        components: [],
+        // So vai `clientId` que EXISTE na base. O upload de planilha monta
+        // cliente "stateless" com id `stateless:<doc>` para CPF sem cadastro
+        // (hendleUploadSpreadSheat.ts), e do outro lado o backend consulta
+        // `Client.id`, que e coluna uuid — id fora do formato faz o Postgres
+        // recusar o `IN` inteiro e derrubar o lote com 500, levando junto os
+        // clientes validos. Sem `clientId`, o destinatario vira skip
+        // individual no relatorio, que e o comportamento desejado.
+        ...(isPersistedClientId(mappedVar.clientId)
+          ? { clientId: String(mappedVar.clientId) }
+          : {}),
+        ...(mappedVar.invoice_id
+          ? { invoice_id: String(mappedVar.invoice_id) }
+          : {}),
+        templateVars,
+      };
+    })
+    .filter((recipient): recipient is TemplateRecipient => recipient !== null);
+}
