@@ -11,7 +11,6 @@ import { handleUploadPlanilha } from "../../../utils/hendleUploadSpreadSheat";
 import { useManualLeadDispatchController } from "./useManualLeadDispatchController";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import {
-  areOnlyAttendantFieldsMissing,
   getIncompleteTemplateRecipients,
   templateRequiresAttendantName,
 } from "../../../validators/template.validator";
@@ -547,26 +546,43 @@ export function useDispatchPageController() {
     );
 
     if (incompleteRecipients.length) {
-      if (
-        AppStorage.getAuthMode() === "embed" &&
-        areOnlyAttendantFieldsMissing(incompleteRecipients)
-      ) {
-        setOpenDispatchAttendantModal(true);
-        return;
-      }
+      // Nome do atendente e da empresa nao existem em ERP nenhum: o backend
+      // nao tem onde buscar, entao continua valendo parar aqui para PEDIR o
+      // dado — e pedir, nao so recusar.
+      const missingAttendantField = incompleteRecipients.some((recipient) =>
+        recipient.missingFields.some(
+          (fieldKey) =>
+            fieldKey === "nome_atendente" || fieldKey === "nome_empresa",
+        ),
+      );
 
-      if (areOnlyAttendantFieldsMissing(incompleteRecipients)) {
+      if (missingAttendantField) {
+        if (AppStorage.getAuthMode() === "embed") {
+          setOpenDispatchAttendantModal(true);
+          return;
+        }
+
         toast.warning("Nao foi possivel identificar o nome do usuario logado.");
         return;
       }
 
-      const pendingFields = incompleteRecipients[0]?.missingFields.join(", ");
-      toast.warning(
-        pendingFields
-          ? `Preencha todas as variaveis obrigatorias antes do preview. Campos pendentes: ${pendingFields}.`
-          : "Preencha todas as variaveis obrigatorias antes do preview.",
-      );
-      return;
+      // Leads sao montados no frontend: nao ha backend para consultar, entao
+      // campo pendente aqui e campo que faltaria no disparo.
+      if (dispatch.modoPage === "leads") {
+        const pendingFields = incompleteRecipients[0]?.missingFields.join(", ");
+        toast.warning(
+          pendingFields
+            ? `Preencha todas as variaveis obrigatorias antes do preview. Campos pendentes: ${pendingFields}.`
+            : "Preencha todas as variaveis obrigatorias antes do preview.",
+        );
+        return;
+      }
+
+      // Clientes: NAO barrar. Fatura, PIX e contrato sao resolvidos pelo
+      // backend no ERP no momento do disparo — decidir aqui, com o snapshot
+      // local, e recusar o disparo sem nunca perguntar a quem tem o dado. O
+      // que nao puder ser montado la vira registro no relatorio, por
+      // destinatario e com motivo.
     }
 
     if (freshMappedVars.length) {
