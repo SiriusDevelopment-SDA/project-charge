@@ -77,6 +77,10 @@ const INVOICE_VARIABLE_KEYS = new Set([
   "codigo_pix",
 ]);
 
+/** Formato de `Client.id` (uuid). Ver o uso em `buildQueueRecipients`. */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const PIX_VARIABLE_KEYS = new Set([
   "code_pix",
   "codigo_qr",
@@ -174,9 +178,19 @@ export class TemplateDispatchPayloadService {
 
     const requiresInvoice = this.templateRequiresInvoiceData(template);
     const requiresPix = requiresInvoice && this.templateRequiresPix(template);
+    // `Client.id` e coluna uuid: um id fora do formato faz o Postgres recusar o
+    // `IN` INTEIRO ("invalid input syntax for type uuid") e a excecao sobe antes
+    // de qualquer `persistDispatchSkips` — o lote morre com 500 e nem no
+    // relatorio fica. E entra id assim por caminho legitimo: o upload de
+    // planilha monta cliente "stateless" (`stateless:<doc>`) para CPF sem
+    // cadastro. Filtrar aqui degrada isso para o que ja existe logo abaixo:
+    // cliente nao encontrado vira skip individual, com motivo, e o resto do
+    // lote segue.
     const clientIds = [
       ...new Set(
-        rows.map((r) => String(r.clientId ?? "").trim()).filter(Boolean),
+        rows
+          .map((r) => String(r.clientId ?? "").trim())
+          .filter((id) => UUID_PATTERN.test(id)),
       ),
     ];
 
