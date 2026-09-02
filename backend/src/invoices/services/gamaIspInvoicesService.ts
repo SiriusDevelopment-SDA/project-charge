@@ -674,6 +674,67 @@ export class GamaIspInvoicesService {
     );
   }
 
+  /**
+   * PIX de UMA fatura, por id, via `GET /api/v1/faturas/id/{id}`.
+   *
+   * A busca por documento ja traz `pix_qrcode` na maioria das faturas, e por
+   * isso este endpoint ficou registrado como fallback nao usado. Producao
+   * provou o caso previsto: fatura EM ABERTO, com valor e vencimento, e
+   * `pix_qrcode` null na listagem por documento. Sem PIX o botao
+   * ORDER_DETAILS nao monta e o destinatario e pulado inteiro — o que
+   * aconteceu na POWERNET em 02/09/2026.
+   *
+   * Devolve `null` e NAO lanca quando o ERP nao responde ou nao tem o codigo:
+   * quem chama ja sabe lidar com PIX ausente, e derrubar o lote por causa de
+   * uma fatura seria pior do que pular um destinatario com motivo registrado.
+   */
+  async fetchPixByInvoice(
+    company: Company,
+    invoiceId: string,
+  ): Promise<string | null> {
+    const id = String(invoiceId ?? '').trim();
+    if (!id) return null;
+
+    try {
+      // Valida a credencial ANTES de pedir vaga, como em `getInvoices`.
+      this.parseConfig(company);
+
+      const payload = await this.comVaga(company, () =>
+        this.requisitarComToken<
+          GamaIspResponse<GamaIspFatura | GamaIspFatura[]>
+        >(
+          company,
+          `https://${company.url}/api/v1/faturas/id/${encodeURIComponent(id)}`,
+          'GET',
+          'fatura por id (PIX)',
+        ),
+      );
+
+      // O envelope da Gama devolve `data` ora como objeto, ora como lista de um
+      // item, dependendo da rota. Aceitar os dois custa uma linha e evita um
+      // null silencioso se a rota mudar de forma.
+      const dado = payload?.data;
+      const fatura = Array.isArray(dado) ? dado[0] : dado;
+      const pix = String(fatura?.pix_qrcode ?? '').trim();
+
+      if (!pix) {
+        this.logger.warn(
+          `[GAMAISP] Fatura id=${id} (company=${company.id}) tambem veio sem ` +
+            `pix_qrcode na consulta por id — o ERP nao tem o codigo para ela.`,
+        );
+        return null;
+      }
+
+      return pix;
+    } catch (err) {
+      this.logger.warn(
+        `[GAMAISP] Falha ao buscar PIX da fatura id=${id} ` +
+          `(company=${company.id}): ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
   /** Corpo do disparo. Sempre chamado por `getInvoices`, ja dentro do semaforo. */
   private async buscarFaturasPorDocumento(
     cliente: Client,

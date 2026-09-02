@@ -591,9 +591,24 @@ export class TemplateDispatchPayloadService {
       const inv = gamaIspList?.find((x) => String(x.invoice_id) === invoiceId);
       if (!inv) return null;
 
-      // A Gama ISP traz o PIX (pix_qrcode) no MESMO payload das faturas, entao
-      // nao ha busca on-demand como no MK/IXC: o valor ja veio do getInvoices.
-      const pixCode = String(inv.code_pix ?? "");
+      // A Gama ISP traz o PIX (pix_qrcode) no mesmo payload das faturas — mas
+      // nao em todas. Producao (POWERNET, 02/09/2026) devolveu fatura EM ABERTO
+      // com valor e vencimento e `pix_qrcode` null: sem PIX o botao
+      // ORDER_DETAILS nao monta e o destinatario inteiro e pulado.
+      //
+      // Quando vier vazio, perguntamos pela fatura especifica
+      // (`GET /api/v1/faturas/id/{id}`), que devolve o registro completo. O
+      // custo e uma chamada extra POR FATURA SEM PIX, limitada pelo semaforo da
+      // empresa (3 simultaneas) — so no caminho que hoje simplesmente falha.
+      let pixCode = String(inv.code_pix ?? "");
+
+      if (!pixCode) {
+        pixCode =
+          (await this.gamaIspService.fetchPixByInvoice(
+            client.company,
+            invoiceId,
+          )) ?? "";
+      }
 
       return {
         invoice_id: invoiceId,
