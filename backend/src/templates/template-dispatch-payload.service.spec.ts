@@ -344,3 +344,98 @@ describe("buildQueueRecipients — falha de ERP no preload", () => {
     ]);
   });
 });
+
+/**
+ * Fallback de PIX da Gama ISP.
+ *
+ * A busca por documento traz `pix_qrcode` na maioria das faturas, mas nao em
+ * todas: em 02/09/2026 a POWERNET disparou para uma fatura EM ABERTO, com valor
+ * e vencimento, e `pix_qrcode` null. Sem PIX o botao ORDER_DETAILS nao monta e
+ * o destinatario e pulado inteiro. A Gama expoe a fatura completa por id, e e
+ * dela que o PIX passa a ser buscado quando a listagem nao traz.
+ */
+describe("buildDispatchScalars — PIX da Gama ISP", () => {
+  const company = { id: "empresa-1", erp: "GAMAISP" } as never;
+  const client = { id: "cliente-1", company } as never;
+
+  const fatura = (codePix: string | null) => [
+    {
+      invoice_id: "9001",
+      contract_id: "CT-1",
+      invoice_due_date: "30/08/2026",
+      invoice_amount: "22,93",
+      invoice_status: "A Receber",
+      ticket_digitable_line: "75691301770131774161",
+      ticket_pdf_link: null,
+      code_pix: codePix,
+    },
+  ];
+
+  const montarGama = (fetchPixByInvoice: jest.Mock) => {
+    const instancia = new TemplateDispatchPayloadService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { fetchPixByInvoice } as never,
+    );
+    jest.spyOn(instancia["logger"], "warn").mockImplementation();
+    jest.spyOn(instancia["logger"], "log").mockImplementation();
+    return instancia;
+  };
+
+  const escalares = (
+    instancia: TemplateDispatchPayloadService,
+    lista: ReturnType<typeof fatura>,
+  ) =>
+    instancia["buildDispatchScalars"](
+      client,
+      "GAMAISP",
+      "9001",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      lista as never,
+    );
+
+  it("busca o PIX por id quando a listagem por documento nao traz", async () => {
+    const fetchPixByInvoice = jest.fn(async () => "00020126BR.GOV.BCB.PIX");
+    const instancia = montarGama(fetchPixByInvoice);
+
+    const fresh = await escalares(instancia, fatura(null));
+
+    expect(fetchPixByInvoice).toHaveBeenCalledWith(company, "9001");
+    expect(fresh?.code_pix).toBe("00020126BR.GOV.BCB.PIX");
+    // Os quatro apelidos do mesmo codigo andam juntos: se um ficar para tras, o
+    // botao e o parametro de texto do template divergem.
+    expect(fresh?.codigo_qr).toBe("00020126BR.GOV.BCB.PIX");
+    expect(fresh?.codigo_qr_code).toBe("00020126BR.GOV.BCB.PIX");
+    expect(fresh?.codigo_pix).toBe("00020126BR.GOV.BCB.PIX");
+  });
+
+  it("NAO gasta chamada extra quando a listagem ja trouxe o PIX", async () => {
+    const fetchPixByInvoice = jest.fn();
+    const instancia = montarGama(fetchPixByInvoice);
+
+    const fresh = await escalares(instancia, fatura("00020126JA.VEIO.NA.LISTA"));
+
+    expect(fetchPixByInvoice).not.toHaveBeenCalled();
+    expect(fresh?.code_pix).toBe("00020126JA.VEIO.NA.LISTA");
+  });
+
+  it("segue sem PIX quando o ERP tambem nao tem a fatura por id", async () => {
+    const fetchPixByInvoice = jest.fn(async () => null);
+    const instancia = montarGama(fetchPixByInvoice);
+
+    const fresh = await escalares(instancia, fatura(null));
+
+    expect(fetchPixByInvoice).toHaveBeenCalledTimes(1);
+    // Vazio, nao nulo: quem monta o botao pula o destinatario e registra o
+    // motivo. O lote inteiro nao pode cair por causa de uma fatura.
+    expect(fresh?.code_pix).toBe("");
+    expect(fresh?.valor_fatura).toBe("22,93");
+  });
+});
