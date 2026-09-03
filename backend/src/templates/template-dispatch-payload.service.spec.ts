@@ -439,3 +439,99 @@ describe("buildDispatchScalars — PIX da Gama ISP", () => {
     expect(fresh?.valor_fatura).toBe("22,93");
   });
 });
+
+/**
+ * O motivo do pulo tem que chegar a quem opera.
+ *
+ * Em 02/09/2026 um disparo da POWERNET pulou o unico destinatario e o relatorio
+ * disse "Variaveis obrigatorias do template nao puderam ser preenchidas". O
+ * backend SABIA que faltava `code_pix` — a informacao estava no log, que em
+ * producao sobe com `['warn','error']` e nem sempre a emitia. Descobrir que era
+ * o PIX exigiu acesso ao host.
+ */
+describe("motivo do pulo no relatorio", () => {
+  const instancia = () => {
+    const s = servico();
+    jest.spyOn(s["logger"], "warn").mockImplementation();
+    jest.spyOn(s["logger"], "log").mockImplementation();
+    return s;
+  };
+
+  it("nomeia o campo que faltou, em vez da frase generica", () => {
+    const s = instancia();
+    const faltando: string[] = [];
+
+    const built = s["buildRecipientFromBlueprint"](
+      { "1": "nome_cliente" },
+      [{ type: "BUTTONS", buttons: [{ type: "ORDER_DETAILS", index: 0 }] }],
+      { ...mapped({ code_pix: undefined }), nome_cliente: "FULANO" },
+      CONTEXTO,
+      faltando,
+    );
+
+    expect(built).toBeNull();
+    expect(faltando).toContain("code_pix");
+    expect(s["descreverCamposAusentes"](faltando)).toBe(
+      "Mensagem não enviada: codigo PIX nao veio do ERP.",
+    );
+  });
+
+  it("aponta o cadastro da empresa quando o problema e a chave PIX", () => {
+    const s = instancia();
+    const faltando: string[] = [];
+
+    s["buildRecipientFromBlueprint"](
+      { "1": "nome_cliente" },
+      [{ type: "BUTTONS", buttons: [{ type: "ORDER_DETAILS", index: 0 }] }],
+      { ...mapped({ order_pix_key: undefined }), nome_cliente: "FULANO" },
+      CONTEXTO,
+      faltando,
+    );
+
+    expect(faltando).toContain("order_pix_key");
+    expect(s["descreverCamposAusentes"](faltando)).toContain(
+      "empresa sem chave PIX cadastrada",
+    );
+  });
+
+  it("nomeia a variavel do corpo quando ela fica sem valor", () => {
+    const s = instancia();
+    const faltando: string[] = [];
+
+    const built = s["buildRecipientFromBlueprint"](
+      { "1": "nome_cliente" },
+      [],
+      { ...mapped(), nome_cliente: "" },
+      CONTEXTO,
+      faltando,
+    );
+
+    expect(built).toBeNull();
+    expect(faltando).toEqual(["nome_cliente"]);
+    expect(s["descreverCamposAusentes"](faltando)).toContain(
+      "nome do cliente ausente",
+    );
+  });
+
+  it("campo fora do dicionario entra pelo nome, nao vira texto generico", () => {
+    const s = instancia();
+
+    expect(s["descreverCamposAusentes"](["campo_novo"])).toBe(
+      'Mensagem não enviada: campo "campo_novo" sem valor no momento do disparo.',
+    );
+  });
+
+  it("resume o lote por motivo, do mais frequente para o menos", () => {
+    const s = instancia();
+
+    const resumo = s.resumirSkips([
+      { reason: "template_variables_incomplete", detail: "Mensagem não enviada: codigo PIX nao veio do ERP." },
+      { reason: "template_variables_incomplete", detail: "Mensagem não enviada: codigo PIX nao veio do ERP." },
+      { reason: "template_variables_incomplete", detail: "Mensagem não enviada: empresa sem chave PIX cadastrada." },
+    ]);
+
+    expect(resumo).toBe(
+      "2x codigo PIX nao veio do ERP; 1x empresa sem chave PIX cadastrada",
+    );
+  });
+});

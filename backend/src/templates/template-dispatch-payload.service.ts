@@ -81,6 +81,34 @@ const INVOICE_VARIABLE_KEYS = new Set([
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Como cada campo ausente e dito a quem opera o disparo.
+ *
+ * O relatorio dizia "Variaveis obrigatorias do template nao puderam ser
+ * preenchidas" para tudo — PIX que o ERP nao tem, chave que a empresa nao
+ * cadastrou, fatura sem valor. O motivo exato existia, mas so no log, que em
+ * producao nem sempre e emitido: descobrir que faltava o PIX exigiu acesso ao
+ * host. Cada frase aqui aponta para QUEM resolve.
+ */
+const ROTULO_CAMPO_AUSENTE: Record<string, string> = {
+  code_pix: 'codigo PIX nao veio do ERP',
+  codigo_pix: 'codigo PIX nao veio do ERP',
+  codigo_qr: 'codigo PIX nao veio do ERP',
+  codigo_qr_code: 'codigo PIX nao veio do ERP',
+  valor_fatura: 'valor da fatura ausente no ERP',
+  numero_contrato: 'numero do contrato ausente no ERP',
+  order_reference_id: 'referencia da cobranca ausente no ERP',
+  data_vencimento_fatura: 'vencimento da fatura ausente no ERP',
+  linha_digitavel_boleto: 'linha digitavel ausente no ERP',
+  link_boleto_pdf: 'link do boleto ausente no ERP',
+  order_pix_key: 'empresa sem chave PIX cadastrada',
+  order_pix_key_type: 'empresa sem tipo de chave PIX cadastrado',
+  order_pix_merchant_name: 'nome do recebedor ausente no cadastro da empresa',
+  nome_cliente: 'nome do cliente ausente',
+  nome_atendente: 'nome do atendente nao informado',
+  nome_empresa: 'nome da empresa ausente no cadastro',
+};
+
 const PIX_VARIABLE_KEYS = new Set([
   "code_pix",
   "codigo_qr",
@@ -386,6 +414,7 @@ export class TemplateDispatchPayloadService {
         }
       }
 
+      const faltando: string[] = [];
       const built = this.buildRecipientFromBlueprint(
         templateVars,
         templateComponents,
@@ -394,6 +423,7 @@ export class TemplateDispatchPayloadService {
           companyId: String(client?.company?.id ?? ""),
           clientId,
         },
+        faltando,
       );
       if (!built) {
         skips.push({
@@ -402,8 +432,7 @@ export class TemplateDispatchPayloadService {
           name,
           clientId: clientId || undefined,
           invoiceId: String(row.invoice_id ?? "").trim() || undefined,
-          detail:
-            "Variáveis obrigatórias do template não puderam ser preenchidas.",
+          detail: this.descreverCamposAusentes(faltando),
         });
         continue;
       }
@@ -475,6 +504,55 @@ export class TemplateDispatchPayloadService {
       default:
         return "Destinatário ignorado.";
     }
+  }
+
+  /**
+   * Contagem por motivo, para a mensagem que o operador ve quando o lote
+   * inteiro cai. Sem isso ele le "nenhum destinatario valido" e precisa abrir o
+   * Historico so para descobrir se foi fatura, PIX ou cadastro da empresa.
+   */
+  resumirSkips(skips: DispatchSkipRecord[]): string {
+    const contagem = new Map<string, number>();
+
+    for (const skip of skips) {
+      const motivo = (skip.detail ?? this.formatSkipSummary(skip))
+        .replace(/^Mensagem não enviada:\s*/i, "")
+        .replace(/\.\s*$/, "");
+      contagem.set(motivo, (contagem.get(motivo) ?? 0) + 1);
+    }
+
+    return [...contagem.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([motivo, quantidade]) => `${quantidade}x ${motivo}`)
+      .join("; ");
+  }
+
+  /**
+   * Frase do relatorio a partir dos campos que impediram a montagem.
+   *
+   * Campo desconhecido do dicionario entra pelo proprio nome em vez de virar
+   * texto generico: nome tecnico ainda diz mais do que "variaveis obrigatorias".
+   */
+  private descreverCamposAusentes(campos: string[]): string {
+    const motivos = [
+      ...new Set(
+        campos
+          .map((campo) => String(campo ?? "").trim())
+          .filter(Boolean)
+          .map(
+            (campo) =>
+              ROTULO_CAMPO_AUSENTE[campo] ??
+              `campo "${campo}" sem valor no momento do disparo`,
+          ),
+      ),
+    ];
+
+    if (!motivos.length) {
+      return "Mensagem não enviada: variáveis obrigatórias do template não puderam ser preenchidas.";
+    }
+
+    return `Mensagem não enviada: ${motivos.join("; ")}.`;
   }
 
   private rowToScalars(row: Record<string, unknown>): MappedScalar {
@@ -765,6 +843,8 @@ export class TemplateDispatchPayloadService {
     templateComponents: BlueprintComponent[],
     mapped: MappedScalar,
     contexto: DispatchContext,
+    /** Ver `buildOrderDetailsComponent`: leva o motivo do pulo ao relatorio. */
+    faltandoOut?: string[],
   ): { components: MessageQueuePayload["components"] } | null {
     const hasDocumentHeader = templateComponents.some(
       (c) =>
@@ -787,7 +867,11 @@ export class TemplateDispatchPayloadService {
     const emptyParam = bodyParameters.find((p) => !p.text.trim());
     if (emptyParam) {
       const emptyKey = orderedKeys[bodyParameters.indexOf(emptyParam)];
-      this.logger.log(
+      faltandoOut?.push(emptyKey);
+      // `warn`, nao `log`: em producao o Nest sobe com `['warn','error']`, e a
+      // linha que explica por que o destinatario foi pulado era justamente a
+      // que nao saia — quem investigava ficava sem nada.
+      this.logger.warn(
         `[Dispatch] buildRecipient body param vazio: key=${emptyKey} ` +
           `mapped_keys=${JSON.stringify(Object.keys(mapped))} ` +
           `code_pix="${mapped.code_pix}" numero_contrato="${mapped.numero_contrato}"`,
@@ -830,6 +914,7 @@ export class TemplateDispatchPayloadService {
           i,
           mapped,
           contexto,
+          faltandoOut,
         );
         if (!oc) return null;
         components.push(oc);
@@ -843,7 +928,18 @@ export class TemplateDispatchPayloadService {
       }
 
       const bc = this.buildButtonComponent(button, i, buttonType, mapped);
-      if (!bc && buttonType === "URL") return null;
+      if (!bc && buttonType === "URL") {
+        // Este era o unico caminho de pulo SEM registro nenhum — nem log, nem
+        // motivo. Template com botao de link e destinatario sem `link_boleto_pdf`
+        // sumia do lote em silencio absoluto.
+        faltandoOut?.push("link_boleto_pdf");
+        this.logger.warn(
+          `[Dispatch] Botao URL sem valor para o cliente ` +
+            `${contexto.clientId || "?"} da empresa ${contexto.companyId || "?"}: ` +
+            `link_boleto_pdf. O destinatario foi PULADO.`,
+        );
+        return null;
+      }
       if (bc) components.push(bc);
     }
 
@@ -855,6 +951,12 @@ export class TemplateDispatchPayloadService {
     buttonIndex: number,
     mapped: MappedScalar,
     contexto: DispatchContext,
+    /**
+     * Recebe os campos que impediram a montagem. E por aqui que o motivo sai do
+     * log e chega ao relatorio: sem isso o operador le "variaveis obrigatorias
+     * nao preenchidas" e precisa de acesso ao host para saber que faltou o PIX.
+     */
+    faltandoOut?: string[],
   ): MessageQueuePayload["components"][number] | null {
     const referenceId = String(
       mapped.numero_contrato ?? mapped.order_reference_id ?? "",
@@ -902,6 +1004,7 @@ export class TemplateDispatchPayloadService {
     }
 
     if (faltando.length || problemaDeChave.length) {
+      faltandoOut?.push(...faltando, ...problemaDeChave);
       this.logger.warn(
         `[Dispatch] Botao ORDER_DETAILS nao montado para o cliente ` +
           `${contexto.clientId || "?"} da empresa ${contexto.companyId || "?"}: ` +
