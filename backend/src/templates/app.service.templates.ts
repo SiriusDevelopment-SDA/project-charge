@@ -329,7 +329,7 @@ export class AppServiceTemplate {
           semRespostaDoErp
             ? `O ERP nao respondeu ao validar as faturas (${semRespostaDoErp} de ${dispatchSkips.length} destinatario(s)). Nenhuma mensagem foi enviada; tente novamente em alguns minutos. Detalhes no relatorio.`
             : dispatchSkips.length
-              ? `Nenhum destinatario valido apos validar faturas no ERP (${dispatchSkips.length} ignorado(s); registros no relatorio com status "não enviado (Fatura indisponível)").`
+              ? `Nenhum destinatario valido (${dispatchSkips.length} ignorado(s)): ${this.templateDispatchPayload.resumirSkips(dispatchSkips)}. Veja destinatario por destinatario no Historico.`
               : 'Nenhum destinatario valido apos montagem das variaveis no servidor.',
         );
       }
