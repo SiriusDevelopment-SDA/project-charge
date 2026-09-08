@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -22,6 +21,14 @@ import {
 import { Activity } from "../../activity-log/activity.decorator";
 import { PlanGuard } from "../../auth/guards/plan.guard";
 import { RequirePage } from "../../auth/decorators/require-page.decorator";
+import { Sessao } from "../../auth/decorators/sessao.decorator";
+import {
+  descreverAcessoCruzado,
+  enxergaTodasAsEmpresas,
+  resolverAccountDaRequisicao,
+  resolverCompanyIdDaRequisicao,
+  type TokenDeSessao,
+} from "../../auth/company-scope";
 import { Client } from "../../clients/entities.ts/clients";
 import { Company } from "../../companies/entities/companies";
 import { Invoice } from "../entities/invoices";
@@ -34,6 +41,7 @@ import {
   InvoiceBatchPartialDto,
   PixBatchRequestDto,
   ResultInvoicesDto,
+  SearchOverdueClientsDto,
   SearchRequestInvoicesDto,
 } from "../dto/search.request.dto.invoices";
 
@@ -56,12 +64,53 @@ export class InvoicesController {
     private readonly invoicesService: InvoicesService,
   ) {}
 
+  /**
+   * Resolve a empresa da requisicao e registra travessia entre empresas.
+   *
+   * O par "resolver escopo + logar se cruzou" se repetia em cada rota; o que
+   * nao pode variar de uma para outra e justamente o registro — travessia sem
+   * log seria trocar um buraco por outro.
+   */
+  private escopoDaEmpresa(
+    sessao: TokenDeSessao,
+    companyIdPedido: string | null | undefined,
+    rota: string,
+  ): string {
+    const escopo = resolverCompanyIdDaRequisicao(sessao, companyIdPedido);
+    if (escopo.cruzouEmpresa) {
+      this.logger.warn(descreverAcessoCruzado(sessao, escopo, rota));
+    }
+    return escopo.valor;
+  }
+
+  /** Mesma coisa do `escopoDaEmpresa`, para as rotas que falam por `account`. */
+  private escopoDaConta(
+    sessao: TokenDeSessao,
+    accountPedido: string | null | undefined,
+    rota: string,
+  ): string {
+    const escopo = resolverAccountDaRequisicao(sessao, accountPedido);
+    if (escopo.cruzouEmpresa) {
+      this.logger.warn(descreverAcessoCruzado(sessao, escopo, rota));
+    }
+    return escopo.valor;
+  }
+
   @Post("search")
   @HttpCode(200)
   @ApiOperation({ summary: "Busca faturas por lista de documentos" })
   @ApiBody({ type: SearchRequestInvoicesDto })
   @ApiOkResponse({ type: InvoiceBatchPartialDto })
-  async getInvoices(@Body() data: SearchRequestInvoicesDto) {
+  async getInvoices(
+    @Body() data: SearchRequestInvoicesDto,
+    @Sessao() sessao: TokenDeSessao,
+  ) {
+    const companyIdDaSessao = this.escopoDaEmpresa(
+      sessao,
+      data.companyId,
+      "POST /invoices/search",
+    );
+
     const documents = (data.documents ?? []).map((item) => item.cnpj_cpf);
 
     if (!documents.length && !data.companyId) {
@@ -70,10 +119,20 @@ export class InvoicesController {
 
     if (!documents.length && data.companyId && data.filter) {
       return this.invoicesService.searchByCompanyRule(
-        data.companyId,
+        companyIdDaSessao,
         data.filter,
       );
     }
+
+    // A busca por documento nao diz de que empresa e o CPF: sem filtro, um
+    // operador achava o cliente de QUALQUER empresa digitando o documento.
+    // Passa a ser restrita a empresa da sessao. O suporte (super_admin) que
+    // nao indicou alvo continua enxergando a base inteira — e o unico perfil
+    // com esse alcance, por decisao registrada.
+    const buscaGlobal = enxergaTodasAsEmpresas(sessao) && !data.companyId;
+    const escopoDoCliente = buscaGlobal
+      ? {}
+      : { company: { id: companyIdDaSessao } };
 
     const resultados: ResultInvoicesDto[] = [];
     const errors: { document: string; reason: string }[] = [];
@@ -88,6 +147,7 @@ export class InvoicesController {
               (alias) => `regexp_replace(${alias}, '\\D', '', 'g') ILIKE :doc`,
               { doc: `%${normalizedQuery}%` },
             ),
+            ...escopoDoCliente,
           },
           relations: ["company"],
         });
@@ -136,22 +196,16 @@ export class InvoicesController {
     summary: "Lista clientes vencidos a partir do snapshot local de faturas",
   })
   async searchOverdueClients(
-    @Body()
-    body: {
-      account: string;
-      query?: string;
-      page?: number;
-      limit?: number;
-      agingMin?: number;
-      agingMax?: number;
-      debtMin?: number;
-      debtMax?: number;
-    },
+    @Body() body: SearchOverdueClientsDto,
+    @Sessao() sessao: TokenDeSessao,
   ) {
-    const account = String(body.account ?? "").trim();
-    if (!account) {
-      throw new BadRequestException("Account é obrigatório.");
-    }
+    // O `account` sai do token. Antes vinha do corpo sem conferencia: trocar o
+    // numero listava os clientes vencidos de outra empresa.
+    const account = this.escopoDaConta(
+      sessao,
+      body.account,
+      "POST /invoices/overdue-clients/search",
+    );
 
     const safePage = Math.max(1, Number(body.page ?? 1));
     const safeLimit = Math.min(100, Math.max(1, Number(body.limit ?? 24)));
@@ -444,7 +498,19 @@ export class InvoicesController {
   @ApiOperation({
     summary: "Retorna clientIds com faturas em aberto (lê do cache Redis)",
   })
-  async getOpenClientIds(@Param("account") account: string) {
+  async getOpenClientIds(
+    @Param("account") accountPedido: string,
+    @Sessao() sessao: TokenDeSessao,
+  ) {
+    // Mesmo vazamento que as tres rotas POST tinham, so que pela URL: qualquer
+    // sessao valida trocava o `account` no path e recebia a lista de clientes
+    // com fatura em aberto de outra empresa.
+    const account = this.escopoDaConta(
+      sessao,
+      accountPedido,
+      "GET /invoices/open-client-ids",
+    );
+
     const company = await this.companyRepo.findOne({
       where: { account_chatwoot: account },
     });
@@ -479,7 +545,16 @@ export class InvoicesController {
   @ApiOperation({
     summary: "Retorna o status da última sincronização de faturas por account",
   })
-  async getSyncState(@Param("account") account: string) {
+  async getSyncState(
+    @Param("account") accountPedido: string,
+    @Sessao() sessao: TokenDeSessao,
+  ) {
+    const account = this.escopoDaConta(
+      sessao,
+      accountPedido,
+      "GET /invoices/sync-state",
+    );
+
     const syncState = await this.invoiceSyncCron.getStateByAccount(account);
 
     if (!syncState?.company) {
@@ -545,12 +620,23 @@ export class InvoicesController {
     summary: "Busca códigos PIX em lote pelo ERP ou snapshot local",
   })
   @ApiBody({ type: PixBatchRequestDto })
-  async getPixBatch(@Body() data: PixBatchRequestDto) {
+  async getPixBatch(
+    @Body() data: PixBatchRequestDto,
+    @Sessao() sessao: TokenDeSessao,
+  ) {
+    const companyIdDaSessao = this.escopoDaEmpresa(
+      sessao,
+      data.companyId,
+      "POST /invoices/pix/batch",
+    );
+
     const company = await this.companyRepo.findOne({
-      where: { id: data.companyId },
+      where: { id: companyIdDaSessao },
     });
     if (!company)
-      throw new NotFoundException(`Empresa ${data.companyId} não encontrada.`);
+      throw new NotFoundException(
+        `Empresa ${companyIdDaSessao} não encontrada.`,
+      );
 
     const erp = String(company.erp ?? "").toUpperCase();
 
@@ -585,7 +671,7 @@ export class InvoicesController {
         data.invoiceIds.map(async (invoiceId) => {
           try {
             const result = await this.ixcService.getPixByInvoice({
-              companyId: data.companyId,
+              companyId: companyIdDaSessao,
               invoiceId,
             });
             return {
@@ -611,7 +697,7 @@ export class InvoicesController {
     const invoices = await this.invoiceRepo.find({
       where: {
         id_fatura: In(data.invoiceIds),
-        company: { id: data.companyId },
+        company: { id: companyIdDaSessao },
       },
       select: { id_fatura: true, pixCode: true },
     });

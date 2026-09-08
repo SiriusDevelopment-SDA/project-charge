@@ -3,10 +3,12 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -242,15 +244,88 @@ export class InvoiceBatchResponseDto {
 }
 
 export class PixBatchRequestDto {
-  @ApiProperty({ example: 'uuid-da-empresa' })
+  // Opcional desde o B1: a empresa sai do token. O campo continua aceito para
+  // nao quebrar o frontend, mas so vale se casar com a sessao.
+  @ApiProperty({ example: 'uuid-da-empresa', required: false })
+  @IsOptional()
   @IsUUID()
-  companyId!: string;
+  companyId?: string;
 
   @ApiProperty({ example: ['12345', '67890'] })
   @IsArray()
   @ArrayNotEmpty()
   @IsString({ each: true })
   invoiceIds!: string[];
+}
+
+/**
+ * Corpo de `POST /invoices/overdue-clients/search`.
+ *
+ * Estava inline no controller, como objeto literal — ou seja, sem
+ * `class-validator`: `page`, `limit` e as faixas de filtro chegavam sem
+ * nenhuma checagem e eram normalizadas na mao dentro do handler. Com o
+ * `ValidationPipe` global (`whitelist` + `forbidNonWhitelisted`), o DTO
+ * tambem passa a recusar campo que ninguem espera.
+ *
+ * `account` continua opcional: o escopo vem do token, e o corpo so pode
+ * repetir o que ja esta la (ver `company-scope.ts`).
+ */
+export class SearchOverdueClientsDto {
+  @ApiProperty({
+    example: '900',
+    required: false,
+    description:
+      'Conta da empresa. Precisa casar com a do token; super_admin pode indicar outra.',
+  })
+  @IsOptional()
+  @IsString()
+  account?: string;
+
+  @ApiProperty({ example: 'joao', required: false })
+  @IsOptional()
+  @IsString()
+  query?: string;
+
+  @ApiProperty({ example: 1, required: false, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  // Teto de 100 no DTO, o mesmo que o handler ja aplicava na mao: sem ele um
+  // `limit` alto varre a base inteira numa requisicao.
+  @ApiProperty({ example: 24, required: false, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiProperty({ example: 30, required: false, description: 'Dias de atraso, minimo' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  agingMin?: number;
+
+  @ApiProperty({ example: 60, required: false, description: 'Dias de atraso, maximo' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  agingMax?: number;
+
+  @ApiProperty({ example: 200, required: false, description: 'Divida em reais, minimo' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  debtMin?: number;
+
+  @ApiProperty({ example: 500, required: false, description: 'Divida em reais, maximo' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  debtMax?: number;
 }
 
 export class InvoiceBatchPartialDto {

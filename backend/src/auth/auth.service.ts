@@ -1695,9 +1695,13 @@ export class AuthService {
    * empresa via /auth/switch-company sem que o agente seja movido entre
    * tenants.
    *
-   * IMPORTANTE: o relaxamento e EXCLUSIVO da carga do Agent em
-   * autenticacao/perfil. Queries de dados (clients, invoices, campaigns,
-   * etc.) continuam exigindo filtro por companyId.
+   * ESCOPO (atualizado no B1): o relaxamento deixou de ser exclusivo da carga
+   * do Agent. As rotas de faturas passaram a derivar a empresa do token
+   * (`auth/company-scope.ts`) e `super_admin` atravessa empresas tambem ali,
+   * por decisao registrada — com o acesso REGISTRADO em log. As demais
+   * queries de dados (clients, campaigns, etc.) continuam sem escopo derivado
+   * do token: cada uma precisa ser tratada no seu proprio PR, e ate la o
+   * filtro por companyId continua sendo responsabilidade de quem consulta.
    */
   private async loadAuthenticatedAgent(
     payload: JwtPayload,

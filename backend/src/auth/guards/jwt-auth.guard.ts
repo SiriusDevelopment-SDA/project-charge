@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import type { TokenDeSessao } from '../company-scope';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -23,7 +24,9 @@ export class JwtAuthGuard implements CanActivate {
 
     if (isPublic) return true;
 
-    const request = context.switchToHttp().getRequest<{ headers: Record<string, string> }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ headers: Record<string, string>; user?: TokenDeSessao }>();
     const token = this.extractToken(request);
 
     if (!token) {
@@ -31,7 +34,11 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      await this.jwtService.verifyAsync(token);
+      // O payload PRECISA ficar disponivel para o handler: sem isto, quem
+      // decide de qual empresa sao os dados e o corpo da requisicao — e o
+      // corpo vem do cliente. O guard ja verificava e jogava fora o unico
+      // dado confiavel que tinha em maos.
+      request.user = await this.jwtService.verifyAsync<TokenDeSessao>(token);
     } catch {
       throw new UnauthorizedException('Token inválido ou expirado');
     }
