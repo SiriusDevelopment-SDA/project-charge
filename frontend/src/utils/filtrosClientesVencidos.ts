@@ -1,3 +1,4 @@
+import { parseAmountToCents } from "../mappers/templateVars.mapper";
 function parseDataBR(data: string): Date | null {
   const safeDate = String(data).replace(/\s/g, "").trim();
   const match = safeDate.match(/^(\d{2})\/(\d{2})\/(\d{2}|\d{4})$/);
@@ -54,14 +55,24 @@ export function maiorAtrasoCliente(invoices: any[]): number {
   return Math.max(...dias);
 }
 
+/**
+ * Soma das faturas vencidas do cliente, em reais.
+ *
+ * `Number()` so entende ponto decimal. Hoje os quatro ERPs mandam ponto ou
+ * inteiro — 91.034 faturas conferidas no banco, zero com virgula — entao a
+ * conta esta certa. O problema e o que acontece se isso mudar: com o guarda
+ * `Number.isFinite`, uma fatura "1.234,56" nao viraria `NaN` na tela, viraria
+ * ZERO na soma. A divida apareceria menor, sem erro, sem log, sem sintoma.
+ *
+ * `parseAmountToCents` le os dois formatos, entao a conta para de depender de
+ * qual ERP respondeu. E paliativo consciente: no F12 a divida passa a vir
+ * calculada do servidor e esta funcao morre.
+ */
 export function calcularDividaCliente(invoices: any[]): number {
   if (!invoices?.length) return 0;
   return invoices
     .filter(faturasVencidas)
-    .reduce((total, invoice) => {
-      const valor = Number(invoice.invoice_amount);
-      return total + (Number.isFinite(valor) ? valor : 0);
-    }, 0);
+    .reduce((total, invoice) => total + parseAmountToCents(invoice.invoice_amount) / 100, 0);
 }
 
 // Verifica se o cliente tem alguma fatura cujo vencimento está dentro do range [left, right]

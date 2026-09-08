@@ -24,7 +24,6 @@ import {
   TitlePage,
 } from "../../componente/Index";
 import { Pagination } from "../../componente/global/Pagination/Pagination";
-import ModalCardCampanhas from "../../componente/ModalCardCampanhas/ModalCardCampanhas";
 import DynamicModal from "../../componente/modal/modalAlertTemplate";
 import { useDispatchTemplate } from "../../hooks/useDispatchTemplate";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -240,7 +239,6 @@ export function ClientesVencidos() {
   const latestLoadRequestRef = useRef(0);
 
   const [openProsseguirModal, setOpenProsseguirModal] = useState(false);
-  const [openCampanhaModal, setOpenCampanhaModal] = useState(false);
   const [openAutomationModal, setOpenAutomationModal] = useState(false);
   const [promiseAutomation, setPromiseAutomation] = useState<PromiseAutomationSettings>(
     DEFAULT_PROMISE_AUTOMATION,
@@ -1316,12 +1314,6 @@ export function ClientesVencidos() {
           </div>
         )}
 
-        <ModalCardCampanhas
-          open={openCampanhaModal}
-          onClose={() => setOpenCampanhaModal(false)}
-          onConfirmCampaign={() => toast.success("Campanha disparada com sucesso (Implementar)!")}
-        />
-
         {openProsseguirModal && (
           <DynamicModal
             open
@@ -1337,15 +1329,6 @@ export function ClientesVencidos() {
                   setOpenProsseguirModal(false);
                   setModoPage("clientes");
                   navigate(`/${normalizedSearch}`);
-                },
-              },
-              {
-                label: "Selecionar uma campanha",
-                variant: "BtnOpcoes",
-                onClick: () => {
-                  setOpenProsseguirModal(false);
-                  setModoPage("clientes");
-                  setOpenCampanhaModal(true);
                 },
               },
               {

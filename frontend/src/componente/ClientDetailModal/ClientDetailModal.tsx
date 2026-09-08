@@ -1,3 +1,4 @@
+import { parseAmountToCents } from "../../mappers/templateVars.mapper";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -249,7 +250,9 @@ export function ClientDetailModal({ cliente, companyId, open, onClose }: Props) 
                       <tr key={inv.invoice_id}>
                         <td>{inv.contract_id}</td>
                         <td>{inv.invoice_due_date}</td>
-                        <td>R$ {Number(inv.invoice_amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        {/* Sem guarda nenhuma, `Number()` de um valor que o ERP
+                            nao mandou imprime o texto "NaN" na coluna. */}
+                        <td>R$ {(parseAmountToCents(inv.invoice_amount) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td>
                           <span className={`${styles.badge} ${styles[`badge_${inv.invoice_status?.replace(/\s/g, "_").toLowerCase()}`] ?? ""}`}>
                             {inv.invoice_status}

@@ -1,3 +1,4 @@
+import { parseAmountToCents } from "../../mappers/templateVars.mapper";
 import { useMemo, useState } from "react";
 import type { CampaignData, Cliente, PaymentPromise } from "../../types";
 import { ClientDetailModal } from "../ClientDetailModal/ClientDetailModal";
@@ -68,10 +69,12 @@ export function ClientesCard({ cliente, checked, onToggle, companyId, latestProm
   const diasVencidos = overdueInvoices.length ? maiorAtrasoCliente(overdueInvoices) : 0;
   const totalDivida = overdueInvoices.length
     ? calcularDividaCliente(overdueInvoices)
-    : invoices.reduce((total, invoice) => {
-        const valor = Number(invoice.invoice_amount);
-        return total + (Number.isFinite(valor) ? valor : 0);
-      }, 0);
+    : invoices.reduce(
+        // Mesmo criterio de `calcularDividaCliente`: o formato do ERP nao pode
+        // mudar o total exibido.
+        (total, invoice) => total + parseAmountToCents(invoice.invoice_amount) / 100,
+        0,
+      );
   const qtdVencidas = overdueInvoices.length || invoices.length;
 
   const planos =

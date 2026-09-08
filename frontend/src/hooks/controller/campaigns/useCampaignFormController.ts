@@ -425,8 +425,29 @@ export function useCampaignFormController() {
           order_item_name: item.order_item_name,
           order_item_description: item.order_item_description,
           order_pix_merchant_name: item.order_pix_merchant_name,
-          order_pix_key: item.order_pix_key,
-          order_pix_key_type: item.order_pix_key_type,
+          // `order_pix_key`/`order_pix_key_type` NAO entram no snapshot.
+          //
+          // O mapper preenche esses campos com `AppStorage.getCompanyCnpj()`
+          // quando o destinatario nao traz chave — o CNPJ que o browser tem
+          // guardado. Gravado no snapshot da campanha, esse valor local passa a
+          // valer MESES depois, no dia do disparo, por cima do que a empresa
+          // tem cadastrado: se a chave mudar, ou se o localStorage for de outra
+          // empresa, o PIX vai para o lugar errado e ninguem percebe.
+          //
+          // Sem os campos, o backend resolve pelo cadastro no momento do envio
+          // (`template-dispatch-payload.service.ts`, ramo `if (!merged.order_pix_key)`
+          // -> `resolverChavePix`). Os dois campos sao opcionais no tipo do
+          // backend, entao a campanha continua valida sem eles.
+          //
+          // O fallback `AppStorage.getCompanyCnpj()` CONTINUA em
+          // `mappers/templateVars.mapper.ts` de proposito: leads ainda montam
+          // no front ate o F7. O que muda aqui e so o que fica GRAVADO no
+          // snapshot da campanha, que e o valor que ia valer meses depois.
+          //
+          // Campanhas recorrentes criadas ANTES desta mudanca seguem com o
+          // valor antigo no banco — o fallback do backend so entra quando o
+          // campo vem vazio, e nao sobrescreve. Limpar as existentes e escopo
+          // do B6.
         }))
         .filter(
           (item) =>

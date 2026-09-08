@@ -67,6 +67,15 @@ Transversal: **charge-reviewer** antes de cada merge · **charge-docs** document
 - **F8 · perf(disparo): fim das buscas de fatura/PIX para decidir** — hidratação só quando o preview exibe o campo; `fetchAndMergePixCodes` (duplica `preloadIxcPix`) restrito a `code_pix` no corpo; regra de categoria `"cobr"` alinhada com o backend. **M** · depende de F5+F7.
 - **F9 · refactor: `normalizeComponents` + `getComponentRequiredFields` num módulo único** (a 4ª cópia morre no F7). **M**.
 - **F10 · chore: remover `mapVarsSchema` morto.** **S**.
+- **F16 · decidir o destino do `ModalCardCampanhas`** — depois do F3 remover a
+  opcao "Selecionar uma campanha", o componente e o
+  `useModalCardCampanhasController` ficaram **sem nenhum consumidor**. O
+  componente nao esta quebrado: lista campanhas, pagina e confirma a selecao —
+  o que nunca existiu foi a ligacao com o disparo (a confirmacao era
+  `toast.success("...(Implementar)!")`). Sao duas saidas, e a escolha e de
+  produto, nao de refatoracao: **ligar de verdade** (disparar a campanha
+  escolhida para os clientes marcados) ou **apagar os dois arquivos**. Enquanto
+  nao se decide, e codigo morto com dono. **S**.
 - **F11 · feat: feriados do backend** — troca BrasilAPI pelo endpoint B10, via instância `Api`; mantém fail-closed e cache. **M** · depende de B10+F4.
 - **F12 · feat: dívida/atraso do backend** — consome os campos de B9; apaga `calcularDividaCliente`/`maiorAtrasoCliente`; comparar amostra antes/depois. **M** · depende de B9.
 - **F13 · fix: `PermissionRoute` fail-closed** — `!== false` → `=== true`, **somente após** deploy de B2+B13 com mapa completo. **S** · risco de ordenação alto.
