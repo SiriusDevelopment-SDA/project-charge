@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Users,
   CircleDollarSign,
@@ -37,6 +44,7 @@ import {
 import type {
   CampaignData,
   Cliente,
+  DispatchSummaryBatchResponse,
   InvoiceSyncState,
   OverdueClientsSearchResponse,
   PaymentPromise,
@@ -54,12 +62,25 @@ import { buildNormalizedSearch } from "../../utils/locationSearch";
 
 import Style from "./Styles/ClientesVencidos.module.css";
 
-type AgingFilter = "1-30" | "31-60" | "61-90" | "90+" | "180+" | "360+" | "720+" | null;
-type DebtFilter = "up200" | "200-500" | "500-1k" | "1k+" | null;
-type PromiseFilter = "none" | "pending" | "broken" | null;
-type DispatchFilter = "never" | "1-3" | "4+" | null;
+/**
+ * Valor de um chip e estado do filtro sao coisas diferentes.
+ *
+ * Antes, `AgingFilter` (com `| null`) tipava as DUAS coisas — inclusive o `id`
+ * das opcoes, onde `null` nunca aparece. Com isso o `toggleChip` nao fechava:
+ * o valor que ele recebia podia ser nulo pelo tipo, e o setter do React nao
+ * aceita. `null` e "nenhum filtro escolhido", que e estado, nao opcao.
+ */
+type AgingValue = "1-30" | "31-60" | "61-90" | "90+" | "180+" | "360+" | "720+";
+type DebtValue = "up200" | "200-500" | "500-1k" | "1k+";
+type PromiseValue = "none" | "pending" | "broken";
+type DispatchValue = "never" | "1-3" | "4+";
 
-const AGING_OPTIONS: { id: AgingFilter; label: string }[] = [
+type AgingFilter = AgingValue | null;
+type DebtFilter = DebtValue | null;
+type PromiseFilter = PromiseValue | null;
+type DispatchFilter = DispatchValue | null;
+
+const AGING_OPTIONS: { id: AgingValue; label: string }[] = [
   { id: "1-30", label: "1 – 30 dias" },
   { id: "31-60", label: "31 – 60 dias" },
   { id: "61-90", label: "61 – 90 dias" },
@@ -69,20 +90,20 @@ const AGING_OPTIONS: { id: AgingFilter; label: string }[] = [
   { id: "720+", label: "+ 720 dias" },
 ];
 
-const DEBT_OPTIONS: { id: DebtFilter; label: string }[] = [
+const DEBT_OPTIONS: { id: DebtValue; label: string }[] = [
   { id: "up200", label: "Até R$ 200" },
   { id: "200-500", label: "R$ 200 – 500" },
   { id: "500-1k", label: "R$ 500 – 1k" },
   { id: "1k+", label: "R$ 1k+" },
 ];
 
-const PROMISE_OPTIONS: { id: PromiseFilter; label: string; variant?: string }[] = [
+const PROMISE_OPTIONS: { id: PromiseValue; label: string; variant?: string }[] = [
   { id: "none", label: "Sem promessa" },
   { id: "pending", label: "Pendente", variant: "chipWarning" },
   { id: "broken", label: "Quebrada", variant: "chipDanger" },
 ];
 
-const DISPATCH_OPTIONS: { id: DispatchFilter; label: string }[] = [
+const DISPATCH_OPTIONS: { id: DispatchValue; label: string }[] = [
   { id: "never", label: "Nunca cobrado" },
   { id: "1-3", label: "1 – 3x" },
   { id: "4+", label: "4x ou mais" },
@@ -90,7 +111,6 @@ const DISPATCH_OPTIONS: { id: DispatchFilter; label: string }[] = [
 
 const PAGE_SIZE = 8;
 const BULK_FETCH_PAGE_SIZE = 100;
-const COLLECTION_ENRICH_BATCH_SIZE = 20;
 const SYNC_STATE_POLL_INTERVAL_MS = 15_000;
 const DEFAULT_PROMISE_AUTOMATION: PromiseAutomationSettings = {
   reminderEnabled: false,
@@ -102,27 +122,6 @@ const DEFAULT_PROMISE_AUTOMATION: PromiseAutomationSettings = {
 };
 
 type OverdueSnapshotSummary = OverdueClientsSearchResponse["summary"];
-
-function agingMatch(dias: number, filter: AgingFilter): boolean {
-  if (!filter) return true;
-  if (filter === "1-30") return dias >= 1 && dias <= 30;
-  if (filter === "31-60") return dias >= 31 && dias <= 60;
-  if (filter === "61-90") return dias >= 61 && dias <= 90;
-  if (filter === "90+") return dias > 90;
-  if (filter === "180+") return dias > 180;
-  if (filter === "360+") return dias > 360;
-  if (filter === "720+") return dias > 720;
-  return true;
-}
-
-function debtMatch(debt: number, filter: DebtFilter): boolean {
-  if (!filter) return true;
-  if (filter === "up200") return debt <= 200;
-  if (filter === "200-500") return debt > 200 && debt <= 500;
-  if (filter === "500-1k") return debt > 500 && debt <= 1000;
-  if (filter === "1k+") return debt > 1000;
-  return true;
-}
 
 function agingToServerParams(filter: AgingFilter): { agingMin?: number; agingMax?: number } {
   if (!filter) return {};
@@ -185,15 +184,6 @@ function getClientDebtAndDelay(client: Cliente) {
     debt: calcularDividaCliente(baseInvoices),
     diasVencidos: overdue.length ? maiorAtrasoCliente(overdue) : 0,
   };
-}
-
-function matchesSnapshotFilters(client: Cliente, agingFilter: AgingFilter, debtFilter: DebtFilter) {
-  const { debt, diasVencidos } = getClientDebtAndDelay(client);
-
-  if (agingFilter && !agingMatch(diasVencidos, agingFilter)) return false;
-  if (debtFilter && !debtMatch(debt, debtFilter)) return false;
-
-  return true;
 }
 
 function hasPromiseRecord(promise: PaymentPromise | null | undefined): promise is PaymentPromise {
@@ -567,10 +557,10 @@ export function ClientesVencidos() {
       const [latestPromises, dispatchBatch] = await Promise.all([
         options.includePromise
           ? CollectionService.getLatestPromiseBatch(clientIds)
-          : Promise.resolve([]),
+          : Promise.resolve<PaymentPromise[]>([]),
         options.includeDispatch && phones.length && batchCompanyId
           ? CollectionService.getDispatchSummaryBatch(phones, batchCompanyId)
-          : Promise.resolve({}),
+          : Promise.resolve<DispatchSummaryBatchResponse>({}),
       ]);
 
       if (options.includePromise) {
@@ -989,7 +979,11 @@ export function ClientesVencidos() {
     setOpenProsseguirModal(true);
   }
 
-  function toggleChip<T>(current: T, value: T, setter: (next: T | null) => void) {
+  function toggleChip<T>(
+    current: T | null,
+    value: T,
+    setter: Dispatch<SetStateAction<T | null>>,
+  ) {
     setCurrentPage(1);
     setter(current === value ? null : value);
   }

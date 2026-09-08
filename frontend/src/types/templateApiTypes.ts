@@ -25,19 +25,35 @@ export type Template = {
   isEnabled: boolean;
 };
 
+/**
+ * Tipos de chave PIX que a Meta aceita. Mesma lista de `TIPOS_CHAVE_PIX` em
+ * `backend/src/companies/config.contract.ts` — `EVP` e a chave aleatoria, e
+ * faltava aqui: o tipo declarava que chave aleatoria era impossivel, enquanto
+ * o mapper montava `"RANDOM"`, que nao existe para a Meta.
+ */
+export type PixKeyTypeMeta = "CNPJ" | "CPF" | "EMAIL" | "PHONE" | "EVP";
+
+/**
+ * `key` e `key_type` sao opcionais no TIPO porque a Meta aceita
+ * `pix_static_code` sem eles em alguns formatos — mas para
+ * `pix_dynamic_code`, que e o que este projeto usa, os dois sao obrigatorios:
+ * omitir qualquer um faz a Meta recusar DEPOIS do NotificaMe ter aceitado
+ * (CODE 100, "violated JSON schema constraint 'required'"). Quem monta o botao
+ * e responsavel por so montar com os dois.
+ */
 export type OrderDetailsPixPayment = {
   type: "pix_dynamic_code" | "pix_static_code";
   pix_dynamic_code?: {
     code: string;
     merchant_name: string;
     key?: string;
-    key_type?: "CNPJ" | "CPF" | "EMAIL" | "PHONE";
+    key_type?: PixKeyTypeMeta;
   };
   pix_static_code?: {
     code: string;
     merchant_name: string;
     key?: string;
-    key_type?: "CNPJ" | "CPF" | "EMAIL" | "PHONE";
+    key_type?: PixKeyTypeMeta;
   };
 };
 

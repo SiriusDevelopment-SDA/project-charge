@@ -31,27 +31,6 @@ function toCalendarDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getMonthlyDispatchDateKeys(from: Date, to: Date, dayOfMonth: number): string[] {
-  const dates: string[] = [];
-  const fromNorm = new Date(from); fromNorm.setHours(12, 0, 0, 0);
-  const toNorm = new Date(to); toNorm.setHours(12, 0, 0, 0);
-
-  const cursor = new Date(fromNorm.getFullYear(), fromNorm.getMonth(), 1);
-
-  while (cursor <= toNorm) {
-    const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
-    if (dayOfMonth <= daysInMonth) {
-      const candidate = new Date(cursor.getFullYear(), cursor.getMonth(), dayOfMonth, 12, 0, 0);
-      if (candidate >= fromNorm && candidate <= toNorm) {
-        dates.push(toCalendarDateKey(candidate));
-      }
-    }
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-
-  return dates;
-}
-
 function getCalendarDateKeysInRange(from: Date, to?: Date) {
   const endDate = to ?? from;
   const current = new Date(from);

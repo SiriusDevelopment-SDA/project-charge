@@ -114,7 +114,6 @@ export function CriarCampanha() {
     toggleDropdown,
     closeDropdown,
     handleBackToCampaigns,
-    handleUploadClientsSpreadsheet,
     handleConsultClientsByInvoiceRule,
     isConsultingInvoiceRule,
     handleOpenPreview,
@@ -125,7 +124,6 @@ export function CriarCampanha() {
 
   const usesInvoiceRule = form.recurringType !== "single";
   const isMonthlyDays = form.recurringType === "monthly_days";
-  const selectedDayLabels = form.selectedDays.map((date) => calendarDateFormatter.format(date));
   const getSliderPosition = (operator: InvoiceRuleOperator): number => {
     if (operator === 'greater_than' || operator === 'greater_or_equal') return 2;
     if (operator === 'less_or_equal') return 1;

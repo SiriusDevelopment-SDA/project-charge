@@ -5,6 +5,7 @@ import { getErrorStatus } from "../../utils/error";
 import type {
   AuthPermissions,
   LoginResponse,
+  NotificameChannel,
 } from "../../types/authApiTypes";
 
 type LoginPayload = {
@@ -217,11 +218,6 @@ export class AuthService {
 
       throw error;
     }
-  }
-
-  static async chatwootLogin(payload: ChatwootLoginPayload): Promise<LoginResponse> {
-    const { data } = await Api.post<LoginResponse>("/auth/chatwoot-login", payload);
-    return data;
   }
 
   static async me(): Promise<MeResponse> {

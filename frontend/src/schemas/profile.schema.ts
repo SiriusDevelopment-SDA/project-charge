@@ -10,9 +10,9 @@ export const profileFormSchema = z
       .min(1, "Informe o nome do usuario.")
       .max(30, "O nome deve ter no máximo 30 caracteres."),
     email: z.string().trim().email("Email invalido."),
-    currentPassword: z.string().optional().default(""),
-    newPassword: z.string().optional().default(""),
-    confirmPassword: z.string().optional().default(""),
+    currentPassword: z.string(),
+    newPassword: z.string(),
+    confirmPassword: z.string(),
   })
   .superRefine((data, ctx) => {
     const currentPassword = data.currentPassword.trim();

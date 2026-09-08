@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { type ReactNode } from "react";
 import { AppStorage } from "../services/storage/storage.service";
 import Style from "./BlockedRoute.module.css";
 
