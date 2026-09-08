@@ -68,8 +68,20 @@ function sortAgents(agents: CompanyAgent[]) {
   );
 }
 
-function replaceTeamMember(teamMembers: CompanyAgent[], nextMember: CompanyAgent) {
-  return teamMembers.map((member) => (member.id === nextMember.id ? nextMember : member));
+/**
+ * Aplica sobre o membro que ja esta na lista o que o PATCH devolveu.
+ *
+ * `PATCH /auth/agents/:id` responde com o agente SEM `createdAt`/`updatedAt`
+ * — a listagem responde com. Trocar o objeto inteiro apagaria esses campos no
+ * estado; o merge preserva o que o PATCH nao mandou.
+ */
+function replaceTeamMember(
+  teamMembers: CompanyAgent[],
+  nextMember: Pick<CompanyAgent, "id"> & Partial<CompanyAgent>,
+) {
+  return teamMembers.map((member) =>
+    member.id === nextMember.id ? { ...member, ...nextMember } : member,
+  );
 }
 
 export function usePerfilPageController() {

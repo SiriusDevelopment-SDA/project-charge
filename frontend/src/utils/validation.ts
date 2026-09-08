@@ -119,7 +119,7 @@ export function buildTemplateParams(
  * O frontend agora so valida dados basicos de contato. Campos de invoice/PIX
  * sao ignorados aqui pois serao resolvidos no dispatch.
  */
-export function validarSelecaoCliente(cliente: Cliente, template?: Template): boolean {
+export function validarSelecaoCliente(cliente: Cliente, _template?: Template): boolean {
   const name = String(cliente.name ?? "").trim();
   const whatsapp = String(cliente.whatsapp ?? "").replace(/\D/g, "");
 

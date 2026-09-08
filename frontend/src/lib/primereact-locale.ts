@@ -1,5 +1,23 @@
 import { addLocale, locale } from "primereact/api";
 
+/**
+ * Quatro chaves que o PrimeReact LE em runtime e nao declara em
+ * `LocaleOptions`: `searchMessage`, `selectionMessage`,
+ * `emptySelectionMessage` e `emptySearchMessage` — cada uma aparece em 4 ou 5
+ * arquivos compilados da propria biblioteca (`api`, `datatable`, `paginator`,
+ * `multiselect`...). A lacuna e da tipagem dela, nao do nosso locale: apagar
+ * as chaves para o `tsc` calar perderia traducao que a tela usa. Como
+ * `LocaleOptions` e interface, da para completar por declaration merging.
+ */
+declare module "primereact/api" {
+  interface LocaleOptions {
+    searchMessage?: string;
+    selectionMessage?: string;
+    emptySelectionMessage?: string;
+    emptySearchMessage?: string;
+  }
+}
+
 addLocale("pt", {
   // Filtros
   matchAll: "Corresponder a todos",

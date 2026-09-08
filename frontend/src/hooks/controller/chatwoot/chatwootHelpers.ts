@@ -152,7 +152,7 @@ export function formatConversationProtocol(conversation: ChatwootConversationIte
 }
 
 export function deduplicateMessages(messages: ChatwootMessageItem[]): ChatwootMessageItem[] {
-  const seen = new Set<number>();
+  const seen = new Set<ChatwootMessageItem["id"]>();
   return messages.filter((m) => {
     if (seen.has(m.id)) return false;
     seen.add(m.id);

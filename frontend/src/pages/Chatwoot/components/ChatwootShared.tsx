@@ -1,9 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Bot } from "lucide-react";
-import type {
-  ChatwootConversationItem,
-  ChatwootMessageItem,
-} from "../../../types/chatwootApiTypes";
+import type { ChatwootMessageItem } from "../../../types/chatwootApiTypes";
 import {
   type ChatwootConversationGroup,
   formatConversationTime,

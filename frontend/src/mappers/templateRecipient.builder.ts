@@ -29,7 +29,38 @@ type BuiltComponent = {
   index?: number;
 };
 
-type PixKeyType = "CNPJ" | "CPF" | "EMAIL" | "PHONE" | "RANDOM";
+/**
+ * Tipos de chave PIX que a Meta aceita em `pix_dynamic_code.key_type`.
+ *
+ * A lista e da Meta, e e a MESMA de `TIPOS_CHAVE_PIX` em
+ * `backend/src/companies/config.contract.ts`: `EVP` e a chave aleatoria —
+ * "nao existe RANDOM nem ALEATORIA para a Meta". Este arquivo mandava
+ * `key_type: "RANDOM"`, valor que nao existe do lado de la.
+ *
+ * `key` e `key_type` sao OBRIGATORIOS dentro de `pix_dynamic_code`. Mandar so
+ * `code` + `merchant_name` nao e "payload valido reduzido" — o backend ja
+ * registrou o erro real disso em producao:
+ *
+ *   CODE: 100 — violated JSON schema constraint 'required'
+ *   ... missing 'key_type' ... missing 'key'
+ *
+ * O modo de falha e o pior possivel: o NotificaMe aceita com HTTP 200 e
+ * `queued`, a Meta recusa depois, e o operador ve a mensagem enfileirada que
+ * nunca chega. Por isso, sem chave valida o botao NAO e montado — mesma
+ * decisao que o backend tomou em `template-dispatch-payload.service.ts`.
+ */
+const TIPOS_CHAVE_PIX_META = ["CNPJ", "CPF", "EMAIL", "PHONE", "EVP"] as const;
+
+type PixKeyType = (typeof TIPOS_CHAVE_PIX_META)[number];
+
+/**
+ * Nomes que o cadastro pode ter guardado antes de o vocabulario ser fixado.
+ * Traduzimos em vez de recusar: a chave e a mesma, so o rotulo estava errado.
+ */
+const APELIDOS_DE_TIPO: Record<string, PixKeyType> = {
+  RANDOM: "EVP",
+  ALEATORIA: "EVP",
+};
 
 function normalizeComponents(components: Template["components"]): TemplateComponentBlueprint[] {
   if (Array.isArray(components)) {
@@ -125,32 +156,37 @@ function buildOrderDetailsComponent(
     if (digits.length === 14) return "CNPJ";
     if (digits.length === 11) return "CPF";
     if (digits.length >= 10 && digits.length <= 13) return "PHONE";
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) return "RANDOM";
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) return "EVP";
 
     return null;
   };
 
-  const inferredPixKeyType = inferPixKeyType(pixKeyCandidate);
-  const VALID_PIX_KEY_TYPES: PixKeyType[] = ["CNPJ", "CPF", "EMAIL", "PHONE", "RANDOM"];
-  const isValidExplicitType = VALID_PIX_KEY_TYPES.includes(explicitPixKeyType as PixKeyType);
+  // Tipo declarado no cadastro vence a inferencia pelo formato: 11 digitos e
+  // CPF e telefone sem DDI ao mesmo tempo, e adivinhar errado gera payload que
+  // a Meta ACEITA e o banco do cliente recusa.
+  const tipoDeclarado =
+    APELIDOS_DE_TIPO[explicitPixKeyType] ??
+    (TIPOS_CHAVE_PIX_META.includes(explicitPixKeyType as PixKeyType)
+      ? (explicitPixKeyType as PixKeyType)
+      : null);
 
-  const shouldIncludePixKey =
-    pixKeyCandidate.length > 0 &&
-    (isValidExplicitType || inferredPixKeyType !== null);
+  const pixKeyType: PixKeyType | null =
+    tipoDeclarado ?? inferPixKeyType(pixKeyCandidate);
 
-  const resolvedPixKeyType: PixKeyType | null = isValidExplicitType
-    ? (explicitPixKeyType as PixKeyType)
-    : inferredPixKeyType;
+  if (!pixKeyCandidate || !pixKeyType) {
+    console.warn("[ORDER_DETAILS] chave PIX ausente ou de tipo desconhecido →", {
+      whatsapp: mappedVar.whatsapp,
+      order_pix_key: pixKeyCandidate ? "(presente)" : "(ausente)",
+      order_pix_key_type: explicitPixKeyType || "(ausente)",
+    });
+    return null;
+  }
 
   const pixDynamicCode = {
     code: pixCode,
     merchant_name: merchantName,
-    ...(shouldIncludePixKey && resolvedPixKeyType
-      ? {
-          key: pixKeyCandidate,
-          key_type: resolvedPixKeyType,
-        }
-      : {}),
+    key: pixKeyCandidate,
+    key_type: pixKeyType,
   };
 
   const orderDetails: OrderDetailsData = {
