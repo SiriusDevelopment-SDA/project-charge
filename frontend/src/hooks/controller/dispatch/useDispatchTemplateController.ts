@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { Api } from "../../../services/api";
+import { TemplateService } from "../../../services/template/template.service";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
 import {
   buildServerSideRecipients,
@@ -94,13 +94,7 @@ export function useDispatchTemplateController() {
       }
       console.groupEnd();
 
-      const response = await Api.post<{
-        batchId: string;
-        queued: number;
-        skipped: number;
-        skippedInvalidInvoices?: number;
-      }>("/templates/send", payload);
-      const result = response.data;
+      const result = await TemplateService.send(payload);
       setActiveBatchId(result.batchId);
       if (result.skipped > 0) {
         toast.warning(
