@@ -46,6 +46,7 @@ import { ChatwootService } from './chatwoot/chatwoot.service';
 import { RedisService } from './redis/redis.service';
 import { RedisController } from './redis/redis.controller';
 import { NotificaMeWebhookController } from './webhooks/notificame.webhook.controller';
+import { NotificaMeWebhookService } from './webhooks/notificame.webhook.service';
 import { MaestroWebhookController } from './webhooks/maestro.webhook.controller';
 import { ProvisioningWebhookController } from './webhooks/provisioning.webhook.controller';
 import { RelatoryResolverCron } from './templates/relatory-resolver.cron';
@@ -131,6 +132,7 @@ import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor'
 
   ],
   providers: [
+    NotificaMeWebhookService,
     AppServiceClient, 
     AppServiceTemplate,
     CampaignsService,
