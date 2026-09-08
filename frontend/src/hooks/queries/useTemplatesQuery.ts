@@ -1,7 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { queryKeys } from "../../lib/queryKeys";
-import { Api } from "../../services/api";
-import type { TemplateSearchResponse, TemplateUsageMetric } from "../../types";
+import { TemplateService } from "../../services/template/template.service";
 import { useAccountParam } from "../useAccountParam";
 
 type TemplateQueryParams = {
@@ -17,14 +16,14 @@ export function useTemplatesQuery(params: TemplateQueryParams) {
   return useQuery({
     queryKey: queryKeys.templates.list(account ?? "", params),
     queryFn: async () => {
-      const response = await Api.post<TemplateSearchResponse>("/templates/search", {
+      const response = await TemplateService.search({
         account,
         query: params.query,
         page: params.page,
         limit: params.limit,
         sortorder: params.order,
       });
-      return response.data.data.filter((item) => item.isEnabled);
+      return response.data.filter((item) => item.isEnabled);
     },
     enabled: Boolean(account),
     staleTime: 1000 * 60,
@@ -41,12 +40,7 @@ export function useTemplateUsageQuery() {
 
   return useQuery({
     queryKey: queryKeys.templates.usage(account ?? ""),
-    queryFn: async () => {
-      const response = await Api.post<TemplateUsageMetric[]>("/templates/usage", {
-        account,
-      });
-      return response.data;
-    },
+    queryFn: () => TemplateService.usage(account),
     enabled: Boolean(account),
     staleTime: 1000 * 60 * 5,
   });

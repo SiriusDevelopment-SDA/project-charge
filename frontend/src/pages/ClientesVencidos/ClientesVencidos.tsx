@@ -479,7 +479,7 @@ export function ClientesVencidos() {
       try {
         setLoadingReminderTemplates(true);
         const result = await TemplateService.search({
-          account: Number(account),
+          account,
           query: templateSearch,
           page: 1,
           limit: 50,
