@@ -194,13 +194,3 @@ export const campaignFormSchema = z
   });
 
 export type CampaignFormValues = z.infer<typeof campaignFormSchema>;
-
-export const mapVarsSchema = z.object({
-  nome_cliente: z.string().min(1, "Nome do cliente é obrigatório"),
-  whatsapp: z.string().min(1, "Whatsapp do cliente é obrigatório"),
-  cnpj_cpf: z.string().min(1, "CNPJ/CPF é obrigatório"),
-  numero_contrato: z.string().min(1, "Número do contrato é obrigatório"),
-  valor_fatura: z.string().min(1, "Valor da fatura é obrigatório"),
-  linha_digitavel_boleto: z.string().min(1, "Linha digitável é obrigatória"),
-  link_boleto_pdf: z.string().min(1, "Link do boleto é obrigatório"),
-});
