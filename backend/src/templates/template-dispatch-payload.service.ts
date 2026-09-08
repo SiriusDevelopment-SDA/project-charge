@@ -9,12 +9,33 @@ import { IXCInvoicesService } from "../invoices/services/ixcInvoicesService";
 import { HubsoftInvoicesService } from "../invoices/services/hubsoftInvoicesService";
 import { SGPInvoicesService } from "../invoices/services/sgpInvoicesService";
 import { MkInvoicesService } from "../invoices/services/mkInvoicesService";
+import { GamaIspInvoicesService } from "../invoices/services/gamaIspInvoicesService";
 import { InvoiceMapResultDto } from "../invoices/dto/search.request.dto.invoices";
+import {
+  ehTipoChavePix,
+  resolverChavePix,
+} from "../companies/config.contract";
+import {
+  classifyErpFailure,
+  describeErpFailure,
+  type ErpFailure,
+} from "../integrations/erp/erp-failure";
 
 export type DispatchSkipReason =
   | "missing_contact"
   | "missing_client_or_invoice"
   | "invoice_not_open_in_erp"
+  /**
+   * O ERP nao respondeu (rede, timeout, 5xx, corpo quebrado). NAO se sabe se o
+   * cliente tem fatura em aberto — e o unico motivo que autoriza o agendador a
+   * manter a campanha pendente e tentar de novo.
+   */
+  | "erp_unavailable"
+  /**
+   * O ERP respondeu recusando a credencial, ou a integracao esta mal
+   * configurada. Repetir nao muda a resposta: fica registrado para alguem ver.
+   */
+  | "erp_integration_error"
   | "template_variables_incomplete"
   | "duplicate_dispatch_today";
 
@@ -32,6 +53,18 @@ export type BuildQueueRecipientsResult = {
   skips: DispatchSkipRecord[];
 };
 
+/**
+ * Telefone do destinatario a partir da linha do disparo, em digitos.
+ *
+ * Exportado porque o agendador precisa comparar a linha da campanha com o que
+ * ja foi enfileirado hoje ANTES de montar o payload (para o retry nao reprocessar
+ * quem ja recebeu). Se cada lado normalizasse do seu jeito, a comparacao falharia
+ * em silencio e o cliente receberia duas vezes.
+ */
+export function normalizeDispatchNumber(row: Record<string, unknown>): string {
+  return String(row.whatsapp ?? row.number ?? "").replace(/\D/g, "");
+}
+
 const INVOICE_VARIABLE_KEYS = new Set([
   "data_vencimento_fatura",
   "numero_contrato",
@@ -44,6 +77,38 @@ const INVOICE_VARIABLE_KEYS = new Set([
   "codigo_pix",
 ]);
 
+/** Formato de `Client.id` (uuid). Ver o uso em `buildQueueRecipients`. */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Como cada campo ausente e dito a quem opera o disparo.
+ *
+ * O relatorio dizia "Variaveis obrigatorias do template nao puderam ser
+ * preenchidas" para tudo — PIX que o ERP nao tem, chave que a empresa nao
+ * cadastrou, fatura sem valor. O motivo exato existia, mas so no log, que em
+ * producao nem sempre e emitido: descobrir que faltava o PIX exigiu acesso ao
+ * host. Cada frase aqui aponta para QUEM resolve.
+ */
+const ROTULO_CAMPO_AUSENTE: Record<string, string> = {
+  code_pix: 'codigo PIX nao veio do ERP',
+  codigo_pix: 'codigo PIX nao veio do ERP',
+  codigo_qr: 'codigo PIX nao veio do ERP',
+  codigo_qr_code: 'codigo PIX nao veio do ERP',
+  valor_fatura: 'valor da fatura ausente no ERP',
+  numero_contrato: 'numero do contrato ausente no ERP',
+  order_reference_id: 'referencia da cobranca ausente no ERP',
+  data_vencimento_fatura: 'vencimento da fatura ausente no ERP',
+  linha_digitavel_boleto: 'linha digitavel ausente no ERP',
+  link_boleto_pdf: 'link do boleto ausente no ERP',
+  order_pix_key: 'empresa sem chave PIX cadastrada',
+  order_pix_key_type: 'empresa sem tipo de chave PIX cadastrado',
+  order_pix_merchant_name: 'nome do recebedor ausente no cadastro da empresa',
+  nome_cliente: 'nome do cliente ausente',
+  nome_atendente: 'nome do atendente nao informado',
+  nome_empresa: 'nome da empresa ausente no cadastro',
+};
+
 const PIX_VARIABLE_KEYS = new Set([
   "code_pix",
   "codigo_qr",
@@ -55,6 +120,13 @@ type TemplateVars = Record<string, string>;
 type BlueprintComponent = Record<string, unknown>;
 type BlueprintButton = Record<string, unknown>;
 type MappedScalar = Record<string, string | undefined>;
+
+/**
+ * Quem e o destinatario em construcao, para o log dizer QUAL empresa e QUAL
+ * cliente ficaram de fora quando um botao nao pode ser montado. Sem isso o
+ * aviso e inacionavel numa campanha de milhares de linhas.
+ */
+type DispatchContext = { companyId: string; clientId: string };
 
 @Injectable()
 export class TemplateDispatchPayloadService {
@@ -69,6 +141,7 @@ export class TemplateDispatchPayloadService {
     private readonly hubsoftService: HubsoftInvoicesService,
     private readonly sgpService: SGPInvoicesService,
     private readonly mkService: MkInvoicesService,
+    private readonly gamaIspService: GamaIspInvoicesService,
   ) {}
 
   templateRequiresInvoiceData(template: Templates): boolean {
@@ -133,9 +206,19 @@ export class TemplateDispatchPayloadService {
 
     const requiresInvoice = this.templateRequiresInvoiceData(template);
     const requiresPix = requiresInvoice && this.templateRequiresPix(template);
+    // `Client.id` e coluna uuid: um id fora do formato faz o Postgres recusar o
+    // `IN` INTEIRO ("invalid input syntax for type uuid") e a excecao sobe antes
+    // de qualquer `persistDispatchSkips` — o lote morre com 500 e nem no
+    // relatorio fica. E entra id assim por caminho legitimo: o upload de
+    // planilha monta cliente "stateless" (`stateless:<doc>`) para CPF sem
+    // cadastro. Filtrar aqui degrada isso para o que ja existe logo abaixo:
+    // cliente nao encontrado vira skip individual, com motivo, e o resto do
+    // lote segue.
     const clientIds = [
       ...new Set(
-        rows.map((r) => String(r.clientId ?? "").trim()).filter(Boolean),
+        rows
+          .map((r) => String(r.clientId ?? "").trim())
+          .filter((id) => UUID_PATTERN.test(id)),
       ),
     ];
 
@@ -153,6 +236,13 @@ export class TemplateDispatchPayloadService {
     const hubsoftByClient = new Map<string, InvoiceMapResultDto[]>();
     const sgpByClient = new Map<string, InvoiceMapResultDto[]>();
     const mkByClient = new Map<string, InvoiceMapResultDto[]>();
+    const gamaIspByClient = new Map<string, InvoiceMapResultDto[]>();
+    /**
+     * Clientes cujo preload FALHOU, com a natureza da falha. E o que separa
+     * "o ERP disse que nao ha fatura" de "o ERP nao respondeu": sem este mapa
+     * os dois chegam ao loop abaixo como lista vazia.
+     */
+    const erpFailureByClient = new Map<string, ErpFailure>();
 
     if (requiresInvoice) {
       const uniqueClients = [...new Set(clients.map((c) => c.id))];
@@ -178,10 +268,16 @@ export class TemplateDispatchPayloadService {
             } else if (erp === "MK") {
               const res = await this.mkService.getInvoices(client);
               mkByClient.set(cid, res.list ?? []);
+            } else if (erp === "GAMAISP") {
+              const res = await this.gamaIspService.getInvoices(client);
+              gamaIspByClient.set(cid, res.list ?? []);
             }
           } catch (e) {
+            const failure = classifyErpFailure(e);
+            erpFailureByClient.set(cid, failure);
             this.logger.warn(
-              `ERP preload falhou client=${cid} erp=${erp}: ${e instanceof Error ? e.message : e}`,
+              `ERP preload falhou client=${cid} erp=${erp} causa=${failure.cause} ` +
+                `transitorio=${failure.transient} http=${failure.httpStatus ?? "-"}: ${failure.message}`,
             );
           }
         }),
@@ -202,10 +298,7 @@ export class TemplateDispatchPayloadService {
     const skips: DispatchSkipRecord[] = [];
 
     for (const row of rows) {
-      const number = String(row.whatsapp ?? row.number ?? "").replace(
-        /\D/g,
-        "",
-      );
+      const number = normalizeDispatchNumber(row);
       const name = String(row.nome_cliente ?? row.name ?? "").trim();
       if (!number || !name) {
         skips.push({
@@ -237,6 +330,7 @@ export class TemplateDispatchPayloadService {
         const hubList = hubsoftByClient.get(client.id);
         const sgpList = sgpByClient.get(client.id);
         const mkList = mkByClient.get(client.id);
+        const gamaIspList = gamaIspByClient.get(client.id);
 
         const invoiceId = String(row.invoice_id ?? "").trim();
 
@@ -253,7 +347,7 @@ export class TemplateDispatchPayloadService {
 
         this.logger.log(
           `[Dispatch] erp=${erp} clientId=${client.id} invoiceId=${invoiceId} ` +
-            `ixcMapSize=${ixcMap?.size ?? "no-entry"} hubListLen=${hubList?.length ?? "no-entry"} sgpListLen=${sgpList?.length ?? "no-entry"} mkListLen=${mkList?.length ?? "no-entry"}`,
+            `ixcMapSize=${ixcMap?.size ?? "no-entry"} hubListLen=${hubList?.length ?? "no-entry"} sgpListLen=${sgpList?.length ?? "no-entry"} mkListLen=${mkList?.length ?? "no-entry"} gamaIspListLen=${gamaIspList?.length ?? "no-entry"}`,
         );
 
         const fresh = await this.buildDispatchScalars(
@@ -264,16 +358,26 @@ export class TemplateDispatchPayloadService {
           hubList,
           sgpList,
           mkList,
+          gamaIspList,
         );
         if (!fresh) {
+          // A fatura nao foi encontrada. Duas causas MUITO diferentes chegam
+          // aqui do mesmo jeito (lista vazia), e o relatorio precisa dizer qual
+          // foi: o cliente quitou, ou o ERP nao respondeu por este cliente.
+          const failure = erpFailureByClient.get(client.id);
           skips.push({
-            reason: "invoice_not_open_in_erp",
+            reason: failure
+              ? failure.transient
+                ? "erp_unavailable"
+                : "erp_integration_error"
+              : "invoice_not_open_in_erp",
             number,
             name,
             clientId,
             invoiceId,
-            detail:
-              "Nenhuma fatura em aberto encontrada no ERP para este cliente no momento do disparo.",
+            detail: failure
+              ? describeErpFailure(failure)
+              : "Nenhuma fatura em aberto encontrada no ERP para este cliente no momento do disparo.",
           });
           continue;
         }
@@ -284,24 +388,42 @@ export class TemplateDispatchPayloadService {
         const companyName = String(client.company?.name ?? "")
           .trim()
           .toLowerCase();
-        const companyCnpj = String(client.company?.cnpj ?? "").replace(
-          /\D/g,
-          "",
-        );
         if (!merged.nome_empresa && companyName)
           merged.nome_empresa = companyName;
         if (!merged.order_pix_merchant_name && companyName)
           merged.order_pix_merchant_name = companyName;
-        if (!merged.order_pix_key && companyCnpj) {
-          merged.order_pix_key = companyCnpj;
-          merged.order_pix_key_type = "CNPJ";
+        // A chave PIX sai da MESMA funcao que o cron de promessa usa
+        // (`resolverChavePix`): sobreposicao configurada quando existe, CNPJ da
+        // empresa com tipo `CNPJ` no caso normal. Antes daqui saia o CNPJ
+        // direto, com o tipo fixo no codigo — o que estava certo para o
+        // negocio, mas deixava chave de e-mail, telefone ou aleatoria
+        // inalcancavel para a empresa que registrou uma dessas no PSP.
+        //
+        // O que NAO existe, aqui nem la, e chave de reserva: empresa sem chave
+        // e sem CNPJ nao monta botao e o destinatario e pulado com log. Ver o
+        // docblock de `resolverChavePix`.
+        //
+        // Continua sendo fallback quanto ao SNAPSHOT: nao sobrescreve o que a
+        // campanha ja trouxe.
+        if (!merged.order_pix_key) {
+          const chavePix = resolverChavePix(client.company);
+          if (chavePix) {
+            merged.order_pix_key = chavePix.key;
+            merged.order_pix_key_type = chavePix.keyType;
+          }
         }
       }
 
+      const faltando: string[] = [];
       const built = this.buildRecipientFromBlueprint(
         templateVars,
         templateComponents,
         merged,
+        {
+          companyId: String(client?.company?.id ?? ""),
+          clientId,
+        },
+        faltando,
       );
       if (!built) {
         skips.push({
@@ -310,8 +432,7 @@ export class TemplateDispatchPayloadService {
           name,
           clientId: clientId || undefined,
           invoiceId: String(row.invoice_id ?? "").trim() || undefined,
-          detail:
-            "Variáveis obrigatórias do template não puderam ser preenchidas.",
+          detail: this.descreverCamposAusentes(faltando),
         });
         continue;
       }
@@ -372,6 +493,10 @@ export class TemplateDispatchPayloadService {
         return "Destinatário ignorado: vínculo cliente/fatura incompleto.";
       case "invoice_not_open_in_erp":
         return `Fatura ${s.invoiceId ?? ""} indisponível ou quitada no ERP.`;
+      case "erp_unavailable":
+        return "Mensagem não enviada: o ERP não respondeu no momento do disparo.";
+      case "erp_integration_error":
+        return "Mensagem não enviada: o ERP recusou a consulta (credencial ou configuração da integração).";
       case "template_variables_incomplete":
         return "Destinatário ignorado: dados insuficientes para o template.";
       case "duplicate_dispatch_today":
@@ -379,6 +504,55 @@ export class TemplateDispatchPayloadService {
       default:
         return "Destinatário ignorado.";
     }
+  }
+
+  /**
+   * Contagem por motivo, para a mensagem que o operador ve quando o lote
+   * inteiro cai. Sem isso ele le "nenhum destinatario valido" e precisa abrir o
+   * Historico so para descobrir se foi fatura, PIX ou cadastro da empresa.
+   */
+  resumirSkips(skips: DispatchSkipRecord[]): string {
+    const contagem = new Map<string, number>();
+
+    for (const skip of skips) {
+      const motivo = (skip.detail ?? this.formatSkipSummary(skip))
+        .replace(/^Mensagem não enviada:\s*/i, "")
+        .replace(/\.\s*$/, "");
+      contagem.set(motivo, (contagem.get(motivo) ?? 0) + 1);
+    }
+
+    return [...contagem.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([motivo, quantidade]) => `${quantidade}x ${motivo}`)
+      .join("; ");
+  }
+
+  /**
+   * Frase do relatorio a partir dos campos que impediram a montagem.
+   *
+   * Campo desconhecido do dicionario entra pelo proprio nome em vez de virar
+   * texto generico: nome tecnico ainda diz mais do que "variaveis obrigatorias".
+   */
+  private descreverCamposAusentes(campos: string[]): string {
+    const motivos = [
+      ...new Set(
+        campos
+          .map((campo) => String(campo ?? "").trim())
+          .filter(Boolean)
+          .map(
+            (campo) =>
+              ROTULO_CAMPO_AUSENTE[campo] ??
+              `campo "${campo}" sem valor no momento do disparo`,
+          ),
+      ),
+    ];
+
+    if (!motivos.length) {
+      return "Mensagem não enviada: variáveis obrigatórias do template não puderam ser preenchidas.";
+    }
+
+    return `Mensagem não enviada: ${motivos.join("; ")}.`;
   }
 
   private rowToScalars(row: Record<string, unknown>): MappedScalar {
@@ -399,6 +573,7 @@ export class TemplateDispatchPayloadService {
     hubList: InvoiceMapResultDto[] | undefined,
     sgpList: InvoiceMapResultDto[] | undefined,
     mkList: InvoiceMapResultDto[] | undefined,
+    gamaIspList: InvoiceMapResultDto[] | undefined,
   ): Promise<MappedScalar | null> {
     if (erp === "IXC") {
       const inv = ixcMap?.get(invoiceId);
@@ -482,6 +657,47 @@ export class TemplateDispatchPayloadService {
         valor_fatura: String(inv.invoice_amount ?? ""),
         linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ""),
         link_boleto_pdf: String(inv.ticket_pdf_link ?? ""),
+        code_pix: pixCode,
+        codigo_qr: pixCode,
+        codigo_qr_code: pixCode,
+        codigo_pix: pixCode,
+        order_reference_id: String(inv.contract_id ?? ""),
+      };
+    }
+
+    if (erp === "GAMAISP") {
+      const inv = gamaIspList?.find((x) => String(x.invoice_id) === invoiceId);
+      if (!inv) return null;
+
+      // A Gama ISP traz o PIX (pix_qrcode) no mesmo payload das faturas — mas
+      // nao em todas. Producao (POWERNET, 02/09/2026) devolveu fatura EM ABERTO
+      // com valor e vencimento e `pix_qrcode` null: sem PIX o botao
+      // ORDER_DETAILS nao monta e o destinatario inteiro e pulado.
+      //
+      // Quando vier vazio, perguntamos pela fatura especifica
+      // (`GET /api/v1/faturas/id/{id}`), que devolve o registro completo. O
+      // custo e uma chamada extra POR FATURA SEM PIX, limitada pelo semaforo da
+      // empresa (3 simultaneas) — so no caminho que hoje simplesmente falha.
+      let pixCode = String(inv.code_pix ?? "");
+
+      if (!pixCode) {
+        pixCode =
+          (await this.gamaIspService.fetchPixByInvoice(
+            client.company,
+            invoiceId,
+          )) ?? "";
+      }
+
+      return {
+        invoice_id: invoiceId,
+        numero_contrato: String(inv.contract_id ?? ""),
+        data_vencimento_fatura: String(inv.invoice_due_date ?? ""),
+        valor_fatura: String(inv.invoice_amount ?? ""),
+        linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ""),
+        // Sem link de PDF nesta entrega: a Gama ISP so devolve o boleto como
+        // base64 num endpoint proprio, sem URL publica. Ver
+        // `gamaIspInvoicesService.ts` (ticket_pdf_link e sempre null).
+        link_boleto_pdf: "",
         code_pix: pixCode,
         codigo_qr: pixCode,
         codigo_qr_code: pixCode,
@@ -626,6 +842,9 @@ export class TemplateDispatchPayloadService {
     templateVars: TemplateVars,
     templateComponents: BlueprintComponent[],
     mapped: MappedScalar,
+    contexto: DispatchContext,
+    /** Ver `buildOrderDetailsComponent`: leva o motivo do pulo ao relatorio. */
+    faltandoOut?: string[],
   ): { components: MessageQueuePayload["components"] } | null {
     const hasDocumentHeader = templateComponents.some(
       (c) =>
@@ -648,7 +867,11 @@ export class TemplateDispatchPayloadService {
     const emptyParam = bodyParameters.find((p) => !p.text.trim());
     if (emptyParam) {
       const emptyKey = orderedKeys[bodyParameters.indexOf(emptyParam)];
-      this.logger.log(
+      faltandoOut?.push(emptyKey);
+      // `warn`, nao `log`: em producao o Nest sobe com `['warn','error']`, e a
+      // linha que explica por que o destinatario foi pulado era justamente a
+      // que nao saia — quem investigava ficava sem nada.
+      this.logger.warn(
         `[Dispatch] buildRecipient body param vazio: key=${emptyKey} ` +
           `mapped_keys=${JSON.stringify(Object.keys(mapped))} ` +
           `code_pix="${mapped.code_pix}" numero_contrato="${mapped.numero_contrato}"`,
@@ -686,7 +909,13 @@ export class TemplateDispatchPayloadService {
       if (buttonType === "QUICK_REPLY") continue;
 
       if (buttonType === "ORDER_DETAILS") {
-        const oc = this.buildOrderDetailsComponent(button, i, mapped);
+        const oc = this.buildOrderDetailsComponent(
+          button,
+          i,
+          mapped,
+          contexto,
+          faltandoOut,
+        );
         if (!oc) return null;
         components.push(oc);
         continue;
@@ -699,7 +928,18 @@ export class TemplateDispatchPayloadService {
       }
 
       const bc = this.buildButtonComponent(button, i, buttonType, mapped);
-      if (!bc && buttonType === "URL") return null;
+      if (!bc && buttonType === "URL") {
+        // Este era o unico caminho de pulo SEM registro nenhum — nem log, nem
+        // motivo. Template com botao de link e destinatario sem `link_boleto_pdf`
+        // sumia do lote em silencio absoluto.
+        faltandoOut?.push("link_boleto_pdf");
+        this.logger.warn(
+          `[Dispatch] Botao URL sem valor para o cliente ` +
+            `${contexto.clientId || "?"} da empresa ${contexto.companyId || "?"}: ` +
+            `link_boleto_pdf. O destinatario foi PULADO.`,
+        );
+        return null;
+      }
       if (bc) components.push(bc);
     }
 
@@ -710,6 +950,13 @@ export class TemplateDispatchPayloadService {
     button: BlueprintButton,
     buttonIndex: number,
     mapped: MappedScalar,
+    contexto: DispatchContext,
+    /**
+     * Recebe os campos que impediram a montagem. E por aqui que o motivo sai do
+     * log e chega ao relatorio: sem isso o operador le "variaveis obrigatorias
+     * nao preenchidas" e precisa de acesso ao host para saber que faltou o PIX.
+     */
+    faltandoOut?: string[],
   ): MessageQueuePayload["components"][number] | null {
     const referenceId = String(
       mapped.numero_contrato ?? mapped.order_reference_id ?? "",
@@ -721,70 +968,73 @@ export class TemplateDispatchPayloadService {
         mapped.codigo_pix ??
         "",
     ).trim();
+    const merchantName = String(
+      mapped.order_pix_merchant_name ?? mapped.nome_empresa ?? "",
+    ).trim();
+    const amountCents = this.parseAmountToCents(mapped.valor_fatura);
+    const pixKey = String(mapped.order_pix_key ?? "").trim();
+    const pixKeyType = String(mapped.order_pix_key_type ?? "")
+      .trim()
+      .toUpperCase();
 
-    if (!referenceId || !pixCode) {
-      this.logger.log(
-        `[Dispatch] ORDER_DETAILS falhou: referenceId="${referenceId}" pixCode="${pixCode}" ` +
-          `code_pix="${mapped.code_pix}" codigo_qr="${mapped.codigo_qr}" valor_fatura="${mapped.valor_fatura}"`,
+    // `key` e `key_type` sao OBRIGATORIOS para a Meta dentro de
+    // `pix_dynamic_code`. Ate aqui os dois eram opcionais e o tipo era
+    // ADIVINHADO pelo formato da chave (`inferPixKeyType`, removido). As duas
+    // coisas produziam o mesmo desfecho: o NotificaMe aceitava o disparo com
+    // `status: queued` e HTTP 200, e a Meta recusava depois —
+    //
+    //   CODE: 100 — violated JSON schema constraint 'required'
+    //   ... missing 'key_type' ... missing 'key'
+    //
+    // — sem ninguem ver. Adivinhar era pior ainda que omitir: 11 digitos e CPF
+    // e telefone sem DDI ao mesmo tempo, e o tipo errado gera um payload que a
+    // Meta ACEITA e o banco do cliente recusa. O tipo vem de quem configurou a
+    // chave (`resolverChavePix`), ou o botao nao e montado.
+    const faltando: string[] = [];
+    if (!referenceId) faltando.push("numero_contrato");
+    if (!pixCode) faltando.push("code_pix");
+    if (!merchantName) faltando.push("order_pix_merchant_name");
+    if (amountCents <= 0) faltando.push("valor_fatura");
+
+    const problemaDeChave: string[] = [];
+    if (!pixKey) problemaDeChave.push("order_pix_key");
+    if (!pixKeyType) problemaDeChave.push("order_pix_key_type");
+    else if (!ehTipoChavePix(pixKeyType)) {
+      problemaDeChave.push(`order_pix_key_type invalido ("${pixKeyType}")`);
+    }
+
+    if (faltando.length || problemaDeChave.length) {
+      faltandoOut?.push(...faltando, ...problemaDeChave);
+      this.logger.warn(
+        `[Dispatch] Botao ORDER_DETAILS nao montado para o cliente ` +
+          `${contexto.clientId || "?"} da empresa ${contexto.companyId || "?"}: ` +
+          `${[...faltando, ...problemaDeChave].join(", ")}. A Meta recusaria o ` +
+          `disparo depois de aceito, entao o destinatario foi PULADO.` +
+          (problemaDeChave.length
+            ? " Configure a chave em PATCH /companies/:id -> pagamento."
+            : ""),
       );
       return null;
     }
 
-    const merchantName = String(
-      mapped.order_pix_merchant_name ?? mapped.nome_empresa ?? "",
-    ).trim();
-    const pixKeyCandidate = String(mapped.order_pix_key ?? "").trim();
-    const explicitPixKeyType = String(mapped.order_pix_key_type ?? "")
-      .trim()
-      .toUpperCase();
-    const amountCents = this.parseAmountToCents(mapped.valor_fatura);
     const itemName = String(mapped.order_item_name ?? "Fatura").trim();
     const itemDescription = String(mapped.order_item_description ?? "").trim();
-
-    if (amountCents <= 0) return null;
-
     const buildAmount = (value: number) => ({ value, offset: 100 });
-
-    type PixKeyType = "CNPJ" | "CPF" | "EMAIL" | "PHONE" | "RANDOM";
-    const inferPixKeyType = (key: string): PixKeyType | null => {
-      const digits = key.replace(/\D/g, "");
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) return "EMAIL";
-      if (digits.length === 14) return "CNPJ";
-      if (digits.length === 11) return "CPF";
-      if (digits.length >= 10 && digits.length <= 13) return "PHONE";
-      if (
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          key,
-        )
-      )
-        return "RANDOM";
-      return null;
-    };
-
-    const inferredPixKeyType = inferPixKeyType(pixKeyCandidate);
-    const VALID: PixKeyType[] = ["CNPJ", "CPF", "EMAIL", "PHONE", "RANDOM"];
-    const isValidExplicit = VALID.includes(explicitPixKeyType as PixKeyType);
-    const shouldIncludePixKey =
-      pixKeyCandidate.length > 0 &&
-      (isValidExplicit || inferredPixKeyType !== null);
-    const resolvedPixKeyType: PixKeyType | null = isValidExplicit
-      ? (explicitPixKeyType as PixKeyType)
-      : inferredPixKeyType;
-
-    const pixDynamicCode: Record<string, unknown> = {
-      code: pixCode,
-      merchant_name: merchantName,
-      ...(shouldIncludePixKey && resolvedPixKeyType
-        ? { key: pixKeyCandidate, key_type: resolvedPixKeyType }
-        : {}),
-    };
 
     const orderDetails = {
       reference_id: referenceId,
       type: "digital-goods",
       payment_type: "br",
       payment_settings: [
-        { type: "pix_dynamic_code", pix_dynamic_code: pixDynamicCode },
+        {
+          type: "pix_dynamic_code",
+          pix_dynamic_code: {
+            code: pixCode,
+            merchant_name: merchantName,
+            key: pixKey,
+            key_type: pixKeyType,
+          },
+        },
       ],
       currency: "BRL",
       total_amount: buildAmount(amountCents),

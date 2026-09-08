@@ -8,8 +8,21 @@ import { PaymentPromise } from './entities/payment-promise.entity';
 import { Templates } from '../templates/entities/templatesMeta';
 import { MessageQueuePayload } from '../message-queue/entities/message-queue.entity';
 import { MessageQueueService } from '../message-queue/message-queue.service';
+import { ehTipoChavePix, resolverChavePix } from '../companies/config.contract';
 
 type PromiseReminderTiming = 'day_before' | 'same_day' | 'both';
+
+/**
+ * O template do lembrete com a empresa carregada junto — a origem do nome, do
+ * CNPJ e da chave PIX que entram no botao ORDER_DETAILS.
+ */
+type ReminderTemplate = Templates & {
+  company?: {
+    name?: string | null;
+    cnpj?: string | null;
+    config?: Company['config'] | string | null;
+  };
+};
 
 type PromiseAutomationSettings = {
   reminderEnabled: boolean;
@@ -80,7 +93,7 @@ export class PaymentPromiseCron {
     const tomorrow = this.addDays(today, 1);
 
     // Load template once for the whole batch (avoids N+1 template queries)
-    let template: (Templates & { company?: { name?: string | null; cnpj?: string | null } }) | null = null;
+    let template: ReminderTemplate | null = null;
     if (settings.reminderEnabled && settings.reminderTemplateId) {
       template = await this.templateRepository.findOne({
         where: { id: settings.reminderTemplateId, company: { id: companyId } },
@@ -93,7 +106,9 @@ export class PaymentPromiseCron {
           components: true,
           active: true,
           isEnabled: true,
-          company: { id: true, name: true, cnpj: true },
+          // `config` entra no select porque e de la que sai a chave PIX do
+          // botao ORDER_DETAILS (ver `resolverChavePix`). Mesma query, sem N+1.
+          company: { id: true, name: true, cnpj: true, config: true },
         },
       });
 
@@ -251,7 +266,7 @@ export class PaymentPromiseCron {
   private async enqueueReminderWithTemplate(
     promise: PaymentPromise,
     companyId: string,
-    template: Templates & { company?: { name?: string | null; cnpj?: string | null } },
+    template: ReminderTemplate,
     invoice: Invoice | null,
   ): Promise<boolean> {
     const phone = String(promise.phone ?? '').replace(/\D/g, '').trim();
@@ -314,7 +329,7 @@ export class PaymentPromiseCron {
 
   private buildReminderPayload(
     promise: PaymentPromise,
-    template: Templates & { company?: { name?: string | null; cnpj?: string | null } },
+    template: ReminderTemplate,
     invoice: Invoice | null,
   ): MessageQueuePayload | null {
     const templateVariables = this.normalizeTemplateVariables(template.variables);
@@ -353,9 +368,29 @@ export class PaymentPromiseCron {
           : [];
 
       for (const [index, button] of buttons.entries()) {
-        const builtButton = this.buildReminderButton(button, index, values);
+        const builtButton = this.buildReminderButton(button, index, values, {
+          companyId: String(promise.company_id ?? ''),
+          promiseId: promise.id,
+        });
+
         if (builtButton) {
           builtComponents.push(builtButton);
+          continue;
+        }
+
+        // ORDER_DETAILS que nao pode ser montado ABORTA o lembrete inteiro, em
+        // vez de sair da mensagem em silencio.
+        //
+        // Pular o botao nao salvaria nada: a Meta exige parametro para todo
+        // botao dinamico declarado no template aprovado, entao a mensagem sem
+        // ele seria recusada do mesmo jeito — so que depois do `queued`, sem
+        // ninguem ver. Abortando aqui, `enqueueReminderWithTemplate` devolve
+        // false, a promessa NAO e marcada como lembrada e o log volta a cada
+        // hora ate alguem configurar a chave. E o mesmo criterio de
+        // `templates/template-dispatch-payload.service.ts`.
+        const tipoBotao = String(button?.type ?? '').toUpperCase();
+        if (tipoBotao === 'ORDER_DETAILS') {
+          return null;
         }
       }
     }
@@ -369,7 +404,7 @@ export class PaymentPromiseCron {
 
   private buildReminderVariableValues(
     promise: PaymentPromise,
-    template: Templates & { company?: { name?: string | null; cnpj?: string | null } },
+    template: ReminderTemplate,
     invoice: Invoice | null,
   ) {
     const companyName = String(template.company?.name ?? '').trim();
@@ -389,6 +424,7 @@ export class PaymentPromiseCron {
     const ticketDigitableLine = String(invoice?.ticketDigitableLine ?? '').trim();
     const contractNumber = String(invoice?.contractId ?? '').trim();
     const orderReferenceId = contractNumber || promise.client_id;
+    const pix = resolverChavePix(template.company);
 
     return {
       nome_cliente: String(promise.client_name ?? '').trim().toLowerCase(),
@@ -412,8 +448,8 @@ export class PaymentPromiseCron {
       order_item_name: 'Fatura',
       order_item_description: 'Lembrete de promessa de pagamento',
       order_pix_merchant_name: companyName,
-      order_pix_key: String(template.company?.cnpj ?? '').trim(),
-      order_pix_key_type: template.company?.cnpj ? 'CNPJ' : '',
+      order_pix_key: pix?.key ?? '',
+      order_pix_key_type: pix?.keyType ?? '',
     } as Record<string, string>;
   }
 
@@ -421,6 +457,7 @@ export class PaymentPromiseCron {
     button: Record<string, unknown>,
     index: number,
     values: Record<string, string>,
+    contexto: { companyId: string; promiseId: string },
   ) {
     const buttonType = String(button?.type ?? '').toUpperCase();
     const buttonIndex = Number(button?.index ?? index);
@@ -459,8 +496,47 @@ export class PaymentPromiseCron {
       const referenceId = String(values.order_reference_id ?? '').trim();
       const merchantName = String(values.order_pix_merchant_name ?? '').trim();
       const amount = this.parseAmountToCents(values.valor_fatura);
+      const pixKey = String(values.order_pix_key ?? '').trim();
+      const pixKeyType = String(values.order_pix_key_type ?? '')
+        .trim()
+        .toUpperCase();
 
-      if (!code || !referenceId || !merchantName || amount <= 0) {
+      // `key` e `key_type` sao OBRIGATORIOS para a Meta dentro de
+      // `pix_dynamic_code`. Ate aqui os dois eram opcionais e o botao era
+      // montado sem eles; o disparo era aceito pelo NotificaMe com
+      // `status: queued` e HTTP 200, e so a Meta recusava depois:
+      //
+      //   CODE: 100 — violated JSON schema constraint 'required'
+      //   ... missing 'key_type' ... missing 'key'
+      //
+      // Ninguem via a recusa: a mensagem ficava enfileirada e nunca chegava.
+      // Montar botao invalido e a pior saida — pior que nao montar nenhum.
+      const faltando: string[] = [];
+      if (!code) faltando.push('code_pix');
+      if (!referenceId) faltando.push('order_reference_id');
+      if (!merchantName) faltando.push('order_pix_merchant_name');
+      if (amount <= 0) faltando.push('valor_fatura');
+
+      // A chave e o unico problema com conserto conhecido e de uma linha, por
+      // isso ganha a instrucao no log. Os demais campos vem da fatura e do
+      // template — quem le precisa investigar, nao configurar.
+      const problemaDeChave: string[] = [];
+      if (!pixKey) problemaDeChave.push('order_pix_key');
+      if (!pixKeyType) problemaDeChave.push('order_pix_key_type');
+      else if (!ehTipoChavePix(pixKeyType)) {
+        problemaDeChave.push(`order_pix_key_type invalido ("${pixKeyType}")`);
+      }
+
+      if (faltando.length || problemaDeChave.length) {
+        this.logger.warn(
+          `[PromiseAutomation] Botao ORDER_DETAILS nao montado para a promessa ` +
+            `${contexto.promiseId} da empresa ${contexto.companyId}: ` +
+            `${[...faltando, ...problemaDeChave].join(', ')}. A Meta recusaria ` +
+            `o disparo depois de aceito, entao o lembrete NAO foi enfileirado.` +
+            (problemaDeChave.length
+              ? ' Configure a chave em PATCH /companies/:id -> pagamento.'
+              : ''),
+        );
         return null;
       }
 
@@ -482,12 +558,8 @@ export class PaymentPromiseCron {
                     pix_dynamic_code: {
                       code,
                       merchant_name: merchantName,
-                      ...(values.order_pix_key
-                        ? {
-                            key: values.order_pix_key,
-                            key_type: values.order_pix_key_type || 'CNPJ',
-                          }
-                        : {}),
+                      key: pixKey,
+                      key_type: pixKeyType,
                     },
                   },
                 ],
