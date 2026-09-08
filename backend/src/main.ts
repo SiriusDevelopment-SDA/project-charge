@@ -6,18 +6,33 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { useContainer } from 'class-validator';
 import basicAuth from 'express-basic-auth';
+import compression from 'compression';
+import { NestExpressApplication } from '@nestjs/platform-express';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger:
       process.env.NODE_ENV === 'production'
         ? ['warn', 'error']
         : ['log', 'warn', 'error', 'verbose'],
   });
   const configService = app.get(ConfigService);
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  app.use(require('compression')());
-  app.use(require('express').json({ limit: '10mb' }));
-  app.use(require('express').urlencoded({ limit: '10mb', extended: true }));
+  app.use(compression());
+
+  // O limite de corpo sobe pelo proprio Nest em vez de `require('express')`: o
+  // `express` nao esta declarado no `package.json` (chega por transitiva do
+  // `@nestjs/platform-express`), e importa-lo direto amarra o boot a uma
+  // dependencia que ninguem controla aqui.
+  //
+  // ORDEM IMPORTA: estas duas linhas PRECISAM vir antes do `app.listen()`.
+  // O Nest so registra o parser padrao (limite ~100kb) dentro do `init()`, que
+  // o `listen()` chama, e la ele PULA o registro ao ver que ja existe um
+  // parser aplicado. Movidas para depois do `listen()`, o limite volta a 100kb
+  // sem erro nenhum — o disparo grande passa a dar 413 e ninguem liga uma
+  // coisa na outra.
+  app.useBodyParser('json', { limit: '10mb' });
+  app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
+
   app.enableCors();
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
@@ -82,4 +97,12 @@ async function bootstrap() {
   await app.listen(configService.get('PORT') || 3000, "0.0.0.0");
   console.log(`Server is running on ${await app.getUrl()}`);
 }
-bootstrap();
+/**
+ * Falha de boot tem que MATAR o processo. Sem o `catch`, a rejeicao sobe como
+ * unhandled e o conteiner pode ficar de pe sem servidor escutando: o
+ * orquestrador ve "rodando", ninguem reinicia, e a API some sem alarme.
+ */
+bootstrap().catch((error) => {
+  console.error('[Bootstrap] Falha ao subir a aplicacao:', error);
+  process.exit(1);
+});

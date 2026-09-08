@@ -281,8 +281,13 @@ export class AppServiceTemplate {
       channelId,
     );
 
-    await this.refreshTemplateStatusForUsage(template);
-    this.ensureTemplateApprovedForUsage(template);
+    // Sem `await` a excecao de "template nao aprovado na Meta" virava rejeicao
+    // nao tratada e o disparo SEGUIA: template reprovado ou pausado passava
+    // pelo caminho manual (o de campanha, em `campaigns.service`, sempre
+    // esperou). O `refreshTemplateStatusForUsage` que ficava aqui era chamada
+    // repetida — `ensureTemplateApprovedForUsage` ja atualiza o status antes
+    // de decidir, entao era uma ida a Meta a mais por disparo.
+    await this.ensureTemplateApprovedForUsage(template);
 
     if (!to.length) {
       throw new BadRequestException('Nenhum destinatario informado para envio.');

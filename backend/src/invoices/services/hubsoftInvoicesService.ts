@@ -126,14 +126,20 @@ export class HubsoftInvoicesService {
 
     map = data.faturas.map((t: HubsoftFatura
     ): InvoiceMapResultDto => ({
-      invoice_id: String(t.id_fatura) ?? null,
-      contract_id: String(t.cliente.servico.id_cliente_servico) ?? null,
-      invoice_due_date: String(t.data_vencimento) ?? null,
+      // `String(x) ?? null` nao protege nada: `String()` sempre devolve string,
+      // entao o `??` e ramo morto e campo ausente virava a string "undefined".
+      // Pior: `String(t.pix_copia_cola)` com o campo null — que o proprio tipo
+      // declara possivel — produzia o texto "null" como codigo PIX, e "null" e
+      // truthy: passava por qualquer checagem de "tem PIX?". Os outros quatro
+      // ERPs sempre usaram `?? null`; so este ficou de fora.
+      invoice_id: String(t.id_fatura ?? ''),
+      contract_id: String(t.cliente.servico.id_cliente_servico ?? ''),
+      invoice_due_date: t.data_vencimento ?? null,
       invoice_amount: String(t.valor),
       invoice_status: 'A Receber',
       ticket_digitable_line: t.codigo_barras ?? null,
       ticket_pdf_link: t.link ?? null,
-      code_pix: String(t.pix_copia_cola)
+      code_pix: t.pix_copia_cola ?? null
     })).sort((a: any, b: any) => {
       const parseDate = (str?: string) => {
         if (!str) return 0;

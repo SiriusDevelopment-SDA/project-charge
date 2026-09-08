@@ -36,21 +36,21 @@ export class ChatGateway implements OnGatewayConnection {
 
   private readonly logger = new Logger(ChatGateway.name);
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     const account = String(client.handshake.query.account ?? '').trim();
     if (account) {
-      client.join(this.getAccountRoom(account));
+      await this.entrarNaSalaDaConta(client, account);
     }
   }
 
   @SubscribeMessage('chat:subscribe')
-  handleSubscribe(
+  async handleSubscribe(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: SubscribePayload,
   ) {
     const account = String(payload?.account ?? '').trim();
     if (!account) return;
-    client.join(this.getAccountRoom(account));
+    await this.entrarNaSalaDaConta(client, account);
   }
 
   emitChatSync(account: string, extra?: ChatSyncExtra) {
@@ -64,6 +64,25 @@ export class ChatGateway implements OnGatewayConnection {
     });
 
     this.logger.debug(`Chat sync emitted for account ${safeAccount} conversationId=${extra?.conversationId ?? '-'}`);
+  }
+
+  /**
+   * `join` do socket.io e assincrono por contrato: com o adapter em memoria
+   * resolve na hora, mas com adapter distribuido (Redis) vira ida a rede, que
+   * falha. Sem `await` a falha vira rejeicao nao tratada e o cliente fica
+   * conectado SEM receber nada — do lado de fora a conexao parece saudavel e a
+   * tela simplesmente para de atualizar, sem uma linha de log dizendo por que.
+   */
+  private async entrarNaSalaDaConta(client: Socket, account: string) {
+    const sala = this.getAccountRoom(account);
+    try {
+      await client.join(sala);
+    } catch (error) {
+      this.logger.error(
+        `Cliente ${client.id} nao entrou na sala ${sala}: nao vai receber atualizacoes.`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private getAccountRoom(account: string) {

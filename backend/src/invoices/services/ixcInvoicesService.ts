@@ -154,8 +154,15 @@ export class IXCInvoicesService {
               const pixCode = '';
 
               return {
-                invoice_id: String(t.id) ?? null,
-                contract_id: String(contractId),
+                // `contractId` termina em `: null` no ternario acima, e
+                // `String(null)` e o texto "null" — que sobrevive ao
+                // `?? ""` do disparo e ia parar na mensagem do cliente como
+                // numero de contrato. Vazio faz a variavel cair no skip com
+                // motivo registrado, que e o comportamento correto.
+                // O `?? null` do `invoice_id` era ramo morto: `String()`
+                // nunca devolve null.
+                invoice_id: String(t.id ?? ''),
+                contract_id: contractId ?? '',
                 invoice_due_date: formatarDataBR(t.data_vencimento) ?? null,
                 invoice_amount: String(t.valor_aberto),
                 invoice_status: 'A Receber',
