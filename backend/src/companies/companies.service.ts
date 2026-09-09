@@ -17,7 +17,13 @@ import {
   ErpPreflightService,
   PreflightResult,
 } from '../integrations/erp/erp-preflight.service';
-import { resolvePagePermissions } from './planos';
+import {
+  PAGINAS,
+  PAGINAS_IDS,
+  PLANOS,
+  isPlano,
+  resolvePagePermissions,
+} from './planos';
 
 export type CompanyListItem = {
   id: string;
@@ -677,6 +683,189 @@ export class CompaniesService {
       .replace(/\/+$/, '');
   }
 
+  /**
+   * Reativa uma empresa inativa revalidando as credenciais JA SALVAS.
+   *
+   * Existe para tirar o super_admin do banco. Ate aqui, reativar exigia um PATCH
+   * reenviando `url` ou `credenciais` — porque so essas duas disparam preflight
+   * — ou um UPDATE manual no Postgres. Quem so queria religar uma empresa nao
+   * tinha caminho pela aplicacao.
+   *
+   * NAO existe atalho: a ativacao continua sendo GANHA com preflight ok, nunca
+   * imposta por um booleano no corpo. Empresa inativa costuma estar inativa por
+   * um motivo, e um endpoint que simplesmente escreve `active = true`
+   * transformaria "credencial recusada" em "empresa ativa que nao sincroniza" —
+   * o pior desfecho, porque some da tela e reaparece como dado velho.
+   *
+   * A regra do `inacessivel` NAO se aplica aqui. La ela protege uma empresa que
+   * ESTAVA ativa de cair por instabilidade momentanea; aqui a empresa ja esta
+   * inativa e nao ha nada a proteger — sem alcancar o ERP, nao ha o que ateste
+   * que ela pode voltar.
+   */
+  async reativar(id: string) {
+    const empresa = await this.companyRepository.findOne({ where: { id } });
+
+    if (!empresa) {
+      throw new NotFoundException('Empresa nao encontrada.');
+    }
+
+    const configAtual = this.parseConfig(empresa.config);
+
+    if (empresa.active) {
+      return {
+        aplicado: false,
+        active: true,
+        message: `${empresa.name} ja esta ativa.`,
+        preflight: configAtual.preflight ?? null,
+      };
+    }
+
+    const definicao = getErpDefinition(empresa.erp);
+
+    if (!definicao) {
+      throw new BadRequestException(
+        `Empresa gravada com ERP nao reconhecido: "${empresa.erp}".`,
+      );
+    }
+
+    // Mesma montagem do `update`, so que sem nada vindo de fora: o que vai ao
+    // preflight e exatamente o que esta gravado.
+    const credenciais: Record<string, string> = {};
+    for (const campo of definicao.credenciais) {
+      const valor =
+        campo.destino === 'autorization'
+          ? empresa.autorization
+          : configAtual[campo.campo];
+      if (valor) credenciais[campo.campo] = String(valor);
+    }
+
+    const faltando = definicao.credenciais
+      .filter((c) => c.obrigatorio && !String(credenciais[c.campo] ?? '').trim())
+      .map((c) => `${c.campo} (${c.descricao})`);
+
+    if (faltando.length) {
+      throw new BadRequestException(
+        `${empresa.name} nao pode ser reativada: credenciais obrigatorias ausentes ` +
+          `no cadastro — ${faltando.join('; ')}. Preencha-as pelo PATCH da empresa.`,
+      );
+    }
+
+    const configCredenciais: Record<string, string> = {};
+    let autorization = empresa.autorization;
+    for (const campo of definicao.credenciais) {
+      const valor = String(credenciais[campo.campo] ?? '').trim();
+      if (!valor) continue;
+      if (campo.destino === 'autorization') {
+        autorization = valor;
+      } else {
+        configCredenciais[campo.campo] = valor;
+      }
+    }
+
+    const resultado = await this.preflight.run({
+      erp: definicao.code,
+      url: empresa.url,
+      autorization,
+      config: configCredenciais,
+    });
+
+    const { config } = montarConfig(
+      configAtual,
+      { preflight: this.resumoPreflight(resultado) },
+      definicao.code,
+    );
+
+    empresa.config = config;
+    empresa.active = resultado.status !== 'falhou';
+
+    const salva = await this.companyRepository.save(empresa);
+
+    this.logger.log(
+      `[reativar] ${salva.name} (${definicao.label}) — preflight: ${resultado.status}` +
+        (resultado.causa ? ` (${resultado.causa})` : '') +
+        ` — empresa ${salva.active ? 'REATIVADA' : 'segue INATIVA'}`,
+    );
+
+    return {
+      aplicado: salva.active,
+      active: salva.active,
+      message: salva.active
+        ? `${salva.name} reativada — o ERP aceitou as credenciais salvas.`
+        : `${salva.name} continua inativa: ${resultado.erro ?? 'o ERP nao aceitou as credenciais salvas.'}`,
+      company: {
+        id: salva.id,
+        name: salva.name,
+        account_chatwoot: salva.account_chatwoot,
+        erp: salva.erp,
+        url: salva.url,
+        active: salva.active,
+      },
+      preflight: this.resumoPreflight(resultado),
+    };
+  }
+
+  /**
+   * Permissoes de pagina de uma empresa, para a tela do super_admin.
+   *
+   * POR QUE UM ENDPOINT PROPRIO: o `GET /companies` omite `config` de proposito
+   * — o comentario de `listAll` e explicito sobre nunca devolver token dali — e
+   * e no `config` que moram `plano` e `paginasExtras`. Sem esta leitura, a tela
+   * so conseguiria ESCREVER permissao, nunca mostrar a atual.
+   *
+   * Devolve tambem o CATALOGO (planos e paginas com rotulo). Isso nao e
+   * conveniencia: o docblock de `planos.ts` registra que a lista de paginas ja
+   * viveu em tres lugares — backend, tipo do frontend e rotas — e ja tinha
+   * divergido. Servir a lista daqui mantem uma fonte so; a tela renderiza o que
+   * o backend disser que existe.
+   *
+   * `plano: null` significa empresa LEGADA, ainda nao migrada: as permissoes
+   * dela vem das flags `page_*` com semantica opt-out. Quem consome precisa
+   * mostrar isso, porque escolher um plano para ela nao e ajuste fino — e
+   * migracao, e pode tirar acesso que hoje esta liberado por ausencia de flag.
+   */
+  async permissoesDaEmpresa(id: string) {
+    const empresa = await this.companyRepository.findOne({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        account_chatwoot: true,
+        active: true,
+        config: true,
+      },
+    });
+
+    if (!empresa) {
+      throw new NotFoundException('Empresa nao encontrada.');
+    }
+
+    const config = this.parseConfig(empresa.config);
+    const extras = Array.isArray(config.paginasExtras)
+      ? config.paginasExtras.filter((pagina: unknown) =>
+          (PAGINAS_IDS as readonly string[]).includes(String(pagina)),
+        )
+      : [];
+
+    return {
+      company: {
+        id: empresa.id,
+        name: empresa.name,
+        account_chatwoot: empresa.account_chatwoot,
+        active: empresa.active,
+      },
+      plano: isPlano(config.plano) ? config.plano : null,
+      paginasExtras: extras,
+      permissoes: resolvePagePermissions(empresa.config),
+      catalogo: {
+        planos: [...PLANOS],
+        paginas: PAGINAS_IDS.map((pagina) => ({
+          id: pagina,
+          label: PAGINAS[pagina].label,
+          planos: [...PAGINAS[pagina].planos],
+        })),
+      },
+    };
+  }
   /** O `config` ja apareceu como string JSON no banco — normaliza os dois casos. */
   private parseConfig(config: unknown): Record<string, any> {
     if (!config) return {};

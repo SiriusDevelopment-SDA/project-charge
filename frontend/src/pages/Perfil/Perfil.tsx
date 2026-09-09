@@ -6,6 +6,7 @@ import { DynamicModal, InputFields, MyButton, PageContainer } from "../../compon
 import { usePerfilPageController } from "../../hooks/controller/profile/usePerfilPageController";
 import type { AgentRoleValue } from "../../schemas/profile.schema";
 import type { CompanyAgent } from "../../services/auth/auth.service";
+import { PermissoesEmpresa } from "../../componente/PermissoesEmpresa/PermissoesEmpresa";
 import styles from "./Styles/Perfil.module.css";
 
 type TeamMemberRowProps = {
@@ -280,6 +281,9 @@ export function PerfilPage() {
   const navigate = useNavigate();
   // "Olhinho" do modal de redefinição: mostra/oculta as duas senhas juntas.
   const [showResetPassword, setShowResetPassword] = useState(false);
+  // Estado local, e nao no controller: o modal de permissões não compartilha
+  // nada com o resto da página — ele busca e grava por conta própria.
+  const [isPermissoesModalOpen, setIsPermissoesModalOpen] = useState(false);
 
   return (
     <PageContainer className={styles.page}>
@@ -443,6 +447,16 @@ export function PerfilPage() {
                   variant="secondary"
                   onClick={() => navigate("/auditoria")}
                 />
+                {/* Permissao de pagina e configuracao de PRODUTO (o que a
+                    empresa contratou), nao de equipe — por isso so super_admin,
+                    e nao todo `isAdmin` como o resto deste bloco. */}
+                {isSuperAdmin && (
+                  <MyButton
+                    text="Permissões por empresa"
+                    variant="secondary"
+                    onClick={() => setIsPermissoesModalOpen(true)}
+                  />
+                )}
                 <MyButton
                   text={isSyncingChatwootAgents ? "Sincronizando..." : "Importar e sincronizar agentes"}
                   variant="btn-enviar"
@@ -453,6 +467,16 @@ export function PerfilPage() {
             </aside>
           )}
         </section>
+      )}
+
+      {isSuperAdmin && (
+        <DynamicModal
+          open={isPermissoesModalOpen}
+          type="custom"
+          title="Permissões por empresa"
+          onClose={() => setIsPermissoesModalOpen(false)}
+          customContent={<PermissoesEmpresa />}
+        />
       )}
 
       {isAdmin && (

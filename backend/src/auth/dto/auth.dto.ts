@@ -119,8 +119,22 @@ export class UpdateProfileDto {
   })
   name?: string;
 
+  /**
+   * Obrigatoria para trocar a senha — MENOS para quem ainda esta com a senha
+   * inicial do cadastro automatico do embed.
+   *
+   * A exigencia saiu daqui e foi para o service de proposito. O DTO valida
+   * FORMATO, e essa regra depende de ESTADO (`agents.mustChangePassword`), que o
+   * DTO nao tem como consultar. Enquanto ela morou aqui, o pedido do primeiro
+   * acesso morria com 400 antes de chegar na regra — a pessoa nunca digitou
+   * senha nenhuma (entrou pelo embed) e nao tinha o que informar.
+   *
+   * A garantia nao se perdeu: `updateProfile` recusa a troca sem senha atual
+   * para todo agente que NAO esteja com a senha inicial. Ver
+   * `podePularSenhaAtual`.
+   */
   @ApiProperty({ example: 'senha-atual-123', required: false })
-  @ValidateIf((dto) => dto.newPassword !== undefined)
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   currentPassword?: string;
