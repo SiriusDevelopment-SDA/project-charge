@@ -37,6 +37,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
+import { PermiteSenhaProvisoria } from './decorators/senha-provisoria.decorator';
 import { Activity } from '../activity-log/activity.decorator';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import type { AgentRole } from '../agents/entities/agent.entity';
@@ -93,6 +94,10 @@ export class AuthController {
   }
 
   @Public()
+  // As duas rotas de perfil ficam abertas a quem ainda tem a senha inicial: sem
+  // o GET a tela de troca nao sabe quem esta logado, e sem o PATCH nao ha como
+  // trocar. Todo o resto fica barrado pelo `JwtAuthGuard`.
+  @PermiteSenhaProvisoria()
   @Get('me')
   @ApiOperation({
     summary: 'Retorna empresa/agente do token atual',
@@ -103,6 +108,7 @@ export class AuthController {
     return this.authService.me(authorization);
   }
 
+  @PermiteSenhaProvisoria()
   @Patch('me')
   @ApiOperation({ summary: 'Atualiza o perfil do agente autenticado' })
   @ApiBody({ type: UpdateProfileDto })

@@ -535,3 +535,104 @@ describe("motivo do pulo no relatorio", () => {
     );
   });
 });
+
+/**
+ * O link do boleto da Gama ISP chegando ao disparo.
+ *
+ * Vale um teste proprio porque este campo esteve HARD-CODED como string vazia:
+ * enquanto a API so entregava o boleto em base64, `link_boleto_pdf: ""` era a
+ * decisao certa. Quando o `url_pdf` apareceu, o adapter passou a devolver o
+ * link e ele morria aqui, em silencio — template com botao de URL continuaria
+ * pulando o destinatario como se o ERP nao tivesse o boleto.
+ */
+describe("buildDispatchScalars — link do boleto da Gama ISP", () => {
+  const idCliente = "00000001-0000-4000-8000-000000000000";
+
+  const cliente = {
+    id: idCliente,
+    name: "Cliente 1",
+    whatsapp: "5511999990001",
+    cnpj_cpf: "11222333000181",
+    company: { id: "empresa-1", erp: "GAMAISP", name: "provedor exemplo" },
+  };
+
+  const montar = (ticketPdfLink: string | null) => {
+    const gamaIsp = {
+      fetchPixByInvoice: jest.fn(async () => null),
+      getInvoices: jest.fn(async () => ({
+        status: "success",
+        message: "ok",
+        list: [
+          {
+            invoice_id: "fatura-1",
+            contract_id: "77",
+            invoice_due_date: "10/09/26",
+            invoice_amount: "64.90",
+            invoice_status: "A Receber",
+            ticket_digitable_line: "34191790010104351004791020150008",
+            ticket_pdf_link: ticketPdfLink,
+            code_pix: null,
+          },
+        ],
+      })),
+    };
+
+    const instancia = new TemplateDispatchPayloadService(
+      { find: jest.fn(async () => [cliente]) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      gamaIsp as never,
+    );
+    jest.spyOn(instancia["logger"], "warn").mockImplementation();
+    jest.spyOn(instancia["logger"], "log").mockImplementation();
+    return instancia;
+  };
+
+  /** Template que usa o link do boleto no corpo. */
+  const templateBoleto = {
+    id: "template-boleto",
+    name: "cobranca_boleto",
+    variables: { "1": "link_boleto_pdf" },
+    components: [],
+  } as never;
+
+  const linha = {
+    clientId: idCliente,
+    whatsapp: "5511999990001",
+    nome_cliente: "Cliente 1",
+    invoice_id: "fatura-1",
+  };
+
+  it("leva o url_pdf do ERP para a variavel link_boleto_pdf", async () => {
+    const servico = montar("https://erp.exemplo.test/fatura/abc-123.pdf");
+
+    const { recipients, skips } = await servico.buildQueueRecipients(
+      templateBoleto,
+      "empresa-1",
+      [linha],
+    );
+
+    expect(skips).toHaveLength(0);
+    expect(recipients).toHaveLength(1);
+    expect(JSON.stringify(recipients[0].components)).toContain(
+      "https://erp.exemplo.test/fatura/abc-123.pdf",
+    );
+  });
+
+  it("pula com motivo quando a fatura nao tem link de boleto", async () => {
+    const servico = montar(null);
+
+    const { recipients, skips } = await servico.buildQueueRecipients(
+      templateBoleto,
+      "empresa-1",
+      [linha],
+    );
+
+    expect(recipients).toHaveLength(0);
+    expect(skips[0].reason).toBe("template_variables_incomplete");
+    expect(skips[0].detail).toContain("link do boleto");
+  });
+});

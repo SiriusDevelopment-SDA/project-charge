@@ -26,6 +26,8 @@ export type AuthAgent = {
   email: string | null;
   role: AgentRole;
   active: boolean;
+  /** A senha ainda e a inicial: a tela precisa forcar a troca antes de tudo. */
+  mustChangePassword?: boolean;
 };
 
 export type LoginResponse = {
