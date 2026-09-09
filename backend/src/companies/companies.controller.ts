@@ -126,4 +126,42 @@ export class CompaniesController {
   update(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
     return this.companiesService.update({ id }, dto);
   }
+
+  @Post(':id/reativar')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary: 'Reativa uma empresa inativa revalidando as credenciais salvas.',
+    description:
+      'Existe para o super_admin religar uma empresa pela aplicacao, sem PATCH e sem UPDATE no banco. Roda o preflight com as credenciais JA GRAVADAS: passou, a empresa reativa; recusou, ela continua inativa e a resposta traz o motivo em `preflight`. Nao existe atalho para forcar `active` — a ativacao e ganha com preflight ok, porque uma empresa marcada ativa sem o ERP aceitar so troca "inativa e visivel" por "ativa que nao sincroniza".',
+  })
+  @ApiParam({ name: 'id', description: 'Id da empresa.', format: 'uuid' })
+  @ApiOkResponse({
+    description:
+      'Preflight executado. `active` diz o estado final e `aplicado` se houve reativacao.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Credenciais obrigatorias ausentes no cadastro da empresa.',
+  })
+  @ApiNotFoundResponse({ description: 'Empresa nao encontrada.' })
+  @ApiUnauthorizedResponse({ description: 'Token nao informado ou invalido.' })
+  @ApiForbiddenResponse({ description: 'Apenas super administradores.' })
+  reativar(@Param('id') id: string) {
+    return this.companiesService.reativar(id);
+  }
+
+  @Get(':id/permissoes')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary: 'Plano, paginas extras e permissoes resolvidas de uma empresa.',
+    description:
+      'Leitura para a tela de permissoes do super_admin. O `GET /companies` omite `config` de proposito (nunca devolve token dali), e e la que vivem `plano` e `paginasExtras` — sem esta rota a tela so conseguiria escrever, nunca mostrar o estado atual. Devolve tambem o catalogo de planos e paginas, para a lista de paginas nao ser duplicada no frontend. `plano: null` indica empresa legada, ainda nao migrada para plano.',
+  })
+  @ApiParam({ name: 'id', description: 'Id da empresa.', format: 'uuid' })
+  @ApiOkResponse({ description: 'Permissoes e catalogo.' })
+  @ApiNotFoundResponse({ description: 'Empresa nao encontrada.' })
+  @ApiUnauthorizedResponse({ description: 'Token nao informado ou invalido.' })
+  @ApiForbiddenResponse({ description: 'Apenas super administradores.' })
+  permissoes(@Param('id') id: string) {
+    return this.companiesService.permissoesDaEmpresa(id);
+  }
 }

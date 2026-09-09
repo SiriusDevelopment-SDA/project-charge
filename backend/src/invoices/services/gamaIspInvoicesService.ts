@@ -30,20 +30,50 @@ import { ErpDefinition } from '../../integrations/erp/erp.types';
  * on-demand por documento. Ou seja: a base local E populada, e a regua de
  * cobranca aceita empresas Gama ISP (`invoices.service.ts`).
  *
- * O QUE TORNA A SINCRONIZACAO POSSIVEL, dado que a API nao tem filtro nenhum (12
- * variacoes testadas em sondagem real) e estoura a memoria do PHP acima de ~116
- * registros por pagina: `order` + `direction` FUNCIONAM. Com
- * `order=data_vencimento&direction=desc` da para caminhar do vencimento mais
- * recente para tras e PARAR ao sair da janela, em vez de varrer as 180 mil
- * faturas. Os clientes (3.998) sao varridos por inteiro, em ~40 paginas.
+ * A API GANHOU FILTROS em 09/2026 (`filters` no body — ver `GamaIspFiltro` e
+ * `listarPagina`), e isso mudou o custo de tudo: a janela de faturas caiu de
+ * ~149 para ~31 paginas na POWERNET. O que NAO mudou foi o teto de ~116
+ * registros por pagina, que continua estourando a memoria do PHP acima disso.
  *
- * Nao existe sincronizacao INCREMENTAL: sem filtro por data de alteracao, toda
- * rodada de clientes e carga completa. Ver `fetchClients`.
+ * Todo caminho continua correto SEM os filtros, de proposito: eles sao um
+ * acelerador para instancias que ja receberam o patch do fornecedor, e a logica
+ * antiga (parada por janela + `isOpen` em memoria) segue no lugar. Ver
+ * `getInvoicesByDateWindowBatch`.
  *
- * `pix: true` — diferente do Hubsoft: o `pix_qrcode` vem no MESMO payload das
- * faturas, CHEGA ao disparo (`template-dispatch-payload.service.ts`) e ainda e
- * gravado no snapshot (`toInvoiceUpsert`), o que faz o `POST /invoices/pix/batch`
- * funcionar pelo ramo do snapshot local, sem chamada extra ao ERP.
+ * Nao existe sincronizacao INCREMENTAL DE CLIENTES: nao ha campo de data de
+ * alteracao (45 nomes de coluna varridos em sondagem), entao toda rodada e carga
+ * completa, ~40 paginas. Ver `fetchClients`. As FATURAS, essas sim, tem delta —
+ * `getInvoicesChangedSince`, por `data_emissao` e `data_pagamento`.
+ *
+ * `pix: true`, mas com uma ressalva que decide o desenho do disparo: o
+ * `pix_qrcode` vem no MESMO payload das faturas (e por isso e gravado no
+ * snapshot e o `POST /invoices/pix/batch` responde local, sem chamada extra ao
+ * ERP) — SO QUE ELE NEM SEMPRE EXISTE. E a falta NAO e aleatoria: o Gama gera o
+ * PIX PERTO DO VENCIMENTO.
+ *
+ * Contagem filtrada direto no ERP da POWERNET em 09/09/2026. O `total` do
+ * envelope respeita o filtro, e `pix_qrcode is null` mais `is not null` somam
+ * exatamente o total da faixa (1.158 + 3.233 = 4.391) — o corte particiona, nao
+ * ha `pix_qrcode` vazio escondido no meio:
+ *
+ *   vencimento             em aberto   com PIX
+ *   ate 31/07 (divida velha)   1.368     20,8%
+ *   08/2026                      412     94,7%
+ *   09/2026                    2.611     98,0%
+ *   10, 11 e 12/2026       ~3.078 cada   23,8%
+ *
+ * O mes corrente e o anterior estao praticamente cobertos. Quem nao tem PIX e a
+ * DIVIDA VELHA e a fatura FUTURA — e essa diferenca importa, porque a futura
+ * ninguem cobra e a velha e exatamente o alvo da regua. Somando tudo que vence
+ * ate 30/09: 4.391 em aberto, 1.158 SEM PIX (26,4%).
+ *
+ * CUIDADO AO COMPARAR NUMEROS AQUI: uma medicao anterior citava 15% (543 de
+ * 3.595), e ela nao esta errada — mediu uma JANELA DE 60 DIAS, que corta fora
+ * justamente a divida velha, onde o PIX quase nao existe. Sempre diga a faixa
+ * de vencimento junto com o percentual.
+ *
+ * O `url_pdf` e o que cobra essas 1.158 (a linha digitavel tambem serve: falta
+ * em 1 das 4.391). Antes elas so podiam ser puladas no disparo.
  *
  * `preflight: 'credential'` — `POST /api/v1/auth` valida rest_key + login +
  * senha de uma vez. A listagem ate expoe um `total`, mas seria uma SEGUNDA
@@ -59,7 +89,7 @@ export const GAMA_ISP_ERP: ErpDefinition = {
   dispatch: true,
   preflight: 'credential',
   ressalva:
-    'Entrega PIX e linha digitavel, mas NAO entrega link do boleto em PDF. A sincronizacao de clientes e sempre carga completa: a API nao tem filtro por data de alteracao.',
+    'Entrega link do boleto em PDF e linha digitavel em praticamente todas as faturas, mas o codigo PIX falta em cerca de um QUARTO das em aberto que ja venceram ou vencem no mes (26,4% na POWERNET em 09/09/2026) — o Gama gera o PIX perto do vencimento, entao a divida velha e a que mais fica sem. Para essas, cobre pelo boleto. A sincronizacao de clientes e sempre carga completa: a API nao tem filtro por data de alteracao.',
   credenciais: [
     {
       campo: 'rest_key',
@@ -142,6 +172,36 @@ const GAMA_ISP_CONTATO_EMAIL = 3;
 
 /** Minimo de digitos para um telefone ser aceito (DDD + numero). */
 const GAMA_ISP_MIN_DIGITOS_TELEFONE = 10;
+
+/**
+ * Uma condicao de filtro da Gama ISP: `[campo, operador, valor]`.
+ *
+ * Sondado contra a POWERNET em 08/09/2026. Operadores que FUNCIONAM:
+ * `=`, `!=`, `<>`, `>`, `>=`, `<`, `<=`, `is`, `is not`, `like`, `in`.
+ *
+ * `between` responde HTTP 500 — uma janela se escreve com DUAS condicoes sobre
+ * o mesmo campo (`>=` e `<=`), como em `filtroJanelaEmAberto`.
+ *
+ * O `total` do envelope respeita o filtro, e `offset`/`order`/`direction`
+ * compoem com ele: a paginacao filtrada e estavel (0 duplicados em 200
+ * registros) e deterministica (a mesma pagina pedida duas vezes devolve os
+ * mesmos ids).
+ */
+export type GamaIspFiltro = [campo: string, operador: string, valor: unknown];
+
+/**
+ * Filtro de "fatura em aberto" no servidor — o mesmo criterio que `isOpen`
+ * aplica em memoria.
+ *
+ * `data_pagamento is null` sozinho ja separa 13.727 em aberto de 165.079 pagas
+ * (a soma bate com o total da base, entao o filtro e confiavel). As duas flags
+ * tiram as canceladas.
+ */
+const GAMA_ISP_FILTRO_EM_ABERTO: GamaIspFiltro[] = [
+  ['data_pagamento', 'is', null],
+  ['excluida', '=', 'N'],
+  ['desativada', '=', 'N'],
+];
 
 interface GamaIspConfig {
   rest_key: string;
@@ -531,6 +591,7 @@ export class GamaIspInvoicesService {
     url: string,
     method: 'GET' | 'POST',
     label: string,
+    body?: unknown,
   ): Promise<T> {
     let authRetried = false;
 
@@ -546,7 +607,9 @@ export class GamaIspInvoicesService {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
+            ...(body !== undefined && { 'Content-Type': 'application/json' }),
           },
+          ...(body !== undefined && { body: JSON.stringify(body) }),
         },
         company,
         label,
@@ -572,9 +635,21 @@ export class GamaIspInvoicesService {
   /**
    * Uma pagina de uma listagem (`/clientes` ou `/faturas`).
    *
-   * Os parametros vao na QUERY STRING. Nenhum filtro funciona nesta API — so
-   * `limit`, `offset`, `order` e `direction` — e e `order`+`direction` que
-   * viabilizam a sincronizacao por janela.
+   * `limit`, `offset`, `order` e `direction` vao na QUERY STRING; os `filters`
+   * vao no BODY JSON. Essa divisao e deliberada e vale a explicacao, porque a
+   * tentacao e mandar tudo no body:
+   *
+   *  - Filtro em query string NAO funciona. A API responde HTTP 200 com um
+   *    warning de PHP (`foreach() argument must be of type array|object, string
+   *    given`) em vez de JSON — mais um caso do padrao "erro com 200" desta API.
+   *  - Os quatro parametros de paginacao funcionam nos DOIS lugares, e mandar
+   *    nos dois nao conflita (sondado). Mante-los na query preserva o
+   *    comportamento exato de uma instancia Gama que ainda nao tenha recebido o
+   *    patch de filtros: ela ignora o body e pagina como sempre paginou.
+   *
+   * Ou seja, `filters` e um ACELERADOR, nunca um requisito — nenhum chamador
+   * pode depender dele para estar correto. Ver `getInvoicesByDateWindowBatch`,
+   * que continua com a parada por janela mesmo agora que filtra no servidor.
    *
    * Cada pagina ocupa UMA vaga do semaforo: a varredura e o caminho de maior
    * volume do sistema, e ela divide o mesmo teto com o disparo, entao uma sync em
@@ -588,6 +663,7 @@ export class GamaIspInvoicesService {
       limit: number;
       order: string;
       direction: 'asc' | 'desc';
+      filters?: GamaIspFiltro[];
     },
     label: string,
   ): Promise<{ itens: T[]; total: number | null }> {
@@ -598,12 +674,19 @@ export class GamaIspInvoicesService {
       direction: params.direction,
     });
 
+    // Array vazio nao e enviado: `filters: []` e inofensivo (sondado), mas
+    // omitir deixa a requisicao identica a que sempre foi feita.
+    const body = params.filters?.length
+      ? { filters: params.filters }
+      : undefined;
+
     const payload = await this.comVaga(company, () =>
       this.requisitarComToken<GamaIspResponse<T[]>>(
         company,
         `https://${company.url}/api/v1/${recurso}?${qs.toString()}`,
         'POST',
         label,
+        body,
       ),
     );
 
@@ -613,6 +696,30 @@ export class GamaIspInvoicesService {
       itens: Array.isArray(payload?.data) ? payload.data : [],
       total: Number.isFinite(total) ? total : null,
     };
+  }
+
+  /**
+   * Link publico do boleto em PDF, ou `null` se a fatura nao tiver.
+   *
+   * `url_pdf` foi sondado na POWERNET em 08/09/2026: `https://<host>/fatura/
+   * <uuid>.pdf` responde HTTP 200 SEM header de autenticacao, com
+   * `content-type: application/pdf` (~256 KB, ~240ms), e estava presente nas
+   * 3.595 faturas em aberto da janela de 60 DIAS varrida naquele dia, sem uma
+   * unica excecao. E, portanto, um link que o destinatario abre direto no
+   * WhatsApp. (A presenca nao da para reconferir por contagem filtrada:
+   * `url_pdf` nao aceita filtro nesta API.)
+   *
+   * Isso substitui a decisao anterior de deixar `ticket_pdf_link` sempre null:
+   * ate entao o unico caminho era `GET /faturas/id/{id}/pdf`, que devolve o PDF
+   * em base64 e exigiria hospedagem nossa.
+   *
+   * So aceita http(s) — se um dia a API passar a devolver caminho relativo ou
+   * base64 neste campo, e melhor cair para `null` (o disparo pula, com motivo)
+   * do que mandar ao cliente uma URL que nao abre.
+   */
+  private linkDoBoleto(fatura: GamaIspFatura): string | null {
+    const url = String(fatura?.url_pdf ?? '').trim();
+    return /^https?:\/\//i.test(url) ? url : null;
   }
 
   /** "S"/"N" da Gama ISP — qualquer coisa que nao seja "S" conta como nao. */
@@ -735,19 +842,15 @@ export class GamaIspInvoicesService {
     }
   }
 
-  /** Corpo do disparo. Sempre chamado por `getInvoices`, ja dentro do semaforo. */
-  private async buscarFaturasPorDocumento(
-    cliente: Client,
-  ): Promise<InvoicesResponseDto> {
-    const company = cliente.company;
-
-    const documento = String(cliente?.cnpj_cpf ?? '').replace(/\D/g, '');
-    if (!documento) {
-      throw new BadRequestException(
-        '[GAMAISP] Cliente sem CPF/CNPJ — a Gama ISP so consulta faturas por documento',
-      );
-    }
-
+  /**
+   * Todas as faturas de um CPF/CNPJ — pagas inclusive. Caminho de compatibilidade
+   * de `buscarFaturasPorDocumento`, usado quando o cliente local nao tem o
+   * `clientId` do ERP.
+   */
+  private async faturasPorDocumento(
+    company: Company,
+    documento: string,
+  ): Promise<GamaIspFatura[]> {
     const payload = await this.requisitarComToken<GamaIspFaturasResponse>(
       company,
       `https://${company.url}/api/v1/faturas/doc/${encodeURIComponent(documento)}`,
@@ -755,7 +858,65 @@ export class GamaIspInvoicesService {
       'faturas por documento',
     );
 
-    const faturas = Array.isArray(payload.data) ? payload.data : [];
+    return Array.isArray(payload.data) ? payload.data : [];
+  }
+
+  /**
+   * Corpo do disparo. Sempre chamado por `getInvoices`, ja dentro do semaforo.
+   *
+   * DOIS CAMINHOS, e o barato so e usado quando e seguro:
+   *
+   *  - `cliente_id` + em aberto, quando o `clientId` do ERP esta gravado no
+   *    cliente local. E o mesmo criterio do IXC (`fn_areceber.id_cliente`), ja
+   *    em producao ha tempo, e o ganho e grande porque o disparo chama este
+   *    metodo UMA VEZ POR CLIENTE: na POWERNET a rota por documento leva ~4,2s
+   *    e devolve as 76 faturas do cliente (72 pagas, jogadas fora aqui), contra
+   *    ~100ms trazendo so as em aberto. Numa campanha de 300 linhas com teto de
+   *    concorrencia 3, isso e a diferenca entre ~7 min e ~10s so para montar o
+   *    payload.
+   *  - `/faturas/doc/{documento}`, quando nao ha `clientId`. Continua sendo o
+   *    caminho correto e e o unico que casa por CPF/CNPJ.
+   *
+   * O `isOpen` roda nos dois casos: no primeiro ele nao descarta nada (o
+   * servidor ja filtrou), no segundo e ele quem separa as pagas.
+   */
+  private async buscarFaturasPorDocumento(
+    cliente: Client,
+  ): Promise<InvoicesResponseDto> {
+    const company = cliente.company;
+
+    const clientIdErp = String(cliente?.clientId ?? '').trim();
+    const documento = String(cliente?.cnpj_cpf ?? '').replace(/\D/g, '');
+
+    if (!clientIdErp && !documento) {
+      throw new BadRequestException(
+        '[GAMAISP] Cliente sem CPF/CNPJ — a Gama ISP so consulta faturas por documento',
+      );
+    }
+
+    const faturas = clientIdErp
+      ? (
+          await this.listarPagina<GamaIspFatura>(
+            company,
+            'faturas',
+            {
+              offset: 0,
+              // Teto de 116 por pagina (memoria do PHP). Nao paginamos aqui: um
+              // cliente com mais de 116 faturas EM ABERTO nao existe na pratica
+              // — o recorde observado na POWERNET e 84 faturas no total, a
+              // maioria paga.
+              limit: GAMA_ISP_PAGE_SIZE,
+              order: 'data_vencimento',
+              direction: 'desc',
+              filters: [
+                ['cliente_id', '=', clientIdErp],
+                ...GAMA_ISP_FILTRO_EM_ABERTO,
+              ],
+            },
+            'faturas do cliente',
+          )
+        ).itens
+      : await this.faturasPorDocumento(company, documento);
     const hoje = this.todayIso();
 
     const abertas = faturas
@@ -785,14 +946,12 @@ export class GamaIspInvoicesService {
         invoice_status: 'A Receber',
         overdue: this.isOverdue(fatura.data_vencimento, hoje),
         ticket_digitable_line: fatura.linha_digitavel ?? null,
-        // PDF DO BOLETO FICA DE FORA DESTA ENTREGA (decisao do usuario).
-        // O que existe: `GET /api/v1/faturas/id/{id}/pdf` devolve JSON com o
-        // PDF em base64 (~250 KB por fatura) e `url_cobranca_gateway` veio null
-        // em todas as amostras. Ou seja, nao ha URL publica para colocar aqui —
-        // entregar o PDF exigiria hospeda-lo em algum lugar nosso, o que e
-        // decisao de infraestrutura, nao de adapter. Ate la, `null`: o disparo
-        // usa linha digitavel + PIX.
-        ticket_pdf_link: null,
+        // Ver `linkDoBoleto`: `url_pdf` e URL publica de verdade. E o que
+        // permite cobrar as faturas sem `pix_qrcode` — 26,4% das que vencem ate
+        // o fim do mes corrente na POWERNET, porque o Gama so gera o PIX perto
+        // do vencimento e a divida velha fica de fora. Antes elas so podiam ser
+        // puladas no disparo.
+        ticket_pdf_link: this.linkDoBoleto(fatura),
         code_pix: fatura.pix_qrcode ?? null,
       }),
     );
@@ -977,12 +1136,24 @@ export class GamaIspInvoicesService {
    * `cliente_id` (= `Client.clientId`) — o mesmo contrato do IXC e do MK, que o
    * `persistSnapshot` resolve pelo `byClientId`.
    *
-   * A VARREDURA PARA CEDO, e e disso que a sincronizacao depende para ser
-   * viavel: com `order=data_vencimento&direction=desc` as faturas vem da mais
-   * recente para a mais antiga, entao a primeira que cai ANTES de `startDate`
-   * garante que todas as seguintes tambem caem — nao ha por que continuar
-   * paginando as 180 mil. Sem isso, uma sincronizacao seriam ~1.553 requisicoes
-   * contra um ERP que morre com pagina de 200 registros.
+   * FILTRA NO SERVIDOR e AINDA ASSIM PARA CEDO. As duas coisas, de proposito:
+   *
+   *  - O filtro (`filters` no body) e o que faz a varredura ser barata: na
+   *    POWERNET, a janela de 60 dias sai de ~149 paginas para ~31 (-79%),
+   *    porque as 2.491 faturas ja pagas da janela nem chegam a trafegar. Medido
+   *    ponta a ponta em 08/09/2026: 3.595 faturas de 2.797 clientes em 3min18s.
+   *    A varredura e SEQUENCIAL (uma pagina por vez), entao o tempo acompanha o
+   *    numero de paginas, nao o teto de concorrencia. O `total` do envelope
+   *    passa a refletir a janela.
+   *  - A parada por janela (`order=data_vencimento&direction=desc`, para na
+   *    primeira anterior a `startDate`) CONTINUA, e nao e redundancia inutil:
+   *    ela e o que mantem este metodo correto numa instancia Gama que ainda nao
+   *    tenha o patch de filtros. La o body e ignorado, a listagem volta completa
+   *    e o comportamento e exatamente o de antes — ~1.553 requisicoes viram
+   *    ~149 pela parada, como sempre foi. O filtro acelera; a parada garante.
+   *
+   * O mesmo vale para o `isOpen` em memoria, mantido abaixo: com o filtro ele
+   * nunca descarta nada, sem o filtro ele e quem descarta as pagas.
    *
    * Cacheia no Redis (TTL 5min) como SGP/IXC/MK.
    *
@@ -1009,9 +1180,24 @@ export class GamaIspInvoicesService {
     let fechadas = 0;
     let paginas = 0;
     let pareiPorJanela = false;
+    /**
+     * `total` da primeira pagina. Com o patch de filtros ele ja vem restrito a
+     * janela em aberto e serve de criterio de parada exato; sem o patch ele vem
+     * como o total da base inteira, e ai nao decide nada — por isso ele so
+     * ENCERRA o laco, nunca o prolonga.
+     */
+    let totalDaJanela: number | null = null;
+
+    // Janela + em aberto no servidor. Duas condicoes sobre `data_vencimento`
+    // porque `between` da HTTP 500 nesta API.
+    const filters: GamaIspFiltro[] = [
+      ['data_vencimento', '>=', startDate],
+      ['data_vencimento', '<=', endDate],
+      ...GAMA_ISP_FILTRO_EM_ABERTO,
+    ];
 
     for (let pagina = 0; pagina < GAMA_ISP_MAX_PAGES; pagina++) {
-      const { itens } = await this.listarPagina<GamaIspFatura>(
+      const { itens, total } = await this.listarPagina<GamaIspFatura>(
         company,
         'faturas',
         {
@@ -1019,6 +1205,7 @@ export class GamaIspInvoicesService {
           limit: GAMA_ISP_PAGE_SIZE,
           order: 'data_vencimento',
           direction: 'desc',
+          filters,
         },
         'faturas (pagina)',
       );
@@ -1026,6 +1213,7 @@ export class GamaIspInvoicesService {
       if (!itens.length) break;
       paginas++;
       lidas += itens.length;
+      if (totalDaJanela === null && total !== null) totalDaJanela = total;
 
       let novas = 0;
 
@@ -1065,13 +1253,25 @@ export class GamaIspInvoicesService {
       // repetir a mesma pagina indefinidamente.
       if (!novas) break;
       if (itens.length < GAMA_ISP_PAGE_SIZE) break;
+      // Com filtro ativo, `total` e o tamanho exato do resultado: assim que
+      // lemos tudo, para sem gastar a requisicao que so voltaria vazia.
+      if (totalDaJanela !== null && lidas >= totalDaJanela) break;
     }
+
+    const emAberto = [...porCliente.values()].reduce(
+      (soma, lista) => soma + lista.length,
+      0,
+    );
 
     this.logger.log(
       `[InvoiceBatch] company=${company.id} janela=${startDate}..${endDate} ` +
-        `paginas=${paginas} lidas=${lidas} emAberto=${idsVistos.size ? [...porCliente.values()].reduce((soma, l) => soma + l.length, 0) : 0} ` +
+        `paginas=${paginas} lidas=${lidas} emAberto=${emAberto} ` +
         `fechadas=${fechadas} posterioresAJanela=${posterioresAJanela} ` +
-        `parouPorJanela=${pareiPorJanela}`,
+        `parouPorJanela=${pareiPorJanela} totalDaJanela=${totalDaJanela ?? '-'} ` +
+        // `fechadas`/`posterioresAJanela` em zero com o filtro ativo e o esperado:
+        // o servidor ja nao mandou esses registros. Diferente de zero indica que
+        // a instancia nao aplicou o filtro e quem esta descartando somos nos.
+        `filtroServidor=${fechadas === 0 && posterioresAJanela === 0 ? 'sim' : 'nao'}`,
     );
 
     await this.redisService.set(
@@ -1081,6 +1281,175 @@ export class GamaIspInvoicesService {
     );
 
     return porCliente;
+  }
+
+  /**
+   * DELTA de faturas desde `since`: as emitidas e as pagas de la para ca.
+   *
+   * Serve a uma sincronizacao frequente e barata, ao lado da varredura completa
+   * da janela. Medido na POWERNET em 08/09/2026: 57 faturas emitidas nos ultimos
+   * 7 dias e 4 pagas no ultimo dia — ou seja, o delta de UM DIA cabe em uma
+   * pagina, contra as ~31 paginas (3min18s) da janela inteira.
+   *
+   * A janela do delta importa: `since` de 7 dias ja devolveu 536 pagas (5
+   * paginas, 23s). Quanto mais frequente a rodada, menor o delta — e o ganho so
+   * existe enquanto ele couber em poucas paginas.
+   *
+   * Cobre os dois eventos que mexem no snapshot:
+   *  - fatura NOVA (`data_emissao >= since`) — precisa entrar;
+   *  - fatura PAGA (`data_pagamento >= since`) — precisa sair.
+   *
+   * O QUE ELE NAO COBRE, e por isso NAO substitui a varredura da janela: fatura
+   * ALTERADA em silencio — vencimento prorrogado, valor corrigido, fatura
+   * cancelada (`desativada`/`excluida`). Nenhuma dessas mexe em `data_emissao`
+   * nem em `data_pagamento`, e nao ha campo de alteracao nesta API. O desenho
+   * previsto e delta frequente + reconciliacao diaria pela janela.
+   *
+   * Retorna as faturas CRUAS, sem indexar por cliente e sem descartar as pagas:
+   * quem chama precisa justamente saber quais foram pagas para fecha-las.
+   *
+   * @param since data ISO `YYYY-MM-DD` a partir da qual olhar (inclusive)
+   */
+  async getInvoicesChangedSince(
+    company: Company,
+    since: string,
+  ): Promise<{ emitidas: GamaIspFatura[]; pagas: GamaIspFatura[] }> {
+    this.parseConfig(company);
+
+    const [emitidas, pagas] = await Promise.all([
+      this.varrerFiltrado(company, [['data_emissao', '>=', since]], 'delta emitidas'),
+      this.varrerFiltrado(company, [['data_pagamento', '>=', since]], 'delta pagas'),
+    ]);
+
+    this.logger.log(
+      `[InvoiceDelta] company=${company.id} desde=${since} ` +
+        `emitidas=${emitidas.length} pagas=${pagas.length}`,
+    );
+
+    return { emitidas, pagas };
+  }
+
+  /**
+   * DELTA pronto para persistir: o que precisa ENTRAR no snapshot e o que
+   * precisa SAIR, com as regras desta API ja aplicadas.
+   *
+   * Existe para o cron nao precisar conhecer `cliente_id`, `data_pagamento` nem
+   * o criterio de "em aberto". `getInvoicesChangedSince` devolve CRU de
+   * proposito — e cru nao serve para persistir.
+   *
+   * As emitidas passam por dois filtros que a varredura da janela ja fazia:
+   *  - so as EM ABERTO, porque uma fatura pode nascer ja paga;
+   *  - so as que vencem DENTRO da janela, porque `data_emissao` recente nao
+   *    implica vencimento na janela, e gravar fora dela deixaria no snapshot uma
+   *    fatura que `closeMissingOpenInvoices` nunca alcanca para fechar.
+   *
+   * As pagas saem inteiras, sem recorte de janela: o fechamento e por
+   * `id_fatura` + empresa, e o que nao existir no snapshot local nao casa.
+   */
+  async getInvoiceDeltaForWindow(
+    company: Company,
+    since: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<{ porCliente: Map<string, GamaIspFatura[]>; idsPagos: string[] }> {
+    const { emitidas, pagas } = await this.getInvoicesChangedSince(
+      company,
+      since,
+    );
+
+    const porCliente = new Map<string, GamaIspFatura[]>();
+    let jaFechadas = 0;
+    let foraDaJanela = 0;
+
+    for (const fatura of emitidas) {
+      if (!this.isOpen(fatura)) {
+        jaFechadas++;
+        continue;
+      }
+
+      const vencimento = String(fatura?.data_vencimento ?? '').slice(0, 10);
+      if (!vencimento || vencimento < startDate || vencimento > endDate) {
+        foraDaJanela++;
+        continue;
+      }
+
+      const chave = String(fatura?.cliente_id ?? '');
+      if (!chave) continue;
+
+      const lista = porCliente.get(chave) ?? [];
+      lista.push(fatura);
+      porCliente.set(chave, lista);
+    }
+
+    const idsPagos = [
+      ...new Set(pagas.map((fatura) => String(fatura?.id ?? '')).filter(Boolean)),
+    ];
+
+    const entram = [...porCliente.values()].reduce(
+      (soma, lista) => soma + lista.length,
+      0,
+    );
+
+    this.logger.log(
+      `[InvoiceDelta] company=${company.id} desde=${since} ` +
+        `janela=${startDate}..${endDate} entram=${entram} saem=${idsPagos.length} ` +
+        `descartadas=${jaFechadas} jaPagas + ${foraDaJanela} foraDaJanela`,
+    );
+
+    return { porCliente, idsPagos };
+  }
+
+  /**
+   * Varre uma listagem de faturas ate o fim do resultado FILTRADO, paginando por
+   * `offset` com `order=id` (estavel e sem empate, ao contrario de
+   * `data_vencimento`, onde dezenas de faturas dividem a mesma data).
+   *
+   * Confia no `total` para parar, mas nunca SO nele: as mesmas defesas da
+   * varredura por janela continuam aqui (pagina vazia, pagina sem id novo,
+   * pagina menor que o limite, teto de paginas). Numa instancia sem o patch de
+   * filtros isto varreria a base inteira, entao o teto e o que segura.
+   */
+  private async varrerFiltrado(
+    company: Company,
+    filters: GamaIspFiltro[],
+    label: string,
+  ): Promise<GamaIspFatura[]> {
+    const encontradas: GamaIspFatura[] = [];
+    const idsVistos = new Set<string>();
+    let total: number | null = null;
+
+    for (let pagina = 0; pagina < GAMA_ISP_MAX_PAGES; pagina++) {
+      const resposta = await this.listarPagina<GamaIspFatura>(
+        company,
+        'faturas',
+        {
+          offset: pagina * GAMA_ISP_PAGE_SIZE,
+          limit: GAMA_ISP_PAGE_SIZE,
+          order: 'id',
+          direction: 'asc',
+          filters,
+        },
+        label,
+      );
+
+      if (!resposta.itens.length) break;
+      if (total === null) total = resposta.total;
+
+      let novas = 0;
+      for (const fatura of resposta.itens) {
+        const id = String(fatura?.id ?? '');
+        if (!id || idsVistos.has(id)) continue;
+        idsVistos.add(id);
+        encontradas.push(fatura);
+        novas++;
+      }
+
+      if (!novas) break;
+      if (resposta.itens.length < GAMA_ISP_PAGE_SIZE) break;
+      if (total !== null && encontradas.length >= total) break;
+    }
+
+    return encontradas;
   }
 
   /**
@@ -1113,9 +1482,7 @@ export class GamaIspInvoicesService {
       status: 'A Receber',
       expiration,
       ticketDigitableLine: fatura.linha_digitavel ?? null,
-      // Sempre null: a Gama ISP so entrega o boleto como base64, sem URL
-      // publica. Ver o comentario em `buscarFaturasPorDocumento`.
-      ticketPdfLink: null,
+      ticketPdfLink: this.linkDoBoleto(fatura),
       pixCode: fatura.pix_qrcode ?? null,
       lastSyncAt: context.syncTime,
       clientId: context.clientId,

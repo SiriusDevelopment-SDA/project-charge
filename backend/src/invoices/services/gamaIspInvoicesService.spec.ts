@@ -737,9 +737,12 @@ describe('GamaIspInvoicesService — disparo por cliente', () => {
         syncTime: new Date('2026-06-10T12:00:00.000Z'),
       };
 
-      it('grava o PIX no snapshot e mantem o link de PDF nulo', () => {
+      it('grava o PIX no snapshot, e o link do boleto quando a fatura tem url_pdf', () => {
         const mapped = svc.toInvoiceUpsert(
-          faturaAberta as GamaIspFatura,
+          {
+            ...faturaAberta,
+            url_pdf: 'https://axnet.gamaisp.com.br/fatura/abc-123.pdf',
+          } as GamaIspFatura,
           contexto,
         );
 
@@ -751,13 +754,42 @@ describe('GamaIspInvoicesService — disparo por cliente', () => {
           // ISO cru: o projeto le os dois formatos (toBrDate, o CASE do SQL).
           expiration: VENCIDA,
           ticketDigitableLine: faturaAberta.linha_digitavel,
-          ticketPdfLink: null,
+          ticketPdfLink: 'https://axnet.gamaisp.com.br/fatura/abc-123.pdf',
           // Diferente do MK: o PIX ja veio no payload, guardar nao custa chamada.
           pixCode: faturaAberta.pix_qrcode,
           lastSyncAt: contexto.syncTime,
           clientId: 'client-uuid',
           companyId: 'company-uuid',
         });
+      });
+
+      it('deixa o link do boleto nulo quando a fatura nao tem url_pdf', () => {
+        const mapped = svc.toInvoiceUpsert(
+          faturaAberta as GamaIspFatura,
+          contexto,
+        );
+
+        expect(mapped).toMatchObject({ ticketPdfLink: null });
+      });
+
+      /**
+       * O link vai LITERALMENTE para a mensagem do cliente. Se a API um dia
+       * devolver caminho relativo ou base64 neste campo, mandar isso no WhatsApp
+       * e pior do que nao mandar nada: o disparo tem como pular com motivo, mas
+       * nao tem como consertar um link quebrado depois de entregue.
+       */
+      it.each([
+        ['caminho relativo', '/fatura/abc-123.pdf'],
+        ['base64', 'JVBERi0xLjQKJeLjz9MK'],
+        ['string vazia', '   '],
+        ['nulo', null],
+      ])('recusa url_pdf invalido (%s) e devolve null', (_caso, valor) => {
+        const mapped = svc.toInvoiceUpsert(
+          { ...faturaAberta, url_pdf: valor } as GamaIspFatura,
+          contexto,
+        );
+
+        expect(mapped).toMatchObject({ ticketPdfLink: null });
       });
 
       it('retorna null quando a fatura nao tem vencimento', () => {
@@ -767,6 +799,301 @@ describe('GamaIspInvoicesService — disparo por cliente', () => {
             contexto,
           ),
         ).toBeNull();
+      });
+    });
+
+    /**
+     * Os filtros chegaram na API em 09/2026 e sao um ACELERADOR: o codigo tem
+     * de continuar correto numa instancia Gama que ainda nao os tenha. Por isso
+     * estes testes verificam DUAS coisas em cada ponto — que o filtro certo foi
+     * enviado, e que o resultado continua certo quando o servidor o ignora.
+     */
+    describe('filtros no servidor', () => {
+      /** Body JSON da n-esima chamada ao fetch (ou `null` se nao houve body). */
+      const bodyDaChamada = (n = 0): any => {
+        const init = fetchMock.mock.calls[n]?.[1] as RequestInit | undefined;
+        return init?.body ? JSON.parse(String(init.body)) : null;
+      };
+
+      /** Query string da n-esima chamada. */
+      const queryDaChamada = (n = 0) =>
+        new URL(String(fetchMock.mock.calls[n]?.[0])).searchParams;
+
+      it('manda a janela e o "em aberto" no body, e a paginacao na query', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginar([]);
+
+        await svc.getInvoicesByDateWindowBatch(
+          empresa('empresa-filtro'),
+          '2026-06-01',
+          '2026-08-31',
+        );
+
+        // Paginacao na QUERY: e o que uma instancia sem o patch entende.
+        const query = queryDaChamada();
+        expect(query.get('limit')).toBe('100');
+        expect(query.get('offset')).toBe('0');
+        expect(query.get('order')).toBe('data_vencimento');
+        expect(query.get('direction')).toBe('desc');
+        // Filtro NUNCA na query: la a API responde HTTP 200 com warning de PHP.
+        expect(query.get('filters')).toBeNull();
+
+        expect(bodyDaChamada().filters).toEqual([
+          ['data_vencimento', '>=', '2026-06-01'],
+          ['data_vencimento', '<=', '2026-08-31'],
+          ['data_pagamento', 'is', null],
+          ['excluida', '=', 'N'],
+          ['desativada', '=', 'N'],
+        ]);
+      });
+
+      it('continua descartando pagas e canceladas se o servidor ignorar o filtro', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        // Instancia sem o patch: devolve tudo, como se nao houvesse filtro.
+        paginar([
+          { ...(faturaAberta as GamaIspFatura), id: 1, cliente_id: 7, data_vencimento: '2026-06-01' },
+          { ...(faturaAberta as GamaIspFatura), id: 2, cliente_id: 7, data_vencimento: '2026-06-02', data_pagamento: '2026-06-03' },
+          { ...(faturaAberta as GamaIspFatura), id: 3, cliente_id: 7, data_vencimento: '2026-06-04', excluida: 'S' },
+        ]);
+
+        const mapa = await svc.getInvoicesByDateWindowBatch(
+          empresa('empresa-sem-patch'),
+          '2026-01-01',
+          '2026-12-31',
+        );
+
+        // So a primeira: o `isOpen` em memoria e quem segura nesse cenario.
+        expect(mapa.get('7')).toHaveLength(1);
+        expect(mapa.get('7')?.[0].id).toBe(1);
+      });
+
+      it('para pelo total quando o servidor devolve o total ja filtrado', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        // 100 faturas e total=100: a pagina veio cheia, mas nao ha mais nada.
+        // Sem a parada pelo total, gastaria uma requisicao para descobrir isso.
+        const faturas = Array.from({ length: 100 }, (_, i) => ({
+          ...(faturaAberta as GamaIspFatura),
+          id: i + 1,
+          cliente_id: 7,
+          data_vencimento: '2026-06-01',
+        }));
+        paginar(faturas);
+
+        await svc.getInvoicesByDateWindowBatch(
+          empresa('empresa-total'),
+          '2026-01-01',
+          '2026-12-31',
+        );
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+
+      it('no disparo, busca por cliente_id quando o cliente tem o id do ERP', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginar([
+          {
+            ...(faturaAberta as GamaIspFatura),
+            id: 501,
+            url_pdf: 'https://erp.exemplo.test/fatura/x.pdf',
+          },
+        ]);
+
+        const resultado = await svc.getInvoices({
+          ...(cliente as object),
+          clientId: '4223',
+        } as unknown as Client);
+
+        // Rota de listagem, NAO a rota por documento.
+        expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/faturas?');
+        expect(bodyDaChamada().filters).toEqual([
+          ['cliente_id', '=', '4223'],
+          ['data_pagamento', 'is', null],
+          ['excluida', '=', 'N'],
+          ['desativada', '=', 'N'],
+        ]);
+        // E o link do boleto chega ao disparo.
+        expect(resultado.list[0].ticket_pdf_link).toBe(
+          'https://erp.exemplo.test/fatura/x.pdf',
+        );
+      });
+
+      it('no disparo, cai para a rota por documento sem o id do ERP', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        fetchMock.mockResolvedValue(
+          responseWith(200, okBody([faturaAberta as Partial<GamaIspFatura>])),
+        );
+
+        await svc.getInvoices(cliente);
+
+        expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/faturas/doc/');
+      });
+    });
+
+    describe('getInvoicesChangedSince', () => {
+      it('pede emitidas e pagas desde a data, em duas varreduras', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginar([]);
+
+        const delta = await svc.getInvoicesChangedSince(
+          empresa('empresa-delta'),
+          '2026-09-01',
+        );
+
+        expect(delta).toEqual({ emitidas: [], pagas: [] });
+
+        const filtrosPedidos = fetchMock.mock.calls.map((chamada) =>
+          JSON.parse(String((chamada[1] as RequestInit).body)).filters,
+        );
+        expect(filtrosPedidos).toEqual(
+          expect.arrayContaining([
+            [['data_emissao', '>=', '2026-09-01']],
+            [['data_pagamento', '>=', '2026-09-01']],
+          ]),
+        );
+      });
+
+      it('devolve as pagas SEM descartar — quem chama precisa delas para fechar o snapshot', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginar([
+          {
+            ...(faturaAberta as GamaIspFatura),
+            id: 900,
+            data_pagamento: '2026-09-05',
+          },
+        ]);
+
+        const delta = await svc.getInvoicesChangedSince(
+          empresa('empresa-delta-pagas'),
+          '2026-09-01',
+        );
+
+        expect(delta.pagas).toHaveLength(1);
+        expect(delta.pagas[0].data_pagamento).toBe('2026-09-05');
+      });
+    });
+
+    describe('getInvoiceDeltaForWindow', () => {
+      /**
+       * O delta faz DUAS varreduras com filtros diferentes na mesma rodada. O
+       * `paginar` devolve a mesma lista para qualquer requisicao, o que aqui
+       * confundiria emitidas com pagas — este dublê responde pelo CAMPO filtrado.
+       */
+      const paginarPorCampo = (porCampo: Record<string, unknown[]>) => {
+        fetchMock.mockImplementation(async (url: unknown, init: unknown) => {
+          const params = new URL(String(url)).searchParams;
+          const offset = Number(params.get('offset'));
+          const limit = Number(params.get('limit'));
+          const filtros =
+            JSON.parse(String((init as RequestInit).body)).filters ?? [];
+          const todos = porCampo[String(filtros[0]?.[0] ?? '')] ?? [];
+          return responseWith(
+            200,
+            envelope(todos.slice(offset, offset + limit), todos.length),
+          );
+        });
+      };
+
+      it('so deixa entrar a fatura EM ABERTO que vence DENTRO da janela', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginarPorCampo({
+          data_emissao: [
+            { ...faturaAberta, id: 1, data_vencimento: '2026-09-20' },
+            // Nasceu paga: nao pode entrar como "A Receber".
+            {
+              ...faturaAberta,
+              id: 2,
+              data_vencimento: '2026-09-21',
+              data_pagamento: '2026-09-08',
+            },
+            // Emitida agora, mas vence fora da janela: entraria num limbo que o
+            // closeMissingOpenInvoices nunca alcancaria para fechar.
+            { ...faturaAberta, id: 3, data_vencimento: '2027-05-01' },
+            // Cancelada no ERP.
+            { ...faturaAberta, id: 4, data_vencimento: '2026-09-22', excluida: 'S' },
+          ],
+          data_pagamento: [],
+        });
+
+        const { porCliente, idsPagos } = await svc.getInvoiceDeltaForWindow(
+          empresa('empresa-delta-janela'),
+          '2026-09-01',
+          '2026-01-01',
+          '2026-12-31',
+        );
+
+        expect([...porCliente.keys()]).toEqual(['7']);
+        expect(porCliente.get('7')?.map((fatura) => fatura.id)).toEqual([1]);
+        expect(idsPagos).toEqual([]);
+      });
+
+      it('devolve os ids das pagas para o snapshot fechar, sem recorte de janela', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginarPorCampo({
+          data_emissao: [],
+          data_pagamento: [
+            // Vencimento fora da janela de proposito: fechar e por id, e uma
+            // fatura antiga que acabou de ser paga precisa fechar do mesmo jeito.
+            {
+              ...faturaAberta,
+              id: 900,
+              data_vencimento: '2019-03-01',
+              data_pagamento: '2026-09-05',
+            },
+            {
+              ...faturaAberta,
+              id: 901,
+              data_vencimento: '2026-09-10',
+              data_pagamento: '2026-09-06',
+            },
+          ],
+        });
+
+        const { porCliente, idsPagos } = await svc.getInvoiceDeltaForWindow(
+          empresa('empresa-delta-pagas'),
+          '2026-09-01',
+          '2026-01-01',
+          '2026-12-31',
+        );
+
+        expect(porCliente.size).toBe(0);
+        expect(idsPagos).toEqual(['900', '901']);
+      });
+
+      it('delta vazio nao devolve nada — e o desfecho normal de uma rodada', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginarPorCampo({ data_emissao: [], data_pagamento: [] });
+
+        const { porCliente, idsPagos } = await svc.getInvoiceDeltaForWindow(
+          empresa('empresa-delta-vazio'),
+          '2026-09-01',
+          '2026-01-01',
+          '2026-12-31',
+        );
+
+        expect(porCliente.size).toBe(0);
+        expect(idsPagos).toEqual([]);
+      });
+
+      it('agrupa por cliente_id, como a varredura da janela faz', async () => {
+        const svc = new GamaIspInvoicesService(redisComToken());
+        paginarPorCampo({
+          data_emissao: [
+            { ...faturaAberta, id: 10, cliente_id: 7, data_vencimento: '2026-09-20' },
+            { ...faturaAberta, id: 11, cliente_id: 8, data_vencimento: '2026-09-21' },
+            { ...faturaAberta, id: 12, cliente_id: 7, data_vencimento: '2026-09-22' },
+          ],
+          data_pagamento: [],
+        });
+
+        const { porCliente } = await svc.getInvoiceDeltaForWindow(
+          empresa('empresa-delta-grupo'),
+          '2026-09-01',
+          '2026-01-01',
+          '2026-12-31',
+        );
+
+        expect(porCliente.get('7')?.map((fatura) => fatura.id)).toEqual([10, 12]);
+        expect(porCliente.get('8')?.map((fatura) => fatura.id)).toEqual([11]);
       });
     });
   });
