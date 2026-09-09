@@ -694,10 +694,14 @@ export class TemplateDispatchPayloadService {
         data_vencimento_fatura: String(inv.invoice_due_date ?? ""),
         valor_fatura: String(inv.invoice_amount ?? ""),
         linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ""),
-        // Sem link de PDF nesta entrega: a Gama ISP so devolve o boleto como
-        // base64 num endpoint proprio, sem URL publica. Ver
-        // `gamaIspInvoicesService.ts` (ticket_pdf_link e sempre null).
-        link_boleto_pdf: "",
+        // A Gama ISP passou a entregar `url_pdf`, uma URL publica de verdade
+        // (sondada em 08/09/2026: HTTP 200 sem autenticacao, application/pdf,
+        // presente nas 3.595 faturas em aberto da janela de 60 dias varrida
+        // naquele dia). Antes disso o unico
+        // caminho era um endpoint que devolve o boleto em base64, e este campo
+        // ficava vazio por decisao. Ver `linkDoBoleto` em
+        // `gamaIspInvoicesService.ts`.
+        link_boleto_pdf: String(inv.ticket_pdf_link ?? ""),
         code_pix: pixCode,
         codigo_qr: pixCode,
         codigo_qr_code: pixCode,

@@ -73,6 +73,25 @@ export interface GamaIspFatura {
   pix_qrcode: string | null;
   /** Sempre null nas amostras coletadas ate agora. */
   url_cobranca_gateway: string | null;
+  /**
+   * URL PUBLICA do boleto em PDF: `https://<host>/fatura/<uuid>.pdf`.
+   *
+   * Sondado na POWERNET em 08/09/2026: responde HTTP 200 SEM nenhum header de
+   * autenticacao, `content-type: application/pdf`, ~256 KB, ~240ms — ou seja, e
+   * um link que o destinatario abre direto no WhatsApp. Presente nas 3.595
+   * faturas em aberto da janela de 60 DIAS varrida naquele dia, sem uma unica
+   * excecao. Nao da para confirmar isso por contagem filtrada: `url_pdf` e o
+   * unico campo testado que NAO aceita filtro (`['url_pdf','is',null]` devolve
+   * resposta nao-JSON) — provavelmente e derivado, nao coluna.
+   *
+   * E o que permite cobrar as faturas SEM `pix_qrcode`. Elas nao sao poucas nem
+   * aleatorias: o Gama gera o PIX perto do vencimento, entao a falta se
+   * concentra na divida velha — 1.158 das 4.391 em aberto que vencem ate 30/09
+   * (26,4%), contagem filtrada no ERP em 09/09/2026. Antes, todas essas so
+   * podiam ser puladas no disparo. Ver o cabecalho de `gamaIspInvoicesService.ts`
+   * para a distribuicao por faixa de vencimento.
+   */
+  url_pdf?: string | null;
 
   desativada?: GamaIspFlag | null;
   excluida?: GamaIspFlag | null;
