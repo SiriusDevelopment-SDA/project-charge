@@ -2177,13 +2177,20 @@ let ativado = statusBancoText === "true";
  * ========================================================================== */
 const Store = {
   _cache: null,
-  _invalidar() { this._cache = null; },
+  _carregando: null,
+  _invalidar() { this._cache = null; this._carregando = null; },
 
   // Carrega tudo de uma vez (modelos + catálogo). Memoriza até uma escrita.
+  // Guarda a PROMESSA em voo: se dois pontos do init chamarem quase juntos,
+  // ambos compartilham a MESMA requisição (evita ler o catálogo 2x).
   async carregarTudo(account) {
     if (this._cache) return this._cache;
-    this._cache = MODO_DEV ? this._carregarLocal(account) : await this._carregarRemoto(account);
-    return this._cache;
+    if (this._carregando) return this._carregando;
+    this._carregando = Promise.resolve(
+      MODO_DEV ? this._carregarLocal(account) : this._carregarRemoto(account)
+    ).then((r) => { this._cache = r; return r; })
+     .finally(() => { this._carregando = null; });
+    return this._carregando;
   },
 
   // ---- API pública (mesmas assinaturas de antes) ----
