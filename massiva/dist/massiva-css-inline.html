@@ -2066,6 +2066,8 @@
   <p id="statusBanco" class="dados" style="opacity: 0;">{{ $json.status.toString() }}</p>
   <!-- Token do operador logado — mesmo valor já recebido em query.token pelo webhook que gera esta página -->
   <p id="token" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.token }}</p>
+  <!-- Filial dentro da mesma conta (multi-filial). Ausente => "1" (default do banco). -->
+  <p id="filial" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.filial_id }}</p>
 
 <script src="/webhook/massiva-js?v=1" defer></script>
 

@@ -2066,6 +2066,8 @@
   <p id="statusBanco" class="dados" style="opacity: 0;">{{ $json.status.toString() }}</p>
   <!-- Token do operador logado — mesmo valor já recebido em query.token pelo webhook que gera esta página -->
   <p id="token" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.token }}</p>
+  <!-- Filial dentro da mesma conta (multi-filial). Ausente => "1" (default do banco). -->
+  <p id="filial" class="dados" style="opacity: 0;">{{ $('Uplink').item.json.query.filial_id }}</p>
 
 <script>
 /* ============================================================================
@@ -2149,10 +2151,16 @@ function ehPlaceholder(v) {
 const accountBruto = document.getElementById("account").textContent.trim();
 const tokenBruto = document.getElementById("token").textContent.trim();
 const statusBancoBruto = document.getElementById("statusBanco").textContent.trim();
+// #filial pode não existir em esqueletos antigos — guarda contra null.
+const filialEl = document.getElementById("filial");
+const filialBruto = filialEl ? filialEl.textContent.trim() : "";
 
 const MODO_DEV = ehPlaceholder(accountBruto);
 const account_id = MODO_DEV ? "demo" : accountBruto;
 const token_id = ehPlaceholder(tokenBruto) ? (MODO_DEV ? "demo-token" : "") : tokenBruto;
+// Filial dentro da MESMA conta. Ausente/placeholder => "1" (bate com o DEFAULT '1' do banco).
+// Todas as empresas de filial única continuam funcionando sem enviar nada (caem na filial 1).
+const filial_id = ehPlaceholder(filialBruto) ? "1" : (filialBruto || "1");
 const statusBancoText = ehPlaceholder(statusBancoBruto) ? "false" : statusBancoBruto.toLowerCase();
 
 // Converte string "true"/"false" em booleano
@@ -2196,7 +2204,7 @@ const Store = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        account: account, token: token_id, tipo: tipo,
+        account: account, token: token_id, tipo: tipo, filial_id: filial_id,
         nome: campos.nome || null, texto: campos.texto || null, pai_id: campos.pai_id || null,
       }),
     });
@@ -2212,7 +2220,7 @@ const Store = {
     const r = await fetch(CATALOGO_EXCLUIR_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account: account, token: token_id, id: id }),
+      body: JSON.stringify({ account: account, token: token_id, id: id, filial_id: filial_id }),
     });
     if (!r.ok) throw new Error("falha ao excluir");
     return true;
@@ -2220,7 +2228,7 @@ const Store = {
 
   // ---- Produção: leitura remota ----
   async _carregarRemoto(account) {
-    const url = CATALOGO_URL + "?account=" + encodeURIComponent(account) + "&token=" + encodeURIComponent(token_id);
+    const url = CATALOGO_URL + "?account=" + encodeURIComponent(account) + "&token=" + encodeURIComponent(token_id) + "&filial_id=" + encodeURIComponent(filial_id);
     const r = await fetch(url);
     if (!r.ok) throw new Error("falha ao carregar catálogo");
     const resp = await r.json().catch(() => null);
@@ -2357,7 +2365,7 @@ const Store = {
 };
 
 /* ---------- Registro do horário de ativação (apenas visual, salvo no navegador) ---------- */
-const CHAVE_ATIVACAO = "massiva_ativada_em_" + account_id;
+const CHAVE_ATIVACAO = "massiva_ativada_em_" + account_id + "_f" + filial_id;
 let inicioAtivacao = null;
 
 function lerAtivacao() {
@@ -3268,7 +3276,7 @@ function normalizarHistorico(resp) {
 async function carregarHistorico() {
   historicoLista.innerHTML = `<div class="historico-carregando">Carregando histórico...</div>`;
   try {
-    const resposta = await fetch(`${HISTORICO_URL}?account=${encodeURIComponent(account_id)}&token=${encodeURIComponent(token_id)}`);
+    const resposta = await fetch(`${HISTORICO_URL}?account=${encodeURIComponent(account_id)}&token=${encodeURIComponent(token_id)}&filial_id=${encodeURIComponent(filial_id)}`);
     if (!resposta.ok) throw new Error("Falha na resposta");
     // Lê como texto primeiro: resposta vazia não quebra o JSON.parse.
     const texto = (await resposta.text()).trim();
@@ -3339,6 +3347,7 @@ async function submitHandle() {
           status: acao,
           // Campos novos — não afetam o contrato antigo
           token: token_id,
+          filial_id: filial_id,
           mensagem: textoEnviar,
           regiao: regiaoTextoAtual,
           // Estrutura hierárquica cidade > bairro > rua (Fase 2) para a IA filtrar
