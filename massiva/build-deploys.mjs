@@ -9,9 +9,10 @@ import path from 'path';
 const dir = path.join(path.dirname(new URL(import.meta.url).pathname), 'dist');
 
 const PROFILES = {
-  hextelecom: { node: 'hextelecom', paths: {} }, // mantém os paths padrão
+  hextelecom: { node: 'hextelecom', title: 'Modo Massiva Hex Telecom', paths: {} }, // paths padrão
   directlan: {
     node: 'directlan',
+    title: 'Modo Massiva Direct lan',
     paths: {
       'massiva-catalogo-criar':   'catalogo-criar-directlan',
       'massiva-catalogo-excluir': 'catalogo-excluir-directlan',
@@ -48,6 +49,7 @@ for (const [nome, prof] of Object.entries(PROFILES)) {
     if (prof.paths[std]) html = html.split(`/webhook/${std}`).join(`/webhook/${prof.paths[std]}`);
   }
   html = html.split("$('Uplink')").join(`$('${prof.node}')`);
+  if (prof.title) html = html.split('<h1>Modo Massiva</h1>').join(`<h1>${prof.title}</h1>`);
   fs.writeFileSync(path.join(out, 'massiva.html'), html);
 
   const usados = [...new Set(js.match(/\/webhook\/[a-z_-]+/g))];
