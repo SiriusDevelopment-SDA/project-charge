@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(AQUI, 'modo-massiva.html');
 const DIST = path.join(AQUI, 'dist');
-const VERSAO = 1; // suba quando publicar CSS/JS novo (vira ?v=2, ?v=3, ...)
+const VERSAO = 2; // suba quando publicar CSS/JS novo (vira ?v=2, ?v=3, ...)
 
 const html = fs.readFileSync(SRC, 'utf8');
 
