@@ -73,8 +73,7 @@ Adicionar a coluna **`filial_id`** com valor:
 ### `Fechar Histórico1` (desativar)
 ```sql
 UPDATE public.massiva_historico
-   SET desativado_em = now(),
-       duracao_segundos = EXTRACT(EPOCH FROM (now() - ativado_em))::int
+   SET desativado_em = now()   -- duracao_segundos e coluna GERADA: o banco calcula sozinho
  WHERE account = $1
    AND filial_id = COALESCE(NULLIF($2,''), '1')
    AND desativado_em IS NULL;

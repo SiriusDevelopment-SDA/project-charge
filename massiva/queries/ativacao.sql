@@ -62,8 +62,7 @@ ALTER TABLE public.massiva_historico
 -- (a) Nó "Encerrar anteriores" — colocar na saída TRUE do If, ANTES do insert:
 --     Query Parameters: {{ [$('Webhook1').item.json.body.account] }}
 UPDATE public.massiva_historico
-   SET desativado_em    = now(),
-       duracao_segundos = EXTRACT(EPOCH FROM (now() - ativado_em))::int
+   SET desativado_em    = now()   -- duracao_segundos e coluna GERADA: o banco calcula sozinho
  WHERE account = $1 AND desativado_em IS NULL;
 
 -- (b) Nó "dados histórico" — insere a nova (mapa de colunas, já com areas).
@@ -80,8 +79,7 @@ VALUES
 -- "no ar" presa, e grava a duração. Nó "Fechar Histórico".
 -- Query Parameters: {{ [$('Webhook1').item.json.body.account] }}
 UPDATE public.massiva_historico
-   SET desativado_em    = now(),
-       duracao_segundos = EXTRACT(EPOCH FROM (now() - ativado_em))::int
+   SET desativado_em    = now()   -- duracao_segundos e coluna GERADA: o banco calcula sozinho
  WHERE account = $1 AND desativado_em IS NULL;
 
 
