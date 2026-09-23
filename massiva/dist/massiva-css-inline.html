@@ -1543,6 +1543,8 @@
       line-height: 1.4;
     }
     .trava-aviso .trava-ic { font-size: 1rem; flex: none; }
+    /* o atributo hidden precisa vencer o display:flex acima (senão o banner fica sempre visível) */
+    .trava-aviso[hidden] { display: none; }
 
     #textoEnviar:disabled {
       opacity: 0.55;
