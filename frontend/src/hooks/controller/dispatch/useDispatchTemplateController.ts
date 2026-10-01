@@ -2,7 +2,10 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Api } from "../../../services/api";
 import { mapRecipientsToTemplateVars } from "../../../mappers/templateVars.mapper";
-import { buildTemplateRecipients } from "../../../mappers/templateRecipient.builder";
+import {
+  buildServerSideRecipients,
+  buildTemplateRecipients,
+} from "../../../mappers/templateRecipient.builder";
 import type {
   Cliente,
   Lead,
@@ -91,15 +94,26 @@ export function useDispatchTemplateController() {
       }
       console.groupEnd();
 
-      const response = await Api.post<{ batchId: string; queued: number; skipped: number }>(
-        "/templates/send",
-        payload,
-      );
+      const response = await Api.post<{
+        batchId: string;
+        queued: number;
+        skipped: number;
+        skippedInvalidInvoices?: number;
+      }>("/templates/send", payload);
       const result = response.data;
       setActiveBatchId(result.batchId);
       if (result.skipped > 0) {
         toast.warning(
           `${result.skipped} destinatario(s) ja receberam mensagem hoje e foram ignorados.`,
+        );
+      }
+      // O backend pula destinatario que ele nao conseguiu montar (fatura nao
+      // encontrada no ERP, ERP fora do ar, variavel obrigatoria vazia) e grava
+      // o motivo no relatorio. Sem este aviso o operador ve so "Disparo
+      // efetuado!" e nao tem como saber que parte do lote ficou de fora.
+      if (result.skippedInvalidInvoices && result.skippedInvalidInvoices > 0) {
+        toast.warning(
+          `${result.skippedInvalidInvoices} destinatario(s) nao puderam ser montados (fatura indisponivel no ERP). Veja o motivo de cada um no Historico.`,
         );
       }
       toast.success("Disparo efetuado!");
@@ -133,11 +147,26 @@ export function useDispatchTemplateController() {
         filterByTemplateVars: false,
       });
 
-      // Build all components (body params + ORDER_DETAILS button with PIX) in the frontend.
-      const recipients = buildTemplateRecipients(selectedTemplate, freshMappedVars);
+      // Clientes: montagem SERVER-SIDE. Os destinatarios vao sem `components` e
+      // o backend busca fatura e PIX no ERP no momento do disparo, registrando
+      // no relatorio quem ficou de fora e por que. Montar aqui significaria
+      // descartar o cliente com base no snapshot local — que pode estar velho
+      // ou sem PIX (Gama ISP so grava `pixCode` para parte das faturas) — sem
+      // nunca perguntar ao ERP.
+      //
+      // Leads seguem montados no frontend: nao tem `clientId`, entao nao ha o
+      // que o backend consultar no ERP; os valores vem da planilha ou do modal.
+      const recipients =
+        modoPage === "clientes"
+          ? buildServerSideRecipients(freshMappedVars)
+          : buildTemplateRecipients(selectedTemplate, freshMappedVars);
 
       if (!recipients.length) {
-        toast.warning('Nenhum destinatario valido encontrado para envio. Verifique se os dados de fatura e PIX estao disponiveis.');
+        toast.warning(
+          modoPage === "clientes"
+            ? 'Nenhum destinatario com telefone valido na selecao.'
+            : 'Nenhum destinatario valido encontrado para envio. Verifique se os dados de fatura e PIX estao disponiveis.',
+        );
         return;
       }
 

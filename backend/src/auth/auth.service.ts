@@ -51,7 +51,28 @@ type JwtPayload = {
   agentEmail?: string;
   agentRole?: AgentRole;
   agentActive?: boolean;
+  /**
+   * A senha ainda e a inicial. Viaja no JWT para o `JwtAuthGuard` poder barrar
+   * sem ida ao banco a cada requisicao — e o token so perde a marca quando um
+   * novo e emitido, depois da troca.
+   */
+  mustChangePassword?: boolean;
 };
+
+/**
+ * Senha com que o embed cadastra um agente novo.
+ *
+ * E a MESMA para todo mundo, e isso e uma escolha consciente: precisa ser
+ * comunicavel. O que a torna aceitavel e a troca obrigatoria — enquanto
+ * `agents.mustChangePassword` for `true`, o `JwtAuthGuard` so libera a rota de
+ * troca de senha. Sem essa contrapartida, seria um segredo compartilhado valendo
+ * para sempre em quem nunca faz login por senha (a maioria: o caminho normal
+ * desses agentes e o embed).
+ *
+ * Nao vale para agente que ja existe: o bootstrap nunca reescreve `passwordHash`
+ * de quem tem cadastro. Ver `provisionarAgenteDoChatwoot`.
+ */
+export const SENHA_INICIAL_AGENTE = 'Vital@2026';
 
 @Injectable()
 export class AuthService {
@@ -83,6 +104,7 @@ export class AuthService {
         passwordHash: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         company: {
           id: true,
           name: true,
@@ -110,6 +132,26 @@ export class AuthService {
     const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
     const targetCompany = defaultCompany ?? agent.company;
 
+    // Empresa inativa barra o agente comum tambem AQUI, nao so no embed.
+    //
+    // Ate 09/09/2026 esta era a porta dos fundos: o embed recusava, o
+    // `switchActiveCompany` recusava, e o login por e-mail/senha entregava um
+    // JWT valido de empresa inativa sem checar nada. O que continha o agente era
+    // o `BlockedRoute`, no NAVEGADOR — defesa de cliente, com a API respondendo
+    // normalmente a quem chamasse direto. Empresa inativa e a que nao sincroniza
+    // (os dois crons de faturas filtram `active: true`), entao o que se ganhava
+    // dali era disparo contra snapshot congelado.
+    //
+    // super_admin passa, pela mesma razao do embed: ele precisa entrar para
+    // diagnosticar e reativar. Na pratica ele nem chega a esta linha em estado
+    // inativo, porque cai na empresa default — a checagem vale pelo caso em que
+    // a default estiver indisponivel e ele cair na propria empresa.
+    if (agent.role !== 'super_admin' && !targetCompany.active) {
+      throw new UnauthorizedException(
+        `A empresa ${targetCompany.name} esta inativa no Coraxy.`,
+      );
+    }
+
     return this.buildAuthResponse(
       targetCompany.id,
       targetCompany.name,
@@ -121,37 +163,74 @@ export class AuthService {
         agentEmail: agent.email,
         agentRole: agent.role,
         agentActive: agent.active,
+        mustChangePassword: agent.mustChangePassword,
       },
     );
   }
 
+  /**
+   * Login do embed do Chatwoot (dashboard app).
+   *
+   * A URL do app e `https://embed.coraxy.com.br?account={account_id}&token={user_token}`
+   * — o Chatwoot INTERPOLA as duas variaveis, entao o `token` que chega e o
+   * access token DAQUELE usuario, nao um segredo estatico do app. E isso que
+   * torna possivel identificar o agente sem `postMessage` e sem confiar em nada
+   * que o cliente declare.
+   *
+   * Dois caminhos, nesta ordem:
+   *
+   *  1. RAPIDO — o agente ja e conhecido pelo token: uma query, zero chamada
+   *     externa. E o caso da esmagadora maioria dos acessos.
+   *  2. BOOTSTRAP — nao ha linha com esse token: valida o token no Chatwoot
+   *     (`GET /api/v1/profile`) e provisiona. Ver `provisionarAgenteDoChatwoot`.
+   *
+   * POR QUE O BOOTSTRAP E OBRIGATORIO, e nao um extra: sem ele o `loginEmbed`
+   * so reconhece quem JA tinha o token gravado, e nao existe caminho que o
+   * grave. Foi exatamente esse o defeito em producao — nenhuma linha de `agents`
+   * tinha o `chatwootAccessToken` que o Chatwoot manda, entao TODAS as empresas
+   * respondiam 401 "Credenciais de embed invalidas". Em desenvolvimento passava
+   * porque uma linha havia sido semeada a mao. Um login que depende de um dado
+   * que ninguem popula e um login que nao funciona.
+   */
   async loginEmbed(dto: EmbedLoginDto) {
-    // Embed UNIFICADO (spec: existe apenas 1 fluxo de embed, que tambem resolve
-    // super_admin). O `token` do embed e o chatwootAccessToken do agente
-    // (coluna agents.chatwootAccessToken). Identificamos o agente direto no
-    // banco por (token, account) — SEM chamar a API do Chatwoot e SEM depender
-    // de CHATWOOT_BASE_URL. Espelha o loginAgent, trocando email+senha pelo token.
-    const agent = await this.agentRepository.findOne({
+    const selecaoDoAgente = {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      active: true,
+      mustChangePassword: true,
+      company: {
+        id: true,
+        name: true,
+        account_chatwoot: true,
+        active: true,
+        config: true,
+      },
+    } as const;
+
+    let agent = await this.agentRepository.findOne({
       where: { chatwootAccessToken: dto.token },
       relations: ['company'],
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        active: true,
-        company: {
-          id: true,
-          name: true,
-          account_chatwoot: true,
-          active: true,
-          config: true,
-        },
-      },
+      select: selecaoDoAgente,
     });
 
     if (!agent) {
-      throw new UnauthorizedException('Credenciais de embed invalidas');
+      const provisionado = await this.provisionarAgenteDoChatwoot(dto);
+
+      // Reconsulta com a MESMA projecao do caminho rapido: o `save` devolve a
+      // company como `{ id }`, e o anti-tampering abaixo le
+      // `company.account_chatwoot`. Sem isto, um agente recem-criado seria
+      // recusado no passo seguinte por um campo que so faltava na projecao.
+      agent = await this.agentRepository.findOne({
+        where: { id: provisionado.id },
+        relations: ['company'],
+        select: selecaoDoAgente,
+      });
+
+      if (!agent) {
+        throw new UnauthorizedException('Credenciais de embed invalidas');
+      }
     }
 
     if (!agent.active) {
@@ -160,21 +239,27 @@ export class AuthService {
 
     const isSuperAdmin = agent.role === 'super_admin';
 
-    // Anti-tampering: agente comum so pode abrir o embed da PROPRIA empresa — o
-    // `account` da URL precisa casar com a empresa do agente. super_admin
-    // transita entre empresas, entao a checagem e ignorada para ele.
+    // Anti-tampering: agente comum so abre o embed da PROPRIA empresa. O
+    // super_admin transita entre empresas, entao a checagem nao se aplica a ele.
+    //
+    // A mensagem nomeia a empresa de proposito. Quando o agente EXISTE no
+    // Chatwoot daquela account mas ja tem login nosso em outra empresa, o motivo
+    // real nao e "nao pertence a esta account" — e o nosso modelo, em que
+    // `agents.email` e unico global e o agente pertence a UMA empresa. Dizer
+    // "nao pertence" mandava o suporte investigar o Chatwoot, onde nao ha nada
+    // errado.
     if (
       !isSuperAdmin &&
       String(agent.company?.account_chatwoot ?? '') !== String(dto.account)
     ) {
-      throw new UnauthorizedException('Usuario nao pertence a esta account.');
+      throw new UnauthorizedException(
+        `Este e-mail ja esta vinculado a empresa ${agent.company?.name ?? '?'} ` +
+          `(account ${agent.company?.account_chatwoot ?? '?'}). ` +
+          `Um agente pertence a uma unica empresa.`,
+      );
     }
 
-    // super_admin cai na empresa default (Fibras do Rio, account_chatwoot=4) no
-    // primeiro acesso; o frontend troca depois via /auth/switch-company. Demais
-    // papeis usam a propria empresa.
-    const defaultCompany = await this.resolveSuperAdminDefaultCompany(agent);
-    const targetCompany = defaultCompany ?? agent.company;
+    const targetCompany = await this.resolveEmpresaDoEmbed(agent, dto.account);
 
     return this.buildAuthResponse(
       targetCompany.id,
@@ -187,9 +272,308 @@ export class AuthService {
         agentEmail: agent.email,
         agentRole: agent.role,
         agentActive: agent.active,
+        mustChangePassword: agent.mustChangePassword,
       },
       this.extractPagePermissions(targetCompany.config),
     );
+  }
+
+  /**
+   * Empresa em que o embed aterrissa: a da `account` DA URL.
+   *
+   * Antes o super_admin caia sempre na empresa default (Fibras do Rio) e o
+   * `account` era descartado — abrir o embed de dentro do Chatwoot da VILLANET
+   * aterrissava na FIBRAS DO RIO. A default continua existindo, mas so como
+   * FALLBACK para account sem empresa cadastrada: o embed do ambiente master
+   * (`account=1`, Sirius Place) e o caso real disso.
+   *
+   * Para agente comum a account ja foi conferida pelo anti-tampering, entao
+   * chegar aqui sem empresa significa account sem cadastro no Coraxy — e a
+   * mensagem diz isso, em vez de um 401 generico. Hoje o Chatwoot tem 17
+   * accounts e o Coraxy 12 empresas, entao o caso e real, nao hipotetico.
+   */
+  private async resolveEmpresaDoEmbed(
+    agent: Agent,
+    account: string,
+  ): Promise<Company> {
+    const daAccount = await this.companyRepository.findOne({
+      where: { account_chatwoot: String(account) },
+      select: {
+        id: true,
+        name: true,
+        account_chatwoot: true,
+        active: true,
+        config: true,
+      },
+    });
+
+    if (daAccount) {
+      // Empresa inativa NAO barra super_admin — ele precisa entrar justamente
+      // para diagnosticar e reativar; barra-lo o deixaria de fora do lugar onde
+      // o problema esta. Para agente comum a empresa inativa e uma porta
+      // fechada, e a mensagem diz qual, em vez de um 401 generico.
+      //
+      // O `switchActiveCompany` recusa inativa para todo mundo. A diferenca e
+      // deliberada: la a empresa e escolhida num seletor, aqui ela vem imposta
+      // pela account de onde o embed foi aberto.
+      if (!daAccount.active && agent.role !== 'super_admin') {
+        throw new UnauthorizedException(
+          `A empresa ${daAccount.name} esta inativa no Coraxy.`,
+        );
+      }
+
+      return daAccount;
+    }
+
+    if (agent.role === 'super_admin') {
+      const padrao = await this.resolveSuperAdminDefaultCompany(agent);
+      if (padrao) {
+        return padrao;
+      }
+      if (agent.company) {
+        return agent.company;
+      }
+    }
+
+    throw new UnauthorizedException(
+      `A account ${account} do Chatwoot nao tem empresa cadastrada no Coraxy.`,
+    );
+  }
+
+  /**
+   * BOOTSTRAP do embed: valida o token no Chatwoot e garante o agente local.
+   *
+   * O Chatwoot e a FONTE DA VERDADE aqui — `GET /api/v1/profile` devolve email,
+   * nome, id e a lista de accounts do usuario COM o papel em cada uma. Sondado
+   * em 09/09/2026: HTTP 200 com as 17 accounts do supervisor. Por isso o
+   * anti-tampering deste caminho nao consulta o nosso banco: compara a `account`
+   * da URL com `profile.accounts`, que veio do proprio Chatwoot.
+   *
+   * Faz tres coisas:
+   *  - RECONCILIA o token de quem ja existe. E o que conserta rotacao de token:
+   *    antes, um token rotacionado no Chatwoot derrubava o agente para sempre,
+   *    porque a busca por `chatwootAccessToken` nunca mais casava e nada
+   *    reescrevia a coluna. O sync diario tambem nao resolve — ele faz `continue`
+   *    antes de atualizar o token quando o email ja existe em outra empresa.
+   *  - CRIA quem nao existe, com o papel HERDADO do Chatwoot — ver
+   *    `mapChatwootProfileToAgentRole`. Vale so na criacao: quem ja existe
+   *    mantem o papel que tem, porque um login nao deve desfazer o que um admin
+   *    nosso ajustou. Consequencia a ter em mente: com isso a fronteira de
+   *    privilegio passa a ser o Chatwoot — quem for `SuperAdmin` la entra aqui
+   *    como `super_admin`, com acesso a todas as empresas.
+   *  - RECUSA quem nao esta na account, com token invalido, ou cuja account nao
+   *    tem empresa cadastrada.
+   */
+  private async provisionarAgenteDoChatwoot(dto: EmbedLoginDto): Promise<Agent> {
+    const chatwootBaseUrl = String(
+      this.configService.get<string>('CHATWOOT_BASE_URL') ?? '',
+    ).replace(/\/+$/, '');
+
+    if (!chatwootBaseUrl) {
+      throw new UnauthorizedException(
+        'CHATWOOT_BASE_URL nao configurada no backend.',
+      );
+    }
+
+    const profile = await this.fetchChatwootProfile(chatwootBaseUrl, dto.token);
+
+    const email = String(profile.email ?? '')
+      .toLowerCase()
+      .trim();
+    const name = String(profile.name ?? '').trim() || email;
+    const chatwootUserId =
+      typeof profile.id === 'number' ? profile.id : Number(profile.id);
+
+    if (!email || !chatwootUserId || Number.isNaN(chatwootUserId)) {
+      throw new UnauthorizedException('Perfil Chatwoot invalido.');
+    }
+
+    const existente = await this.agentRepository.findOne({
+      where: { email },
+      relations: ['company'],
+    });
+
+    // super_admin transita entre accounts; para os demais, a account pedida
+    // precisa estar entre as do usuario NO CHATWOOT.
+    const accountsDoUsuario = Array.isArray(profile.accounts)
+      ? profile.accounts.map((conta: { id: number | string }) => String(conta.id))
+      : [];
+
+    if (
+      existente?.role !== 'super_admin' &&
+      !accountsDoUsuario.includes(String(dto.account))
+    ) {
+      throw new UnauthorizedException('Usuario nao pertence a esta account.');
+    }
+
+    if (existente) {
+      existente.chatwootUserId = chatwootUserId;
+      existente.chatwootAccessToken = dto.token;
+      if (!existente.name) {
+        existente.name = name;
+      }
+      return this.agentRepository.save(existente);
+    }
+
+    const company = await this.companyRepository.findOne({
+      where: { account_chatwoot: String(dto.account) },
+      select: { id: true, name: true, active: true },
+    });
+
+    if (!company) {
+      throw new UnauthorizedException(
+        `A account ${dto.account} do Chatwoot nao tem empresa cadastrada no Coraxy.`,
+      );
+    }
+
+    // Recusa ANTES de gravar. Quem chega aqui e sempre agente novo — agente
+    // novo nunca e super_admin (o papel de entrada e `operator`), entao a
+    // excecao do super_admin nao se aplica e ele seria barrado logo adiante em
+    // `resolveEmpresaDoEmbed`. Criar a linha primeiro deixaria no banco um
+    // agente que nao consegue entrar.
+    if (!company.active) {
+      throw new UnauthorizedException(
+        `A empresa ${company.name} esta inativa no Coraxy.`,
+      );
+    }
+
+    const role = this.mapChatwootProfileToAgentRole(profile, dto.account);
+
+    const novo = this.agentRepository.create({
+      name,
+      email,
+      // Senha inicial DE VERDADE (hash bcrypt), nao o placeholder
+      // `CHATWOOT_AUTH` que o loginChatwoot usa. O placeholder deixava o agente
+      // sem nenhum caminho de login por senha, porque bcrypt comparado com um
+      // nao-hash sempre falha. Vem com troca obrigatoria: ver
+      // `SENHA_INICIAL_AGENTE`.
+      passwordHash: await hash(SENHA_INICIAL_AGENTE, 10),
+      mustChangePassword: true,
+      chatwootUserId,
+      chatwootAccessToken: dto.token,
+      role,
+      active: true,
+      company: { id: company.id } as Company,
+    });
+
+    try {
+      const salvo = await this.agentRepository.save(novo);
+
+      this.logger.log(
+        `[EmbedBootstrap] agente provisionado pelo embed: ${email} ` +
+          `(chatwootUserId=${chatwootUserId}) na account ${dto.account} ` +
+          `com papel ${role} (type=${profile?.type ?? '-'})`,
+      );
+
+      return salvo;
+    } catch (err) {
+      /**
+       * CORRIDA DE PRIMEIRO ACESSO.
+       *
+       * Duas requisicoes simultaneas de bootstrap para o mesmo agente: as duas
+       * nao acham cadastro, as duas validam no Chatwoot, as duas tentam criar.
+       * Uma vence; a outra bate no `UNIQUE (email)` de `agents`.
+       *
+       * Nao e hipotese: o frontend roda em `React.StrictMode`, que dispara o
+       * efeito de autenticacao DUAS VEZES em desenvolvimento — e o desfecho era
+       * o pior possivel, porque o agente ERA criado e mesmo assim a requisicao
+       * perdedora devolvia 500. O `AccountLayout` trata falha de embed como
+       * sessao invalida, limpava tudo e mandava para o /login. Quem testava via
+       * a tela de login e concluia que o cadastro automatico nao funcionava,
+       * enquanto o cadastro estava no banco.
+       *
+       * Fora do StrictMode continua alcancavel: duas abas, um refresh no meio da
+       * requisicao, dois cliques. E o primeiro acesso e justamente a unica hora
+       * em que essa corrida existe.
+       *
+       * Perder a corrida NAO e erro: significa que outra requisicao ja fez o que
+       * esta ia fazer. Buscamos o vencedor e seguimos.
+       */
+      if (!this.ehEmailDuplicado(err)) {
+        throw err;
+      }
+
+      const vencedor = await this.agentRepository.findOne({
+        where: { email },
+        relations: ['company'],
+      });
+
+      if (!vencedor) {
+        throw err;
+      }
+
+      this.logger.log(
+        `[EmbedBootstrap] corrida de primeiro acesso em ${email}: ` +
+          `outra requisicao criou o agente primeiro, seguindo com ela`,
+      );
+
+      return vencedor;
+    }
+  }
+
+  /**
+   * Violacao de unicidade de e-mail no Postgres (SQLSTATE 23505).
+   *
+   * O TypeORM embrulha o erro do driver, entao o codigo pode estar no proprio
+   * erro ou em `driverError`. Conferimos a constraint pelo NOME da coluna, e nao
+   * pelo nome gerado (`UQ_5fdef...`), que muda se a tabela for recriada.
+   */
+  private ehEmailDuplicado(err: unknown): boolean {
+    const alvo = err as { code?: string; driverError?: { code?: string; detail?: string }; detail?: string };
+    const codigo = alvo?.code ?? alvo?.driverError?.code;
+    if (codigo !== '23505') return false;
+
+    const detalhe = String(alvo?.detail ?? alvo?.driverError?.detail ?? '');
+    return detalhe.includes('email');
+  }
+
+  /**
+   * Papel do agente criado pelo embed, herdado do CHATWOOT.
+   *
+   * O Chatwoot descreve o usuario em dois niveis, e os dois importam:
+   *  - `type` — nivel da INSTALACAO. `SuperAdmin` e quem administra o Chatwoot
+   *    inteiro, nao uma account. Vem no `/api/v1/profile` (sondado em
+   *    09/09/2026: `type: "SuperAdmin"` para o supervisor).
+   *  - `accounts[].role` — nivel da ACCOUNT: `administrator` ou `agent`.
+   *
+   * O `type` tem precedencia porque e o papel mais amplo: quem administra a
+   * instalacao nao deveria entrar como operador de uma empresa so.
+   *
+   * SOMENTE NA CRIACAO. Agente que ja existe mantem o papel que tem, e isso e
+   * deliberado: o papel local pode ter sido ajustado por um admin nosso, e um
+   * login nao deve desfazer essa decisao — nem promover, nem rebaixar. E a mesma
+   * regra que o sync do Maestro ja segue para nao rebaixar super_admin.
+   *
+   * Sem informacao reconhecivel, cai em `operator` — o papel de menor
+   * privilegio. Errar para menos aqui gera um chamado; errar para mais entrega
+   * acesso que ninguem concedeu.
+   */
+  private mapChatwootProfileToAgentRole(
+    profile: Record<string, any>,
+    account: string,
+  ): AgentRole {
+    const tipoDaInstalacao = String(profile?.type ?? '')
+      .trim()
+      .toLowerCase();
+
+    if (tipoDaInstalacao === 'superadmin') {
+      return 'super_admin';
+    }
+
+    const contas = Array.isArray(profile?.accounts) ? profile.accounts : [];
+    const contaAlvo = contas.find(
+      (conta: { id: number | string }) => String(conta?.id) === String(account),
+    );
+
+    // `administrator` no Chatwoot vira `admin` aqui; `agent` vira `operator`.
+    // A checagem por `includes('admin')` acompanha o
+    // `mapMaestroRoleToAgentRole`, para os dois caminhos de entrada nao
+    // divergirem sobre a mesma palavra.
+    const papelNaConta = String(contaAlvo?.role ?? '')
+      .trim()
+      .toLowerCase();
+
+    return papelNaConta.includes('admin') ? 'admin' : 'operator';
   }
 
   async loginChatwoot(dto: ChatwootLoginDto) {
@@ -341,6 +725,7 @@ export class AuthService {
         agentEmail: agent.email,
         agentRole: agent.role,
         agentActive: agent.active,
+        mustChangePassword: agent.mustChangePassword,
       },
       this.extractPagePermissions(targetCompany.config),
     );
@@ -500,6 +885,7 @@ export class AuthService {
             email: true,
             role: true,
             active: true,
+            mustChangePassword: true,
             company: {
               id: true,
             },
@@ -535,6 +921,12 @@ export class AuthService {
             email: agent.email,
             role: agent.role,
             active: agent.active,
+            // Precisa vir aqui tambem, e nao so no login: o `AccountLayout`
+            // revalida a sessao pelo `me()` a cada carga e reaplica a sessao a
+            // partir DESTA resposta. Sem o campo, a marca de senha inicial era
+            // apagada do storage no primeiro refresh e a tela de troca sumia —
+            // enquanto o backend seguia recusando tudo com 403.
+            mustChangePassword: agent.mustChangePassword,
           }
         : null,
     };
@@ -894,6 +1286,8 @@ export class AuthService {
 
         if (importedPasswordHash && existing.passwordHash !== importedPasswordHash) {
           existing.passwordHash = importedPasswordHash;
+          // Hash proprio importado: a senha deixou de ser a inicial.
+          existing.mustChangePassword = false;
           passwordUpdated += 1;
           changed = true;
         }
@@ -1097,6 +1491,7 @@ export class AuthService {
         passwordHash: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         company: {
           id: true,
         },
@@ -1123,7 +1518,22 @@ export class AuthService {
     }
 
     if (wantsPasswordChange) {
-      if (!dto.currentPassword?.trim()) {
+      /**
+       * Quem ainda esta com a SENHA INICIAL nao precisa informa-la para trocar.
+       *
+       * O caminho normal desse agente e o embed, onde ele nunca digitou senha
+       * nenhuma — exigir a "senha atual" seria pedir um dado que ele nao tem. A
+       * alternativa, mostrar `Vital@2026` na tela de troca, seria pior: a senha
+       * e a MESMA para todos os agentes criados pelo embed, entao exibi-la
+       * ensinaria a chave de entrada de todos os colegas.
+       *
+       * Nao ha perda de seguranca: para chegar aqui a pessoa ja apresentou um
+       * JWT valido, e conferir a senha inicial de novo nao prova nada alem do
+       * que o token ja provou.
+       */
+      const podePularSenhaAtual = agent.mustChangePassword;
+
+      if (!podePularSenhaAtual && !dto.currentPassword?.trim()) {
         throw new BadRequestException(
           'Informe a senha atual para alterar a senha.',
         );
@@ -1133,33 +1543,80 @@ export class AuthService {
         throw new BadRequestException('Informe a nova senha.');
       }
 
-      const passwordOk = await compare(dto.currentPassword, agent.passwordHash);
-      if (!passwordOk) {
-        throw new BadRequestException(
-          'A senha atual informada esta incorreta.',
+      if (!podePularSenhaAtual) {
+        const passwordOk = await compare(
+          dto.currentPassword as string,
+          agent.passwordHash,
         );
+        if (!passwordOk) {
+          throw new BadRequestException(
+            'A senha atual informada esta incorreta.',
+          );
+        }
       }
 
-      if (dto.currentPassword === dto.newPassword) {
+      // Vale nos dois caminhos: repetir a senha inicial nao e trocar de senha.
+      const senhaAtualParaComparar = podePularSenhaAtual
+        ? SENHA_INICIAL_AGENTE
+        : dto.currentPassword;
+
+      if (senhaAtualParaComparar === dto.newPassword) {
         throw new BadRequestException(
           'A nova senha precisa ser diferente da senha atual.',
         );
       }
 
       agent.passwordHash = await hash(dto.newPassword, 10);
+      // Invariante: `mustChangePassword` significa "a senha ainda e a inicial".
+      // Qualquer gravacao de senha nova precisa limpar a flag, senao o agente
+      // seria obrigado a trocar de novo uma senha que ja nao e a padrao.
+      agent.mustChangePassword = false;
     }
 
     const saved = await this.agentRepository.save(agent);
 
+    /**
+     * Quem acabou de trocar a SENHA INICIAL sai daqui com um token novo.
+     *
+     * O `JwtAuthGuard` le a marca do TOKEN, nao do banco — de proposito, para
+     * nao consultar o Postgres a cada requisicao. A consequencia e que trocar a
+     * senha nao basta: o token em maos continua dizendo "senha inicial", e a
+     * primeira chamada seguinte leva 403 pedindo para trocar a senha DE NOVO,
+     * logo depois de a pessoa ter trocado. Foi exatamente o que apareceu no
+     * primeiro teste real.
+     *
+     * So reemitimos quando a marca CAIU nesta chamada. Uma edicao de nome
+     * qualquer nao precisa de token novo, e reemitir a toa renovaria a validade
+     * do token sem que ninguem tenha pedido.
+     */
+    const marcaCaiuAgora = payload.mustChangePassword && !saved.mustChangePassword;
+    let accessToken: string | undefined;
+    if (marcaCaiuAgora) {
+      // `iat` e `exp` vem do token DECODIFICADO e nao podem ser reassinados: o
+      // jsonwebtoken recusa com "the payload already has an exp property" e a
+      // troca de senha inteira falha com 500. O token novo ganha validade nova.
+      const { iat: _iat, exp: _exp, ...dadosDoToken } = payload as JwtPayload & {
+        iat?: number;
+        exp?: number;
+      };
+
+      accessToken = await this.jwtService.signAsync({
+        ...dadosDoToken,
+        mustChangePassword: false,
+      });
+    }
+
     return {
       success: true,
       message: 'Perfil atualizado com sucesso.',
+      ...(accessToken ? { accessToken } : {}),
       agent: {
         id: saved.id,
         name: saved.name ?? null,
         email: saved.email,
         role: saved.role,
         active: saved.active,
+        mustChangePassword: saved.mustChangePassword,
       },
     };
   }
@@ -1376,6 +1833,8 @@ export class AuthService {
     }
 
     agent.passwordHash = await hash(dto.newPassword, 10);
+    // Idem: senha definida por um admin tambem deixa de ser a inicial.
+    agent.mustChangePassword = false;
     await this.agentRepository.save(agent);
 
     this.logger.log(
@@ -1420,6 +1879,7 @@ export class AuthService {
         email: true,
         role: true,
         active: true,
+        mustChangePassword: true,
         company: { id: true },
       },
     });
@@ -1534,6 +1994,7 @@ export class AuthService {
         agentEmail: agent.email,
         agentRole: agent.role,
         agentActive: agent.active,
+        mustChangePassword: agent.mustChangePassword,
       },
     );
   }
@@ -1582,6 +2043,7 @@ export class AuthService {
       agentEmail?: string;
       agentRole?: AgentRole;
       agentActive?: boolean;
+      mustChangePassword?: boolean;
     },
     permissions?: ReturnType<typeof this.extractPagePermissions>,
   ) {
@@ -1594,6 +2056,7 @@ export class AuthService {
       agentEmail: agent?.agentEmail,
       agentRole: agent?.agentRole,
       agentActive: agent?.agentActive,
+      mustChangePassword: agent?.mustChangePassword,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -1615,6 +2078,7 @@ export class AuthService {
             email: agent.agentEmail ?? null,
             role: agent.agentRole ?? 'operator',
             active: agent.agentActive ?? true,
+            mustChangePassword: agent.mustChangePassword ?? false,
           }
         : null,
     };

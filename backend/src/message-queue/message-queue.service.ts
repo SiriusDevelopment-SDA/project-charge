@@ -55,18 +55,10 @@ export class MessageQueueService {
 
     if (!params.disableDailyDedup) {
       // Deduplicação: remove destinatários cujo telefone já foi despachado hoje para a mesma empresa
-      const todayStart = new Date(scheduledAt);
-      todayStart.setHours(0, 0, 0, 0);
-
-      const alreadyQueued = await this.queueRepository
-        .createQueryBuilder('q')
-        .select("q.payload->>'number'", 'number')
-        .where('q."companyId" = :companyId', { companyId: params.companyId })
-        .andWhere('q."scheduledAt" >= :todayStart', { todayStart })
-        .andWhere("q.status != 'failed'")
-        .getRawMany<{ number: string }>();
-
-      const alreadyQueuedSet = new Set(alreadyQueued.map((r) => r.number));
+      const alreadyQueuedSet = await this.getNumbersEnqueuedToday(
+        params.companyId,
+        scheduledAt,
+      );
       uniqueRecipients = params.recipients.filter(
         (r) => !alreadyQueuedSet.has(r.number),
       );
@@ -116,6 +108,35 @@ export class MessageQueueService {
     }
 
     return { batch, skipped: dedupedRecipients.length, dedupedRecipients };
+  }
+
+  /**
+   * Telefones que já têm mensagem enfileirada hoje para a empresa — em qualquer
+   * status menos `failed`, porque uma mensagem que falhou nunca chegou ao
+   * cliente e pode ser tentada de novo.
+   *
+   * É a regra de deduplicação diária que `enqueueBatch` aplica. Está exposta
+   * porque o agendador precisa da MESMA lista antes de montar o payload: quando
+   * uma campanha é retentada por ERP indisponível, reprocessar quem já foi
+   * enfileirado significaria consultar o ERP de novo por esse cliente e, num
+   * descuido, mandar a mensagem duas vezes.
+   */
+  async getNumbersEnqueuedToday(
+    companyId: string,
+    reference: Date = new Date(),
+  ): Promise<Set<string>> {
+    const todayStart = new Date(reference);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const alreadyQueued = await this.queueRepository
+      .createQueryBuilder('q')
+      .select("q.payload->>'number'", 'number')
+      .where('q."companyId" = :companyId', { companyId })
+      .andWhere('q."scheduledAt" >= :todayStart', { todayStart })
+      .andWhere("q.status != 'failed'")
+      .getRawMany<{ number: string }>();
+
+    return new Set(alreadyQueued.map((r) => r.number));
   }
 
   /**

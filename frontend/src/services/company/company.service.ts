@@ -1,7 +1,11 @@
 import { Api } from "../api";
 import { applyLoginSession } from "../auth/auth.service";
 import { AppStorage } from "../storage/storage.service";
-import type { CompanyListItem } from "../../types/companyApiTypes";
+import type {
+  CompanyListItem,
+  PermissoesEmpresaResponse,
+  ReativarEmpresaResponse,
+} from "../../types/companyApiTypes";
 import type { LoginResponse, SwitchCompanyResponse } from "../../types/authApiTypes";
 
 /**
@@ -17,6 +21,48 @@ export class CompanyService {
 
   static async switchCompany(id: string): Promise<SwitchCompanyResponse> {
     return Api.post<SwitchCompanyResponse>(`/auth/switch-company/${id}`).then(
+      (response) => response.data,
+    );
+  }
+
+  /**
+   * Plano, paginas extras e permissoes resolvidas de uma empresa.
+   *
+   * Rota separada porque `GET /companies` nao devolve `config` — e e la que
+   * plano e extras moram.
+   */
+  static async getPermissoesEmpresa(
+    id: string,
+  ): Promise<PermissoesEmpresaResponse> {
+    return Api.get<PermissoesEmpresaResponse>(
+      `/companies/${id}/permissoes`,
+    ).then((response) => response.data);
+  }
+
+  /**
+   * Grava plano e paginas extras.
+   *
+   * Vai pelo PATCH que ja existe: `paginasExtras: []` significa "remove todos os
+   * adicionais", e nao "campo nao enviado" — o DTO documenta essa distincao.
+   * Por isso mandamos SEMPRE o array, mesmo vazio.
+   */
+  static async salvarPermissoesEmpresa(
+    id: string,
+    dados: { plano: string; paginasExtras: string[] },
+  ): Promise<void> {
+    await Api.patch(`/companies/${id}`, dados);
+  }
+
+  /**
+   * Reativa uma empresa inativa revalidando as credenciais salvas no ERP.
+   *
+   * Responde 200 tambem quando NAO reativa: `active: false` com o motivo em
+   * `message` e o detalhe em `preflight` — o ERP recusar a credencial e um
+   * desfecho previsto, nao um erro de requisicao. Quem chama precisa olhar
+   * `active`, nao so o status HTTP.
+   */
+  static async reativarEmpresa(id: string): Promise<ReativarEmpresaResponse> {
+    return Api.post<ReativarEmpresaResponse>(`/companies/${id}/reativar`).then(
       (response) => response.data,
     );
   }

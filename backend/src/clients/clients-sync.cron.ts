@@ -9,6 +9,7 @@ import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
 import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
 import { MkInvoicesService } from '../invoices/services/mkInvoicesService';
 import { HubsoftInvoicesService } from '../invoices/services/hubsoftInvoicesService';
+import { GamaIspInvoicesService } from '../invoices/services/gamaIspInvoicesService';
 import { getErpDefinition } from '../integrations/erp/erp.registry';
 import { normalizeErpCode } from '../integrations/erp/erp.types';
 
@@ -108,6 +109,7 @@ export class ClientsSyncCron {
     private readonly sgpService: SGPInvoicesService,
     private readonly mkService: MkInvoicesService,
     private readonly hubsoftService: HubsoftInvoicesService,
+    private readonly gamaIspService: GamaIspInvoicesService,
   ) {}
 
   // Roda todo dia às 3h da manhã (horário de Brasília)
@@ -378,6 +380,61 @@ export class ClientsSyncCron {
 
         await this.saveLastSync(company, {
           wasFullLoad: true,
+          imported: toUpsert.length,
+          startedAt,
+        });
+        break;
+      }
+      case 'GAMAISP': {
+        // A Gama ISP NAO TEM sincronizacao incremental: a API nao aceita filtro
+        // por data de alteracao (nem por nada — ver o service), entao toda
+        // rodada le os ~3.998 clientes em ~40 paginas. O `since` continua sendo
+        // calculado e passado para manter o mesmo contrato dos outros ERPs no
+        // `saveLastSync`, mas o adapter o ignora, e o log diz isso em vez de
+        // fingir uma janela incremental que nao existe.
+        const since = getLastSync(company);
+        this.logger.log(
+          `[ClientsSync] GAMAISP ${company.name} — carga completa (a API nao suporta filtro incremental)`,
+        );
+
+        const gamaClients = await this.gamaIspService.fetchClients(company, since);
+
+        this.logger.log(
+          `[ClientsSync] ${gamaClients.length} clientes encontrados na Gama ISP para ${company.name}`,
+        );
+
+        const seen = new Set<string>();
+        const toUpsert: QueryDeepPartialEntity<Client>[] = [];
+        let semTelefone = 0;
+
+        for (const c of gamaClients) {
+          const mapped = this.gamaIspService.toClientUpsert(c, company);
+          if (!mapped) { skipped++; continue; }
+
+          const cnpj_cpf = String(mapped.cnpj_cpf);
+          if (seen.has(cnpj_cpf)) { skipped++; continue; }
+          seen.add(cnpj_cpf);
+
+          // Diferente dos outros ERPs, cliente sem telefone NAO e descartado:
+          // ele entra com whatsapp vazio para que as faturas dele sobrevivam ao
+          // persistSnapshot. Contamos para o numero nao passar despercebido.
+          if (!String(mapped.whatsapp ?? '')) semTelefone++;
+
+          toUpsert.push(mapped);
+        }
+
+        for (const chunk of toChunks(toUpsert, CHUNK_SIZE)) {
+          await this.clientRepository.upsert(chunk, ['cnpj_cpf', 'companyId']);
+        }
+
+        synced += toUpsert.length;
+        this.logger.log(
+          `[ClientsSync] GAMAISP ${company.name}: ${toUpsert.length} sincronizados` +
+            (semTelefone ? ` (${semTelefone} sem telefone — nao poderao ser disparados)` : ''),
+        );
+
+        await this.saveLastSync(company, {
+          wasFullLoad: !since,
           imported: toUpsert.length,
           startedAt,
         });

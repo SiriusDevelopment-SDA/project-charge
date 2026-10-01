@@ -21,6 +21,7 @@ const KEYS = {
   COMPANY_CNPJ: "company_cnpj",
   /** Status de ativação da empresa no sistema de cobrança */
   COMPANY_ACTIVE: "company_active",
+  MUST_CHANGE_PASSWORD: "must_change_password",
   /** Permissões de páginas da empresa — JSON serializado */
   PAGE_PERMISSIONS: "page_permissions",
   /** Última empresa ativa em sessões de super_admin — usado para restaurar contexto */
@@ -119,6 +120,10 @@ export const AppStorage = {
   getCompanyActive: (): boolean => get(KEYS.COMPANY_ACTIVE) !== "false",
   setCompanyActive: (active: boolean) => set(KEYS.COMPANY_ACTIVE, String(active)),
 
+  /** Senha ainda inicial: o AccountLayout troca o app pela tela de troca. */
+  getMustChangePassword: (): boolean => get(KEYS.MUST_CHANGE_PASSWORD) === "true",
+  setMustChangePassword: (v: boolean) => set(KEYS.MUST_CHANGE_PASSWORD, String(v)),
+
   getPagePermissions: (): { dashboard: boolean; clientesVencidos: boolean; chat: boolean } => {
     try {
       const raw = get(KEYS.PAGE_PERMISSIONS);
@@ -151,6 +156,7 @@ export const AppStorage = {
     remove(KEYS.COMPANY_ID);
     remove(KEYS.COMPANY_CNPJ);
     remove(KEYS.COMPANY_ACTIVE);
+    remove(KEYS.MUST_CHANGE_PASSWORD);
     remove(KEYS.PAGE_PERMISSIONS);
     // LAST_ACTIVE_COMPANY_ID NAO e removido no logout de proposito:
     // o super_admin deve retornar a ultima empresa selecionada no proximo login.

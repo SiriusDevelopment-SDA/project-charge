@@ -186,6 +186,7 @@ export function applyLoginSession(response: LoginResponse): void {
   AppStorage.setCompanyName(response.company.name);
   AppStorage.setCompanyActive(response.company.active);
   AppStorage.setPagePermissions(response.permissions ?? DEFAULT_PERMISSIONS);
+  AppStorage.setMustChangePassword(Boolean(response.agent?.mustChangePassword));
 
   if (response.agent?.name) {
     AppStorage.setAgentName(response.agent.name);

@@ -4,6 +4,8 @@ import { AuthService, applyLoginSession } from "../services/auth/auth.service";
 import { restoreLastActiveCompany } from "../services/company/company.service";
 import { AppStorage } from "../services/storage/storage.service";
 import { Navbar } from "../componente/Index";
+import { EmpresaInativaBanner } from "../componente/EmpresaInativaBanner/EmpresaInativaBanner";
+import { TrocarSenhaInicial } from "../componente/TrocarSenhaInicial/TrocarSenhaInicial";
 import Style from "./AccountLayout.module.css";
 import { buildNormalizedSearch, createNormalizedSearchParams } from "../utils/locationSearch";
 
@@ -181,9 +183,20 @@ export function AccountLayout() {
     return null;
   }
 
+  // Senha ainda inicial: o app inteiro da lugar a tela de troca. Nao e um aviso
+  // que da para ignorar — o backend recusa todas as rotas menos `/auth/me`
+  // enquanto isso valer, entao qualquer tela por baixo so mostraria erro.
+  if (AppStorage.getMustChangePassword()) {
+    return <TrocarSenhaInicial />;
+  }
+
   return (
     <div className={Style.shell}>
       <Navbar />
+      {/* Fora do `content` para nao concorrer com o `overflow: hidden` dele, e
+          fora do `BlockedRoute` para aparecer em TODA rota — aquele envolve so
+          algumas. A propria faixa se esconde quando nao se aplica. */}
+      <EmpresaInativaBanner />
       <div className={Style.content}>
         <Outlet />
       </div>

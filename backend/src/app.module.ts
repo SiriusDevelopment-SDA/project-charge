@@ -21,6 +21,7 @@ import { IXCInvoicesService } from './invoices/services/ixcInvoicesService';
 import { HubsoftInvoicesService } from './invoices/services/hubsoftInvoicesService';
 import { SGPInvoicesService } from './invoices/services/sgpInvoicesService';
 import { MkInvoicesService } from './invoices/services/mkInvoicesService';
+import { GamaIspInvoicesService } from './invoices/services/gamaIspInvoicesService';
 import { Campaign } from './campaigns/entities/campanhas.entity';
 import { CampaignsController } from './campaigns/campaigns.controller';
 import { CampaignsService } from './campaigns/campaigns.service';
@@ -69,6 +70,7 @@ import { MessageQueueWorker } from './message-queue/message-queue.worker';
 import { TemplateDispatchPayloadService } from './templates/template-dispatch-payload.service';
 import { MessageQueue } from './message-queue/entities/message-queue.entity';
 import { CampaignScheduler } from './message-queue/campaign-scheduler';
+import { CampaignErpRetryService } from './message-queue/campaign-erp-retry.service';
 import { CompaniesController } from './companies/companies.controller';
 import { CompaniesService } from './companies/companies.service';
 import { SuperAdminGuard } from './auth/guards/super-admin.guard';
@@ -157,9 +159,11 @@ import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor'
     HubsoftInvoicesService,
     SGPInvoicesService,
     MkInvoicesService,
+    GamaIspInvoicesService,
     RedisService,
     TemplateDispatchPayloadService,
     CampaignScheduler,
+    CampaignErpRetryService,
     CompaniesService,
     SuperAdminGuard,
     // Nao e APP_GUARD: atua apenas nos handlers que declaram @RequirePage(...),
@@ -179,6 +183,7 @@ import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor'
     HubsoftInvoicesService,
     SGPInvoicesService,
     MkInvoicesService,
+    GamaIspInvoicesService,
     TemplateDispatchPayloadService,
     RedisService
   ],

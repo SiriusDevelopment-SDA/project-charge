@@ -42,6 +42,19 @@ export class Agent {
   @Column({ type: 'boolean', default: true })
   active!: boolean;
 
+  /**
+   * A senha atual ainda e a INICIAL, entregue no cadastro automatico do embed.
+   *
+   * Enquanto for `true`, o agente autentica mas nao opera: o `JwtAuthGuard` so
+   * libera a troca de senha. E o que impede a senha inicial — que e a mesma para
+   * todo mundo — de virar senha permanente de quem nunca faz login por senha.
+   *
+   * `false` para todos os agentes anteriores a esta coluna: eles tem hash
+   * proprio. Ver a migration `AddMustChangePasswordToAgents`.
+   */
+  @Column({ type: 'boolean', default: false })
+  mustChangePassword!: boolean;
+
   @ManyToOne(() => Company, (company) => company.agents, { nullable: false })
   @JoinColumn({ name: 'companyId' })
   company!: Company;

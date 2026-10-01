@@ -1,0 +1,102 @@
+/* Mesma linguagem do gate de sessão do AccountLayout: fundo do app, cartão
+   centralizado, âmbar como único acento. */
+.tela {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--app-shell-bg, #0b0a07);
+}
+
+.cartao {
+  width: min(100%, 440px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  border-radius: 16px;
+  border: 1px solid rgba(212, 166, 0, 0.35);
+  background: rgba(212, 166, 0, 0.06);
+  color: #f4eede;
+}
+
+.selo {
+  align-self: flex-start;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f2cb52;
+  background: rgba(212, 166, 0, 0.16);
+  border: 1px solid rgba(212, 166, 0, 0.4);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.texto {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(242, 203, 82, 0.72);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: rgba(242, 203, 82, 0.8);
+}
+
+.campo input {
+  font: inherit;
+  font-size: 0.95rem;
+  color: #f4eede;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(212, 166, 0, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.campo input:focus {
+  outline: 2px solid #f2cb52;
+  outline-offset: 1px;
+}
+
+.erro {
+  margin: 0;
+  color: #ff8f8f;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.botao {
+  margin-top: 4px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 1px solid #f2cb52;
+  background: #f2cb52;
+  color: #241c00;
+  cursor: pointer;
+}
+
+.botao:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.botao:focus-visible {
+  outline: 2px solid #f2cb52;
+  outline-offset: 2px;
+}

@@ -10,6 +10,7 @@ import { IXCInvoicesService } from "./services/ixcInvoicesService";
 import { SGPInvoicesService } from "./services/sgpInvoicesService";
 import { MkInvoicesService } from "./services/mkInvoicesService";
 import { HubsoftInvoicesService } from "./services/hubsoftInvoicesService";
+import { GamaIspInvoicesService } from "./services/gamaIspInvoicesService";
 import {
   InvoiceSyncState,
   InvoiceSyncStatus,
@@ -17,9 +18,49 @@ import {
 import { InvoicesSyncGateway } from "../realtime/invoices-sync.gateway";
 import { RedisService } from "../redis/redis.service";
 import { ClientsSyncCron } from "../clients/clients-sync.cron";
+import { resolveSyncWindow } from "./utils/sync-window";
 
 const CHUNK_SIZE = 500;
 const SYNC_LOOKBACK_YEARS = 1;
+const DIA_EM_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * ERPs que NAO entram na cron de 10 minutos e sincronizam 1x/dia off-peak.
+ *
+ * O criterio e custo por sincronizacao, nao preferencia:
+ *
+ * - MK: exige 1 chamada de detalhe (WSMKSegundaViaCobranca) POR fatura, e a
+ *   janela de 1 ano tem ~61 mil faturas nao-canceladas.
+ * - GAMAISP: a VARREDURA COMPLETA da janela e cara — ~31 paginas de 100 (3min18s
+ *   na POWERNET, medido em 08/09/2026) contra um servidor comprovadamente
+ *   fragil, que ainda morre com pagina de 200 registros. O teto de concorrencia
+ *   do adapter limita quantas requisicoes acontecem ao mesmo tempo, mas nao
+ *   adianta contra a FREQUENCIA: repetir a varredura a cada 10 minutos e
+ *   martelar o ERP do cliente o dia inteiro.
+ *
+ * Os dois continuam atendidos pelo trigger manual
+ * (POST /invoices/sync/company/:id), que usa o mesmo caminho por empresa.
+ */
+const ERPS_FORA_DO_CICLO_RECORRENTE = new Set(["MK", "GAMAISP"]);
+
+/**
+ * ERPs que ficam fora da varredura completa de 10 minutos mas ENTRAM nela por um
+ * caminho barato: o DELTA.
+ *
+ * A Gama ISP ganhou filtros no servidor em 09/2026, e com eles da para perguntar
+ * "o que mudou desde X" em vez de varrer a janela inteira. Medido na POWERNET em
+ * 08/09/2026: o delta de um dia cabe em UMA pagina, contra as ~31 da janela. E a
+ * diferenca entre um snapshot de ate 24h e um de ate 10 minutos, ao custo de uma
+ * requisicao.
+ *
+ * O delta NAO substitui a varredura. Ele enxerga fatura nova (data_emissao) e
+ * fatura paga (data_pagamento), e NAO enxerga fatura alterada em silencio —
+ * vencimento prorrogado, valor corrigido, cancelamento. Nenhuma dessas mexe nos
+ * dois campos de data, e esta API nao tem campo de alteracao. Por isso a empresa
+ * continua no conjunto de cima: o ciclo de 10min aplica o delta e a cron diaria
+ * das 4h reconcilia pela janela completa.
+ */
+const ERPS_COM_DELTA_NO_CICLO_RECORRENTE = new Set(["GAMAISP"]);
 
 function toChunks<T>(arr: T[], size: number): T[][] {
   const result: T[][] = [];
@@ -40,6 +81,18 @@ function parseDate(str: string): Date | null {
 
 type SyncContext = {
   reason: "cron" | "manual";
+  /**
+   * "completo" varre a janela inteira no ERP e RECONCILIA o snapshot: o que nao
+   * voltou na varredura e dado como pago (closeMissingOpenInvoices).
+   *
+   * "delta" pergunta ao ERP so o que mudou e aplica pontualmente. E barato o
+   * bastante para rodar de 10 em 10 minutos, mas NAO reconcilia — nao existe
+   * "lista completa" contra a qual comparar, entao fatura que sumiu do ERP sem
+   * ser paga so e fechada pelo ciclo completo.
+   *
+   * Ausente = "completo", que e o que todo chamador anterior a isto espera.
+   */
+  modo?: "completo" | "delta";
 };
 
 @Injectable()
@@ -116,6 +169,7 @@ export class InvoiceSyncCron {
     private readonly sgpService: SGPInvoicesService,
     private readonly mkService: MkInvoicesService,
     private readonly hubsoftService: HubsoftInvoicesService,
+    private readonly gamaIspService: GamaIspInvoicesService,
     private readonly invoicesSyncGateway: InvoicesSyncGateway,
     private readonly redisService: RedisService,
     private readonly clientsSyncCron: ClientsSyncCron,
@@ -140,78 +194,87 @@ export class InvoiceSyncCron {
 
     let synced = 0;
     let failed = 0;
-    let skippedMk = 0;
+    let skippedPesados = 0;
+    let deltas = 0;
     for (const company of companies) {
-      // MK/PROXER fica FORA desta cron de 10min por causa do volume: a cada sync
-      // o MK exige 1 chamada de detalhe (WSMKSegundaViaCobranca) POR fatura, e a
-      // janela de 1 ano tem ~61 mil faturas não-canceladas → ~61k requisições.
-      // Rodar isso a cada 10 min martela a API do MK. O MK sincroniza via cron
-      // diária às 4h (syncMkInvoicesDaily) + trigger manual
-      // (POST /invoices/sync/company/:id). Ambos os caminhos reutilizam
-      // runSyncForCompany → performSync → syncMK.
-      if (String(company.erp).toUpperCase() === "MK") {
-        skippedMk++;
+      // ERPs caros demais para 10 em 10 minutos sincronizam na cron diária das
+      // 4h (syncErpsPesadosDaily) + trigger manual. Ver
+      // ERPS_FORA_DO_CICLO_RECORRENTE para o porquê de cada um. Todos os
+      // caminhos reutilizam runSyncForCompany → performSync → sync<Erp>.
+      const erpDaEmpresa = String(company.erp).toUpperCase();
+      const temDelta = ERPS_COM_DELTA_NO_CICLO_RECORRENTE.has(erpDaEmpresa);
+
+      // Caro na varredura completa E sem delta: so a cron diaria das 4h atende.
+      // Com delta, a empresa entra aqui pelo caminho barato.
+      if (ERPS_FORA_DO_CICLO_RECORRENTE.has(erpDaEmpresa) && !temDelta) {
+        skippedPesados++;
         this.logger.debug(
-          `[InvoiceSync] MK ignorado na cron de 10min (empresa: ${company.name}); sincroniza via cron diária 4h + trigger manual por causa do volume (1 detalhe por fatura)`,
+          `[InvoiceSync] ${erpDaEmpresa} ignorado na cron de 10min (empresa: ${company.name}); sincroniza via cron diária 4h + trigger manual por causa do volume`,
         );
         continue;
       }
 
       try {
-        synced += await this.runSyncForCompany(company, { reason: "cron" });
+        synced += await this.runSyncForCompany(company, {
+          reason: "cron",
+          modo: temDelta ? "delta" : "completo",
+        });
+        if (temDelta) deltas++;
       } catch {
         failed++;
       }
     }
 
-    if (skippedMk > 0) {
+    if (skippedPesados > 0) {
       this.logger.debug(
-        `[InvoiceSync] ${skippedMk} empresa(s) MK puladas na cron de 10min (sincronizam via cron diária 4h + trigger manual)`,
+        `[InvoiceSync] ${skippedPesados} empresa(s) puladas na cron de 10min (sincronizam via cron diária 4h + trigger manual)`,
       );
     }
 
     this.logger.log(
-      `[InvoiceSync] Concluído — ${synced} faturas sincronizadas, ${failed} empresa(s) com erro`,
+      `[InvoiceSync] Concluído — ${synced} faturas sincronizadas` +
+        (deltas > 0 ? ` (${deltas} empresa(s) por delta)` : "") +
+        `, ${failed} empresa(s) com erro`,
     );
   }
 
   @Cron("0 0 4 * * *", { timeZone: "America/Sao_Paulo" })
-  async syncMkInvoicesDaily(): Promise<void> {
+  async syncErpsPesadosDaily(): Promise<void> {
     // Trava propria, independente da do ciclo de 10min: este cron processa
-    // SOMENTE empresas MK, que o ciclo de 10min pula. Conjuntos disjuntos, nenhuma
+    // SOMENTE os ERPs que o ciclo de 10min pula. Conjuntos disjuntos, nenhuma
     // colisao possivel entre os dois — e compartilhar a trava faria um ciclo de
     // 10min lento cancelar o sync diario do dia.
-    await this.executarCicloExclusivo("sync diário MK", () =>
-      this.executarSyncMkDiario(),
+    await this.executarCicloExclusivo("sync diário off-peak", () =>
+      this.executarSyncDiarioPesados(),
     );
   }
 
-  private async executarSyncMkDiario(): Promise<void> {
+  private async executarSyncDiarioPesados(): Promise<void> {
     this.logger.log(
-      "[InvoiceSync] Iniciando sincronização diária de faturas MK (4h)",
+      "[InvoiceSync] Iniciando sincronização diária off-peak de faturas (4h)",
     );
 
     const companies = await this.companyRepo.find({ where: { active: true } });
-    const mkCompanies = companies.filter(
-      (company) => String(company.erp).toUpperCase() === "MK",
+    const empresasOffPeak = companies.filter((company) =>
+      ERPS_FORA_DO_CICLO_RECORRENTE.has(String(company.erp).toUpperCase()),
     );
 
-    if (!mkCompanies.length) {
+    if (!empresasOffPeak.length) {
       this.logger.verbose(
-        "[InvoiceSync] Nenhuma empresa MK ativa encontrada para o sync diário",
+        "[InvoiceSync] Nenhuma empresa ativa de ERP off-peak encontrada para o sync diário",
       );
       return;
     }
 
     let synced = 0;
     let failed = 0;
-    for (const company of mkCompanies) {
+    for (const company of empresasOffPeak) {
       try {
         // Reutiliza exatamente o mesmo caminho por-empresa que a cron de 10min e
-        // o trigger manual usam (runSyncForCompany → performSync → syncMK), com a
-        // mesma janela de 1 ano (getSyncWindow). O MK fica fora da cron recorrente
-        // pelo volume (1 detalhe por fatura, ~61k/ano), mas precisa de snapshot
-        // atualizado 1x/dia off-peak para alimentar as campanhas agendadas.
+        // o trigger manual usam (runSyncForCompany → performSync → sync<Erp>), com
+        // a mesma janela de 1 ano (getSyncWindow). Estes ERPs ficam fora da cron
+        // recorrente pelo volume, mas precisam de snapshot atualizado 1x/dia
+        // off-peak para alimentar as campanhas agendadas.
         synced += await this.runSyncForCompany(company, { reason: "cron" });
       } catch {
         failed++;
@@ -219,7 +282,7 @@ export class InvoiceSyncCron {
     }
 
     this.logger.log(
-      `[InvoiceSync] Sync diário MK concluído — ${synced} faturas sincronizadas em ${mkCompanies.length} empresa(s), ${failed} com erro`,
+      `[InvoiceSync] Sync diário off-peak concluído — ${synced} faturas sincronizadas em ${empresasOffPeak.length} empresa(s), ${failed} com erro`,
     );
   }
 
@@ -329,6 +392,11 @@ export class InvoiceSyncCron {
         synced = await this.syncMK(company);
       } else if (erp === "HUBSOFT") {
         synced = await this.syncHUBSOFT(company);
+      } else if (erp === "GAMAISP") {
+        synced =
+          context.modo === "delta"
+            ? await this.syncGamaIspDelta(company)
+            : await this.syncGamaIsp(company);
       } else {
         this.logger.verbose(
           `[InvoiceSync] ERP não suportado: ${erp} (empresa: ${company.name})`,
@@ -344,7 +412,9 @@ export class InvoiceSyncCron {
         message:
           context.reason === "manual"
             ? `Sincronização concluída: ${clientsSynced} cliente(s) e ${synced} fatura(s) processada(s).`
-            : `Sincronização concluída com ${synced} fatura(s) processada(s).`,
+            : context.modo === "delta"
+              ? `Delta aplicado: ${synced} fatura(s) alterada(s) desde a última sincronização.`
+              : `Sincronização concluída com ${synced} fatura(s) processada(s).`,
       });
 
       await this.cacheOpenInvoices(company.id);
@@ -445,15 +515,17 @@ export class InvoiceSyncCron {
     }
   }
 
-  private getSyncWindow() {
-    const now = new Date();
-
-    const start = new Date(now);
-    start.setFullYear(start.getFullYear() - SYNC_LOOKBACK_YEARS);
-
-    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-
-    return { start, end };
+  /**
+   * Janela de vencimento da sincronizacao desta empresa.
+   *
+   * Passa a ser POR EMPRESA (`config.syncLookbackDays`) em vez de so a constante
+   * global: em ERP que nao aceita filtro de data, a janela e a distancia que a
+   * varredura precisa paginar. Sem a chave, o comportamento e identico ao de
+   * sempre — `SYNC_LOOKBACK_YEARS` continua sendo o default de todo mundo. O
+   * porque, com os numeros medidos, esta em `utils/sync-window.ts`.
+   */
+  private getSyncWindow(company: Company) {
+    return resolveSyncWindow(company, { fallbackYears: SYNC_LOOKBACK_YEARS });
   }
 
   private async syncIXC(company: Company): Promise<number> {
@@ -461,7 +533,7 @@ export class InvoiceSyncCron {
       `[InvoiceSync] IXC ${company.name} — buscando faturas em bulk`,
     );
 
-    const { start, end } = this.getSyncWindow();
+    const { start, end } = this.getSyncWindow(company);
     const fmt = (date: Date) =>
       `${String(date.getDate()).padStart(2, "0")}/${String(
         date.getMonth() + 1,
@@ -481,7 +553,7 @@ export class InvoiceSyncCron {
       `[InvoiceSync] SGP ${company.name} — buscando faturas em bulk`,
     );
 
-    const { start, end } = this.getSyncWindow();
+    const { start, end } = this.getSyncWindow(company);
     const byCpf = await this.sgpService.getInvoicesByDateWindowBatch(
       company,
       start.toISOString().split("T")[0],
@@ -496,7 +568,7 @@ export class InvoiceSyncCron {
       `[InvoiceSync] HUBSOFT ${company.name} — buscando faturas em bulk`,
     );
 
-    const { start, end } = this.getSyncWindow();
+    const { start, end } = this.getSyncWindow(company);
     // Hubsoft indexa as faturas da listagem pelo CPF/CNPJ do cliente — o
     // persistSnapshot faz o lookup por documento, como o SGP.
     const byCpf = await this.hubsoftService.getInvoicesByDateWindowBatch(
@@ -513,7 +585,7 @@ export class InvoiceSyncCron {
       `[InvoiceSync] MK ${company.name} — buscando faturas em bulk`,
     );
 
-    const { start, end } = this.getSyncWindow();
+    const { start, end } = this.getSyncWindow(company);
     // MK indexa faturas por código do cliente (codpessoa = client.clientId),
     // como o IXC — o persistSnapshot faz o lookup por clientId.
     const byClientId = await this.mkService.getInvoicesByDateWindowBatch(
@@ -525,10 +597,196 @@ export class InvoiceSyncCron {
     return this.persistSnapshot(company, byClientId, "MK", start, end);
   }
 
+  private async syncGamaIsp(company: Company): Promise<number> {
+    this.logger.log(
+      `[InvoiceSync] GAMAISP ${company.name} — buscando faturas em bulk`,
+    );
+
+    const { start, end } = this.getSyncWindow(company);
+    // A Gama ISP indexa faturas por `cliente_id` (= client.clientId), como IXC e
+    // MK — o persistSnapshot resolve pelo byClientId. A janela vai em ISO
+    // (YYYY-MM-DD), que e o formato em que o proprio ERP devolve o vencimento e
+    // o que permite a varredura parar cedo.
+    const byClientId = await this.gamaIspService.getInvoicesByDateWindowBatch(
+      company,
+      start.toISOString().split("T")[0],
+      end.toISOString().split("T")[0],
+    );
+
+    return this.persistSnapshot(company, byClientId, "GAMAISP", start, end);
+  }
+
+  /**
+   * Sincronizacao INCREMENTAL da Gama ISP: pergunta ao ERP o que mudou desde a
+   * ultima rodada e aplica so isso. E o que permite a empresa entrar no ciclo de
+   * 10 minutos sem a varredura de ~31 paginas.
+   *
+   * POR QUE NAO REUSA `persistSnapshot`: ele RECONCILIA. Depois do upsert chama
+   * `closeMissingOpenInvoices`, que da por paga toda fatura aberta da janela que
+   * nao veio no lote. Com o lote completo isso e correto. Com um delta de tres
+   * faturas seria destrutivo — as outras ~3.592 em aberto da POWERNET seriam
+   * fechadas de uma vez e sumiriam da regua de cobranca.
+   *
+   * Entao o delta faz as duas metades EXPLICITAMENTE: upsert do que entrou e
+   * fechamento nominal do que o ERP marcou como pago. Nada aqui e fechado por
+   * ausencia.
+   */
+  private async syncGamaIspDelta(company: Company): Promise<number> {
+    const { start, end } = this.getSyncWindow(company);
+    const since = await this.calcularDeltaSince(company);
+
+    this.logger.log(
+      `[InvoiceSync] GAMAISP ${company.name} — delta desde ${since}`,
+    );
+
+    const { porCliente, idsPagos } =
+      await this.gamaIspService.getInvoiceDeltaForWindow(
+        company,
+        since,
+        start.toISOString().split("T")[0],
+        end.toISOString().split("T")[0],
+      );
+
+    return this.aplicarDeltaGamaIsp(company, porCliente, idsPagos);
+  }
+
+  /**
+   * A partir de quando pedir o delta. Ancorado no ultimo sync bem-sucedido, com
+   * dois limites:
+   *
+   *  - PISO de 1 dia. O filtro do ERP e por DATA (YYYY-MM-DD), nao por hora:
+   *    pedir "desde hoje" perderia o que mudou ontem a noite toda vez que a data
+   *    virasse entre dois ciclos. Um dia de sobreposicao custa uma pagina, e o
+   *    upsert e idempotente.
+   *  - TETO de 7 dias. O delta so vale enquanto e barato: na POWERNET, 7 dias ja
+   *    devolveram 536 faturas pagas (5 paginas, 23s). Se a empresa ficou parada
+   *    mais que isso, quem reconcilia e a varredura completa das 4h — o delta nao
+   *    tenta cobrir o buraco sozinho, e fingir que cobriu seria pior.
+   */
+  private async calcularDeltaSince(company: Company): Promise<string> {
+    const state = await this.syncStateRepo.findOne({
+      where: { company: { id: company.id } },
+      relations: ["company"],
+    });
+
+    const agora = Date.now();
+    const piso = agora - DIA_EM_MS;
+    const teto = agora - 7 * DIA_EM_MS;
+
+    const ultimoSucesso = state?.lastSuccessAt
+      ? new Date(state.lastSuccessAt).getTime()
+      : NaN;
+
+    let desde = Number.isFinite(ultimoSucesso) && ultimoSucesso < piso
+      ? ultimoSucesso
+      : piso;
+    if (desde < teto) desde = teto;
+
+    return new Date(desde).toISOString().split("T")[0];
+  }
+
+  /**
+   * Aplica o delta no snapshot: upsert do que entrou, fechamento do que foi
+   * pago. Deliberadamente SEM `closeMissingOpenInvoices` e SEM
+   * `markClientsAsChecked` — os dois pressupoem que a empresa inteira foi
+   * varrida, e no delta ela nao foi. Marcar cliente como conferido aqui mentiria
+   * para quem le `invoiceSnapshotCheckedAt`.
+   *
+   * Devolve quantas faturas foram TOCADAS (entraram + fecharam), que e o que
+   * alimenta o `invoicesSynced` do estado de sincronizacao.
+   */
+  private async aplicarDeltaGamaIsp(
+    company: Company,
+    porCliente: Map<string, any[]>,
+    idsPagos: string[],
+  ): Promise<number> {
+    const syncTime = new Date();
+
+    // Delta vazio e o desfecho NORMAL de uma rodada de 10 minutos, nao um erro:
+    // na maior parte dos ciclos nada mudou no ERP. O snapshot fica intacto.
+    if (!porCliente.size && !idsPagos.length) {
+      this.logger.debug(
+        `[InvoiceSync] GAMAISP ${company.name} — delta vazio, snapshot intacto`,
+      );
+      return 0;
+    }
+
+    let entraram = 0;
+
+    if (porCliente.size) {
+      const clients = await this.clientRepo.find({
+        where: { company: { id: company.id } },
+        select: ["id", "clientId"],
+      });
+      const byClientId = new Map(
+        clients.map((client) => [String(client.clientId), client]),
+      );
+
+      const toUpsertByConflictKey = new Map<
+        string,
+        QueryDeepPartialEntity<Invoice>
+      >();
+      let semCliente = 0;
+
+      for (const [chave, faturas] of porCliente) {
+        const client = byClientId.get(String(chave));
+        if (!client) {
+          semCliente += faturas.length;
+          continue;
+        }
+
+        for (const fatura of faturas) {
+          const mapped = this.mapInvoiceSnapshot(
+            company.id,
+            client.id,
+            fatura,
+            "GAMAISP",
+            syncTime,
+          );
+          if (typeof mapped?.id_fatura !== "string") continue;
+          toUpsertByConflictKey.set(mapped.id_fatura, mapped);
+        }
+      }
+
+      if (semCliente > 0) {
+        // Cliente novo no ERP cuja sync das 3h ainda nao rodou. Aviso, nao erro:
+        // no delta isso e transitorio, e a varredura completa das 4h — que roda
+        // depois da de clientes — recupera a fatura.
+        this.logger.warn(
+          `[InvoiceSync] GAMAISP ${company.name}: ${semCliente} fatura(s) do delta sem cliente correspondente na base local; serão recuperadas na varredura completa`,
+        );
+      }
+
+      const toUpsert = Array.from(toUpsertByConflictKey.values());
+      for (const chunk of toChunks(toUpsert, CHUNK_SIZE))
+        await this.invoiceRepo.upsert(chunk, ["id_fatura", "companyId"]);
+      entraram = toUpsert.length;
+    }
+
+    let fecharam = 0;
+    for (const chunk of toChunks(idsPagos, CHUNK_SIZE)) {
+      const resultado = await this.invoiceRepo
+        .createQueryBuilder()
+        .update()
+        .set({ status: "Pago", lastSyncAt: syncTime })
+        .where('"companyId" = :companyId', { companyId: company.id })
+        .andWhere("LOWER(TRIM(status)) = 'a receber'")
+        .andWhere('"id_fatura" IN (:...ids)', { ids: chunk })
+        .execute();
+      fecharam += resultado.affected ?? 0;
+    }
+
+    this.logger.log(
+      `[InvoiceSync] GAMAISP ${company.name}: delta aplicado — ${entraram} fatura(s) atualizada(s), ${fecharam} fechada(s)`,
+    );
+
+    return entraram + fecharam;
+  }
+
   private async persistSnapshot(
     company: Company,
     sourceMap: Map<string, any[]>,
-    erp: "IXC" | "SGP" | "MK" | "HUBSOFT",
+    erp: "IXC" | "SGP" | "MK" | "HUBSOFT" | "GAMAISP",
     windowStart?: Date,
     windowEnd?: Date,
   ): Promise<number> {
@@ -677,7 +935,7 @@ export class InvoiceSyncCron {
     companyId: string,
     clientId: string,
     invoice: any,
-    erp: "IXC" | "SGP" | "MK" | "HUBSOFT",
+    erp: "IXC" | "SGP" | "MK" | "HUBSOFT" | "GAMAISP",
     syncTime: Date,
   ): QueryDeepPartialEntity<Invoice> | null {
     switch (erp) {
@@ -759,6 +1017,17 @@ export class InvoiceSyncCron {
         // Delega ao MkInvoicesService o mapeamento lista+detalhe -> upsert,
         // que retorna null quando não há vencimento (Vcto).
         return this.mkService.toInvoiceUpsert(invoice, {
+          clientId,
+          companyId,
+          syncTime,
+        });
+      }
+
+      case "GAMAISP": {
+        // Delega ao adapter, como no MK. O vencimento fica no ISO YYYY-MM-DD que
+        // a Gama ISP entrega — formato que toBrDate, normalizeInvoiceDueDateToIso
+        // e o CASE do closeMissingOpenInvoices ja tratam.
+        return this.gamaIspService.toInvoiceUpsert(invoice, {
           clientId,
           companyId,
           syncTime,
