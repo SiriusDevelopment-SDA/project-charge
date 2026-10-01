@@ -8,6 +8,7 @@ import { Client } from './entities.ts/clients';
 import { IXCInvoicesService } from '../invoices/services/ixcInvoicesService';
 import { SGPInvoicesService } from '../invoices/services/sgpInvoicesService';
 import { MkInvoicesService } from '../invoices/services/mkInvoicesService';
+import { HubsoftInvoicesService } from '../invoices/services/hubsoftInvoicesService';
 import { getErpDefinition } from '../integrations/erp/erp.registry';
 import { normalizeErpCode } from '../integrations/erp/erp.types';
 
@@ -106,6 +107,7 @@ export class ClientsSyncCron {
     private readonly ixcService: IXCInvoicesService,
     private readonly sgpService: SGPInvoicesService,
     private readonly mkService: MkInvoicesService,
+    private readonly hubsoftService: HubsoftInvoicesService,
   ) {}
 
   // Roda todo dia às 3h da manhã (horário de Brasília)
@@ -326,6 +328,56 @@ export class ClientsSyncCron {
 
         await this.saveLastSync(company, {
           wasFullLoad: !since,
+          imported: toUpsert.length,
+          startedAt,
+        });
+        break;
+      }
+      case 'HUBSOFT': {
+        // Hubsoft sempre faz carga completa: a API ignora o filtro de data por
+        // atualizacao (ver HubsoftInvoicesService.fetchClients), entao um
+        // incremental perderia atualizacoes de cadastro. Como nao ha chamada de
+        // detalhe por registro, varrer a base inteira e barato e correto. Por
+        // isso NAO usamos getLastSync aqui.
+        this.logger.log(`[ClientsSync] HUBSOFT ${company.name} — carga completa`);
+
+        const hubClients = await this.hubsoftService.fetchClients(company);
+
+        this.logger.log(`[ClientsSync] ${hubClients.length} clientes encontrados no HUBSOFT para ${company.name}`);
+
+        const seen = new Set<string>();
+        const toUpsert: QueryDeepPartialEntity<Client>[] = [];
+
+        for (const c of hubClients) {
+          const cnpj_cpf = String(c.cpf_cnpj ?? '').replace(/\D/g, '');
+          const whatsapp = String(
+            c.telefone_primario || c.telefone_secundario || c.telefone_terciario || '',
+          ).replace(/\D/g, '');
+
+          if (!cnpj_cpf || !whatsapp) { skipped++; continue; }
+          if (seen.has(cnpj_cpf)) { skipped++; continue; }
+          seen.add(cnpj_cpf);
+
+          const email = c.email_principal || c.email_secundario;
+          toUpsert.push({
+            cnpj_cpf,
+            name: c.nome_razaosocial,
+            clientId: String(c.codigo_cliente ?? c.id_cliente),
+            whatsapp,
+            ...(email && { email }),
+            companyId: company.id,
+          });
+        }
+
+        for (const chunk of toChunks(toUpsert, CHUNK_SIZE)) {
+          await this.clientRepository.upsert(chunk, ['cnpj_cpf', 'companyId']);
+        }
+
+        synced += toUpsert.length;
+        this.logger.log(`[ClientsSync] HUBSOFT ${company.name}: ${toUpsert.length} sincronizados`);
+
+        await this.saveLastSync(company, {
+          wasFullLoad: true,
           imported: toUpsert.length,
           startedAt,
         });

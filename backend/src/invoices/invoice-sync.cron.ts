@@ -9,6 +9,7 @@ import { Invoice } from "./entities/invoices";
 import { IXCInvoicesService } from "./services/ixcInvoicesService";
 import { SGPInvoicesService } from "./services/sgpInvoicesService";
 import { MkInvoicesService } from "./services/mkInvoicesService";
+import { HubsoftInvoicesService } from "./services/hubsoftInvoicesService";
 import {
   InvoiceSyncState,
   InvoiceSyncStatus,
@@ -114,6 +115,7 @@ export class InvoiceSyncCron {
     private readonly ixcService: IXCInvoicesService,
     private readonly sgpService: SGPInvoicesService,
     private readonly mkService: MkInvoicesService,
+    private readonly hubsoftService: HubsoftInvoicesService,
     private readonly invoicesSyncGateway: InvoicesSyncGateway,
     private readonly redisService: RedisService,
     private readonly clientsSyncCron: ClientsSyncCron,
@@ -325,6 +327,8 @@ export class InvoiceSyncCron {
         synced = await this.syncSGP(company);
       } else if (erp === "MK") {
         synced = await this.syncMK(company);
+      } else if (erp === "HUBSOFT") {
+        synced = await this.syncHUBSOFT(company);
       } else {
         this.logger.verbose(
           `[InvoiceSync] ERP não suportado: ${erp} (empresa: ${company.name})`,
@@ -487,6 +491,23 @@ export class InvoiceSyncCron {
     return this.persistSnapshot(company, byCpf, "SGP", start, end);
   }
 
+  private async syncHUBSOFT(company: Company): Promise<number> {
+    this.logger.log(
+      `[InvoiceSync] HUBSOFT ${company.name} — buscando faturas em bulk`,
+    );
+
+    const { start, end } = this.getSyncWindow();
+    // Hubsoft indexa as faturas da listagem pelo CPF/CNPJ do cliente — o
+    // persistSnapshot faz o lookup por documento, como o SGP.
+    const byCpf = await this.hubsoftService.getInvoicesByDateWindowBatch(
+      company,
+      start.toISOString().split("T")[0],
+      end.toISOString().split("T")[0],
+    );
+
+    return this.persistSnapshot(company, byCpf, "HUBSOFT", start, end);
+  }
+
   private async syncMK(company: Company): Promise<number> {
     this.logger.log(
       `[InvoiceSync] MK ${company.name} — buscando faturas em bulk`,
@@ -507,7 +528,7 @@ export class InvoiceSyncCron {
   private async persistSnapshot(
     company: Company,
     sourceMap: Map<string, any[]>,
-    erp: "IXC" | "SGP" | "MK",
+    erp: "IXC" | "SGP" | "MK" | "HUBSOFT",
     windowStart?: Date,
     windowEnd?: Date,
   ): Promise<number> {
@@ -548,9 +569,9 @@ export class InvoiceSyncCron {
     for (const [key, invoices] of sourceMap) {
       fetchedFromErp += invoices.length;
 
-      // SGP indexa por documento (CPF/CNPJ); IXC e MK indexam por clientId.
+      // SGP e HUBSOFT indexam por documento (CPF/CNPJ); IXC e MK indexam por clientId.
       const client =
-        erp === "SGP"
+        erp === "SGP" || erp === "HUBSOFT"
           ? byDocument.get(String(key))
           : byClientId.get(String(key));
       if (!client) {
@@ -656,7 +677,7 @@ export class InvoiceSyncCron {
     companyId: string,
     clientId: string,
     invoice: any,
-    erp: "IXC" | "SGP" | "MK",
+    erp: "IXC" | "SGP" | "MK" | "HUBSOFT",
     syncTime: Date,
   ): QueryDeepPartialEntity<Invoice> | null {
     switch (erp) {
@@ -703,6 +724,31 @@ export class InvoiceSyncCron {
             ? invoice.link.replace(/\/+$/, "") + ".pdf"
             : null,
           pixCode: invoice.codigoPix || null,
+          lastSyncAt: syncTime,
+          clientId: clientId,
+          companyId: companyId,
+        };
+      }
+
+      case "HUBSOFT": {
+        // data_vencimento vem como "YYYY-MM-DD"; parseDate (new Date) cobre.
+        const dueDate = parseDate(invoice.data_vencimento);
+        if (!dueDate) return null;
+
+        return {
+          id_fatura: String(invoice.id_fatura),
+          contractId: invoice.id_cliente_servico
+            ? String(invoice.id_cliente_servico)
+            : undefined,
+          value: String(invoice.valor ?? invoice.valor_original ?? "0"),
+          status: "A Receber",
+          expiration: invoice.data_vencimento,
+          ticketDigitableLine:
+            invoice.linha_digitavel || invoice.codigo_barras || null,
+          ticketPdfLink: invoice.link || null,
+          // PIX vem em `pix_copia_e_cola` (com "e") nesta rota; fica null quando
+          // o provedor emite boleto sem PIX.
+          pixCode: invoice.pix_copia_e_cola || null,
           lastSyncAt: syncTime,
           clientId: clientId,
           companyId: companyId,

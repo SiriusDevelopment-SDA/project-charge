@@ -429,6 +429,9 @@ export class TemplateDispatchPayloadService {
       const inv = hubList?.find((x) => String(x.invoice_id) === invoiceId);
       if (!inv) return null;
 
+      // getInvoices (cliente/financeiro) já mapeia o PIX em code_pix
+      // (pix_copia_cola). Repassa como o SGP — fica vazio quando o provedor
+      // emite boleto sem PIX, e aí o boleto (linha digitável + PDF) cobre.
       return {
         invoice_id: invoiceId,
         numero_contrato: String(inv.contract_id ?? ""),
@@ -436,10 +439,10 @@ export class TemplateDispatchPayloadService {
         valor_fatura: String(inv.invoice_amount ?? ""),
         linha_digitavel_boleto: String(inv.ticket_digitable_line ?? ""),
         link_boleto_pdf: String(inv.ticket_pdf_link ?? ""),
-        code_pix: undefined,
-        codigo_qr: undefined,
-        codigo_qr_code: undefined,
-        codigo_pix: undefined,
+        code_pix: inv.code_pix ?? undefined,
+        codigo_qr: inv.code_pix ?? undefined,
+        codigo_qr_code: inv.code_pix ?? undefined,
+        codigo_pix: inv.code_pix ?? undefined,
         order_reference_id: String(inv.contract_id ?? ""),
       };
     }

@@ -276,18 +276,20 @@ export class ErpPreflightService {
   // ------------------------------------------------------------ HUBSOFT
 
   /**
-   * `POST /oauth/token` (grant password) — a chamada mais barata que valida a
-   * credencial inteira. O unico endpoint de negocio implementado busca por
-   * CPF/CNPJ de um cliente especifico e nao devolve total, entao as contagens
-   * ficam `null`.
+   * `POST /oauth/token` (grant password) valida a credencial inteira. Em
+   * seguida, `/cliente/todos` e `/financeiro/fatura` com `itens_por_pagina=1`
+   * devolvem o total em `paginacao.total_registros` — barato para contar no
+   * cadastro. As contagens sao best-effort: se uma delas falhar, fica `null` em
+   * vez de derrubar o preflight, ja que a credencial em si ja foi validada.
    */
   private async preflightHubsoft(
     input: PreflightInput,
   ): Promise<PreflightResult> {
     const cfg = this.configObjeto(input);
+    const base = `https://${input.url}`;
 
     const data = await this.postJson(
-      `https://${input.url}/oauth/token`,
+      `${base}/oauth/token`,
       { 'Content-Type': 'application/json' },
       {
         client_id: cfg.client_id,
@@ -305,11 +307,44 @@ export class ErpPreflightService {
       );
     }
 
+    const authHeaders = {
+      Authorization: `Bearer ${data.access_token}`,
+      Accept: 'application/json',
+    };
+
+    let clientesVisiveis: number | null = null;
+    try {
+      const cli = await this.getJson(
+        `${base}/api/v1/integracao/cliente/todos?pagina=0&itens_por_pagina=1`,
+        authHeaders,
+      );
+      clientesVisiveis = this.numeroOuNull(cli?.paginacao?.total_registros);
+    } catch {
+      // contagem e opcional — credencial ja validada pelo token.
+    }
+
+    let faturasVisiveis: number | null = null;
+    try {
+      const hoje = new Date();
+      const inicio = new Date(hoje);
+      inicio.setFullYear(inicio.getFullYear() - 1);
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
+      const fat = await this.getJson(
+        `${base}/api/v1/integracao/financeiro/fatura?tipo_data=data_vencimento` +
+          `&data_inicio=${fmt(inicio)}&data_fim=${fmt(hoje)}` +
+          `&apenas_em_aberto=sim&pagina=0&itens_por_pagina=1`,
+        authHeaders,
+      );
+      faturasVisiveis = this.numeroOuNull(fat?.paginacao?.total_registros);
+    } catch {
+      // idem — nao derruba o preflight.
+    }
+
     return {
       status: 'ok',
       causa: null,
-      clientesVisiveis: null,
-      faturasVisiveis: null,
+      clientesVisiveis,
+      faturasVisiveis,
       erro: null,
     };
   }
@@ -325,6 +360,29 @@ export class ErpPreflightService {
       method: 'POST',
       headers,
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: AbortSignal.timeout(PREFLIGHT_TIMEOUT_MS),
+    });
+
+    const texto = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${this.resumeCorpo(texto)}`);
+    }
+
+    try {
+      return JSON.parse(texto);
+    } catch {
+      throw new Error(`resposta nao e JSON: ${texto.slice(0, 200)}`);
+    }
+  }
+
+  private async getJson(
+    url: string,
+    headers: Record<string, string>,
+  ): Promise<any> {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
       signal: AbortSignal.timeout(PREFLIGHT_TIMEOUT_MS),
     });
 
