@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 
 import { Client } from '../../clients/entities.ts/clients';
@@ -8,34 +9,37 @@ import { Company } from '../../companies/entities/companies';
 import { InvoiceMapResultDto, InvoicesResponseDto } from '../dto/search.request.dto.invoices';
 import { HubsoftFatura } from '../types/hubsoftTypes';
 import { ErpDefinition } from '../../integrations/erp/erp.types';
+import { RedisService } from '../../redis/redis.service';
+
+const INVOICE_BATCH_CACHE_TTL = 5 * 60; // 5 minutos
 
 /**
  * Capacidades do Hubsoft. Ver `integrations/erp/erp.types.ts`.
  *
- * Este service NÃO está ligado em cron nenhum: não existe `fetchClients*` nem
- * `getInvoicesByDateWindowBatch` aqui, e nem `ClientsSyncCron` nem
- * `InvoiceSyncCron` o injetam. Por isso `syncClients`/`syncInvoices` são false —
- * a base local de uma empresa Hubsoft nunca é populada (ver RAP 10: 4.651
- * clientes vindos de outra origem e 0 faturas).
+ * A integracao e completa: `fetchClients` alimenta o `ClientsSyncCron`,
+ * `getInvoicesByDateWindowBatch` alimenta o snapshot do `InvoiceSyncCron`, e o
+ * disparo le o PIX via `getInvoices` (por cliente).
  *
- * `pix: false` apesar de `getInvoices` mapear `code_pix`: o consumidor
- * (`template-dispatch-payload.service.ts`) sobrescreve o campo com `undefined`,
- * então o valor buscado nunca chega ao disparo.
+ * Sobre o PIX: os dois endpoints da Hubsoft usam NOMES DE CAMPO DIFERENTES para
+ * o copia-e-cola — a rota por cliente (`cliente/financeiro`) devolve
+ * `pix_copia_cola`, e a rota de listagem (`financeiro/fatura`) devolve
+ * `pix_copia_e_cola` (com o "e"). Cada metodo le o seu. O valor so vem
+ * preenchido quando o provedor emite fatura com PIX: provedores que cobram
+ * apenas por boleto (`tipo_cobranca = boleto_bancario`) devolvem o PIX nulo, e
+ * nesse caso o disparo cai no boleto (linha digitavel + PDF), que vem populado.
  *
- * `preflight: 'credential'` — `/oauth/token` valida a credencial inteira, mas o
- * único endpoint de negócio implementado busca por CPF/CNPJ de um cliente
- * específico e não devolve total.
+ * `preflight: 'counts'` — `/cliente/todos` com `itens_por_pagina=1` devolve o
+ * total em `paginacao.total_registros`, barato o bastante para contar no
+ * cadastro.
  */
 export const HUBSOFT_ERP: ErpDefinition = {
   code: 'HUBSOFT',
   label: 'Hubsoft',
-  syncClients: false,
-  syncInvoices: false,
-  pix: false,
+  syncClients: true,
+  syncInvoices: true,
+  pix: true,
   dispatch: true,
-  preflight: 'credential',
-  ressalva:
-    'Não sincroniza clientes nem faturas — a base local nunca é populada. O disparo funciona apenas com dados vindos de outra origem, e sem PIX.',
+  preflight: 'counts',
   credenciais: [
     {
       campo: 'client_id',
@@ -68,7 +72,26 @@ export const HUBSOFT_ERP: ErpDefinition = {
 
 @Injectable()
 export class HubsoftInvoicesService {
-  constructor() { }
+  private readonly logger = new Logger(HubsoftInvoicesService.name);
+
+  constructor(private readonly redisService: RedisService) {}
+
+  private async sleep(ms: number) {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isRetryableNetworkError(err: unknown) {
+    const anyErr = err as any;
+    const name = anyErr?.name;
+    const message = String(anyErr?.message ?? '').toLowerCase();
+    return (
+      name === 'TimeoutError' ||
+      name === 'AbortError' ||
+      message.includes('timeout') ||
+      message.includes('aborted') ||
+      message.includes('fetch failed')
+    );
+  }
 
   async gerarTokenOAuth(empresa: Company): Promise<string> {
     const cfg = empresa.config;
@@ -102,6 +125,59 @@ export class HubsoftInvoicesService {
     return data.access_token;
   }
 
+  /**
+   * GET autenticado com retry de rede e timeout. Falha de rede sobe como erro
+   * (credencial/host errado ou ERP fora do ar sao problemas reais); corpo
+   * nao-JSON tambem sobe, para nao mascarar a pagina de erro do ERP como
+   * "nenhum registro".
+   */
+  private async authedGetJson(
+    base: string,
+    token: string,
+    path: string,
+    timeoutMs: number,
+    maxRetries: number,
+  ): Promise<any> {
+    let response: Response | undefined;
+    let lastErr: unknown;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        response = await fetch(base + path, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        lastErr = undefined;
+        break;
+      } catch (err: any) {
+        lastErr = err;
+        if (attempt >= maxRetries || !this.isRetryableNetworkError(err)) break;
+        await this.sleep(800 * (attempt + 1) ** 2);
+      }
+    }
+
+    if (!response) {
+      const error = new Error(`Hubsoft — falha de rede ao acessar ${base}${path}`);
+      (error as any).cause = lastErr;
+      throw error;
+    }
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Hubsoft erro ${response.status} em ${path}: ${err.slice(0, 300)}`);
+    }
+
+    const texto = await response.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      throw new Error(`Hubsoft — resposta não-JSON em ${path}: ${texto.slice(0, 200)}`);
+    }
+  }
+
+  /**
+   * Faturas em aberto de UM cliente, ao vivo — usado pelo disparo para montar o
+   * payload do template na hora do envio. PIX vem em `pix_copia_cola`.
+   */
   async getInvoices(cliente: Client): Promise<InvoicesResponseDto> {
     const token = await this.gerarTokenOAuth(cliente.company);
 
@@ -133,7 +209,7 @@ export class HubsoftInvoicesService {
       invoice_status: 'A Receber',
       ticket_digitable_line: t.codigo_barras ?? null,
       ticket_pdf_link: t.link ?? null,
-      code_pix: String(t.pix_copia_cola)
+      code_pix: t.pix_copia_cola ?? null,
     })).sort((a: any, b: any) => {
       const parseDate = (str?: string) => {
         if (!str) return 0;
@@ -151,4 +227,149 @@ export class HubsoftInvoicesService {
     };
   }
 
+  /**
+   * TODOS os clientes do provedor, paginado (`/cliente/todos`, 500 por página).
+   *
+   * Sempre carga completa: a Hubsoft ignora o filtro de data por
+   * `data_atualizacao` (devolve a base inteira), então um "incremental por data"
+   * perderia silenciosamente atualizações de telefone/nome em clientes antigos.
+   * Como aqui não há chamada de detalhe por registro (ao contrário do MK), varrer
+   * a base inteira é barato e, principalmente, correto. Por isso este método
+   * ignora `since` — o parâmetro existe só para manter a assinatura dos demais
+   * adapters.
+   */
+  async fetchClients(company: Company, _since?: Date): Promise<HubsoftClientRecord[]> {
+    if (!company.url) throw new Error('URL da Hubsoft não configurada');
+
+    const token = await this.gerarTokenOAuth(company);
+    const base = `https://${company.url}`;
+    const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
+    const timeoutMs = Number(config?.timeoutMs ?? 90_000);
+    const maxRetries = Number(config?.retries ?? 3);
+    const itensPorPagina = 500;
+
+    const buscarPagina = (pagina: number) =>
+      this.authedGetJson(
+        base,
+        token,
+        `/api/v1/integracao/cliente/todos?pagina=${pagina}&itens_por_pagina=${itensPorPagina}`,
+        timeoutMs,
+        maxRetries,
+      );
+
+    const all: HubsoftClientRecord[] = [];
+    const first = await buscarPagina(0);
+    all.push(...((first?.clientes as HubsoftClientRecord[]) ?? []));
+
+    const ultimaPagina = Number(first?.paginacao?.ultima_pagina ?? 0);
+    for (let pagina = 1; pagina <= ultimaPagina; pagina++) {
+      const data = await buscarPagina(pagina);
+      all.push(...((data?.clientes as HubsoftClientRecord[]) ?? []));
+    }
+
+    return all;
+  }
+
+  /**
+   * Faturas em aberto por janela de vencimento, para o snapshot
+   * (`/financeiro/fatura`, 500 por página). Indexadas por CPF/CNPJ do cliente —
+   * o `persistSnapshot` casa por documento, como o SGP. PIX pedido via
+   * `exibir_pix_copia_cola=sim` (campo `pix_copia_e_cola`).
+   */
+  async getInvoicesByDateWindowBatch(
+    company: Company,
+    startDate: string,
+    endDate: string,
+  ): Promise<Map<string, HubsoftFaturaListRecord[]>> {
+    const cacheKey = `hubsoft:invoice-batch:${company.id}:${startDate}:${endDate}`;
+    const cached = await this.redisService.get<[string, HubsoftFaturaListRecord[]][]>(cacheKey);
+    if (cached) {
+      return new Map(cached);
+    }
+
+    if (!company.url) throw new Error('URL da Hubsoft não configurada');
+
+    const token = await this.gerarTokenOAuth(company);
+    const base = `https://${company.url}`;
+    const config = typeof company.config === 'string' ? JSON.parse(company.config) : (company.config ?? {});
+    const timeoutMs = Number(config?.timeoutMs ?? 90_000);
+    const maxRetries = Number(config?.retries ?? 3);
+    const itensPorPagina = 500;
+
+    const byCpf = new Map<string, HubsoftFaturaListRecord[]>();
+
+    const buscarPagina = (pagina: number) =>
+      this.authedGetJson(
+        base,
+        token,
+        `/api/v1/integracao/financeiro/fatura?tipo_data=data_vencimento` +
+          `&data_inicio=${startDate}&data_fim=${endDate}` +
+          `&apenas_em_aberto=sim&exibir_pix_copia_cola=sim` +
+          `&pagina=${pagina}&itens_por_pagina=${itensPorPagina}`,
+        timeoutMs,
+        maxRetries,
+      );
+
+    const acumular = (faturas: HubsoftFaturaListRecord[]) => {
+      for (const fatura of faturas) {
+        const cpf = String(fatura?.cliente?.cpf_cnpj ?? '').replace(/\D/g, '');
+        if (!cpf) continue;
+        if (!byCpf.has(cpf)) byCpf.set(cpf, []);
+        byCpf.get(cpf)!.push(fatura);
+      }
+    };
+
+    const first = await buscarPagina(0);
+    acumular((first?.faturas as HubsoftFaturaListRecord[]) ?? []);
+
+    const ultimaPagina = Number(first?.paginacao?.ultima_pagina ?? 0);
+    for (let pagina = 1; pagina <= ultimaPagina; pagina++) {
+      const data = await buscarPagina(pagina);
+      acumular((data?.faturas as HubsoftFaturaListRecord[]) ?? []);
+    }
+
+    await this.redisService.set(
+      cacheKey,
+      [...byCpf.entries()],
+      INVOICE_BATCH_CACHE_TTL,
+    );
+
+    return byCpf;
+  }
+}
+
+/** Cliente da rota `/api/v1/integracao/cliente/todos`. */
+export interface HubsoftClientRecord {
+  id_cliente: number;
+  codigo_cliente: number;
+  nome_razaosocial: string;
+  cpf_cnpj: string;
+  telefone_primario?: string | null;
+  telefone_secundario?: string | null;
+  telefone_terciario?: string | null;
+  email_principal?: string | null;
+  email_secundario?: string | null;
+  data_cadastro?: string;
+  data_atualizacao?: string;
+  ativo?: boolean;
+}
+
+/** Fatura da rota `/api/v1/integracao/financeiro/fatura` (listagem/snapshot). */
+export interface HubsoftFaturaListRecord {
+  id_fatura: number;
+  id_cliente_servico?: number | null;
+  nosso_numero?: string | null;
+  data_vencimento: string;
+  valor?: number | string | null;
+  valor_original?: number | string | null;
+  linha_digitavel?: string | null;
+  codigo_barras?: string | null;
+  tipo_cobranca?: string | null;
+  link?: string | null;
+  pix_copia_e_cola?: string | null;
+  cliente?: {
+    id_cliente?: number;
+    codigo_cliente?: number;
+    cpf_cnpj?: string;
+  } | null;
 }
